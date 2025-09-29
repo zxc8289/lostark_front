@@ -1,3 +1,5 @@
+import { Role } from "./constants";
+
 export type Family = 'order' | 'chaos';
 export type Grade = 'heroic' | 'legend' | 'relic' | 'ancient';
 export type SubType = '안정' | '견고' | '불변' | '침식' | '왜곡' | '붕괴';
@@ -23,6 +25,7 @@ export interface CoreDef {
 
 export interface Params {
     efficiencyReductionByPoint: Record<number, number>;
+    role?: Role;
 }
 
 export interface OptimizeItem {

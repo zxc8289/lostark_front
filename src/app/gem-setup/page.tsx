@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadState, makeInitialState, saveState } from "../lib/arcgrid/storage";
-import { baseWillBySubType, optimizeAll, optimizeExtremeBySequence } from "../lib/arcgrid/optimizer";
-import { Gem } from "@/types/gem";
-import { CoreDef } from "../lib/arcgrid/types";
+import { baseWillBySubType, optimizeAllByPermutations, optimizeExtremeBySequence } from "../lib/arcgrid/optimizer";
+import { CoreDef, Gem } from "../lib/arcgrid/types";
 import { ORDER_PERMS } from "../lib/arcgrid/constants";
 import Step from "../components/arcgrid/Step";
 import InventoryPanel from "../components/arcgrid/InventoryPanel";
@@ -26,6 +25,11 @@ export default function ArcGridPage() {
 
     useEffect(() => { setState(loadState()); }, []);
     useEffect(() => { saveState(state); }, [state]);
+
+    const roleOptions = [
+        { value: "dealer", label: "딜러" },
+        { value: "supporter", label: "서포터" },
+    ] as const;
 
     const invCount = state.inventory.order.length + state.inventory.chaos.length;
     const selectedCoreCount = state.cores.filter(c => c.enabled).length;
@@ -115,7 +119,7 @@ export default function ArcGridPage() {
         const constraints = Object.fromEntries(state.cores.map(c => [c.key, { minPts: c.minPts, maxPts: c.maxPts }]));
 
         if (mode === 'default') {
-            const pack = optimizeAll(cores as CoreDef[], state.params, state.inventory, constraints);
+            const pack = optimizeAllByPermutations(cores as CoreDef[], state.params, state.inventory, constraints);
             setResultPack({ plan: pack, focusKey: cores[0].key });
         } else {
             const seq = ORDER_PERMS[orderPermIndex];
@@ -174,8 +178,27 @@ export default function ArcGridPage() {
 
             {/* Step 1 */}
             <Card title="1. 코어 선택">
+                
                 <div className="w-full">
+                    <div className="flex items-center gap-3 mb-2">
+                    <label className="text-sm text-gray-400">역할</label>
+                    <div className="w-40">
+                        <Select
+                            value={state.params.role ?? "dealer"}
+                            onChange={(v) =>
+                            setState((st) => ({
+                            ...st,
+                            params: { ...st.params, role: v as "dealer" | "supporter" },
+                            }))
+                        }
+                        options={roleOptions as any} // (컴포넌트 시그니처에 맞춰 캐스트)
+                        placeholder="역할 선택"
+                        />
+                    </div>
+                    </div>
+                                    
                     <div className="grid [grid-template-columns:1.1fr_.9fr_.8fr_.8fr] gap-2 items-center mt-1 text-sm">
+                        
                         <div className="text-[14px] text-gray-400">코어</div>
                         <div className="text-[14px] text-gray-400">등급</div>
                         <div className="text-[14px] text-gray-400">최소 포인트</div>

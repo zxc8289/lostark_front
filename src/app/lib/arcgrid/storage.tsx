@@ -1,13 +1,15 @@
 'use client';
 
-import type { CoreDef, Gem } from "./types";
-import { CORES6, DEFAULT_PARAMS } from "./constants";
+import type { AppState, CoreDef, Gem, Params } from "./types";
+import { CORES6 } from "./constants";
 
-export interface AppState {
-    params: { efficiencyReductionByPoint: Record<number, number> };
-    cores: CoreDef[];
-    inventory: { order: Gem[]; chaos: Gem[] };
-}
+export const DEFAULT_PARAMS: Params = {
+  efficiencyReductionByPoint: { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 },
+  role: 'dealer',
+};
+
+
+
 
 const skey = "arcgrid:explorer";
 

@@ -116,7 +116,7 @@ export default function ResultsPanel({
                                 <Stat title="달성 임계치" value={item?.t ?? "-"} />
                                 <Stat title="의지력 잔여" value={item?.res ? item.res.remain : "-"} />
                                 <Stat title="활성 슬롯" value={item?.res?.activated?.filter(Boolean).length ?? "-"} />
-                                <Stat title="스탯 점수(딜러)" value={item?.res ? Number(item.res.flexScore).toFixed(2) : "-"} />
+                                <Stat title="스탯 점수" value={item?.res ? Number(item.res.flexScore).toFixed(2) : "-"} />
                             </div>
 
                             {/* 플렉스 세부 수치 */}
