@@ -104,8 +104,8 @@ export function optimizeForCore(
         .sort((a, b) => b.rank - a.rank)
         .map(x => x.g);
 
-    let bestInRange: OptimizeItem | null = null;
-    let bestAny: OptimizeItem | null = null;
+    let bestInRange: OptimizeItem | undefined;
+    let bestAny: OptimizeItem | undefined;
 
     const better = (A: OptimizeItem | null, B: OptimizeItem) => {
         if (!A) return true;
@@ -139,9 +139,9 @@ export function optimizeForCore(
         const ids = arr.map((x, i) => (res.activated[i] && x ? x.id : null));
         const cand: OptimizeItem = { ids, res, t, canReachNext };
 
-        if (better(bestAny, cand)) bestAny = cand;
+        if (better(bestAny ?? null, cand)) bestAny = cand;
         if (res.pts >= minPts && res.pts <= maxPts) {
-            if (better(bestInRange, cand)) bestInRange = cand;
+            if (better(bestInRange ?? null, cand)) bestInRange = cand;
         }
     }
 
@@ -161,13 +161,17 @@ export function optimizeForCore(
 
     dfs([], avail);
 
-    if (bestInRange) return { ...bestInRange, reason: null };
+    if (bestInRange) {
+        return { ...bestInRange, reason: null };
+    }
     if (bestAny) {
         const r = bestAny.res!;
-        const reason = r.pts < minPts
-            ? `포인트 미달 (${r.pts}/${minPts}, ${minPts - r.pts}p 부족)`
-            : r.pts > maxPts
-                ? `포인트 초과 (${r.pts}/${maxPts})` : null;
+        const reason =
+            r.pts < minPts
+                ? `포인트 미달 (${r.pts}/${minPts}, ${minPts - r.pts}p 부족)`
+                : r.pts > maxPts
+                    ? `포인트 초과 (${r.pts}/${maxPts})`
+                    : null;
         return { ...bestAny, reason };
     }
     return { ids: [null, null, null, null], res: null, reason: "조합 없음" };

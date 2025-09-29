@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Gem } from "@/types/gem";
+import type { Gem } from "@/app/lib/arcgrid/types";
 import Field from "./Field";
 import { baseWillBySubType, effectiveWillRequired, gemCorePoints, getGemOption } from "@/app/lib/arcgrid/optimizer";
 import { FAMILY_LABEL, FLEX_OPTION_POOL, SUB_TYPES } from "@/app/lib/arcgrid/constants";

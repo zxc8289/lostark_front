@@ -2,7 +2,7 @@
 
 import { CoreDef, PlanPack } from "@/app/lib/arcgrid/types";
 import Stat from "./Stat";
-import { Gem } from "@/types/gem";
+import type { Gem } from "@/app/lib/arcgrid/types";
 import { CORE_WILL_BY_GRADE, ORDER_PERMS, STAT_ALIAS } from "@/app/lib/arcgrid/constants";
 import { effectiveWillRequired, gemCorePoints } from "@/app/lib/arcgrid/optimizer";
 
