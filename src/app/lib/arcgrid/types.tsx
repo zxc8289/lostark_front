@@ -47,6 +47,8 @@ export interface OptimizeItem {
     t?: number;
     canReachNext?: boolean;
     reason?: string | null;
+
+    overshoot?: number;
 }
 
 export interface PlanPack {
