@@ -13,6 +13,12 @@ export interface Gem {
     options: GemOption[];
 }
 
+export interface AppState {
+    params: Params;
+    cores: CoreDef[];
+    inventory: { order: Gem[]; chaos: Gem[] };
+}
+
 export interface CoreDef {
     family: Family;
     key: string;

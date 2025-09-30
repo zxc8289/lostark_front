@@ -113,7 +113,7 @@ export default function ResultsPanel({
                             {/* 지표 카드 */}
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                                 <Stat title="코어 포인트 합" value={item?.res?.pts ?? "-"} />
-                                <Stat title="달성 임계치" value={item?.t ?? "-"} />
+                                {/* <Stat title="달성 임계치" value={item?.t ?? "-"} /> */}
                                 <Stat title="의지력 잔여" value={item?.res ? item.res.remain : "-"} />
                                 <Stat title="활성 슬롯" value={item?.res?.activated?.filter(Boolean).length ?? "-"} />
                                 <Stat title="스탯 점수" value={item?.res ? Number(item.res.flexScore).toFixed(2) : "-"} />
@@ -146,7 +146,6 @@ function formatDpsStats(gem: Gem) {
     return [show(o2), show(o3)].filter(Boolean).join(" ");
 }
 
-/** 공통 커스텀 화살표 (다크 드롭다운용) */
 function ArrowIcon() {
     return (
         <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">

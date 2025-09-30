@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { loadState, makeInitialState, saveState } from "../lib/arcgrid/storage";
-import { baseWillBySubType, optimizeAllByPermutations, optimizeExtremeBySequence } from "../lib/arcgrid/optimizer";
+import { baseWillBySubType, enumerateTopPlansByStats, optimizeAllByPermutations, optimizeExtremeBySequence, ScoredPlan } from "../lib/arcgrid/optimizer";
 import { CoreDef, Gem } from "../lib/arcgrid/types";
-import { ORDER_PERMS } from "../lib/arcgrid/constants";
+import { ORDER_PERMS, Role } from "../lib/arcgrid/constants";
 import Step from "../components/arcgrid/Step";
 import InventoryPanel from "../components/arcgrid/InventoryPanel";
 import ResultsPanel from "../components/arcgrid/ResultsPanel";
@@ -22,6 +22,38 @@ export default function ArcGridPage() {
     const [showQuick, setShowQuick] = useState(false);
     const fileRef = useRef<HTMLInputElement | null>(null);
     const [toast, setToast] = useState<string | null>(null);
+    const [altPlans, setAltPlans] = useState<ScoredPlan[] | null>(null);
+    const enabledCores = useMemo(() => state.cores.filter(c => c.enabled) as CoreDef[], [state.cores]);
+
+    // 행 펼침 상태
+    const [expandedSet, setExpandedSet] = useState<Set<number>>(new Set());
+    const toggleRow = (i: number) => {
+        setExpandedSet(prev => {
+            const next = new Set(prev);
+            if (next.has(i)) next.delete(i);
+            else next.add(i);
+            return next;
+        });
+    };
+    const expandAll = () => altPlans && setExpandedSet(new Set(altPlans.map((_, i) => i)));
+    const collapseAll = () => setExpandedSet(new Set());
+    useEffect(() => { setExpandedSet(new Set()); }, [altPlans]); // 목록 바뀌면 접기
+
+    function runStatsList() {
+        const cores = state.cores.filter(c => c.enabled) as CoreDef[];
+        if (!cores.length) return showToast("선택된 코어가 없어요");
+        if (invCount === 0) return showToast("인벤토리에 젬을 추가해 주세요");
+
+        const constraints = Object.fromEntries(
+            state.cores.map(c => [c.key, { minPts: c.minPts, maxPts: c.maxPts }])
+        );
+
+        const role = (state.params.role ?? "dealer") as Role;
+        const list = enumerateTopPlansByStats(cores, state.params, state.inventory, constraints, role, 10);
+        setAltPlans(list);
+        if (list.length === 0) showToast("조건을 만족하는 조합이 없어요");
+        else showToast(`스탯 상위 조합 ${list.length}개`);
+    }
 
     useEffect(() => { setState(loadState()); }, []);
     useEffect(() => { saveState(state); }, [state]);
@@ -96,7 +128,7 @@ export default function ArcGridPage() {
         showToast("파일로 저장했어요");
     }
     function loadFromFile(e: React.ChangeEvent<HTMLInputElement>) {
-        const f = e.target.files?.[0];
+        const f = e.target.files?.[0]; { }
         if (!f) return;
         const reader = new FileReader();
         reader.onload = () => {
@@ -111,23 +143,38 @@ export default function ArcGridPage() {
         reader.readAsText(f);
     }
 
+    // ArcGridPage.tsx (run() 내부만 수정)
     function run() {
         const cores = state.cores.filter(c => c.enabled);
         if (!cores.length) return showToast("선택된 코어가 없어요");
         if (invCount === 0) return showToast("인벤토리에 젬을 추가해 주세요");
 
-        const constraints = Object.fromEntries(state.cores.map(c => [c.key, { minPts: c.minPts, maxPts: c.maxPts }]));
+        const constraints = Object.fromEntries(
+            state.cores.map(c => [c.key, { minPts: c.minPts, maxPts: c.maxPts }])
+        ) as Record<string, { minPts: number; maxPts: number }>;
+        const role = (state.params.role ?? "dealer") as "dealer" | "supporter";
 
-        if (mode === 'default') {
-            const pack = optimizeAllByPermutations(cores as CoreDef[], state.params, state.inventory, constraints);
-            setResultPack({ plan: pack, focusKey: cores[0].key });
-        } else {
-            const seq = ORDER_PERMS[orderPermIndex];
-            const ext = optimizeExtremeBySequence(seq, cores as CoreDef[], state.params, state.inventory, constraints);
-            setResultPack(ext);
-        }
+        // 1) '포인트 합' 최대 플랜 계산
+        const pointPack = optimizeAllByPermutations(cores as CoreDef[], state.params, state.inventory, constraints);
+        const bestTotalPts = Object.values(pointPack.answer).reduce((sum, it) => sum + (it?.res?.pts ?? 0), 0);
+
+        // 2) 그 '총 포인트'에서 스탯 합이 가장 높은 플랜들 탐색 → 1위 선택
+        const topAtTarget = enumerateTopPlansByStats(
+            cores as CoreDef[],
+            state.params,
+            state.inventory,
+            constraints,
+            role,
+            10,
+            bestTotalPts            // 👈 총 포인트를 고정
+        );
+
+        const finalPack = topAtTarget[0]?.plan ?? pointPack; // 혹시 없으면 포인트 플랜 사용(안전)
+
+        setResultPack({ plan: finalPack, focusKey: cores[0].key });
         showToast("최적 조합을 계산했어요");
     }
+
 
     const gemById = useMemo(() => {
         const m = new Map<string, Gem>();
@@ -178,27 +225,27 @@ export default function ArcGridPage() {
 
             {/* Step 1 */}
             <Card title="1. 코어 선택">
-                
+
                 <div className="w-full">
                     <div className="flex items-center gap-3 mb-2">
-                    <label className="text-sm text-gray-400">역할</label>
-                    <div className="w-40">
-                        <Select
-                            value={state.params.role ?? "dealer"}
-                            onChange={(v) =>
-                            setState((st) => ({
-                            ...st,
-                            params: { ...st.params, role: v as "dealer" | "supporter" },
-                            }))
-                        }
-                        options={roleOptions as any} // (컴포넌트 시그니처에 맞춰 캐스트)
-                        placeholder="역할 선택"
-                        />
+                        <label className="text-sm text-gray-400">역할</label>
+                        <div className="w-40">
+                            <Select
+                                value={state.params.role ?? "dealer"}
+                                onChange={(v) =>
+                                    setState((st) => ({
+                                        ...st,
+                                        params: { ...st.params, role: v as "dealer" | "supporter" },
+                                    }))
+                                }
+                                options={roleOptions as any} // (컴포넌트 시그니처에 맞춰 캐스트)
+                                placeholder="역할 선택"
+                            />
+                        </div>
                     </div>
-                    </div>
-                                    
+
                     <div className="grid [grid-template-columns:1.1fr_.9fr_.8fr_.8fr] gap-2 items-center mt-1 text-sm">
-                        
+
                         <div className="text-[14px] text-gray-400">코어</div>
                         <div className="text-[14px] text-gray-400">등급</div>
                         <div className="text-[14px] text-gray-400">최소 포인트</div>
@@ -310,7 +357,7 @@ export default function ArcGridPage() {
                 </div>
             </Card>
 
-            {/* Step 3 */}
+
             <Card title="3. 결과 확인">
                 <div className="w-full">
                     {!resultPack ? (
@@ -318,7 +365,7 @@ export default function ArcGridPage() {
                             아래 오른쪽의 <b className="text-gray-200">최적화</b> 버튼을 눌러 조합을 계산해 보세요.
                         </div>
                     ) : (
-                        <div className="rounded-lg  bg-[#2d333b]">
+                        <div className="rounded-lg bg-[#2d333b]">
                             <ResultsPanel
                                 plan={resultPack.plan}
                                 cores={state.cores}
@@ -329,6 +376,109 @@ export default function ArcGridPage() {
                             />
                         </div>
                     )}
+
+                    <div className="mt-3 flex items-center gap-2">
+                        <button
+                            className="px-3.5 py-2 rounded-lg border border-[#444c56] bg-[#2d333b] text-gray-200 hover:bg-[#30363d] transition"
+                            onClick={runStatsList}
+                        >
+                            상위 조합
+                        </button>
+
+                    </div>
+                    {altPlans && altPlans.length > 0 && (
+                        <div className="mt-4">
+                            <div className="overflow-x-auto rounded-lg border border-[#444c56] ">
+                                <table className="w-full text-sm ">
+                                    <thead className="bg-[#22272e] text-gray-300">
+                                        <tr>
+                                            <th className="px-3 py-2 w-10"></th>{/* expander */}
+                                            <th className="px-3 py-2 text-left w-14">#</th>
+                                            <th className="px-3 py-2 text-left w-32">스탯 점수</th>
+                                            <th className="px-3 py-2 text-left w-28">총 포인트</th>
+                                            <th className="px-3 py-2 text-left w-32">잔여 의지력</th>
+                                            {enabledCores.map(c => (
+                                                <th key={c.key} className="px-3 py-2 text-left whitespace-nowrap">{c.label}</th>
+                                            ))}
+                                            <th className="px-3 py-2 text-right w-24"> </th>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody className="divide-y divide-[#444c56]">
+                                        {altPlans.map((p, i) => {
+                                            const colCount = 7 + enabledCores.length; // ⬅️ 아래에서 설명
+                                            const isOpen = expandedSet.has(i);
+                                            return (
+                                                <Fragment key={`plan-${i}`}>
+                                                    <tr className="bg-[#2d333b] hover:bg-[#30363d]">
+                                                        <td className="px-3 py-2">
+                                                            <button
+                                                                aria-label={isOpen ? "접기" : "펼치기"}
+                                                                className="w-6 h-6 rounded hover:bg-black/20"
+                                                                onClick={() => toggleRow(i)}
+                                                            >
+                                                                <span className="inline-block align-middle">{isOpen ? "▾" : "▸"}</span>
+                                                            </button>
+                                                        </td>
+
+                                                        <td className="px-3 py-2 text-gray-300">#{i + 1}</td>
+                                                        <td className="px-3 py-2"><b className="text-white">{p.statScore.toFixed(3)}</b></td>
+                                                        <td className="px-3 py-2"><b className="text-gray-200">{p.sumPts}</b></td>
+                                                        <td className="px-3 py-2"><b className="text-gray-200">{p.sumRemain}</b></td>
+
+                                                        {enabledCores.map(c => {
+                                                            const it = p.plan.answer[c.key];
+                                                            const pts = it?.res?.pts ?? 0;
+                                                            const stat = typeof it?.res?.flexScore === "number" ? it.res.flexScore : 0;
+                                                            return (
+                                                                <td key={c.key} className="px-3 py-2 text-gray-300">
+                                                                    <span className="inline-flex items-center gap-2">
+                                                                        <span className="px-2 py-0.5 rounded bg-black/20 border border-white/10">{pts}p</span>
+                                                                        <span className="text-gray-400">·</span>
+                                                                        <span className="tabular-nums">{stat.toFixed(3)}</span>
+                                                                    </span>
+                                                                </td>
+                                                            );
+                                                        })}
+
+                                                        <td className="px-3 py-2 text-right">
+                                                            <button
+                                                                className="px-3 py-1.5 rounded-md border border-[#444c56] bg-[#1f242c] text-gray-200 hover:bg-[#262c35] transition"
+                                                                onClick={() => {
+                                                                    setResultPack({ plan: p.plan, focusKey: enabledCores[0]?.key });
+                                                                    setToast(`#${i + 1} 조합을 적용했어요`);
+                                                                    setTimeout(() => setToast(null), 1400);
+                                                                }}
+                                                            >
+                                                                적용
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+
+                                                    {isOpen && (
+                                                        <tr className="bg-[#1f242c]">
+                                                            <td colSpan={colCount} className="px-3 py-3">
+                                                                <div className="rounded-lg border border-[#444c56] bg-[#2d333b]">
+                                                                    <ResultsPanel
+                                                                        plan={p.plan}
+                                                                        cores={state.cores}
+                                                                        gemById={gemById}
+                                                                    />
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </Fragment >
+                                            );
+                                        })}
+                                    </tbody>
+
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+
                 </div>
             </Card>
 
