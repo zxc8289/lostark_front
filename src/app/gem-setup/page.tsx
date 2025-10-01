@@ -16,6 +16,7 @@ import Input from "../components/arcgrid/ui/Input";
 
 export default function ArcGridPage() {
     const [state, setState] = useState(makeInitialState);
+    const [loaded, setLoaded] = useState(false);
     const [resultPack, setResultPack] = useState<ReturnType<typeof optimizeExtremeBySequence> | null>(null);
     const [mode, setMode] = useState<'default' | 'extreme'>('default');
     const [orderPermIndex, setOrderPermIndex] = useState(0);
@@ -24,6 +25,7 @@ export default function ArcGridPage() {
     const [toast, setToast] = useState<string | null>(null);
     const [altPlans, setAltPlans] = useState<ScoredPlan[] | null>(null);
     const enabledCores = useMemo(() => state.cores.filter(c => c.enabled) as CoreDef[], [state.cores]);
+    const hydratedRef = useRef(false);
 
     // 행 펼침 상태
     const [expandedSet, setExpandedSet] = useState<Set<number>>(new Set());
@@ -35,9 +37,7 @@ export default function ArcGridPage() {
             return next;
         });
     };
-    const expandAll = () => altPlans && setExpandedSet(new Set(altPlans.map((_, i) => i)));
-    const collapseAll = () => setExpandedSet(new Set());
-    useEffect(() => { setExpandedSet(new Set()); }, [altPlans]); // 목록 바뀌면 접기
+    useEffect(() => { setExpandedSet(new Set()); }, [altPlans]);
 
     function runStatsList() {
         const cores = state.cores.filter(c => c.enabled) as CoreDef[];
@@ -55,8 +55,18 @@ export default function ArcGridPage() {
         else showToast(`스탯 상위 조합 ${list.length}개`);
     }
 
-    useEffect(() => { setState(loadState()); }, []);
-    useEffect(() => { saveState(state); }, [state]);
+    useEffect(() => {
+        // 클라이언트에서만 실행: 저장본 로드
+        const s = loadState();
+        setState(s);
+        setLoaded(true);
+    }, []);
+
+    useEffect(() => {
+        if (!loaded) return; // 초기 SSR 상태를 저장해 버리는 걸 차단
+        const id = setTimeout(() => saveState(state), 100);
+        return () => clearTimeout(id);
+    }, [state, loaded]);
 
     const roleOptions = [
         { value: "dealer", label: "딜러" },
@@ -115,7 +125,6 @@ export default function ArcGridPage() {
     }
     function resetInventory() {
         setState(st => ({ ...st, inventory: { order: [], chaos: [] } }));
-        // showToast("초기화했어요");
     }
     function saveToFile() {
         const data = JSON.stringify({ inventory: state.inventory }, null, 2);
@@ -185,7 +194,6 @@ export default function ArcGridPage() {
 
     return (
         <div className="space-y-8 py-6 text-gray-300 w-full">
-
             <Card title="젬 세팅 저장">
                 <div className="w-full flex items-center justify-between gap-3">
                     <div className="text-sm text-gray-400 whitespace-nowrap">
@@ -388,7 +396,7 @@ export default function ArcGridPage() {
                     </div>
                     {altPlans && altPlans.length > 0 && (
                         <div className="mt-4">
-                            <div className="overflow-x-auto rounded-lg border border-[#444c56] ">
+                            <div className="overflow-x-auto  rounded-lg border border-[#444c56] ">
                                 <table className="w-full text-sm ">
                                     <thead className="bg-[#22272e] text-gray-300">
                                         <tr>

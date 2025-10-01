@@ -4,7 +4,6 @@ import { JWT } from "next-auth/jwt";
 import DiscordProvider from "next-auth/providers/discord";
 import Database from 'better-sqlite3';
 
-// 데이터베이스 초기화는 그대로 둡니다.
 const db = new Database('users.db');
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -33,11 +32,9 @@ export const authOptions: NextAuthOptions = {
                 console.log('User saved to DB:', user.name);
             } catch (error) {
                 console.error('Failed to save user to DB', error);
-                return false; // DB 에러 시 로그인 실패
+                return false;
             }
 
-
-            // ✨ 항상 true를 반환하여 DB 저장 없이 로그인을 허용합니다.
             console.log('Skipping DB save, proceeding with login for user:', user.name);
             return true;
         },

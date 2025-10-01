@@ -319,6 +319,7 @@ export function optimizeAllByPermutations(
   inventory: { order: Gem[]; chaos: Gem[] },
   constraints: Record<string, { minPts: number; maxPts: number }>
 ): PlanPack {
+
   const orderCores = cores.filter((c) => c.family === "order");
   const chaosCores = cores.filter((c) => c.family === "chaos");
 
@@ -332,8 +333,10 @@ export function optimizeAllByPermutations(
   const used = new Set<string>();
   orderPack.used.forEach((id) => used.add(id));
   chaosPack.used.forEach((id) => used.add(id));
+  const result: PlanPack = { answer, used: Array.from(used) };
+  const role: Role = (params.role as Role) ?? "dealer";
 
-  return { answer, used: Array.from(used) };
+  return decoratePlanWithStats(result, inventory, role).plan;
 }
 
 
@@ -347,6 +350,7 @@ export function optimizeExtremeBySequence(
   const plan = optimizeAllByPermutations(cores, params, inventory, userConstraints);
   return { plan, focusKey: _seqKeys?.[0] ?? null };
 }
+
 
 
 
@@ -546,4 +550,30 @@ export function enumerateTopPlansByStats(
 
   dfs(0, new Set<string>(), {} as Record<string, OptimizeItem>, 0, 0, 0);
   return results;
+}
+
+// 1) util 추가
+function decoratePlanWithStats(
+  plan: PlanPack,
+  inventory: { order: Gem[]; chaos: Gem[] },
+  role: Role
+): { plan: PlanPack; statTotal: number } {
+  const invMap = new Map<string, Gem>();
+  for (const g of inventory.order || []) invMap.set(g.id, g);
+  for (const g of inventory.chaos || []) invMap.set(g.id, g);
+
+  let total = 0;
+  for (const key of Object.keys(plan.answer)) {
+    const it = plan.answer[key];
+    const ids = (it.ids || []) as (string | null)[];
+    let stat = 0;
+    for (const id of ids) {
+      if (!id) continue;
+      const g = invMap.get(id);
+      if (g) stat += scoreGemForRole(g, role);
+    }
+    (it.res as any).flexScore = stat;
+    total += stat;
+  }
+  return { plan, statTotal: total };
 }

@@ -2,19 +2,21 @@
 import Link from "next/link";
 import Card from "./components/Card";
 
+
 export default function HomePage() {
+
   return (
-    <div className="space-y-8 py-6 text-gray-300 w-full">
+    <div className="space-y-8 py-12 text-gray-300 w-full">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
         <div className="lg:col-span-6 space-y-8">
           <Card title="내 숙제 현황">
-            <div className="h-56 w-full bg-[#22272e] rounded-md" />
+            <div className="h-60 w-full bg-[#22272e] rounded-md" />
           </Card>
           <Card title="파티 숙제">
-            <div className="w-full flex justify-center">
-              <button className="bg-[#3882f6] text-white px-6 py-5 rounded-md text-sm font-semibold hover:bg-[#3275dc] transition-colors">
+            <div className="w-full h-36  flex justify-center">
+              {/* <button className="bg-[#3882f6] text-white px-6 py-5 rounded-md text-sm font-semibold hover:bg-[#3275dc] transition-colors">
                 로그인 후 이용하기
-              </button>
+              </button> */}
             </div>
           </Card>
         </div>
@@ -72,7 +74,8 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="bg-[#2d333b] border border-[#444c56] rounded-lg text-center py-13 text-gray-500">
+      <div className="bg-[#2d333b] border border-[#444c56] rounded-lg text-center py-15 text-gray-500">
+        광고
       </div>
     </div>
   );
