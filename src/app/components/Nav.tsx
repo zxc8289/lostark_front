@@ -4,8 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
-import { ChevronDownIcon } from "@heroicons/react/24/solid"; // ✨ heroicons에서 아이콘 import
-
+import { ChevronDownIcon } from "@heroicons/react/24/solid";
 const items = [
     { href: "/", label: "홈" },
     { href: "/my-tasks", label: "내 숙제" },
@@ -74,7 +73,7 @@ export default function Nav() {
                     </ul>
                 </div>
 
-                {/* 오른쪽: 프로필 정보 */}
+
                 <div>
                     {status === "loading" ? (
                         <div className="w-40 h-8 bg-gray-700 rounded-full animate-pulse" />
@@ -98,7 +97,6 @@ export default function Nav() {
                             <span className="hidden sm:block text-sm text-gray-300">
                                 {session.user.name}
                             </span>
-                            {/* ✨ 기존 span 태그를 아이콘 컴포넌트로 교체 */}
                             <ChevronDownIcon className="w-5 h-5 text-gray-500" />
                         </button>
                     ) : (

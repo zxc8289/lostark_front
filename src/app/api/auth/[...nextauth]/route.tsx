@@ -1,4 +1,3 @@
-// src/app/api/auth/[...nextauth]/route.ts
 import NextAuth, { NextAuthOptions, Account, Profile, User, Session } from "next-auth";
 import { JWT } from "next-auth/jwt";
 import DiscordProvider from "next-auth/providers/discord";
