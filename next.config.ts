@@ -8,19 +8,6 @@ const nextConfig: NextConfig = {
   trailingSlash: true,
 
 
-  basePath: isProd ? `/${repo}` : undefined,
-  assetPrefix: isProd ? `/${repo}/` : undefined,
-
-  images: {
-    unoptimized: true,
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'cdn.discordapp.com',
-        pathname: '/avatars/**',
-      },
-    ],
-  },
 };
 
 export default nextConfig;
