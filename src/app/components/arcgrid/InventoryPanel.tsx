@@ -79,25 +79,25 @@ function GemCard({
     onUpdateOption: (family: 'order' | 'chaos', id: string, idx: number, patch: Partial<Gem['options'][number]>) => void;
     onRemove: (family: 'order' | 'chaos', id: string) => void;
 }) {
+    const [isEdit, setIsEdit] = useState(false);
+
     const need = effectiveWillRequired(gem, params);
     const pts = gemCorePoints(gem);
 
-    const selectBase =
-        "w-full bg-transparent px-3 pr-10 py-1.5 text-sm text-gray-300" +
-        "outline - none focus: outline - none focus - visible: outline - none" +
-        "ring - 0 focus: ring - 0 focus - visible: ring - 0" +
-        "border - 0 focus: border - 0 appearance - none"
-
+    const effLv = getGemOption(gem, '의지력 효율')?.lv ?? 1;
+    const ptsLv = getGemOption(gem, '코어 포인트')?.lv ?? 1;
+    const opt1 = gem.options[2];
+    const opt2 = gem.options[3];
 
     return (
         <div className="border border-[#444c56] rounded-lg p-3 bg-[#2d333b]">
+            {/* 헤더 */}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                    <div
-                        className={`w-2.5 h-2.5 rounded-full ${family === 'order' ? 'bg-rose-500' : 'bg-blue-500'
-                            }`}
-                    />
-                    <div className="font-semibold text-gray-200">{FAMILY_LABEL[family]} 젬</div>
+                    <div className={`w-2.5 h-2.5 rounded-full ${family === 'order' ? 'bg-rose-500' : 'bg-blue-500'}`} />
+                    <div className="font-semibold text-gray-200">
+                        {FAMILY_LABEL[family]} 젬
+                    </div>
                     <span className="text-xs text-gray-300 border border-[#444c56] rounded px-2 py-0.5">
                         의지력 {need}
                     </span>
@@ -105,112 +105,142 @@ function GemCard({
                         포인트 {pts}
                     </span>
                 </div>
-                <button
-                    className="text-xs px-2 py-1 rounded border border-[#8b2e2e] bg-[#3a2626] text-red-200 hover:bg-[#472b2b] transition"
-                    onClick={() => onRemove(family, gem.id)}
-                >
-                    삭제
-                </button>
+
+                <div className="flex items-center gap-2">
+                    {!isEdit ? (
+                        <button
+                            className="text-xs px-2 py-1 rounded border border-[#444c56] bg-[#1f242c] text-gray-200 hover:bg-[#262c35] transition"
+                            onClick={() => setIsEdit(true)}
+                            title="수정"
+                        >
+                            수정
+                        </button>
+                    ) : (
+                        <button
+                            className="text-xs px-2 py-1 rounded border border-[#3a5e2a] bg-[#22301f] text-green-200 hover:bg-[#2a3c23] transition"
+                            onClick={() => setIsEdit(false)}
+                            title="완료"
+                        >
+                            완료
+                        </button>
+                    )}
+
+                    <button
+                        className="text-xs px-2 py-1 rounded border border-[#8b2e2e] bg-[#3a2626] text-red-200 hover:bg-[#472b2b] transition"
+                        onClick={() => onRemove(family, gem.id)}
+                    >
+                        삭제
+                    </button>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* 효율 */}
-                <Field label="효율">
-                    <Select
-                        value={getGemOption(gem, '의지력 효율')?.lv || 1}
-                        onChange={(v) => onUpdateOption(family, gem.id, 0, { lv: Number(v) })}
-                        options={[1, 2, 3, 4, 5].map(lv => ({ value: lv, label: `${lv}Lv` }))}
-                    />
-                </Field>
-
-                {/* 코어 포인트 */}
-                <Field label="코어 포인트">
-                    <Select
-                        value={getGemOption(gem, '코어 포인트')?.lv || 1}
-                        onChange={(v) => onUpdateOption(family, gem.id, 1, { lv: Number(v) })}
-                        options={[1, 2, 3, 4, 5].map(lv => ({ value: lv, label: `${lv}Lv` }))}
-                    />
-                </Field>
-
-                {/* 세부타입 */}
-                <Field label="세부타입">
-                    <Select
-                        value={gem.subType}
-                        onChange={(v) => onUpdate(family, gem.id, { subType: v as any, baseWill: baseWillBySubType(String(v)) })}
-                        options={SUB_TYPES.map(st => ({ value: st, label: st }))}
-                    />
-                </Field>
-
-                {/* 기본 의지력 */}
-                <Field label="기본 의지력">
-                    <Input
-                        type="number"
-                        value={gem.baseWill}
-                        onChange={(e) =>
-                            onUpdate(family, gem.id, { baseWill: Number(e.target.value || 0) })
-                        }
-                    />
-                </Field>
-            </div>
-
-            {/* 전투 옵션 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                {/* 옵션1 */}
-                <Field label="옵션1">
-                    <div className="flex gap-2">
-                        {/* 이름 */}
-                        <Select
-                            className="flex-1"
-                            value={gem.options[2]?.name ?? FLEX_OPTION_POOL[0]}
-                            onChange={(v) => onUpdateOption(family, gem.id, 2, { name: String(v) })}
-                            options={FLEX_OPTION_POOL.map(n => ({ value: n, label: n }))}
-                        />
-                        {/* 레벨 */}
-                        <Select
-                            className="w-28"
-                            value={gem.options[2]?.lv ?? 1}
-                            onChange={(v) => onUpdateOption(family, gem.id, 2, { lv: Number(v) })}
-                            options={[1, 2, 3, 4, 5].map(lv => ({ value: lv, label: `Lv${lv}` }))}
-                        />
+            {/* 본문 */}
+            {!isEdit ? (
+                /* ==== 보기 전용 레이아웃 ==== */
+                <div className="space-y-2">
+                    {/* 1줄 요약 */}
+                    <div className="text-sm text-gray-200">
+                        <span className="inline-flex items-center gap-2">
+                            <Badge>{(opt1?.name ?? FLEX_OPTION_POOL[0])} · Lv{opt1?.lv ?? 1}</Badge>
+                            <Badge>{(opt2?.name ?? FLEX_OPTION_POOL[0])} · Lv{opt2?.lv ?? 1}</Badge>
+                        </span>
                     </div>
-                </Field>
 
-                {/* 옵션2 */}
-                <Field label="옵션2">
-                    <div className="flex gap-2">
-                        {/* 이름 */}
-                        <Select
-                            className="flex-1"
-                            value={gem.options[3]?.name ?? FLEX_OPTION_POOL[0]}
-                            onChange={(v) => onUpdateOption(family, gem.id, 3, { name: String(v) })}
-                            options={FLEX_OPTION_POOL.map(n => ({ value: n, label: n }))}
-                        />
-                        {/* 레벨 */}
-                        <Select
-                            className="w-28"
-                            value={gem.options[3]?.lv ?? 1}
-                            onChange={(v) => onUpdateOption(family, gem.id, 3, { lv: Number(v) })}
-                            options={[1, 2, 3, 4, 5].map(lv => ({ value: lv, label: `Lv${lv}` }))}
-                        />
+                </div>
+            ) : (
+                <div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <Field label="효율">
+                            <Select
+                                value={effLv}
+                                onChange={(v) => onUpdateOption(family, gem.id, 0, { lv: Number(v) })}
+                                options={[1, 2, 3, 4, 5].map(lv => ({ value: lv, label: `${lv}Lv` }))}
+                            />
+                        </Field>
+
+                        <Field label="코어 포인트">
+                            <Select
+                                value={ptsLv}
+                                onChange={(v) => onUpdateOption(family, gem.id, 1, { lv: Number(v) })}
+                                options={[1, 2, 3, 4, 5].map(lv => ({ value: lv, label: `${lv}Lv` }))}
+                            />
+                        </Field>
+
+                        <Field label="세부타입">
+                            <Select
+                                value={gem.subType}
+                                onChange={(v) =>
+                                    onUpdate(family, gem.id, { subType: v as any, baseWill: baseWillBySubType(String(v)) })
+                                }
+                                options={SUB_TYPES.map(st => ({ value: st, label: st }))}
+                            />
+                        </Field>
+
+                        <Field label="기본 의지력">
+                            <Input
+                                type="number"
+                                value={gem.baseWill}
+                                onChange={(e) => onUpdate(family, gem.id, { baseWill: Number(e.target.value || 0) })}
+                            />
+                        </Field>
                     </div>
-                </Field>
-            </div>
 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                        <Field label="옵션1">
+                            <div className="flex gap-2">
+                                <Select
+                                    className="flex-1"
+                                    value={opt1?.name ?? FLEX_OPTION_POOL[0]}
+                                    onChange={(v) => onUpdateOption(family, gem.id, 2, { name: String(v) })}
+                                    options={FLEX_OPTION_POOL.map(n => ({ value: n, label: n }))}
+                                />
+                                <Select
+                                    className="w-28"
+                                    value={opt1?.lv ?? 1}
+                                    onChange={(v) => onUpdateOption(family, gem.id, 2, { lv: Number(v) })}
+                                    options={[1, 2, 3, 4, 5].map(lv => ({ value: lv, label: `Lv${lv}` }))}
+                                />
+                            </div>
+                        </Field>
+
+                        <Field label="옵션2">
+                            <div className="flex gap-2">
+                                <Select
+                                    className="flex-1"
+                                    value={opt2?.name ?? FLEX_OPTION_POOL[0]}
+                                    onChange={(v) => onUpdateOption(family, gem.id, 3, { name: String(v) })}
+                                    options={FLEX_OPTION_POOL.map(n => ({ value: n, label: n }))}
+                                />
+                                <Select
+                                    className="w-28"
+                                    value={opt2?.lv ?? 1}
+                                    onChange={(v) => onUpdateOption(family, gem.id, 3, { lv: Number(v) })}
+                                    options={[1, 2, 3, 4, 5].map(lv => ({ value: lv, label: `Lv${lv}` }))}
+                                />
+                            </div>
+                        </Field>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
-/** 공통 커스텀 화살표 아이콘 (select 오른쪽) */
-function ArrowIcon() {
+/* 작은 뱃지/태그 컴포넌트들 */
+function Badge({ children }: { children: React.ReactNode }) {
     return (
-        <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path
-                    fillRule="evenodd"
-                    d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08z"
-                    clipRule="evenodd"
-                />
-            </svg>
+        <span className="inline-flex items-center px-2 py-0.5 rounded bg-black/20 border border-white/10 text-gray-200 text-xs">
+            {children}
         </span>
     );
+}
+function Tag({ children }: { children: React.ReactNode }) {
+    return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#1f242c] border border-[#444c56] text-gray-200 text-xs">
+            {children}
+        </span>
+    );
+}
+function Dot() {
+    return <span className="mx-1 text-gray-500">·</span>;
 }

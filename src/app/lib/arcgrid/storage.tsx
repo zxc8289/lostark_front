@@ -11,12 +11,12 @@ export function makeInitialState() {
     return {
         params: { role: "dealer" as "dealer" | "supporter", efficiencyReductionByPoint: { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 } },
         cores: [
-            { family: "order", key: "order_sun", label: "질서의 해", grade: "ancient", enabled: true, minPts: 10, maxPts: 17 },
-            { family: "order", key: "order_moon", label: "질서의 달", grade: "ancient", enabled: true, minPts: 10, maxPts: 17 },
-            { family: "order", key: "order_star", label: "질서의 별", grade: "ancient", enabled: true, minPts: 10, maxPts: 14 },
-            { family: "chaos", key: "chaos_sun", label: "혼돈의 해", grade: "ancient", enabled: true, minPts: 10, maxPts: 17 },
-            { family: "chaos", key: "chaos_moon", label: "혼돈의 달", grade: "ancient", enabled: true, minPts: 10, maxPts: 17 },
-            { family: "chaos", key: "chaos_star", label: "혼돈의 별", grade: "ancient", enabled: true, minPts: 10, maxPts: 14 },
+            { family: "order", key: "order_sun", label: "질서의 해", grade: "ancient", enabled: true, minPts: 10, maxPts: 20 },
+            { family: "order", key: "order_moon", label: "질서의 달", grade: "ancient", enabled: true, minPts: 10, maxPts: 20 },
+            { family: "order", key: "order_star", label: "질서의 별", grade: "ancient", enabled: true, minPts: 10, maxPts: 20 },
+            { family: "chaos", key: "chaos_sun", label: "혼돈의 해", grade: "ancient", enabled: true, minPts: 10, maxPts: 20 },
+            { family: "chaos", key: "chaos_moon", label: "혼돈의 달", grade: "ancient", enabled: true, minPts: 10, maxPts: 20 },
+            { family: "chaos", key: "chaos_star", label: "혼돈의 별", grade: "ancient", enabled: true, minPts: 10, maxPts: 20 },
         ] as CoreDef[],
         inventory: { order: [] as Gem[], chaos: [] as Gem[] },
     };

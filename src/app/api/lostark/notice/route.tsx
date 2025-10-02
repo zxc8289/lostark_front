@@ -1,9 +1,11 @@
+// app/api/lostark-notice/route.ts
 import { NextResponse } from "next/server";
-// npm i cheerio undici
 import * as cheerio from "cheerio";
 import { request } from "undici";
 
-export const revalidate = 60; // (선택) 60초 캐시 - 과도한 트래픽 방지
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic"; // 캐시/ISR 간섭 제거 (디버그용)
+export const revalidate = 0;            // 디버그 동안 비활성
 
 const LIST_URL = "https://lostark.game.onstove.com/News/Notice/List";
 
@@ -11,70 +13,146 @@ type NoticeItem = {
     title: string;
     link: string;
     date?: string | null;
-    type?: string | null; // 공지/점검/이벤트/상점 등
+    type?: string | null;
 };
 
 export async function GET() {
-    // 1) HTML 가져오기 (서버에서만)
-    const res = await request(LIST_URL, {
-        method: "GET",
-        headers: {
-            // 적당한 UA를 넣어두면 일부 WAF가 덜 까다롭게 굽니다.
-            "user-agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
-            "accept-language": "ko,en;q=0.9",
-            accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        },
-    });
+    console.log("[lostark-notice] start fetch:", LIST_URL);
+
+    // ▶ 타임아웃/강제중단(네트워크가 매달릴 때 대비)
+    const ac = new AbortController();
+    const timeout = setTimeout(() => {
+        console.warn("[lostark-notice] aborting due to timeout (10s)");
+        ac.abort();
+    }, 10_000);
+
+    let res: any;
+    try {
+        res = await request(LIST_URL, {
+            method: "GET",
+            headers: {
+                "user-agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
+                "accept-language": "ko,en;q=0.9",
+                accept:
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                referer: "https://lostark.game.onstove.com/",
+                "sec-fetch-site": "same-origin",
+                "sec-fetch-mode": "navigate",
+                "sec-fetch-dest": "document",
+            },
+            signal: ac.signal,
+        });
+    } catch (e: any) {
+        clearTimeout(timeout);
+        console.error("[lostark-notice] request error:", e?.message || e);
+        return NextResponse.json(
+            { error: "request failed", detail: String(e?.message || e) },
+            { status: 500 }
+        );
+    }
+    clearTimeout(timeout);
+
+    console.log("[lostark-notice] status:", res.statusCode);
 
     if (res.statusCode !== 200) {
+        // 응답 헤더도 좀 찍자
+        // @ts-ignore
+        console.log("[lostark-notice] headers:", Object.fromEntries(res.headers || []));
         return NextResponse.json(
             { error: "Failed to fetch list", status: res.statusCode },
             { status: 502 }
         );
     }
 
-    const html = await res.body.text();
+    // 본문 읽기
+    let html = "";
+    try {
+        html = await res.body.text();
+    } catch (e: any) {
+        console.error("[lostark-notice] body read error:", e?.message || e);
+        return NextResponse.json(
+            { error: "read body failed", detail: String(e?.message || e) },
+            { status: 500 }
+        );
+    }
+
+    console.log("[lostark-notice] html length:", html.length);
+    console.log("[lostark-notice] html head <<<");
+    console.log(html.slice(0, 500)); // 앞부분만
+    console.log("[lostark-notice] html head >>>");
+
     const $ = cheerio.load(html);
 
-    // 2) 목록 파싱
-    // 페이지 구조상 공지 목록은 ‘공지사항’ 섹션 아래 li > a 로 반복됩니다.
-    // (구조는 바뀔 수 있으니, a[href^="/News/Notice/"] 를 기준으로 최대한 탄탄하게 잡습니다)
+    // 페이지 구조 상단 요약
+    const listCnt = $(".list li").length;
+    const anchorCnt = $('a[href^="/News/Notice/"]').length;
+    console.log("[lostark-notice] .list li count:", listCnt);
+    console.log('[lostark-notice] anchor "/News/Notice/" count:', anchorCnt);
+
     const candidates: NoticeItem[] = [];
-    $('a[href^="/News/Notice/"]').each((_, a) => {
-        const $a = $(a);
+
+    // 1차: 구조 기반
+    $('.list li a[href^="/News/Notice/"]').each((_, el) => {
+        const $a = $(el);
         const href = $a.attr("href") || "";
         const link = href.startsWith("http")
             ? href
             : `https://lostark.game.onstove.com${href}`;
 
-        // li 블록을 기준으로 title/type/date 를 추출
-        const $li = $a.closest("li");
-        const rawText = $li.text().replace(/\s+/g, " ").trim(); // 공백 정리
+        const $root = $a.closest("li");
 
-        // 제목: 링크 텍스트가 가장 정확
-        const title = $a.text().replace(/\s+/g, " ").trim();
+        const title =
+            $root.find(".list__title").text().trim() ||
+            $a.text().replace(/\s+/g, " ").trim();
 
-        // 타입(공지/점검/이벤트/상점 …)은 li 안쪽의 배지/텍스트 앞머리에 보통 노출됨
-        // 예: "공지 알려진 이슈를 안내해 드립니다. 2025.09.17"
-        const typeMatch = rawText.match(/^(공지|점검|이벤트|상점)/);
-        const type = typeMatch?.[1] ?? null;
+        const date = $root.find(".list__date").text().trim() || null;
+        const type = $root.find(".list__category .icon").first().text().trim() || null;
 
-        // 날짜: "YYYY.MM.DD" 패턴 추출
-        const dateMatch = rawText.match(/\b(20\d{2}\.\d{2}\.\d{2})\b/);
-        const date = dateMatch?.[1] ?? null;
-
-        candidates.push({ title, link, date, type });
+        if (title && link) {
+            candidates.push({ title, link, date, type });
+        }
     });
 
-    // 3) 최신순 정렬(링크 블록은 최신부터 노출되지만, 안전하게 날짜 파싱해서 보정)
+    console.log("[lostark-notice] after primary parse, candidates:", candidates.length);
+
+    // 2차: fallback (혹시 구조가 또 다를 때)
+    if (candidates.length === 0) {
+        $('a[href^="/News/Notice/"]').each((_, a) => {
+            const $a = $(a);
+            const href = $a.attr("href") || "";
+            const link = href.startsWith("http")
+                ? href
+                : `https://lostark.game.onstove.com${href}`;
+            const $li = $a.closest("li");
+            const rawText = $li.text().replace(/\s+/g, " ").trim();
+            const title = $a.text().replace(/\s+/g, " ").trim();
+            const typeMatch = rawText.match(/^(공지|점검|이벤트|상점)/);
+            const type = typeMatch?.[1] ?? null;
+            const dateMatch = rawText.match(/\b(20\d{2}\.\d{2}\.\d{2})\b/);
+            const date = dateMatch?.[1] ?? null;
+            if (title) candidates.push({ title, link, date, type });
+        });
+        console.log("[lostark-notice] after fallback parse, candidates:", candidates.length);
+    }
+
+    // 후보 샘플 로그
+    console.log(
+        "[lostark-notice] sample candidates:",
+        candidates.slice(0, 3)
+    );
+
+    // 정렬/최신
     const byDate = (x: NoticeItem) =>
         x.date ? new Date(x.date.replace(/\./g, "-")).getTime() : 0;
-
     candidates.sort((a, b) => byDate(b) - byDate(a));
 
-    // 4) 최상단(최신) 1건만
     const latest = candidates[0] ?? null;
+    console.log("[lostark-notice] latest:", latest);
 
-    return NextResponse.json({ latest, totalParsed: candidates.length });
+    return NextResponse.json({
+        latest,
+        totalParsed: candidates.length,
+        debug: { listCnt, anchorCnt, htmlLen: html.length }, // 프론트에서 잠깐 볼 수 있게
+    });
 }

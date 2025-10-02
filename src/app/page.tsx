@@ -1,9 +1,21 @@
-// HomePage.jsx
 import Link from "next/link";
 import Card from "./components/Card";
+import { headers } from "next/headers";
 
+export default async function HomePage() {
 
-export default function HomePage() {
+  const host = (await headers()).get("host");
+  const origin = host?.startsWith("localhost")
+    ? `http://${host}`
+    : `https://${host}`;
+
+  const res = await fetch(`${origin}/api/lostark/notice`, { cache: "no-store" }).catch(() => null);
+
+  let latestTitle = "공지 불러오기 실패";
+  if (res && res.ok) {
+    const json = await res.json();
+    latestTitle = json?.latest?.title ?? "데이터 없음";
+  }
 
   return (
     <div className="space-y-8 py-12 text-gray-300 w-full">
@@ -26,7 +38,7 @@ export default function HomePage() {
           <div className="flex items-center justify-between bg-[#2d333b] border border-[#444c56] rounded-lg p-4 text-xs">
             <p className="text-gray-300">
               <span className="font-bold text-white mr-2">로스트아크 공지사항</span>
-              9월 25일 (목) 로스트아크 임시 점검 완료 안내
+              {latestTitle}
             </p>
             <button className="text-[#539bf5] hover:underline font-semibold text-sm">
               더보기

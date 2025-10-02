@@ -19,7 +19,7 @@ export default function Card({
                     {title}
                 </header>
             )}
-            <div className="p-5 flex-1 flex items-center">{children}</div>
+            <div className="p-5 flex-1 flex items-center ">{children}</div>
         </section>
     );
 }

@@ -81,7 +81,6 @@ export default function Select({
 
     return (
         <div ref={wrapRef} className={clsx('relative', className)}>
-            {/* 버튼(콤보박스) */}
             <button
                 ref={btnRef}
                 type="button"
@@ -98,7 +97,6 @@ export default function Select({
                 disabled={disabled}
             >
                 {selected ? selected.label : <span className="text-gray-500">{placeholder}</span>}
-                {/* 화살표 */}
                 <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">
                     <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                         <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08z" />
@@ -134,7 +132,7 @@ export default function Select({
                                     isSelected && !isActive && 'bg-[#2a3139]'
                                 )}
                                 onMouseEnter={() => setActive(i)}
-                                onMouseDown={(e) => { e.preventDefault(); }} // 포커스 유지
+                                onMouseDown={(e) => { e.preventDefault(); }}
                                 onClick={() => commit(i)}
                             >
                                 {o.label}

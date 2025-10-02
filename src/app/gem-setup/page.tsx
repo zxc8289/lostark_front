@@ -27,6 +27,12 @@ export default function ArcGridPage() {
     const enabledCores = useMemo(() => state.cores.filter(c => c.enabled) as CoreDef[], [state.cores]);
     const hydratedRef = useRef(false);
 
+    const [fileName, setFileName] = useState(() => {
+        const now = new Date();
+        return `arcgrid_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    });
+
+
     // 행 펼침 상태
     const [expandedSet, setExpandedSet] = useState<Set<number>>(new Set());
     const toggleRow = (i: number) => {
@@ -72,6 +78,9 @@ export default function ArcGridPage() {
         { value: "dealer", label: "딜러" },
         { value: "supporter", label: "서포터" },
     ] as const;
+
+
+
 
     const invCount = state.inventory.order.length + state.inventory.chaos.length;
     const selectedCoreCount = state.cores.filter(c => c.enabled).length;
@@ -124,26 +133,95 @@ export default function ArcGridPage() {
         setState(st => ({ ...st, inventory: { ...st.inventory, [family]: st.inventory[family].filter(g => g.id !== id) } }));
     }
     function resetInventory() {
-        setState(st => ({ ...st, inventory: { order: [], chaos: [] } }));
+        setState(() => makeInitialState());
     }
+
+
+
     function saveToFile() {
-        const data = JSON.stringify({ inventory: state.inventory }, null, 2);
+        const exportData = {
+            version: 1,
+            params: state.params, // role 등
+            cores: state.cores.map(c => ({
+                key: c.key,
+                enabled: !!c.enabled,
+                grade: c.grade,
+                minPts: Number(c.minPts || 0),
+                maxPts: Number(c.maxPts || 0),
+                family: c.family,      // 있으면 같이 저장해두면 로딩 시 유용
+                label: c.label,        // (선택)
+            })),
+            inventory: state.inventory,
+        };
+
+        const data = JSON.stringify(exportData, null, 2);
         const blob = new Blob([data], { type: "application/json" });
+
+        // 파일 이름 정리 + 확장자 보장
+        let name = (fileName || "arcgrid_setup").replace(/[\\/:*?"<>|]/g, "").trim();
+        if (!name) name = "arcgrid_setup";
+        if (!name.toLowerCase().endsWith(".json")) name += ".json";
+
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = "arcgrid_inventory.json";
+        a.download = name;
         a.click();
         URL.revokeObjectURL(a.href);
         showToast("파일로 저장했어요");
     }
+
+
+
     function loadFromFile(e: React.ChangeEvent<HTMLInputElement>) {
-        const f = e.target.files?.[0]; { }
+        const f = e.target.files?.[0];
         if (!f) return;
         const reader = new FileReader();
         reader.onload = () => {
             try {
-                const parsed = JSON.parse(String(reader.result));
-                setState(st => ({ ...st, inventory: parsed.inventory || st.inventory }));
+                const parsed = JSON.parse(String(reader.result)) || {};
+
+                setState(st => {
+                    // 1) 코어 병합: 현재 코어 리스트(키 고정)를 기준으로, 파일에 있는 값만 반영
+                    const patchedCores = st.cores.map(c => {
+                        const p = parsed.cores?.find((x: any) => x?.key === c.key);
+                        if (!p) return c;
+                        return {
+                            ...c,
+                            enabled: typeof p.enabled === "boolean" ? p.enabled : c.enabled,
+                            grade: p.grade ?? c.grade,
+                            minPts: Number(p.minPts ?? c.minPts ?? 0),
+                            maxPts: Number(p.maxPts ?? c.maxPts ?? 0),
+                        };
+                    });
+
+                    // 2) params 병합(예: role)
+                    const patchedParams = { ...st.params, ...(parsed.params || {}) };
+
+                    // 3) inventory 교체(혹은 병합) — 지금은 교체로 가정
+                    //   - id가 없는 아이템이 들어오면 id를 생성해 안전하게 넣음
+                    const fixId = (g: any) => ({
+                        ...g,
+                        id: g?.id || crypto?.randomUUID?.() || Math.random().toString(36).slice(2),
+                    });
+                    const patchedInventory = parsed.inventory
+                        ? {
+                            order: Array.isArray(parsed.inventory.order)
+                                ? parsed.inventory.order.map(fixId)
+                                : st.inventory.order,
+                            chaos: Array.isArray(parsed.inventory.chaos)
+                                ? parsed.inventory.chaos.map(fixId)
+                                : st.inventory.chaos,
+                        }
+                        : st.inventory;
+
+                    return {
+                        ...st,
+                        cores: patchedCores,
+                        params: patchedParams,
+                        inventory: patchedInventory,
+                    };
+                });
+
                 showToast("파일에서 불러왔어요");
             } catch {
                 showToast("불러오기에 실패했습니다");
@@ -175,10 +253,10 @@ export default function ArcGridPage() {
             constraints,
             role,
             10,
-            bestTotalPts            // 👈 총 포인트를 고정
+            bestTotalPts
         );
 
-        const finalPack = topAtTarget[0]?.plan ?? pointPack; // 혹시 없으면 포인트 플랜 사용(안전)
+        const finalPack = topAtTarget[0]?.plan ?? pointPack;
 
         setResultPack({ plan: finalPack, focusKey: cores[0].key });
         showToast("최적 조합을 계산했어요");
@@ -202,6 +280,14 @@ export default function ArcGridPage() {
                         보유 젬  {'\u00A0'}<b className="text-gray-200">{invCount}</b>
                     </div>
                     <div className="flex items-center gap-2">
+                        <input
+                            className="
+                                px-3 py-2 rounded-lg border border-[#444c56] bg-[#2d333b] text-gray-200 w-56
+                                focus:outline-none focus:ring-0 focus-visible:ring-0 focus:border-[#444c56] focus:shadow-none
+                            "
+                            onChange={(e) => setFileName(e.target.value)}
+                            placeholder="파일 이름"
+                        />
                         <button
                             className="px-3.5 py-2 rounded-lg border border-[#444c56] bg-[#2d333b] text-gray-200 hover:bg-[#30363d] transition"
                             onClick={saveToFile}
@@ -233,23 +319,26 @@ export default function ArcGridPage() {
 
             {/* Step 1 */}
             <Card title="1. 코어 선택">
-
-                <div className="w-full">
-                    <div className="flex items-center gap-3 mb-2">
-                        <label className="text-sm text-gray-400">역할</label>
-                        <div className="w-40">
-                            <Select
-                                value={state.params.role ?? "dealer"}
-                                onChange={(v) =>
-                                    setState((st) => ({
-                                        ...st,
-                                        params: { ...st.params, role: v as "dealer" | "supporter" },
-                                    }))
-                                }
-                                options={roleOptions as any} // (컴포넌트 시그니처에 맞춰 캐스트)
-                                placeholder="역할 선택"
-                            />
+                <div className="w-full space-y-4">
+                    <div className="inline-grid grid-cols-[auto_auto] gap-x-5 items-center w-fit">
+                        <div className="flex items-center ">
+                            <label className="text-sm text-gray-400 mr-2">역할</label>
+                            <div className="w-40">
+                                <Select
+                                    value={state.params.role ?? "dealer"}
+                                    onChange={(v) =>
+                                        setState((st) => ({
+                                            ...st,
+                                            params: { ...st.params, role: v as "dealer" | "supporter" },
+                                        }))
+                                    }
+                                    options={roleOptions as any}
+                                    placeholder="역할 선택"
+                                />
+                            </div>
                         </div>
+
+
                     </div>
 
                     <div className="grid [grid-template-columns:1.1fr_.9fr_.8fr_.8fr] gap-2 items-center mt-1 text-sm">
