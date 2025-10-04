@@ -1,6 +1,16 @@
 // optimizer.tsx
-import { CORE_WILL_BY_GRADE, DEALER_WEIGHT_BY_LV, Role, SUPPORT_WEIGHT_BY_LV } from "./constants";
+import { CORE_WILL_BY_GRADE, DEALER_WEIGHT_BY_LV, Role, ROLE_KEYS, STAT_ALIAS, SUPPORT_WEIGHT_BY_LV } from "./constants";
 import type { CoreDef, Gem, OptimizeItem, Params, PlanPack } from "./types";
+
+
+// ---- fast caches / sets
+const STAT_NAME_CACHE = new Map<string, string>();
+const GEM_SCORE_CACHE = new Map<string, { d: number; s: number }>();
+const ALLOWED_SET = {
+  dealer: new Set(ROLE_KEYS.dealer),
+  supporter: new Set(ROLE_KEYS.supporter),
+};
+
 
 /* ─────────────────────────────────────────────────────────────
  *  공통 유틸
@@ -86,7 +96,6 @@ function emptyCandidateForCore(core: CoreDef, params: Params): OptimizeItem {
   };
 }
 
-
 function enumerateCandidatesForCorePoints(
   core: CoreDef,
   params: Params,
@@ -96,30 +105,92 @@ function enumerateCandidatesForCorePoints(
   cap = 60
 ): OptimizeItem[] {
   const avail = CORE_WILL_BY_GRADE[core.grade] || 0;
-  const familyPool = pool.filter((g) => g.family === core.family);
 
-  const needOf = (g: Gem) => effectiveWillRequired(g, params);
-  const ptsOf = (g: Gem) => gemCorePoints(g);
+  // 1) 같은 패밀리 + 유효 아이템만 미리 가공
+  const raw = pool
+    .filter((g) => g.family === core.family)
+    .map((g) => {
+      const need = effectiveWillRequired(g, params);
+      const pts  = gemCorePoints(g);
+      return { g, need, pts };
+    })
+    .filter((x) => x.pts > 0 && x.need >= 1 && x.need <= avail);
 
-  const sortedPool = familyPool.slice().sort((a, b) => {
-    // 효율 우선: pts/need ↑ → need ↓ → pts ↑
-    const ra = ptsOf(a) / Math.max(1, needOf(a));
-    const rb = ptsOf(b) / Math.max(1, needOf(b));
-    if (rb !== ra) return rb - ra;
-    const na = needOf(a), nb = needOf(b);
-    if (na !== nb) return na - nb;
-    return ptsOf(b) - ptsOf(a);
-  });
+  if (raw.length === 0) return [emptyCandidateForCore(core, params)];
 
+  // 2) DP: dp[k][w] = 상위 L개 조합
+  type Combo = { pts: number; need: number; idxs: number[] }; // idxs = raw 인덱스들
+  const K = 4, W = avail, L = Math.max(16, cap); // 셀마다 cap 수준 유지(여유분 포함)
+
+  const mkCell = () => ({ list: [] as Combo[], sig: new Set<string>() });
+  const dp = Array.from({ length: K + 1 }, () =>
+    Array.from({ length: W + 1 }, mkCell)
+  );
+
+  // 시작 상태
+  dp[0][0].list.push({ pts: 0, need: 0, idxs: [] });
+  dp[0][0].sig.add("");
+
+  // 셀 리스트에 top-L 유지 삽입
+  const pushTop = (cell: { list: Combo[]; sig: Set<string> }, c: Combo) => {
+    const sig = c.idxs.slice().sort((a, b) => a - b).join("-");
+    if (cell.sig.has(sig)) return;
+
+    // cap이 찼고, 현재 최하위보다 명확히 못하면 컷
+    const Lfull = cell.list.length >= L;
+    if (Lfull) {
+      const worst = cell.list[cell.list.length - 1];
+      if (c.pts < worst.pts) return;
+      if (c.pts === worst.pts && c.need > worst.need) return;
+    }
+
+    cell.list.push(c);
+    cell.list.sort(
+      (A, B) =>
+        (B.pts - A.pts) ||
+        (A.need - B.need) ||
+        (B.idxs.length - A.idxs.length)
+    );
+    if (cell.list.length > L) {
+      const removed = cell.list.pop()!;
+      const rSig = removed.idxs.slice().sort((a, b) => a - b).join("-");
+      cell.sig.delete(rSig);
+    }
+    cell.sig.add(sig);
+  };
+
+
+  // 3) 전개(아이템 1개씩, 역순 k, w)
+  for (let i = 0; i < raw.length; i++) {
+    const need = raw[i].need;
+    const pts  = raw[i].pts;
+    if (need > W) continue;
+
+    for (let k = K - 1; k >= 0; k--) {
+      for (let w = 0; w + need <= W; w++) {
+        const src = dp[k][w];
+        if (!src.list.length) continue;
+        const dst = dp[k + 1][w + need];
+
+        // src의 상위 L개만 이어붙이면 충분
+        for (const base of src.list) {
+          pushTop(dst, {
+            pts: base.pts + pts,
+            need: base.need + need,
+            idxs: [...base.idxs, i],
+          });
+        }
+      }
+    }
+  }
+
+  // 4) 결과 수집 & 기존 버킷 정책(inRange/underMax/any) 그대로
   const inRange: OptimizeItem[] = [];
   const underMax: OptimizeItem[] = [];
   const any: OptimizeItem[] = [];
 
-  const seenIn = new Set<string>();
-  const seenUnder = new Set<string>();
-  const seenAny = new Set<string>();
-
-  const pushSorted = (bucket: OptimizeItem[], it: OptimizeItem, limit: number) => {
+  const seen = new Set<string>(); // 최종 중복 방지
+  const offer = (bucket: OptimizeItem[], it: OptimizeItem, limit: number) => {
     bucket.push(it);
     bucket.sort((A, B) => {
       const pA = A.res?.pts ?? 0, pB = B.res?.pts ?? 0;
@@ -130,72 +201,78 @@ function enumerateCandidatesForCorePoints(
     if (bucket.length > limit) bucket.pop();
   };
 
-  function evalChosen(chosen: Gem[]) {
-    const by = chosen.slice().sort((a, b) => {
-      const na = needOf(a), nb = needOf(b);
-      if (na !== nb) return na - nb;
-      return ptsOf(b) - ptsOf(a);
-    });
+  // 모든 k=1..4, w=0..W 셀을 훑어 조합 만들기
+  for (let k = 1; k <= K; k++) {
+    for (let w = 0; w <= W; w++) {
+      const cell = dp[k][w];
+      if (!cell.list.length) continue;
 
-    const arr: (Gem | null)[] = [null, null, null, null];
-    for (let i = 0; i < by.length && i < 4; i++) arr[i] = by[i];
+      for (const c of cell.list) {
+        // 조합 → Gem 배열(need 오름차순으로 정렬: 연속 활성 보장)
+        // const gems = c.idxs.map((idx) => raw[idx].g)
+        //   .sort((a, b) => effectiveWillRequired(a, params) - effectiveWillRequired(b, params));
+        // const arr: (Gem | null)[] = [gems[0] ?? null, gems[1] ?? null, gems[2] ?? null, gems[3] ?? null];
 
-    const res = computeActivation(core, arr, params);
-    const pts = res.pts;
-    const ids = arr.map((x, i) => (res.activated[i] && x ? x.id : null));
-    const sig = ids.filter(Boolean).join(",");
+        // const res = computeActivation(core, arr, params);
+        // // computeActivation 상 모든 젬이 켜지도록 구성되어 pts는 합산치
+        // const ids = arr.map((x, i) => (res.activated[i] && x ? x.id : null));
+        const sortedIdxs = c.idxs.slice().sort((a, b) => raw[a].need - raw[b].need);
+        const gems = sortedIdxs.map((idx) => raw[idx].g);
+        const arr: (Gem | null)[] = [gems[0] ?? null, gems[1] ?? null, gems[2] ?? null, gems[3] ?? null];
 
-    if (pts >= minPts && pts <= maxPts) {
-      if (!sig || seenIn.has(sig)) return;
-      seenIn.add(sig);
-      pushSorted(inRange, { ids, res, t: undefined as any, overshoot: 0, canReachNext: false, reason: null }, cap);
-      return;
-    }
-    if (pts <= maxPts) {
-      if (sig && !seenUnder.has(sig)) {
-        seenUnder.add(sig);
-        pushSorted(
-          underMax,
-          { ids, res, t: undefined as any, overshoot: 0, canReachNext: false, reason: minPts > 0 ? `최소 ${minPts} 미달 (${pts}/${minPts})` : null },
-          cap
-        );
+        // DP 상 보장: c.need <= avail
+        const res = {
+          activated: [!!arr[0], !!arr[1], !!arr[2], !!arr[3]],
+          spent: c.need,
+          remain: avail - c.need,
+          pts: c.pts,
+          flex: {} as Record<string, number>,
+          flexScore: 0,
+        };
+
+        const ids = [
+          arr[0]?.id ?? null,
+          arr[1]?.id ?? null,
+          arr[2]?.id ?? null,
+          arr[3]?.id ?? null,
+        ];
+
+        const sig = ids.filter(Boolean).sort().join(",");
+        if (seen.has(sig)) continue;
+        seen.add(sig);
+
+        const opt: OptimizeItem = {
+          ids,
+          res,
+          t: undefined as any,
+          overshoot: 0,
+          canReachNext: false,
+          reason: null,
+        };
+
+        const p = res.pts;
+        if (p >= minPts && p <= maxPts)       offer(inRange,  opt, cap);
+        else if (p <= maxPts)                 offer(underMax, opt, cap);
+        else                                  offer(any,      opt, cap);
       }
-      return;
-    }
-    if (sig && !seenAny.has(sig)) {
-      seenAny.add(sig);
-      pushSorted(any, { ids, res, t: undefined as any, overshoot: 0, canReachNext: false, reason: `최대 ${maxPts} 초과 (${pts})` }, cap);
     }
   }
-
-  function dfs(idx: number, chosen: Gem[], remain: number) {
-    if (chosen.length) evalChosen(chosen);
-    if (chosen.length === 4 || idx >= sortedPool.length || remain <= 0) return;
-    for (let i = idx; i < sortedPool.length; i++) {
-      const g = sortedPool[i];
-      const need = needOf(g);
-      if (need > remain) continue;
-      chosen.push(g);
-      dfs(i + 1, chosen, remain - need);
-      chosen.pop();
-    }
-  }
-
-  dfs(0, [], avail);
 
   if (inRange.length) return inRange;
   if (underMax.length) return underMax;
   if (any.length) return any;
-
   return [emptyCandidateForCore(core, params)];
 }
+
 
 function optimizeFamilyMaxPoints(
   familyCores: CoreDef[],
   params: Params,
   pool: Gem[],
   constraints: Record<string, { minPts: number; maxPts: number }>,
-  capPerCore = 80
+  capPerCore = 80,
+  role?: Role,                      // 👈 추가
+  invMap?: Map<string, Gem>         // 👈 추가
 ): { answer: Record<string, OptimizeItem>; used: Set<string> } {
   if (familyCores.length === 0) return { answer: {}, used: new Set<string>() };
 
@@ -213,9 +290,16 @@ function optimizeFamilyMaxPoints(
   }
   const order = familyCores.slice().sort((a, b) => (maxByCore.get(b.key)! - maxByCore.get(a.key)!));
 
+  // 👇 후보 스탯 계산기
+  const statOf = (it: OptimizeItem): number => {
+    if (!role || !invMap) return 0;
+    return scoreCandidateByIds((it.ids || []) as (string | null)[], invMap, role);
+  };
+
   let bestAnswer: Record<string, OptimizeItem> = {} as Record<string, OptimizeItem>;
   let bestFound = false;
   let bestPts = -1;
+  let bestStat = -1;   // 👈 추가: 누적 스탯
   let bestRemain = -1;
 
   function dfs(
@@ -223,11 +307,18 @@ function optimizeFamilyMaxPoints(
     used: Set<string>,
     cur: Record<string, OptimizeItem>,
     sumPts: number,
+    sumStat: number,   // 👈 추가
     sumRemain: number
   ): void {
     if (idx === order.length) {
-      if (sumPts > bestPts || (sumPts === bestPts && sumRemain > bestRemain)) {
+      // 비교 순서: 포인트 > 스탯 > 잔여
+      if (
+        (sumPts > bestPts) ||
+        (sumPts === bestPts && sumStat > bestStat) ||
+        (sumPts === bestPts && sumStat === bestStat && sumRemain > bestRemain)
+      ) {
         bestPts = sumPts;
+        bestStat = sumStat;
         bestRemain = sumRemain;
         bestAnswer = { ...cur };
         bestFound = true;
@@ -235,10 +326,10 @@ function optimizeFamilyMaxPoints(
       return;
     }
 
-    // 상계 가지치기
+    // 포인트 상계
     let ub = sumPts;
     for (let i = idx; i < order.length; i++) ub += maxByCore.get(order[i].key) || 0;
-    if (ub <= bestPts) return;
+    if (ub < bestPts) return; 
 
     const core = order[idx];
     const list = candMap.get(core.key) || [];
@@ -250,17 +341,17 @@ function optimizeFamilyMaxPoints(
       const nextUsed = new Set<string>(used);
       for (const id of ids) nextUsed.add(id);
 
-      const nextCur: Record<string, OptimizeItem> = { ...cur };
-      nextCur[core.key] = it;
+      const nextCur: Record<string, OptimizeItem> = { ...cur, [core.key]: it };
 
       const pts = it.res?.pts ?? 0;
       const rem = it.res?.remain ?? 0;
+      const st  = statOf(it);
 
-      dfs(idx + 1, nextUsed, nextCur, sumPts + pts, sumRemain + rem);
+      dfs(idx + 1, nextUsed, nextCur, sumPts + pts, sumStat + st, sumRemain + rem);
     }
   }
 
-  dfs(0, new Set<string>(), {} as Record<string, OptimizeItem>, 0, 0);
+  dfs(0, new Set<string>(), {} as Record<string, OptimizeItem>, 0, 0, 0);
 
   // 완전 매칭 성공
   if (bestFound && Object.keys(bestAnswer).length === order.length) {
@@ -272,6 +363,7 @@ function optimizeFamilyMaxPoints(
     return { answer: bestAnswer, used };
   }
 
+  // 일부만 골라졌다면 나머지 코어는 pts 동률 시 스탯으로 보완 선택
   const answer: Record<string, OptimizeItem> = bestFound ? { ...bestAnswer } : ({} as Record<string, OptimizeItem>);
   const used = new Set<string>();
   for (const k of Object.keys(answer)) {
@@ -284,7 +376,17 @@ function optimizeFamilyMaxPoints(
     const cons = constraints[c.key] || { minPts: 0, maxPts: 999 };
     const remainingPool = pool.filter((g) => !used.has(g.id));
     const list = enumerateCandidatesForCorePoints(c, params, remainingPool, cons.minPts, cons.maxPts, capPerCore);
-    const chosen = list[0] ?? emptyCandidateForCore(c, params);
+
+    const chosen = list.reduce((best, it) => {
+      if (!best) return it;
+      const pA = best.res?.pts ?? 0, pB = it.res?.pts ?? 0;
+      if (pB !== pA) return pB > pA ? it : best;                // 1) 포인트
+      const sA = statOf(best), sB = statOf(it);
+      if (sB !== sA) return sB > sA ? it : best;                // 2) 스탯
+      const rA = best.res?.remain ?? 0, rB = it.res?.remain ?? 0;
+      return rB > rA ? it : best;                               // 3) 잔여
+    }, null as OptimizeItem | null) || emptyCandidateForCore(c, params);
+
     answer[c.key] = chosen;
     for (const id of (chosen.ids ?? []) as (string | null)[]) if (id) used.add(id);
   }
@@ -319,12 +421,19 @@ export function optimizeAllByPermutations(
   inventory: { order: Gem[]; chaos: Gem[] },
   constraints: Record<string, { minPts: number; maxPts: number }>
 ): PlanPack {
+  GEM_SCORE_CACHE.clear();
+  STAT_NAME_CACHE.clear();
 
   const orderCores = cores.filter((c) => c.family === "order");
   const chaosCores = cores.filter((c) => c.family === "chaos");
 
-  const orderPack = optimizeFamilyMaxPoints(orderCores, params, inventory.order || [], constraints, 80);
-  const chaosPack = optimizeFamilyMaxPoints(chaosCores, params, inventory.chaos || [], constraints, 80);
+  const role: Role = (params.role as Role) ?? "dealer";        // ✅ 역할
+  const invMap = new Map<string, Gem>();                        // ✅ invMap
+  for (const g of inventory.order || []) invMap.set(g.id, g);
+  for (const g of inventory.chaos || []) invMap.set(g.id, g);
+
+  const orderPack = optimizeFamilyMaxPoints(orderCores, params, inventory.order || [], constraints, 1000, role, invMap);
+  const chaosPack = optimizeFamilyMaxPoints(chaosCores, params, inventory.chaos || [], constraints, 1000, role, invMap);
 
   const answer: Record<string, OptimizeItem> = {};
   for (const c of orderCores) answer[c.key] = orderPack.answer[c.key] || emptyCandidateForCore(c, params);
@@ -333,11 +442,11 @@ export function optimizeAllByPermutations(
   const used = new Set<string>();
   orderPack.used.forEach((id) => used.add(id));
   chaosPack.used.forEach((id) => used.add(id));
-  const result: PlanPack = { answer, used: Array.from(used) };
-  const role: Role = (params.role as Role) ?? "dealer";
 
-  return decoratePlanWithStats(result, inventory, role).plan;
+  const result: PlanPack = { answer, used: Array.from(used) };
+  return decoratePlanWithStats(result, inventory, role).plan;   // 표시용 flexScore 주입
 }
+
 
 
 export function optimizeExtremeBySequence(
@@ -354,24 +463,72 @@ export function optimizeExtremeBySequence(
 
 
 
+const STAT_ALIAS_REV: Record<string, string> = Object.fromEntries(
+  Object.entries(STAT_ALIAS).map(([full, short]) => [short, full])
+);
+
+/** 옵션 이름을 정식 키로 정규화 (약어 → 정식명) */
+function normalizeStatName(name: string): string {
+  const raw = String(name || "").trim();
+  const hit = STAT_NAME_CACHE.get(raw);
+  if (hit) return hit;
+
+  let out = raw;
+  if (DEALER_WEIGHT_BY_LV[out] || SUPPORT_WEIGHT_BY_LV[out]) {
+    // already full name
+  } else if ((STAT_ALIAS as any)[out]) {
+    out = (STAT_ALIAS as any)[out];
+  }
+  STAT_NAME_CACHE.set(raw, out);
+  return out;
+}
+
+
+/** 역할별 스탯 가중치 (역할에 해당하지 않는 스탯은 0점) */
 function optionWeight(role: Role, name: string, lv: number): number {
+  // 스탯 제외
+  if (name === "의지력 효율" || name === "코어 포인트") return 0;
+
+  const key = normalizeStatName(name);
+
+  // 역할별 허용 스탯(정식명)만 가중치 부여
+  const allowed = ROLE_KEYS[role as "dealer" | "supporter"];
+  if (!allowed.includes(key)) return 0;
+
   const table = role === "dealer" ? DEALER_WEIGHT_BY_LV : SUPPORT_WEIGHT_BY_LV;
-  const arr = table[name as keyof typeof table];
+  const arr = table[key as keyof typeof table];
   if (!arr) return 0;
+
   const idx = Math.max(0, Math.min(arr.length - 1, Number(lv || 0)));
   return arr[idx] || 0;
 }
 
 // ---------- [추가] 젬 하나의 스탯 점수 ----------
 function scoreGemForRole(g: Gem, role: Role): number {
-  let s = 0;
+  // 캐시 히트면 O(1)
+  const cached = GEM_SCORE_CACHE.get(g.id);
+  if (cached) return role === "dealer" ? cached.d : cached.s;
+
+  // 미스면 두 역할 모두 한 번에 계산해서 저장
+  let d = 0, s = 0;
   for (const o of g.options || []) {
     if (!o || o.lv == null) continue;
-    if (o.name === "의지력 효율" || o.name === "코어 포인트") continue; // 스탯 제외
-    s += optionWeight(role, o.name, o.lv);
+    const nm = normalizeStatName(o.name);
+    if (nm === "의지력 효율" || nm === "코어 포인트") continue;
+    // 허용 스탯만 반영 (Set으로 O(1))
+    if (ALLOWED_SET.dealer.has(nm)) {
+      const arr = DEALER_WEIGHT_BY_LV[nm as keyof typeof DEALER_WEIGHT_BY_LV];
+      if (arr) d += arr[Math.max(0, Math.min(arr.length - 1, Number(o.lv || 0)))] || 0;
+    }
+    if (ALLOWED_SET.supporter.has(nm)) {
+      const arr = SUPPORT_WEIGHT_BY_LV[nm as keyof typeof SUPPORT_WEIGHT_BY_LV];
+      if (arr) s += arr[Math.max(0, Math.min(arr.length - 1, Number(o.lv || 0)))] || 0;
+    }
   }
-  return s;
+  GEM_SCORE_CACHE.set(g.id, { d, s });
+  return role === "dealer" ? d : s;
 }
+
 
 // ---------- [추가] 후보(OptimizeItem) 스탯 점수 ----------
 function scoreCandidateByIds(
@@ -406,14 +563,16 @@ export function enumerateTopPlansByStats(
   constraints: Record<string, { minPts: number; maxPts: number }>,
   role: "dealer" | "supporter",
   topK = 10,
-  onlyAtTotalPts: number | null = null,   // 👈 추가: 총 포인트를 이 값으로 '고정'
+  onlyAtTotalPts: number | null = null,   // 총 포인트 '정확히' 고정
+  capPerCore = 2000                        // 👈 추가: 후보 cap 주입
 ): ScoredPlan[] {
+  GEM_SCORE_CACHE.clear();
+  STAT_NAME_CACHE.clear();
   const enabled = cores.filter((c) => c.enabled);
   const invMap = new Map<string, Gem>();
   for (const g of inventory.order || []) invMap.set(g.id, g);
   for (const g of inventory.chaos || []) invMap.set(g.id, g);
 
-  // 코어별 후보(범위 우선) + 후보 스탯 계산
   const candMap = new Map<
     string,
     Array<{ item: OptimizeItem; stat: number; pts: number; remain: number }>
@@ -421,8 +580,9 @@ export function enumerateTopPlansByStats(
 
   for (const c of enabled) {
     const cons = constraints[c.key] || { minPts: 0, maxPts: 999 };
+    // 🔽 capPerCore 반영
     const raw = enumerateCandidatesForCorePoints(
-      c, params, (inventory as any)[c.family] || [], cons.minPts, cons.maxPts, 80
+      c, params, (inventory as any)[c.family] || [], cons.minPts, cons.maxPts, capPerCore
     );
 
     const strict = raw.filter((it) => {
@@ -435,7 +595,7 @@ export function enumerateTopPlansByStats(
         const stat = scoreCandidateByIds((it.ids || []) as (string | null)[], invMap, role);
         const itemWithStat: OptimizeItem = {
           ...it,
-          res: { ...(it.res as any), flexScore: stat }   // ← 스탯 점수를 flexScore로
+          res: { ...(it.res as any), flexScore: stat }
         };
         return {
           item: itemWithStat,
@@ -448,6 +608,7 @@ export function enumerateTopPlansByStats(
 
     candMap.set(c.key, list);
   }
+
 
   for (const c of enabled) if ((candMap.get(c.key) || []).length === 0) return [];
 
@@ -577,3 +738,81 @@ function decoratePlanWithStats(
   }
   return { plan, statTotal: total };
 }
+
+
+// utils: 총 포인트 합
+export function getPlanSumPoints(plan: PlanPack): number {
+  return Object.values(plan.answer).reduce((s, it) => s + (it?.res?.pts ?? 0), 0);
+}
+
+// 1단계: 포인트 합 최대 플랜의 합을 구함(포인트 우선 탐색 사용)
+export function bestTotalPoints(
+  cores: CoreDef[],
+  params: Params,
+  inventory: { order: Gem[]; chaos: Gem[] },
+  constraints: Record<string, { minPts: number; maxPts: number }>
+): number {
+  const bestPlan = optimizeAllByPermutations(cores, params, inventory, constraints);
+  return getPlanSumPoints(bestPlan);
+}
+
+
+// 2단계: 포인트 합을 최대치로 '고정'하고 스탯 상위 플랜 나열
+export function enumerateTopPlansAtBestPoints(
+  cores: CoreDef[],
+  params: Params,
+  inventory: { order: Gem[]; chaos: Gem[] },
+  constraints: Record<string, { minPts: number; maxPts: number }>,
+  role: "dealer" | "supporter",
+  topK = 10,
+  capPerCore = 2000
+) {
+  const bestPts = bestTotalPoints(cores, params, inventory, constraints);
+  return enumerateTopPlansByStats(
+    cores, params, inventory, constraints, role, topK, /*onlyAtTotalPts*/ bestPts, capPerCore
+  );
+}
+
+
+// 정확 포인트 분포로 코어별 min=max 고정
+export function exactPointConstraints(
+  pointsByKey: Record<string, number>
+): Record<string, {minPts:number; maxPts:number}> {
+  const out: Record<string, {minPts:number; maxPts:number}> = {};
+  for (const k of Object.keys(pointsByKey)) {
+    const v = pointsByKey[k];
+    out[k] = { minPts: v, maxPts: v };
+  }
+  return out;
+}
+
+// 정확 분포에서 스탯 Top-K (역할별)
+export function enumerateTopPlansAtExactPoints(
+  cores: CoreDef[],
+  params: Params,
+  inventory: { order: Gem[]; chaos: Gem[] },
+  pointsByKey: Record<string, number>,   // 예: { order_sun:17, order_moon:17, order_star:14 }
+  role: "dealer" | "supporter",
+  topK = 10,
+  capPerCore = 2000
+) {
+  const cons = exactPointConstraints(pointsByKey);
+  const totalPts = Object.values(pointsByKey).reduce((a,b)=>a+b,0);
+  return enumerateTopPlansByStats(
+    cores, params, inventory, cons, role,
+    topK, /*onlyAtTotalPts*/ totalPts, capPerCore
+  );
+}
+
+
+// 진행률 콜백 타입
+export type ProgressInfo = {
+  phase: "build" | "dfs" | "finalize" | "order" | "chaos";
+  done: number;     // 처리 개수
+  total: number;    // 추정 전체 개수(없으면 0)
+  percent: number;  // 0~100
+};
+
+// 렌더 양보용
+const microYield = () => new Promise((r) => setTimeout(r, 0));
+

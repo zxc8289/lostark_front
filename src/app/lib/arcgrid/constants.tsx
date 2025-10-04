@@ -28,9 +28,9 @@ export const SUPPORT_WEIGHT_BY_LV: Record<string, number[]> = {
 // };
 
 
-export const ROLE_KEYS = {
-  dealer: ["보스 피해", "추가 피해", "공격력"],
-  supporter: ["낙인력", "아군 피해 강화", "아군 공격 강화"],
+export const ROLE_KEYS: Record<Role, readonly string[]> = {
+  dealer: ["보스 피해", "추가 피해", "공격력"] as const,
+  supporter: ["낙인력", "아군 피해 강화", "아군 공격 강화"] as const,
 } as const;
 
 export type Role = "dealer" | "supporter";

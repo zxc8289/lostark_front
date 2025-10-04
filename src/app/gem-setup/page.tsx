@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { loadState, makeInitialState, saveState } from "../lib/arcgrid/storage";
-import { baseWillBySubType, enumerateTopPlansByStats, optimizeAllByPermutations, optimizeExtremeBySequence, ScoredPlan } from "../lib/arcgrid/optimizer";
-import { CoreDef, Gem } from "../lib/arcgrid/types";
+import { baseWillBySubType, enumerateTopPlansByStats, optimizeAllByPermutations, ScoredPlan, enumerateTopPlansAtBestPoints, bestTotalPoints } from "../lib/arcgrid/optimizer";
+import { CoreDef, Gem, PlanPack } from "../lib/arcgrid/types";
 import { ORDER_PERMS, Role } from "../lib/arcgrid/constants";
 import Step from "../components/arcgrid/Step";
 import InventoryPanel from "../components/arcgrid/InventoryPanel";
@@ -17,7 +17,7 @@ import Input from "../components/arcgrid/ui/Input";
 export default function ArcGridPage() {
     const [state, setState] = useState(makeInitialState);
     const [loaded, setLoaded] = useState(false);
-    const [resultPack, setResultPack] = useState<ReturnType<typeof optimizeExtremeBySequence> | null>(null);
+    const [resultPack, setResultPack] = useState<{ plan: PlanPack; focusKey: string | null } | null>(null);
     const [mode, setMode] = useState<'default' | 'extreme'>('default');
     const [orderPermIndex, setOrderPermIndex] = useState(0);
     const [showQuick, setShowQuick] = useState(false);
@@ -25,6 +25,8 @@ export default function ArcGridPage() {
     const [toast, setToast] = useState<string | null>(null);
     const [altPlans, setAltPlans] = useState<ScoredPlan[] | null>(null);
     const enabledCores = useMemo(() => state.cores.filter(c => c.enabled) as CoreDef[], [state.cores]);
+    const [busy, setBusy] = useState(false);
+    const [prog, setProg] = useState<{ v: number | null; msg: string }>({ v: null, msg: "" });
     const hydratedRef = useRef(false);
 
     const [fileName, setFileName] = useState(() => {
@@ -45,7 +47,7 @@ export default function ArcGridPage() {
     };
     useEffect(() => { setExpandedSet(new Set()); }, [altPlans]);
 
-    function runStatsList() {
+    async function runStatsList() {
         const cores = state.cores.filter(c => c.enabled) as CoreDef[];
         if (!cores.length) return showToast("선택된 코어가 없어요");
         if (invCount === 0) return showToast("인벤토리에 젬을 추가해 주세요");
@@ -53,13 +55,52 @@ export default function ArcGridPage() {
         const constraints = Object.fromEntries(
             state.cores.map(c => [c.key, { minPts: c.minPts, maxPts: c.maxPts }])
         );
-
         const role = (state.params.role ?? "dealer") as Role;
-        const list = enumerateTopPlansByStats(cores, state.params, state.inventory, constraints, role, 10);
+
+        // ⬇️ 진행 시작
+        startProgress("최대 포인트 계산 준비...", 5);
+        await tick();
+
+        // 1) 최대 총포인트 구하기
+        updateProgress("최대 포인트 계산 중...", 30);
+        const bestPts = bestTotalPoints(cores, state.params, state.inventory, constraints);
+        await tick();
+
+        // 2) 그 포인트에서 스탯 상위 Top-K
+        updateProgress("스탯 상위 조합 탐색 중...", 75);
+        const list = enumerateTopPlansByStats(
+            cores,
+            state.params,
+            state.inventory,
+            constraints,
+            role,
+            10,        // Top-K
+            bestPts,   // onlyAtTotalPts: 총 포인트 고정
+            2000       // capPerCore
+        );
+
         setAltPlans(list);
         if (list.length === 0) showToast("조건을 만족하는 조합이 없어요");
-        else showToast(`스탯 상위 조합 ${list.length}개`);
+        else showToast(`최대 총포인트 ${list[0]?.sumPts ?? 0}에서 스탯 상위 ${list.length}개`);
+
+        // 끝
+        updateProgress("결과 정리 중...", 90);
+        await tick();
+        endProgress();
     }
+
+
+
+    const startProgress = (msg: string, v: number | null = null) => {
+        setProg({ v, msg });
+        setBusy(true);
+        };
+        const updateProgress = (msg: string, v: number | null) => setProg({ v, msg });
+        const endProgress = () => {
+        setProg({ v: 100, msg: "완료" });
+        setTimeout(() => setBusy(false), 300);
+    };
+    const tick = () => new Promise((r) => setTimeout(r, 0));
 
     useEffect(() => {
         // 클라이언트에서만 실행: 저장본 로드
@@ -230,37 +271,35 @@ export default function ArcGridPage() {
         reader.readAsText(f);
     }
 
-    // ArcGridPage.tsx (run() 내부만 수정)
-    function run() {
-        const cores = state.cores.filter(c => c.enabled);
-        if (!cores.length) return showToast("선택된 코어가 없어요");
-        if (invCount === 0) return showToast("인벤토리에 젬을 추가해 주세요");
+async function run() {
+  const cores = state.cores.filter(c => c.enabled);
+  if (!cores.length) return showToast("선택된 코어가 없어요");
+  if (invCount === 0) return showToast("인벤토리에 젬을 추가해 주세요");
 
-        const constraints = Object.fromEntries(
-            state.cores.map(c => [c.key, { minPts: c.minPts, maxPts: c.maxPts }])
-        ) as Record<string, { minPts: number; maxPts: number }>;
-        const role = (state.params.role ?? "dealer") as "dealer" | "supporter";
+  const constraints = Object.fromEntries(
+    state.cores.map(c => [c.key, { minPts: c.minPts, maxPts: c.maxPts }])
+  ) as Record<string, { minPts: number; maxPts: number }>;
 
-        // 1) '포인트 합' 최대 플랜 계산
-        const pointPack = optimizeAllByPermutations(cores as CoreDef[], state.params, state.inventory, constraints);
-        const bestTotalPts = Object.values(pointPack.answer).reduce((sum, it) => sum + (it?.res?.pts ?? 0), 0);
+  startProgress("최대 포인트 플랜 계산 중...", 25);
+  await tick();
 
-        // 2) 그 '총 포인트'에서 스탯 합이 가장 높은 플랜들 탐색 → 1위 선택
-        const topAtTarget = enumerateTopPlansByStats(
-            cores as CoreDef[],
-            state.params,
-            state.inventory,
-            constraints,
-            role,
-            10,
-            bestTotalPts
-        );
+  // ✅ 포인트 합 최대 플랜만 계산 (빠름)
+  const pointPack = optimizeAllByPermutations(
+    cores as CoreDef[],
+    state.params,
+    state.inventory,
+    constraints
+  );
 
-        const finalPack = topAtTarget[0]?.plan ?? pointPack;
+  updateProgress("결과 적용...", 85);
+  await tick();
 
-        setResultPack({ plan: finalPack, focusKey: cores[0].key });
-        showToast("최적 조합을 계산했어요");
-    }
+  setResultPack({ plan: pointPack, focusKey: cores[0].key });
+  showToast("최적 조합을 계산했어요");
+  endProgress();
+}
+
+
 
 
     const gemById = useMemo(() => {
@@ -474,7 +513,7 @@ export default function ArcGridPage() {
                         </div>
                     )}
 
-                    <div className="mt-3 flex items-center gap-2">
+                    {/* <div className="mt-3 flex items-center gap-2">
                         <button
                             className="px-3.5 py-2 rounded-lg border border-[#444c56] bg-[#2d333b] text-gray-200 hover:bg-[#30363d] transition"
                             onClick={runStatsList}
@@ -482,96 +521,102 @@ export default function ArcGridPage() {
                             상위 조합
                         </button>
 
-                    </div>
+                    </div> */}
                     {altPlans && altPlans.length > 0 && (
                         <div className="mt-4">
                             <div className="overflow-x-auto  rounded-lg border border-[#444c56] ">
-                                <table className="w-full text-sm ">
-                                    <thead className="bg-[#22272e] text-gray-300">
-                                        <tr>
-                                            <th className="px-3 py-2 w-10"></th>{/* expander */}
-                                            <th className="px-3 py-2 text-left w-14">#</th>
-                                            <th className="px-3 py-2 text-left w-32">스탯 점수</th>
-                                            <th className="px-3 py-2 text-left w-28">총 포인트</th>
-                                            <th className="px-3 py-2 text-left w-32">잔여 의지력</th>
-                                            {enabledCores.map(c => (
-                                                <th key={c.key} className="px-3 py-2 text-left whitespace-nowrap">{c.label}</th>
-                                            ))}
-                                            <th className="px-3 py-2 text-right w-24"> </th>
-                                        </tr>
-                                    </thead>
+  {/* ⬇️ text-center 추가 */}
+  <table className="w-full text-sm text-center">
+    <thead className="bg-[#22272e] text-gray-300">
+      <tr>
+        <th className="px-3 py-2 w-10"></th>{/* expander */}
+        {/* ⬇️ text-left -> text-center */}
+        <th className="px-3 py-2 text-center w-14">#</th>
+        <th className="px-3 py-2 text-center w-32">스탯 점수</th>
+        <th className="px-3 py-2 text-center w-28">총 포인트</th>
+        <th className="px-3 py-2 text-center w-32">잔여 의지력</th>
+        {enabledCores.map(c => (
+          <th key={c.key} className="px-3 py-2 text-center whitespace-nowrap">{c.label}</th>
+        ))}
+        {/* 적용 버튼 열도 중앙으로 하고 싶으면 text-right -> text-center 로 변경 */}
+        <th className="px-3 py-2 text-right w-24"> </th>
+      </tr>
+    </thead>
 
-                                    <tbody className="divide-y divide-[#444c56]">
-                                        {altPlans.map((p, i) => {
-                                            const colCount = 7 + enabledCores.length; // ⬅️ 아래에서 설명
-                                            const isOpen = expandedSet.has(i);
-                                            return (
-                                                <Fragment key={`plan-${i}`}>
-                                                    <tr className="bg-[#2d333b] hover:bg-[#30363d]">
-                                                        <td className="px-3 py-2">
-                                                            <button
-                                                                aria-label={isOpen ? "접기" : "펼치기"}
-                                                                className="w-6 h-6 rounded hover:bg-black/20"
-                                                                onClick={() => toggleRow(i)}
-                                                            >
-                                                                <span className="inline-block align-middle">{isOpen ? "▾" : "▸"}</span>
-                                                            </button>
-                                                        </td>
+    <tbody className="divide-y divide-[#444c56]">
+      {altPlans.map((p, i) => {
+        const colCount = 6 + enabledCores.length;
+        const isOpen = expandedSet.has(i);
+        return (
+          <Fragment key={`plan-${i}`}>
+            <tr className="bg-[#2d333b] hover:bg-[#30363d]">
+              <td className="px-3 py-2">
+                <button
+                  aria-label={isOpen ? "접기" : "펼치기"}
+                  className="w-6 h-6 rounded hover:bg-black/20"
+                  onClick={() => toggleRow(i)}
+                >
+                  <span className="inline-block align-middle">{isOpen ? "▾" : "▸"}</span>
+                </button>
+              </td>
 
-                                                        <td className="px-3 py-2 text-gray-300">#{i + 1}</td>
-                                                        <td className="px-3 py-2"><b className="text-white">{p.statScore.toFixed(3)}</b></td>
-                                                        <td className="px-3 py-2"><b className="text-gray-200">{p.sumPts}</b></td>
-                                                        <td className="px-3 py-2"><b className="text-gray-200">{p.sumRemain}</b></td>
+              {/* ⬇️ 전부 text-center 추가 */}
+              <td className="px-3 py-2 text-gray-300 text-center">#{i + 1}</td>
+              <td className="px-3 py-2 text-center"><b className="text-white">{p.statScore.toFixed(3)}</b></td>
+              <td className="px-3 py-2 text-center"><b className="text-gray-200">{p.sumPts}</b></td>
+              <td className="px-3 py-2 text-center"><b className="text-gray-200">{p.sumRemain}</b></td>
 
-                                                        {enabledCores.map(c => {
-                                                            const it = p.plan.answer[c.key];
-                                                            const pts = it?.res?.pts ?? 0;
-                                                            const stat = typeof it?.res?.flexScore === "number" ? it.res.flexScore : 0;
-                                                            return (
-                                                                <td key={c.key} className="px-3 py-2 text-gray-300">
-                                                                    <span className="inline-flex items-center gap-2">
-                                                                        <span className="px-2 py-0.5 rounded bg-black/20 border border-white/10">{pts}p</span>
-                                                                        <span className="text-gray-400">·</span>
-                                                                        <span className="tabular-nums">{stat.toFixed(3)}</span>
-                                                                    </span>
-                                                                </td>
-                                                            );
-                                                        })}
+              {enabledCores.map(c => {
+                const it = p.plan.answer[c.key];
+                const pts = it?.res?.pts ?? 0;
+                const stat = typeof it?.res?.flexScore === "number" ? it.res.flexScore : 0;
+                return (
+                  <td key={c.key} className="px-3 py-2 text-gray-300 text-center">
+                    {/* ⬇️ 가운데 정렬 보장 */}
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-black/20 border border-white/10">{pts}p</span>
+                      <span className="text-gray-400">·</span>
+                      <span className="tabular-nums">{stat.toFixed(3)}</span>
+                    </div>
+                  </td>
+                );
+              })}
 
-                                                        <td className="px-3 py-2 text-right">
-                                                            <button
-                                                                className="px-3 py-1.5 rounded-md border border-[#444c56] bg-[#1f242c] text-gray-200 hover:bg-[#262c35] transition"
-                                                                onClick={() => {
-                                                                    setResultPack({ plan: p.plan, focusKey: enabledCores[0]?.key });
-                                                                    setToast(`#${i + 1} 조합을 적용했어요`);
-                                                                    setTimeout(() => setToast(null), 1400);
-                                                                }}
-                                                            >
-                                                                적용
-                                                            </button>
-                                                        </td>
-                                                    </tr>
+              {/* 이 열도 중앙정렬 원하면 text-right -> text-center */}
+              <td className="px-3 py-2 text-right">
+                <button
+                  className="px-3 py-1.5 rounded-md border border-[#444c56] bg-[#1f242c] text-gray-200 hover:bg-[#262c35] transition"
+                  onClick={() => {
+                    setResultPack({ plan: p.plan, focusKey: enabledCores[0]?.key });
+                    setToast(`#${i + 1} 조합을 적용했어요`);
+                    setTimeout(() => setToast(null), 1400);
+                  }}
+                >
+                  적용
+                </button>
+              </td>
+            </tr>
 
-                                                    {isOpen && (
-                                                        <tr className="bg-[#1f242c]">
-                                                            <td colSpan={colCount} className="px-3 py-3">
-                                                                <div className="rounded-lg border border-[#444c56] bg-[#2d333b]">
-                                                                    <ResultsPanel
-                                                                        plan={p.plan}
-                                                                        cores={state.cores}
-                                                                        gemById={gemById}
-                                                                    />
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    )}
-                                                </Fragment >
-                                            );
-                                        })}
-                                    </tbody>
+            {isOpen && (
+              <tr className="bg-[#1f242c]">
+                <td colSpan={colCount} className="px-3 py-3">
+                  <div className="rounded-lg border border-[#444c56] bg-[#2d333b]">
+                    <ResultsPanel
+                      plan={p.plan}
+                      cores={state.cores}
+                      gemById={gemById}
+                    />
+                  </div>
+                </td>
+              </tr>
+            )}
+          </Fragment>
+        );
+      })}
+    </tbody>
+  </table>
+</div>
 
-                                </table>
-                            </div>
                         </div>
                     )}
 
@@ -615,7 +660,41 @@ export default function ArcGridPage() {
                     }}
                 />
             )}
+            {busy && (
+            <div className="fixed inset-0 z-[100] pointer-events-none">
+                {/* ⬇️ 시각적 배경(블러/암막) — 클릭은 통과 */}
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-none" />
+
+                {/* ⬇️ 하단 토스트만 클릭 가능 */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[min(520px,92vw)] pointer-events-auto">
+                <div className="rounded-xl border border-[#444c56] bg-[#1f242c] shadow-lg overflow-hidden">
+                    <div className="px-4 pt-3 pb-2 text-sm text-gray-200">
+                    {prog.msg || "작업을 준비하고 있어요"}
+                    </div>
+
+                    <div className="h-2 bg-black/30">
+                    {prog.v == null ? (
+                        // 불확정(indeterminate)
+                        <div className="h-2 w-1/3 bg-blue-600/70 animate-pulse" />
+                    ) : (
+                        // 확정(progress %)
+                        <div
+                        className="h-2 bg-blue-600 transition-[width] duration-200 ease-out"
+                        style={{ width: `${Math.max(0, Math.min(100, prog.v))}%` }}
+                        aria-valuenow={prog.v}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        role="progressbar"
+                        />
+                    )}
+                    </div>
+                </div>
+                </div>
+            </div>
+            )}
+
         </div>
+        
     );
 }
 
