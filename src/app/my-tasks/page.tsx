@@ -52,7 +52,7 @@ export default function MyTasksPage() {
 
       {/* 바디 (필터, 캐릭터 정보) */}
       <div className="mx-auto max-w-7xl 
-                       grid grid-cols-1 lg:grid-cols-[200px_1fr]
+                       grid grid-cols-1 lg:grid-cols-[220px_1fr]
                         gap-5 
                        ">
         {/* 필터 */}
@@ -71,7 +71,6 @@ export default function MyTasksPage() {
 
             <div className="px-5 py-7 space-y-5">
               {/* 난이도 */}
-              {/* 난이도 */}
               <div>
                 <div className="mb-3 text-sm font-bold">난이도</div>
                 <div className="flex items-center gap-4 text-sm">
@@ -86,8 +85,9 @@ export default function MyTasksPage() {
                     />
                     <span
                       className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition
-                   peer-checked:bg-blue-600 peer-checked:border-blue-600
-                   peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500"
+                    peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
+                   peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
+                      peer-checked:[&_svg]:opacity-100"
                     >
                       {/* 체크 아이콘 */}
                       <svg
@@ -112,8 +112,8 @@ export default function MyTasksPage() {
                     />
                     <span
                       className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition
-                   peer-checked:bg-blue-600 peer-checked:border-blue-600
-                   peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500"
+                   peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
+                   peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500  peer-checked:[&_svg]:opacity-100"
                     >
                       <svg
                         className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
@@ -141,12 +141,12 @@ export default function MyTasksPage() {
                       onChange={(e) => setOnlyRemain(e.target.checked)}
                     />
                     <span
-                      className="grid place-items-center h-5 w-5 rounded-md border border-white/25 transition
-                   peer-checked:bg-blue-600 peer-checked:border-blue-600
-                   peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500"
+                      className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition
+                    peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
+                   peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500  peer-checked:[&_svg]:opacity-100"
                     >
                       <svg
-                        className="h-3.5 w-3.5 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
+                        className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
                         viewBox="0 0 20 20" fill="none"
                       >
                         <path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -164,12 +164,12 @@ export default function MyTasksPage() {
                       onChange={(e) => setGoldOnly(e.target.checked)}
                     />
                     <span
-                      className="grid place-items-center h-5 w-5 rounded-md border border-white/25 transition
-                   peer-checked:bg-blue-600 peer-checked:border-blue-600
-                   peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500"
+                      className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition
+                   peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
+                   peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500  peer-checked:[&_svg]:opacity-100"
                     >
                       <svg
-                        className="h-3.5 w-3.5 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
+                        className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
                         viewBox="0 0 20 20" fill="none"
                       >
                         <path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -184,17 +184,30 @@ export default function MyTasksPage() {
 
           {/* 카드: 보기 설정 */}
           <section className="rounded-sm  bg-[#16181D] shadow-sm">
-            <div className="px-4 py-3">
+            <div className="px-5 py-7 space-y-5">
               <div className="mb-3 text-sm font-semibold">보기 설정</div>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-[#A2A3A5]">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 accent-blue-500"
+                  className="sr-only peer"
                   checked={tableView}
                   onChange={(e) => setTableView(e.target.checked)}
                 />
+                <span
+                  className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition
+                   peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
+                   peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500  peer-checked:[&_svg]:opacity-100"
+                >
+                  <svg
+                    className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
+                    viewBox="0 0 20 20" fill="none"
+                  >
+                    <path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
                 테이블로 보기
               </label>
+
             </div>
           </section>
         </div>
@@ -202,7 +215,7 @@ export default function MyTasksPage() {
 
         {/* 캐릭터 정보 */}
         <div className="bg-[#16181D]">
-          <div>dd</div>
+          <div></div>
         </div>
       </div>
     </div>
