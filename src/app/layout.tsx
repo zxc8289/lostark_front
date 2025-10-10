@@ -3,12 +3,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Nav from "./components/Nav";
 import AuthSessionProvider from "./components/AuthSessionProvider"; // ✨ 프로바이더 import
+import { pretendard } from "./fonts";
 
 export const metadata: Metadata = { title: "로스트아크 도우미" };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <body className="min-h-screen flex flex-col bg-[#1B1D22] text-gray-300">
+      <body className={`${pretendard.variable} font-pretendard min-h-screen flex flex-col bg-[#1B1D22] text-gray-300`}>
         <AuthSessionProvider>
           <header>
             <Nav />

@@ -12,7 +12,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
+  --font-pretendard: var(--font-pretendard);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -24,12 +25,26 @@
 }
 
 body {
-  background-color: #16181D;
+  background-color: #0F1114;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
 
 @layer base {
+
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+  }
+
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: inherit;
+  }
+
 
   * {
     scrollbar-width: thin;
