@@ -17,7 +17,7 @@ type Props = {
 
 const DIFF = {
     하드: {
-        badge: "bg-[#FF5252]/10 text-[#FF5252] border border-none",
+        badge: "bg-[#FF5252]/10 text-[#FF5252] border border-none ",
         check: "bg-[#ff5a5a] text-white",
     },
     노말: {
@@ -86,10 +86,10 @@ export default function TaskCard({
                             onClick={() => onToggleGate?.(g, !isChecked)}
                             className={[
                                 base,
-                                disabled ? "opacity-50 cursor-default" : "hover:scale-[1.13]",
+                                disabled ? "opacity-50 cursor-default" : "hover:scale-[1.1]",
                                 isChecked
                                     ? `${diffStyle.check} border-transparent`
-                                    : "bg-[#FFFFFF]/5 text-[#FFFFFF]/20 border-none hover:border-white/20",
+                                    : "bg-[#FFFFFF]/5 text-[#FFFFFF]/20 border-none hover:border-white/20 hover:bg-[#FF5252] hover:text-white",
                                 "scale-[1.1]"
                             ].join(" ")}
                         >
