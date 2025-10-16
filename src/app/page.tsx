@@ -12,82 +12,119 @@ export default async function HomePage() {
   const res = await fetch(`${origin}/api/lostark/notice`, { cache: "no-store" }).catch(() => null);
 
   let latestTitle = "공지 불러오기 실패";
-  if (res && res.ok) {
+  let latestUrl = "/notice"; // API에 url 있으면 그걸 쓰고, 없으면 목록 페이지로
+  if (res?.ok) {
     const json = await res.json();
     latestTitle = json?.latest?.title ?? "데이터 없음";
+    latestUrl = json?.latest?.link ?? "/notice";
   }
 
   return (
-    <div className="space-y-8 py-12 text-gray-300 w-full">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-        <div className="lg:col-span-6 space-y-8">
-          <Card title="내 숙제 현황">
-            <div className="h-60 w-full bg-[#22272e] rounded-md" />
+    <div className="space-y-8 pt-25 text-gray-300 w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
+          <Card variant="elevated" headerBorder={false} interactive contentPadding="md" align="center">
+            <div className="w-full flex items-center gap-2">
+              <div className="min-w-0 flex items-baseline gap-2 sm:gap-3">
+                <h3 className="font-semibold text-sm sm:text-base md:text-lg">
+                  로스트아크 공지사항
+                </h3>
+                <p
+                  className="text-gray-400 truncate text-xs sm:text-sm md:text-sm"
+                  title={latestTitle}
+                >
+                  {latestTitle}
+                </p>
+              </div>
+
+
+              <a
+                href={latestUrl}
+                className="ml-auto shrink-0 text-gray-400 hover:text-gray-200 flex items-center gap-1 text-xs sm:text-sm md:text-sm"
+              >
+                더보기 <span aria-hidden>›</span>
+              </a>
+            </div>
           </Card>
-          <Card title="파티 숙제">
-            <div className="w-full h-36  flex justify-center">
-              {/* <button className="bg-[#3882f6] text-white px-6 py-5 rounded-md text-sm font-semibold hover:bg-[#3275dc] transition-colors">
-                로그인 후 이용하기
-              </button> */}
+          <Card
+            variant="elevated"
+            size="lg"
+            contentPadding="lg"
+            align="center"
+            headerBorder={false}
+            className="max-w-3xl"
+          >
+            <div className="grid grid-cols-[56px_1fr_auto] items-center gap-4 w-full">
+              <div className="w-14 h-14 rounded-md bg-white/10 overflow-hidden" />
+              <div className="grid grid-cols-1 gap-1">
+                <h3 className="font-semibold text-sm sm:text-base md:text-lg">나는 강투일까 투사일까?</h3>
+                <p className="text-gray-400 text-xs sm:text-sm md:text-sm">
+                  레이드에서 나의 딜 지분을 알아보세요.
+                </p>
+              </div>
+              <a className="text-blue-400 hover:underline flex items-center gap-1 text-xs sm:text-sm md:text-base" href="/dps">
+                딜지분 계산기 <span>›</span>
+              </a>
+            </div>
+          </Card>
+
+          <Card
+            variant="elevated"
+            size="lg"
+            contentPadding="lg"
+            align="center"
+            headerBorder={false}
+            className="max-w-3xl"
+          >
+            <div className="grid grid-cols-[56px_1fr_auto] items-center gap-4 w-full">
+              <div className="w-14 h-14 rounded-md bg-white/10 overflow-hidden" />
+              <div className="grid grid-cols-1 gap-1">
+                <h3 className="font-semibold text-sm sm:text-base md:text-lg">코어별 젬 세팅 효율 계산기</h3>
+                <p className="text-gray-400 text-xs sm:text-sm md:text-sm">
+                  코어와 젬을 입력하고 효율적인 세팅을 확인해 보세요.
+                </p>
+              </div>
+              <a className="text-blue-400 hover:underline flex items-center gap-1 text-xs sm:text-sm md:text-base" href="/dps">
+                젬 세팅하러 가기 <span>›</span>
+              </a>
+            </div>
+          </Card>
+
+          {/* 기능 카드 3 */}
+          <Card
+            variant="elevated"
+            size="lg"
+            contentPadding="lg"
+            align="center"
+            headerBorder={false}
+            className="max-w-3xl"
+          >
+            <div className="grid grid-cols-[56px_1fr_auto] items-center gap-4 w-full">
+              <div className="w-14 h-14 rounded-md bg-white/10 overflow-hidden" />
+              <div className="grid grid-cols-1 gap-1">
+                <h3 className="font-semibold text-sm sm:text-base md:text-lg">재료 제작/구매 효율 계산기</h3>
+                <p className="text-gray-400 text-xs sm:text-smmd:text-sm">
+                  재료별로 제작과 구매 중 저렴한 방법을 확인해 보세요.
+                </p>
+              </div>
+              <a className="text-blue-400 hover:underline flex items-center gap-1 text-xs sm:text-sm md:text-base" href="/dps">
+                제작 효율 계산 <span>›</span>
+              </a>
             </div>
           </Card>
         </div>
-
-        {/* 오른쪽 영역 */}
-        <div className="lg:col-span-6 flex flex-col gap-6 h-full">
-          <div className="flex items-center justify-between bg-[#2d333b] border border-[#444c56] rounded-lg p-4 text-xs">
-            <p className="text-gray-300">
-              <span className="font-bold text-white mr-2">로스트아크 공지사항</span>
-              {latestTitle}
-            </p>
-            <button className="text-[#539bf5] hover:underline font-semibold text-sm">
-              더보기
-            </button>
-          </div>
-
-          <Card className="hover:border-gray-500 transition-colors flex-1">
-            <div className="flex items-center gap-5 w-full">
-              <div className="w-20 h-20 rounded bg-[#22272e] border border-[#444c56] flex-shrink-0" />
-              <div className="flex-1">
-                <div className="font-semibold text-gray-100 text-base">나는 강투일까 투사일까?</div>
-                <div className="text-xs text-gray-400 mt-1">레이드에서 나의 딜 지분을 알아보세요.</div>
-              </div>
-              <Link href="/dps-share" className="text-sm text-[#539bf5] hover:underline whitespace-nowrap">
-                딜지분 계산 &gt;
-              </Link>
-            </div>
-          </Card>
-
-          <Card className="hover:border-gray-500 transition-colors flex-1">
-            <div className="flex items-center gap-5 w-full">
-              <div className="w-20 h-20 rounded bg-[#22272e] border border-[#444c56] flex-shrink-0" />
-              <div className="flex-1">
-                <div className="font-semibold text-gray-100 text-base">코어별 젬 세팅 효율 계산기</div>
-                <div className="text-xs text-gray-400 mt-1">코어별 효율적인 세팅을 확인해 보세요.</div>
-              </div>
-              <Link href="/gem-setup" className="text-sm text-[#539bf5] hover:underline whitespace-nowrap">
-                젬 세팅하러 가기 &gt;
-              </Link>
-            </div>
-          </Card>
-
-          <Card className="hover:border-gray-500 transition-colors flex-1">
-            <div className="flex items-center gap-5 w-full">
-              <div className="w-20 h-20 rounded bg-[#22272e] border border-[#444c56] flex-shrink-0" />
-              <div className="flex-1">
-                <div className="font-semibold text-gray-100 text-base">재료 제작/구매 효율 계산기</div>
-                <div className="text-xs text-gray-400 mt-1">재료를 제작과 구매 중 저렴한 방법을 확인해 보세요.</div>
-              </div>
-              <Link href="/crafting-efficiency" className="text-sm text-[#539bf5] hover:underline whitespace-nowrap">
-                제작 효율 계산 &gt;
-              </Link>
-            </div>
-          </Card>
+        <div className="grid grid-cols-1 grid-rows-[1.5fr_1fr] gap-6">
+          <Card
+            children="" title={<span className="font-semibold text-sm sm:text-base md:text-lg" >내 숙제 현황</span>}
+            className="min-h-0"
+          />
+          <Card
+            children="" title={<span className="font-semibold text-sm sm:text-base md:text-lg">파티 숙제</span>}
+            className="min-h-0"
+          />
         </div>
-      </div>
 
-      <div className="bg-[#2d333b] border border-[#444c56] rounded-lg text-center py-15 text-gray-500">
-        광고
+        <div className="bg-[#16181D] md:col-span-2 p-5 h-40"></div>
       </div>
     </div>
   );

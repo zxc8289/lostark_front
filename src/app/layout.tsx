@@ -15,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Nav />
           </header>
           <main
-            className="w-full max-w-7xl mx-auto flex-1 px-4 sm:px-6 py-8
+            className="w-full max-w-7xl mx-auto flex-1 px-4 sm:px-6 py-2
                        grid min-h-[calc(100vh-5rem)]"
           >
             {children}
