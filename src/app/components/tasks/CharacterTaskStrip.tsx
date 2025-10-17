@@ -1,7 +1,7 @@
 // components/tasks/CharacterTaskStrip.tsx
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import TaskCarousel, { TaskCarouselHandle } from "./TaskCarousel";
 
 import {
@@ -18,6 +18,7 @@ import {
     arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { ChevronLeft, ChevronRight, SquarePen } from "lucide-react";
 
 export type RosterCharacter = {
     name: string;
@@ -28,7 +29,6 @@ export type RosterCharacter = {
     itemLevelNum?: number;
 };
 
-// ⬇️ 카드 재정렬을 위해 id가 꼭 필요합니다.
 export type TaskItem = { id: string; element: React.ReactNode };
 
 export type Props = {
@@ -69,11 +69,30 @@ export default function CharacterTaskStrip({
     const carouselRef = useRef<TaskCarouselHandle>(null);
     const [cur, setCur] = useState(0);
     const [maxIndex, setMaxIndex] = useState(0);
+    const itemsCount = tasks.length;
+    const [visibleCount, setVisibleCount] = useState(3);
 
     const ids = useMemo(() => tasks.map((t) => t.id), [tasks]);
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
     );
+    const carouselItems = useMemo(
+        () => tasks.map(t => (
+            <SortableCard key={t.id} id={t.id}>
+                {t.element}
+            </SortableCard>
+        )),
+        [tasks]
+    );
+
+    useEffect(() => {
+        const max = Math.max(0, itemsCount - visibleCount);
+        setMaxIndex(max);
+        if (cur > max) {
+            // 현재 인덱스가 범위를 넘었으면 마지막 합법 위치로 이동
+            carouselRef.current?.goTo?.(max);
+        }
+    }, [itemsCount, visibleCount]); // ❗ cur를 의존성에 넣지 마 (루프 방지)
 
     const handleDragEnd = (e: DragEndEvent) => {
         const { active, over } = e;
@@ -85,18 +104,12 @@ export default function CharacterTaskStrip({
         onReorder?.(character, newIds);
     };
 
+
+
     const hasTasks = tasks.length > 0;
 
-    // TaskCarousel에 넣어줄 아이템(디자인 그대로). 각 카드만 SortableCard로 감쌈
-    const carouselItems = useMemo(
-        () =>
-            tasks.map((t) => (
-                <SortableCard key={t.id} id={t.id}>
-                    {t.element}
-                </SortableCard>
-            )),
-        [tasks]
-    );
+
+
 
     return (
         <div className="bg-[#16181D] rounded-md px-5 py-4 space-y-2">
@@ -113,60 +126,86 @@ export default function CharacterTaskStrip({
                 </div>
 
                 {/* 좌/우 버튼은 TaskCarousel의 ref로 제어 */}
-                <div className="ml-auto mr-2 flex items-center gap-2">
+                <div className="ml-auto mr-2 flex items-center gap-3">
                     <button
                         onClick={() => carouselRef.current?.prev()}
                         disabled={!hasTasks || cur <= 0}
-                        className="h-8 w-8 grid place-items-center rounded-full border border-white/15
-                       text-gray-300/90 hover:text-white hover:border-white/30
-                       disabled:opacity-30 disabled:pointer-events-none"
+                        className="h-8 w-8 inline-flex items-center justify-center rounded-full border border-white/15
+               text-gray-300/90 hover:text-white hover:border-white/30
+               disabled:opacity-30 disabled:pointer-events-none"
                         aria-label="이전"
                     >
-                        ‹
+                        <ChevronLeft className="w-4 h-4" strokeWidth={2} />
                     </button>
+
                     <button
                         onClick={() => carouselRef.current?.next()}
                         disabled={!hasTasks || cur >= maxIndex}
-                        className="h-8 w-8 grid place-items-center rounded-full border border-white/15
-                       text-gray-300/90 hover:text-white hover:border-white/30
-                       disabled:opacity-30 disabled:pointer-events-none"
+                        className="h-8 w-8 inline-flex items-center justify-center rounded-full border border-white/15
+               text-gray-300/90 hover:text-white hover:border-white/30
+               disabled:opacity-30 disabled:pointer-events-none"
                         aria-label="다음"
                     >
-                        ›
+                        <ChevronRight className="w-4 h-4" strokeWidth={2} />
                     </button>
                 </div>
 
                 <button
-                    className="inline-flex items-center gap-1 h-8 px-3 rounded-md
-                     border border-white/10 text-xs text-gray-300 hover:bg-white/5"
+                    className="inline-flex items-center gap-1 py-2 px-3 rounded-md
+                     bg-white/[.04] border border-white/10  text-xs text-white hover:bg-white/5"
                     onClick={() => onEdit?.(character)}
                 >
                     숙제 편집
-                    <svg className="h-3.5 w-3.5 opacity-80" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <path d="M14.5 2.9a1.4 1.4 0 0 1 2 2L8.5 13.9 5 14.5l.6-3.5L14.5 2.9z" stroke="currentColor" strokeWidth="1.2" />
-                        <path d="M3 17h14" stroke="currentColor" strokeWidth="1.2" />
-                    </svg>
+                    <SquarePen
+                        className="inline-block align-middle w-4 h-4  text-[#FFFFFF]/50"
+                        strokeWidth={1.75}
+                    />
                 </button>
             </div>
 
             {hasTasks ? (
                 <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
                     <SortableContext items={ids} strategy={horizontalListSortingStrategy}>
-                        <TaskCarousel
-                            ref={carouselRef}
-                            items={carouselItems}
-                            // visibleCount={3}
-                            onIndexChange={(i, _count, info) => {
-                                setCur(i);
-                                if (info) setMaxIndex(info.maxIndex);
-                            }}
-                        />
+                        <div className="relative">
+                            <TaskCarousel
+                                ref={carouselRef}
+                                items={carouselItems}
+                                itemKeys={ids}
+                                onIndexChange={(i, _count, info) => {
+                                    setCur(i);
+                                    if (info) setMaxIndex(info.maxIndex);
+                                }}
+
+                            />
+                            {itemsCount > 0 && (
+                                <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+                                    {Array.from({ length: itemsCount }).map((_, i) => {
+                                        const active = i >= cur && i < Math.min(itemsCount, cur + visibleCount);
+                                        return (
+                                            <button
+                                                key={i}
+                                                onClick={() => carouselRef.current?.goTo?.(i)}
+                                                className={`rounded-full transition-all ${active ? "w-1.5 h-1.5 bg-white/90" : "w-1.5 h-1.5 bg-white/15 hover:bg-white/30"
+                                                    }`}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                        </div>
                     </SortableContext>
                 </DndContext>
             ) : (
-                <div className="px-3 py-6 text-sm text-gray-400 border border-dashed border-white/10 rounded">
-                    표시할 숙제가 없습니다. 우측 <span className="text-gray-200">‘숙제 편집’</span>을 눌러 레이드를 선택하세요.
+                <div className="px-3 py-6 text-sm text-gray-500 border border-[#FFFFFF]/15 rounded text-center">
+                    <span className="text-[#FFFFFF]/70">숙제 편집</span>
+                    <SquarePen
+                        className="inline-block align-middle w-4 h-4 mx-1 text-[#FFFFFF]/70"
+                        strokeWidth={1.75}
+                    />
+                    <span>에서 캐릭터의 레이드 숙제를 설정하고 관리해 보세요.</span>
                 </div>
+
             )}
         </div>
     );

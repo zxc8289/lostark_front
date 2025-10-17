@@ -23,7 +23,6 @@ export default function MyTasksPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // ✅ 캐릭터별 저장된 숙제 설정
   const [prefsByChar, setPrefsByChar] = useState<Record<string, CharacterTaskPrefs>>({});
   const [editingChar, setEditingChar] = useState<RosterCharacter | null>(null);
 
@@ -148,23 +147,7 @@ export default function MyTasksPage() {
             </h1>
           </div>
 
-          {/* 오른쪽: 모바일에선 축약/숨김, 한 줄 유지 */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0 whitespace-nowrap">
-            <button className="inline-flex items-center justify-center h-9 sm:h-10 px-3 sm:px-5 rounded-md border border-white/10 bg-[#16181D] hover:bg-white/5 text-xs sm:text-sm">
-              {/* xs에선 짧게, sm부터 풀레이블 */}
-              <span className="sm:hidden">초기화</span>
-              <span className="hidden sm:inline">관문 초기화</span>
-            </button>
 
-            <button className="inline-flex items-center justify-center h-9 sm:h-10 px-3 sm:px-5 rounded-md border border-white/10 bg-[#16181D] text-xs sm:text-sm font-medium">
-              업데이트
-            </button>
-
-            {/* 편집 버튼은 md 이상에서만 노출 */}
-            <button className="hidden md:inline-flex items-center justify-center h-9 md:h-10 px-3 rounded-md text-xs md:text-sm text-neutral-400 hover:text-neutral-200">
-              캐릭터 설정
-            </button>
-          </div>
         </div>
       </div>
 
@@ -331,7 +314,6 @@ export default function MyTasksPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-5">
-          {/* 요약 바 */}
           <div className="bg-[#16181D] rounded-md px-5 py-4 flex items-center">
             <div className="flex items-center gap-4 min-w-0">
               <div className="flex items-center gap-2">
@@ -344,18 +326,24 @@ export default function MyTasksPage() {
                 <span className="text-gray-500 text-sm">{data?.roster?.length ?? 0}</span>
               </div>
             </div>
-            <button className="ml-auto inline-flex items-center gap-1 h-8 px-3 rounded-md border border-white/10 text-xs text-gray-300 hover:bg-white/5">
-              숙제 편집
-              <svg className="h-3.5 w-3.5 opacity-80" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <path d="M14.5 2.9a1.4 1.4 0 0 1 2 2L8.5 13.9 5 14.5l.6-3.5L14.5 2.9z" stroke="currentColor" strokeWidth="1.2" />
-                <path d="M3 17h14" stroke="currentColor" strokeWidth="1.2" />
-              </svg>
-            </button>
+            <div className="ml-auto flex items-center gap-3">
+              <button className="inline-flex items-center justify-center py-2 px-3 sm:px-5 rounded-md bg-white/[.04] border border-white/10  hover:bg-white/5 text-xs sm:text-sm">
+                <span className="hidden sm:inline">관문 초기화</span>
+              </button>
+
+              <button className="inline-flex items-center justify-center py-2 px-3 sm:px-5 rounded-md bg-white/[.04] border border-white/10  text-xs sm:text-sm font-medium">
+                업데이트
+              </button>
+
+              <button className="hidden md:inline-flex items-center justify-center h-9 md:h-10 px-3 rounded-md text-xs md:text-sm text-neutral-400 hover:text-neutral-200">
+                캐릭터 설정
+              </button>
+
+            </div>
           </div>
 
           {err && <div className="text-sm text-red-400">에러: {err}</div>}
           {loading && <div className="text-sm text-gray-400">불러오는 중…</div>}
-
           {data?.roster
             ?.sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0))
             .map((c) => (
@@ -369,6 +357,7 @@ export default function MyTasksPage() {
                 }}
               />
             ))}
+
         </div>
       </div>
       {editingChar && (

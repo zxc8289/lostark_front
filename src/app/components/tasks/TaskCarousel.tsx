@@ -1,9 +1,6 @@
 // components/TaskCarousel.tsx
 "use client";
-
-import {
-    useEffect, useRef, useState, forwardRef, useImperativeHandle
-} from "react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import type { EmblaCarouselType } from "embla-carousel";
 
@@ -12,10 +9,12 @@ export type TaskCarouselHandle = {
     next: () => void;
     idx: number;
     count: number;
+    goTo: (i: number, opts?: { behavior?: ScrollBehavior }) => void;
 };
 
 export type TaskCarouselProps = {
     items: React.ReactNode[];
+    itemKeys?: (string | number)[];             // ✅ 추가
     onIndexChange?: (
         i: number,
         count: number,
@@ -24,7 +23,8 @@ export type TaskCarouselProps = {
 };
 
 function TaskCarouselBase(
-    { items, onIndexChange }: TaskCarouselProps,
+    // ✅ itemKeys를 구조분해로 받아오기
+    { items, itemKeys, onIndexChange }: TaskCarouselProps,
     ref: React.Ref<TaskCarouselHandle>
 ) {
     const count = items.length;
@@ -33,12 +33,7 @@ function TaskCarouselBase(
         align: "start",
         containScroll: "trimSnaps",
         slidesToScroll: 1,
-        // draggable: false,   // ❌ (구버전 방식, 최신 타입에는 없음)
-        watchDrag: false,      // ✅ 드래그/스와이프 비활성화
-        // (선택) watchFocus: false, // 포커스 이동으로 인한 자동 스크롤도 막고 싶다면 추가
     });
-
-
 
     const [idx, setIdx] = useState(0);
 
@@ -65,32 +60,36 @@ function TaskCarouselBase(
 
     const prev = () => emblaApi?.scrollPrev();
     const next = () => emblaApi?.scrollNext();
+    const goTo = (i: number, opts?: { behavior?: ScrollBehavior }) => {
+        if (!emblaApi) return;
+        const snapsLen = emblaApi.scrollSnapList().length;
+        if (snapsLen === 0) return;
+        const target = Math.max(0, Math.min(i, snapsLen - 1));
+        const jump = opts?.behavior === "auto";
+        emblaApi.scrollTo(target, jump);
+    };
 
-    useImperativeHandle(ref, () => ({ prev, next, idx, count }), [idx, count, emblaApi]);
+    useImperativeHandle(ref, () => ({ prev, next, goTo, idx, count }), [idx, count, emblaApi]);
 
     return (
-        <div className="relative group">
+        <div className="relative group mb-1">
             <div ref={emblaRef} className="overflow-hidden touch-pan-y">
-                <div className="flex gap-4 py-2">
+                <div className="flex gap-4 py-2 will-change-transform transform-gpu [backface-visibility:hidden]">
                     {items.map((node, i) => (
                         <div
-                            key={i}
+                            key={itemKeys?.[i] ?? i}
                             className="
-                                shrink-0
-                                basis-full                                /* 모바일: 1개 */
-                                sm:basis-[calc((100%-1rem)/2)]            /* sm: gap-4 => 1rem, 2개 */
-                                md:basis-[calc((100%-2rem)/3)]            /* md: 3개, 간격 2개=2rem */
-                                "
+                shrink-0
+                basis-full
+                sm:basis-[calc((100%-1rem)/2)]
+                md:basis-[calc((100%-2rem)/3)]
+              "
                         >
                             {node}
                         </div>
                     ))}
                 </div>
             </div>
-
-            {/* 양끝 그라데이션 */}
-            <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-[#16181D] to-transparent opacity-0  transition" />
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-[#16181D] to-transparent opacity-0  transition" />
         </div>
     );
 }
