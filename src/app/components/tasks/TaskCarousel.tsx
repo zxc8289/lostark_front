@@ -80,11 +80,11 @@ function TaskCarouselBase(
                         <div
                             key={itemKeys?.[i] ?? i}
                             className="
-                shrink-0
-                basis-full
-                sm:basis-[calc((100%-1rem)/2)]
-                md:basis-[calc((100%-2rem)/3)]
-              "
+                                shrink-0
+                                basis-full
+                                sm:basis-[calc((100%-1rem)/2)]
+                                md:basis-[calc((100%-2rem)/3)]
+                            "
                         >
                             {node}
                         </div>

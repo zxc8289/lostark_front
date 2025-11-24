@@ -151,7 +151,7 @@ export default function CharacterTaskStrip({
                 </div>
 
                 <button
-                    className="inline-flex items-center gap-1 py-2 px-3 rounded-md
+                    className="inline-flex items-center gap-1.5 py-2 px-3 rounded-md
                      bg-white/[.04] border border-white/10  text-xs text-white hover:bg-white/5"
                     onClick={() => onEdit?.(character)}
                 >
@@ -173,7 +173,10 @@ export default function CharacterTaskStrip({
                                 itemKeys={ids}
                                 onIndexChange={(i, _count, info) => {
                                     setCur(i);
-                                    if (info) setMaxIndex(info.maxIndex);
+                                    if (info) {
+                                        setMaxIndex(info.maxIndex);
+                                        setVisibleCount(info.visibleCount);
+                                    }
                                 }}
 
                             />

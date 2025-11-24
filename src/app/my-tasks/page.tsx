@@ -1,7 +1,7 @@
 // app/my-tasks/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import CharacterTaskStrip, { TaskItem } from "../components/tasks/CharacterTaskStrip";
 import TaskCard from "../components/tasks/TaskCard";
 import EditTasksModal from "../components/tasks/EditTasksModal";
@@ -9,6 +9,9 @@ import type { CharacterSummary, RosterCharacter } from "../components/AddAccount
 import { raidInformation, type DifficultyKey } from "@/server/data/raids";
 import type { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
 import { readPrefs, writePrefs } from "@/app/lib/tasks/raid-prefs";
+import { Search, Sparkles, SquarePen, UserPlus } from "lucide-react";
+import CharacterSettingModal from "../components/tasks/CharacterSettingModal";
+import EmptyCharacterState from "../components/tasks/EmptyCharacterState";
 
 export default function MyTasksPage() {
   const [difficulty, setDifficulty] = useState<"normal" | "hard">("normal");
@@ -18,13 +21,24 @@ export default function MyTasksPage() {
 
   const resetFilters = () => { setDifficulty("normal"); setOnlyRemain(false); setGoldOnly(false); };
 
-  const nickname = "끼러꾸";
+  const [nickname, setNickname] = useState("");
+  const [searchName, setSearchName] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+
   const [data, setData] = useState<CharacterSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const [booting, setBooting] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
   const [prefsByChar, setPrefsByChar] = useState<Record<string, CharacterTaskPrefs>>({});
   const [editingChar, setEditingChar] = useState<RosterCharacter | null>(null);
+  const [isCharSettingOpen, setIsCharSettingOpen] = useState(false);
+  const [isCharSearchOpen, setIsCharSearchOpen] = useState(false);
+
+  const [visibleByChar, setVisibleByChar] = useState<Record<string, boolean>>({});
+
+  const LOCAL_KEY = "raidTaskLastAccount";
+  const VISIBLE_KEY = "raidTaskVisibleByChar";
 
   useEffect(() => {
     if (!data?.roster) return;
@@ -37,27 +51,75 @@ export default function MyTasksPage() {
     });
   }, [data?.roster]);
 
-  // (선택) 로컬 저장/복원
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(VISIBLE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Record<string, boolean>;
+        setVisibleByChar(saved);
+      }
+    } catch {
+      // 파싱 실패하면 무시
+    }
+  }, []);
+
+
+  useEffect(() => {
+    if (!data?.roster) return;
+
+    setVisibleByChar((prev) => {
+      const next: Record<string, boolean> = {};
+      for (const c of data.roster!) {
+        // 기존 설정 유지, 없으면 기본 true
+        next[c.name] = prev[c.name] ?? true;
+      }
+      return next;
+    });
+  }, [data?.roster]);
+
+
   useEffect(() => {
     const raw = localStorage.getItem("raidTaskPrefs");
     if (raw) {
       try { setPrefsByChar(JSON.parse(raw)); } catch { }
     }
   }, []);
+
   useEffect(() => {
     localStorage.setItem("raidTaskPrefs", JSON.stringify(prefsByChar));
   }, [prefsByChar]);
 
   useEffect(() => {
-    let abort = false;
-    setLoading(true);
-    fetch(`/api/lostark/character/${encodeURIComponent(nickname)}`, { cache: "no-store" })
-      .then(r => r.json())
-      .then(json => { if (!abort) setData(json); })
-      .catch(e => { if (!abort) setErr(String(e)); })
-      .finally(() => { if (!abort) setLoading(false); });
-    return () => { abort = true; };
-  }, [nickname]);
+    try {
+      localStorage.setItem(VISIBLE_KEY, JSON.stringify(visibleByChar));
+    } catch {
+    }
+  }, [visibleByChar]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LOCAL_KEY);
+
+      if (raw) {
+        const saved = JSON.parse(raw) as {
+          nickname: string;
+          data: CharacterSummary;
+        };
+
+        // 🔹 저장된 계정 있으면 상태 복원
+        setNickname(saved.nickname);
+        setSearchName(saved.nickname);
+        setData(saved.data);
+      }
+    } catch {
+      // 파싱 실패하면 무시
+    } finally {
+      // 🔹 복원 시도 끝났으니 부트 로딩 종료
+      setBooting(false);
+    }
+  }, []);
+
 
   function setCharPrefs(name: string, updater: (cur: CharacterTaskPrefs) => CharacterTaskPrefs) {
     setPrefsByChar((prev) => {
@@ -68,18 +130,11 @@ export default function MyTasksPage() {
     });
   }
 
-
-
   const diffKey: DifficultyKey = (difficulty === "hard" ? "하드" : "노말");
-
-  // app/my-tasks/page.tsx (발췌)
-  // ...중략...
-
   const buildTasksFor = (c: RosterCharacter): TaskItem[] => {
     const prefs = prefsByChar[c.name];
     if (!prefs) return [];
 
-    // order가 있으면 그 순서대로, 없으면 기본 키 순서
     const raidNames = (prefs.order?.filter((r) => prefs.raids[r]) ?? Object.keys(prefs.raids));
 
     const items: TaskItem[] = [];
@@ -115,7 +170,6 @@ export default function MyTasksPage() {
             difficulty={p.difficulty}
             gates={p.gates}
             right={right}
-            // (옵션) prefix 선택 토글 계속 유지
             onToggleGate={(gate) => {
               const allGateIdx = diff.gates.map((g) => g.index).sort((a, b) => a - b);
               setCharPrefs(c.name, (cur) => {
@@ -134,6 +188,74 @@ export default function MyTasksPage() {
     return items;
   };
 
+
+  const handleDeleteAccount = () => {
+    // 1) 로컬스토리지 비우기
+    localStorage.removeItem(LOCAL_KEY);
+    localStorage.removeItem("raidTaskPrefs");
+    localStorage.removeItem(VISIBLE_KEY);
+
+    // 2) 화면 상태 초기화
+    setData(null);
+    setNickname("");
+    setSearchName("");
+    setPrefsByChar({});
+    setVisibleByChar({});
+
+    // 3) 캐릭터 설정 모달 닫기
+    setIsCharSettingOpen(false);
+  };
+
+
+  const handleCharacterSearch = async (name: string): Promise<void> => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+
+    setLoading(true);
+    setErr(null);
+    setIsCharSearchOpen(false);
+
+    try {
+      const r = await fetch(`/api/lostark/character/${encodeURIComponent(trimmed)}`, {
+        cache: "no-store",
+      });
+
+      const json = await r.json();
+
+      // 상태 반영
+      setNickname(trimmed);
+      setSearchName(trimmed);
+      setData(json);
+
+      try {
+        localStorage.setItem(
+          LOCAL_KEY,
+          JSON.stringify({ nickname: trimmed, data: json })
+        );
+      } catch {
+      }
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const handleSearchSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!searchInput.trim()) return;
+    handleCharacterSearch(searchInput);
+  };
+
+  const handleRefreshAccount = async () => {
+    if (!nickname) return;
+    await handleCharacterSearch(nickname);
+  };
+
+  const visibleRoster = data?.roster?.filter((c) => visibleByChar[c.name] ?? true) ?? [];
+
+  const hasRoster = data?.roster && data.roster.length > 0;
 
   return (
     <div className="space-y-5 py-12 text-gray-300 w-full text-white">
@@ -323,7 +445,7 @@ export default function MyTasksPage() {
               <span className="h-4 w-px bg-white/10" />
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-xl">숙제 남은 캐릭터</span>
-                <span className="text-gray-500 text-sm">{data?.roster?.length ?? 0}</span>
+                <span className="text-gray-500 text-sm">{visibleRoster.length}</span>
               </div>
             </div>
             <div className="ml-auto flex items-center gap-3">
@@ -335,17 +457,98 @@ export default function MyTasksPage() {
                 업데이트
               </button>
 
-              <button className="hidden md:inline-flex items-center justify-center h-9 md:h-10 px-3 rounded-md text-xs md:text-sm text-neutral-400 hover:text-neutral-200">
+              <button
+                onClick={() => setIsCharSettingOpen(true)}
+                className="inline-flex gap-1.5 items-center justify-center py-2 px-3 sm:px-5 rounded-md bg-white/[.04] border border-white/10  text-xs sm:text-sm font-medium">
                 캐릭터 설정
+                <SquarePen
+                  className="inline-block align-middle w-4 h-4  text-[#FFFFFF]/50"
+                  strokeWidth={1.75}
+                />
               </button>
 
             </div>
           </div>
 
+          {!loading && !booting && !hasRoster && (
+            <div className="w-full py-16 px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl animate-in fade-in zoom-in-95 duration-500">
+              {/* 아이콘 + 글로우 효과 */}
+              <div className="relative mb-6">
+                <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
+                <div className="relative w-20 h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
+                  <UserPlus size={36} className="text-[#5B69FF]" />
+                </div>
+                <div className="absolute -right-2 -bottom-2 bg-[#16181D] p-1.5 rounded-full border border-white/10">
+                  <Search size={16} className="text-gray-400" />
+                </div>
+              </div>
+
+              <h2 className="text-2xl font-bold text-white mb-3">
+                원정대 캐릭터를 불러오세요
+              </h2>
+              <p className="text-gray-400 max-w-md mb-8 leading-relaxed">
+                아직 등록된 캐릭터 데이터가 없습니다.<br />
+                <span className="text-gray-500">대표 캐릭터 닉네임을 입력하면 전투정보실에서 정보를 가져옵니다.</span>
+              </p>
+
+              {/* 🔹 여기 폼 */}
+              <form onSubmit={handleSearchSubmit} className="relative flex items-center w-full max-w-md">
+                <input
+                  type="text"
+                  placeholder="캐릭터 닉네임 입력"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  disabled={loading}
+                  className="w-full h-12 pl-4 pr-12 rounded-lg bg-[#0F1115] border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={loading || !searchInput.trim()}
+                  className="absolute right-1.5 p-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-500 transition-colors"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Search size={18} />
+                  )}
+                </button>
+              </form>
+            </div>
+          )}
+
           {err && <div className="text-sm text-red-400">에러: {err}</div>}
-          {loading && <div className="text-sm text-gray-400">불러오는 중…</div>}
-          {data?.roster
-            ?.sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0))
+
+
+          {(loading || booting) && !hasRoster && (
+            <div className="w-full py-24 flex flex-col items-center justify-center animate-in fade-in duration-300">
+              <div className="relative w-20 h-20 mb-6">
+                {/* 바깥쪽 회전하는 링 */}
+                <div className="absolute inset-0 border-4 border-[#5B69FF]/20 rounded-full"></div>
+                <div className="absolute inset-0 border-4 border-[#5B69FF] rounded-full border-t-transparent animate-spin"></div>
+
+                {/* 안쪽 펄스 아이콘 */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Sparkles
+                    size={28}
+                    className="text-[#5B69FF] animate-pulse"
+                    fill="currentColor"
+                    fillOpacity={0.3}
+                  />
+                </div>
+              </div>
+
+              <h3 className="text-xl font-bold text-white mb-2 animate-pulse">
+                원정대 정보를 불러오는 중입니다
+              </h3>
+              <p className="text-sm text-gray-500">
+                잠시만 기다려주세요...
+              </p>
+            </div>
+          )}
+
+
+          {visibleRoster
+            .sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0))
             .map((c) => (
               <CharacterTaskStrip
                 key={c.name}
@@ -357,6 +560,7 @@ export default function MyTasksPage() {
                 }}
               />
             ))}
+
 
         </div>
       </div>
@@ -373,6 +577,26 @@ export default function MyTasksPage() {
         />
       )}
 
+      {isCharSettingOpen && (
+        <CharacterSettingModal
+          open
+          onClose={() => setIsCharSettingOpen(false)}
+          roster={data?.roster ?? []}
+          onDeleteAccount={handleDeleteAccount}
+          onRefreshAccount={handleRefreshAccount}
+          visibleByChar={visibleByChar}
+          onChangeVisible={(next) => setVisibleByChar(next)}
+        />
+      )}
+
+
+      {isCharSearchOpen && (
+        <EmptyCharacterState
+          open
+          onClose={() => setIsCharSearchOpen(false)}
+          onSearch={handleCharacterSearch}
+        />
+      )}
     </div>
   );
 }
