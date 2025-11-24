@@ -25,6 +25,7 @@ export default function Card({
     contentClassName,
     footerClassName,
     children,
+
 }: {
     as?: ElementType;
     title?: ReactNode;

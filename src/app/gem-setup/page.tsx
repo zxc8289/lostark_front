@@ -43,10 +43,12 @@ export default function ArcGridPage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [altPlans, setAltPlans] = useState<ScoredPlan[] | null>(null);
+  const [showAltList, setShowAltList] = useState(true);
   const enabledCores = useMemo(() => state.cores.filter(c => c.enabled) as CoreDef[], [state.cores]);
   const [busy, setBusy] = useState(false);
   const [prog, setProg] = useState<{ v: number | null; msg: string }>({ v: null, msg: "" });
   const hydratedRef = useRef(false);
+
 
   const [fileName, setFileName] = useState(() => {
     const now = new Date();
@@ -105,6 +107,62 @@ export default function ArcGridPage() {
     await tick();
     endProgress();
   }
+
+
+  async function runDamageOnly() {
+    const cores = state.cores.filter(c => c.enabled) as CoreDef[];
+    if (!cores.length) return showToast("선택된 코어가 없어요");
+    if (invCount === 0) return showToast("인벤토리에 젬을 추가해 주세요");
+
+    const constraints = Object.fromEntries(
+      state.cores.map(c => [c.key, { minPts: c.minPts, maxPts: c.maxPts }])
+    ) as Record<string, { minPts: number; maxPts: number }>;
+
+    const role = (state.params.role ?? "dealer") as Role;
+
+    startProgress(
+      role === "supporter"
+        ? "서포터 기준 스탯(지원 옵션) 우선 조합 계산 중..."
+        : "딜러 기준 스탯(딜 옵션) 우선 조합 계산 중...",
+      10
+    );
+    await tick();
+
+    // 🔥 onlyAtTotalPts = null → 포인트 고정 없이 "스탯 점수"를 1순위로 탐색
+    const list = enumerateTopPlansByStats(
+      cores,
+      state.params,
+      state.inventory,
+      constraints,
+      role,
+      10,      // topK
+      null,    // ✅ 포인트 합을 강제로 맞추지 않음 (순수 스탯 우선)
+      2000     // capPerCore (넉넉하게 유지)
+    );
+
+    updateProgress("결과 정리 중...", 85);
+    await tick();
+
+    if (!list.length) {
+      setAltPlans(null);
+      showToast("조건을 만족하는 조합이 없어요");
+    } else {
+      setAltPlans(list);
+      // 제일 상위 스탯 플랜을 메인 결과에도 바로 반영
+      setResultPack({
+        plan: list[0].plan,
+        focusKey: cores[0]?.key ?? null,
+      });
+
+      showToast(
+        `${role === "supporter" ? "서포터" : "딜러"
+        } 기준 스탯 우선 상위 ${list.length}개`
+      );
+    }
+
+    endProgress();
+  }
+
 
   const startProgress = (msg: string, v: number | null = null) => {
     setProg({ v, msg });
@@ -488,8 +546,31 @@ export default function ArcGridPage() {
         </div>
       </Card>
 
-      <Card title="3. 결과 확인">
+      <Card title="3. 결과 확인" >
         <div className="w-full">
+          <div className="flex flex-wrap justify-start gap-1.5 sm:gap-2 mb-2 text-[10px] sm:text-xs">
+            <button
+              className="px-2.5 py-1.5 rounded-md bg-[#2d333b] border border-[#444c56] text-gray-200 hover:bg-[#30363d] transition"
+              onClick={run}
+            >
+              포인트 우선 최적화
+            </button>
+            <button
+              className="px-2.5 py-1.5 rounded-md bg-[#2d333b] border border-[#444c56] text-gray-200 hover:bg-[#30363d] transition"
+              onClick={runStatsList}
+            >
+              최대 포인트 내 스탯 Top
+            </button>
+            <button
+              className="px-2.5 py-1.5 rounded-md bg-[#2d333b] border border-[#444c56] text-gray-200 hover:bg-[#30363d] transition"
+              onClick={runDamageOnly}
+            >
+              {state.params.role === "supporter"
+                ? "서포터 스탯(지원) 우선"
+                : "딜러 스탯(딜) 우선"}
+            </button>
+          </div>
+
           {!resultPack ? (
             <div className="border border-dashed border-[#444c56] rounded-lg p-3 sm:p-4 text-center text-gray-400 text-[12px] sm:text-sm">
               아래 오른쪽의 <b className="text-gray-200">최적화</b> 버튼을 눌러 조합을 계산해 보세요.
@@ -509,160 +590,217 @@ export default function ArcGridPage() {
 
           {altPlans && altPlans.length > 0 && (
             <div className="mt-4">
-              <div className="overflow-x-auto rounded-lg border border-[#444c56]">
-                <table className="w-full text-[11px] sm:text-xs md:text-sm text-center">
-                  <thead className="bg-[#22272e] text-gray-300">
-                    <tr>
-                      <th className="px-2 sm:px-3 py-2 w-8 sm:w-10"></th>
-                      <th className="px-2 sm:px-3 py-2 text-center w-10 sm:w-14">#</th>
-                      <th className="px-2 sm:px-3 py-2 text-center w-28 sm:w-32">스탯 점수</th>
-                      <th className="px-2 sm:px-3 py-2 text-center w-24 sm:w-28">총 포인트</th>
-                      <th className="px-2 sm:px-3 py-2 text-center w-28 sm:w-32">잔여 의지력</th>
-                      {enabledCores.map(c => (
-                        <th key={c.key} className="px-2 sm:px-3 py-2 text-center whitespace-nowrap">{c.label}</th>
-                      ))}
-                      <th className="px-2 sm:px-3 py-2 text-center w-20 sm:w-24"> </th>
-                    </tr>
-                  </thead>
+              {/* 🔹 Top10 전체 접기/펼치기 헤더 */}
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[10px] sm:text-xs text-gray-400">
+                  상위 {altPlans.length}개 조합 (스탯 점수 기준)
+                </div>
+                <button
+                  className="px-2 py-0.5 rounded-md text-[10px] sm:text-xs
+                             bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#22272e] transition"
+                  onClick={() => setShowAltList((v) => !v)}
+                >
+                  {showAltList ? "Top 목록 접기 ▴" : "Top 목록 펼치기 ▾"}
+                </button>
+              </div>
 
-                  <tbody className="divide-y divide-[#444c56]">
-                    {altPlans.map((p, i) => {
-                      const colCount = 6 + enabledCores.length;
-                      const isOpen = expandedSet.has(i);
-                      return (
-                        <Fragment key={`plan-${i}`}>
-                          <tr className="bg-[#2d333b] hover:bg-[#30363d]">
-                            <td className="px-2 sm:px-3 py-2">
-                              <button
-                                aria-label={isOpen ? "접기" : "펼치기"}
-                                className="w-6 h-6 rounded hover:bg-black/20"
-                                onClick={() => toggleRow(i)}
-                              >
-                                <span className="inline-block align-middle">{isOpen ? "▾" : "▸"}</span>
-                              </button>
-                            </td>
+              {showAltList && (
+                <div className="overflow-x-auto rounded-lg border border-[#444c56]">
+                  <table className="w-full text-[11px] sm:text-xs md:text-sm text-center">
+                    <thead className="bg-[#22272e] text-gray-300">
+                      <tr>
+                        <th className="px-2 sm:px-3 py-2 w-8 sm:w-10"></th>
+                        <th className="px-2 sm:px-3 py-2 text-center w-10 sm:w-14">#</th>
+                        <th className="px-2 sm:px-3 py-2 text-center w-28 sm:w-32">스탯 점수</th>
+                        <th className="px-2 sm:px-3 py-2 text-center w-24 sm:w-28">총 포인트</th>
+                        <th className="px-2 sm:px-3 py-2 text-center w-28 sm:w-32">잔여 의지력</th>
+                        {enabledCores.map((c) => (
+                          <th
+                            key={c.key}
+                            className="px-2 sm:px-3 py-2 text-center whitespace-nowrap"
+                          >
+                            {c.label}
+                          </th>
+                        ))}
+                        <th className="px-2 sm:px-3 py-2 text-center w-20 sm:w-24"></th>
+                      </tr>
+                    </thead>
 
-                            <td className="px-2 sm:px-3 py-2 text-gray-300 text-center">#{i + 1}</td>
-                            <td className="px-2 sm:px-3 py-2 text-center"><b className="text-white">{p.statScore.toFixed(3)}</b></td>
-                            <td className="px-2 sm:px-3 py-2 text-center"><b className="text-gray-200">{p.sumPts}</b></td>
-                            <td className="px-2 sm:px-3 py-2 text-center"><b className="text-gray-200">{p.sumRemain}</b></td>
+                    <tbody className="divide-y divide-[#444c56]">
+                      {altPlans.map((p, i) => {
+                        const colCount = 6 + enabledCores.length;
+                        const isOpen = expandedSet.has(i);
+                        return (
+                          <Fragment key={`plan-${i}`}>
+                            <tr className="bg-[#2d333b] hover:bg-[#30363d]">
+                              <td className="px-2 sm:px-3 py-2">
+                                <button
+                                  aria-label={isOpen ? "접기" : "펼치기"}
+                                  className="w-6 h-6 rounded hover:bg-black/20"
+                                  onClick={() => toggleRow(i)}
+                                >
+                                  <span className="inline-block align-middle">
+                                    {isOpen ? "▾" : "▸"}
+                                  </span>
+                                </button>
+                              </td>
 
-                            {enabledCores.map(c => {
-                              const it = p.plan.answer[c.key];
-                              const pts = it?.res?.pts ?? 0;
-                              const stat = typeof it?.res?.flexScore === "number" ? it.res.flexScore : 0;
-                              return (
-                                <td key={c.key} className="px-2 sm:px-3 py-2 text-gray-300 text-center">
-                                  <div className="flex items-center justify-center gap-1.5 sm:gap-2">
-                                    <span className="px-1.5 sm:px-2 py-0.5 rounded bg-black/20 border border-white/10">{pts}p</span>
-                                    <span className="text-gray-400">·</span>
-                                    <span className="tabular-nums">{stat.toFixed(3)}</span>
-                                  </div>
-                                </td>
-                              );
-                            })}
+                              <td className="px-2 sm:px-3 py-2 text-gray-300 text-center">
+                                #{i + 1}
+                              </td>
+                              <td className="px-2 sm:px-3 py-2 text-center">
+                                <b className="text-white">{p.statScore.toFixed(3)}</b>
+                              </td>
+                              <td className="px-2 sm:px-3 py-2 text-center">
+                                <b className="text-gray-200">{p.sumPts}</b>
+                              </td>
+                              <td className="px-2 sm:px-3 py-2 text-center">
+                                <b className="text-gray-200">{p.sumRemain}</b>
+                              </td>
 
-                            <td className="px-2 sm:px-3 py-2 text-center">
-                              <button
-                                className="px-2.5 sm:px-3 py-1.5 rounded-md border border-[#444c56] bg-[#1f242c] text-gray-200 hover:bg-[#262c35] transition"
-                                onClick={() => {
-                                  setResultPack({ plan: p.plan, focusKey: enabledCores[0]?.key });
-                                  setToast(`#${i + 1} 조합을 적용했어요`);
-                                  setTimeout(() => setToast(null), 1400);
-                                }}
-                              >
-                                적용
-                              </button>
-                            </td>
-                          </tr>
+                              {enabledCores.map((c) => {
+                                const it = p.plan.answer[c.key];
+                                const pts = it?.res?.pts ?? 0;
+                                const stat =
+                                  typeof it?.res?.flexScore === "number"
+                                    ? it.res.flexScore
+                                    : 0;
+                                return (
+                                  <td
+                                    key={c.key}
+                                    className="px-2 sm:px-3 py-2 text-gray-300 text-center"
+                                  >
+                                    <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+                                      <span className="px-1.5 sm:px-2 py-0.5 rounded bg-black/20 border border-white/10">
+                                        {pts}p
+                                      </span>
+                                      <span className="text-gray-400">·</span>
+                                      <span className="tabular-nums">
+                                        {stat.toFixed(3)}
+                                      </span>
+                                    </div>
+                                  </td>
+                                );
+                              })}
 
-                          {isOpen && (
-                            <tr className="bg-[#1f242c]">
-                              <td colSpan={colCount} className="px-2 sm:px-3 py-3">
-                                <div className="rounded-lg border border-[#444c56] bg-[#2d333b]">
-                                  <ResultsPanel
-                                    plan={p.plan}
-                                    cores={state.cores}
-                                    gemById={gemById}
-                                  />
-                                </div>
+                              <td className="px-2 sm:px-3 py-2 text-center">
+                                <button
+                                  className="px-2.5 sm:px-3 py-1.5 rounded-md border border-[#444c56] bg-[#1f242c] text-gray-200 hover:bg-[#262c35] transition"
+                                  onClick={() => {
+                                    setResultPack({
+                                      plan: p.plan,
+                                      focusKey: enabledCores[0]?.key,
+                                    });
+                                    setToast(`#${i + 1} 조합을 적용했어요`);
+                                    setTimeout(
+                                      () => setToast(null),
+                                      1400
+                                    );
+                                  }}
+                                >
+                                  적용
+                                </button>
                               </td>
                             </tr>
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+
+                            {isOpen && (
+                              <tr className="bg-[#1f242c]">
+                                <td
+                                  colSpan={colCount}
+                                  className="px-2 sm:px-3 py-3"
+                                >
+                                  <div className="rounded-lg border border-[#444c56] bg-[#2d333b]">
+                                    <ResultsPanel
+                                      plan={p.plan}
+                                      cores={state.cores}
+                                      gemById={gemById}
+                                    />
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
       </Card>
 
+
       <ActionBar coreCount={selectedCoreCount} invCount={invCount} onRun={run} />
 
-      {toast && (
-        <div className="fixed bottom-24 sm:bottom-24 right-4 sm:right-5 px-3 py-2 rounded-xl bg-zinc-900 text-white text-[12px] sm:text-sm shadow opacity-95">
-          {toast}
-        </div>
-      )}
+      {
+        toast && (
+          <div className="fixed bottom-24 sm:bottom-24 right-4 sm:right-5 px-3 py-2 rounded-xl bg-zinc-900 text-white text-[12px] sm:text-sm shadow opacity-95">
+            {toast}
+          </div>
+        )
+      }
 
-      {showQuick && (
-        <QuickAddModal
-          onClose={() => setShowQuick(false)}
-          onConfirm={(drafts: QuickDraft[]) => {
-            setState(st => {
-              const next = { ...st, inventory: { ...st.inventory } };
-              for (const d of drafts) {
-                const g: Gem = {
-                  id: crypto?.randomUUID?.() || Math.random().toString(36).slice(2),
-                  family: d.family,
-                  subType: d.subType,
-                  baseWill: d.base,
-                  options: [
-                    { name: '의지력 효율', lv: d.effLv, fixed: true },
-                    { name: '코어 포인트', lv: d.pts, fixed: true },
-                    ...d.opts.slice(0, 2).map(o => ({ name: o.name, lv: o.lv })),
-                  ],
-                };
-                (next.inventory as any)[g.family] = [...(next.inventory as any)[g.family], g];
-              }
-              return next;
-            });
-            setShowQuick(false);
-            showToast(`젬 ${drafts.length}개 추가`);
-          }}
-        />
-      )}
+      {
+        showQuick && (
+          <QuickAddModal
+            onClose={() => setShowQuick(false)}
+            onConfirm={(drafts: QuickDraft[]) => {
+              setState(st => {
+                const next = { ...st, inventory: { ...st.inventory } };
+                for (const d of drafts) {
+                  const g: Gem = {
+                    id: crypto?.randomUUID?.() || Math.random().toString(36).slice(2),
+                    family: d.family,
+                    subType: d.subType,
+                    baseWill: d.base,
+                    options: [
+                      { name: '의지력 효율', lv: d.effLv, fixed: true },
+                      { name: '코어 포인트', lv: d.pts, fixed: true },
+                      ...d.opts.slice(0, 2).map(o => ({ name: o.name, lv: o.lv })),
+                    ],
+                  };
+                  (next.inventory as any)[g.family] = [...(next.inventory as any)[g.family], g];
+                }
+                return next;
+              });
+              setShowQuick(false);
+              showToast(`젬 ${drafts.length}개 추가`);
+            }}
+          />
+        )
+      }
 
-      {busy && (
-        <div className="fixed inset-0 z-[100] pointer-events-none">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-none" />
-          <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 w-[min(520px,92vw)] pointer-events-auto">
-            <div className="rounded-xl border border-[#444c56] bg-[#1f242c] shadow-lg overflow-hidden">
-              <div className="px-3 sm:px-4 pt-2.5 sm:pt-3 pb-2 text-[12px] sm:text-sm md:text-base text-gray-200">
-                {prog.msg || "작업을 준비하고 있어요"}
-              </div>
-              <div className="h-2 bg-black/30">
-                {prog.v == null ? (
-                  <div className="h-2 w-1/3 bg-blue-600/70 animate-pulse" />
-                ) : (
-                  <div
-                    className="h-2 bg-blue-600 transition-[width] duration-200 ease-out"
-                    style={{ width: `${Math.max(0, Math.min(100, prog.v))}%` }}
-                    aria-valuenow={prog.v}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    role="progressbar"
-                  />
-                )}
+      {
+        busy && (
+          <div className="fixed inset-0 z-[100] pointer-events-none">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-none" />
+            <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 w-[min(520px,92vw)] pointer-events-auto">
+              <div className="rounded-xl border border-[#444c56] bg-[#1f242c] shadow-lg overflow-hidden">
+                <div className="px-3 sm:px-4 pt-2.5 sm:pt-3 pb-2 text-[12px] sm:text-sm md:text-base text-gray-200">
+                  {prog.msg || "작업을 준비하고 있어요"}
+                </div>
+                <div className="h-2 bg-black/30">
+                  {prog.v == null ? (
+                    <div className="h-2 w-1/3 bg-blue-600/70 animate-pulse" />
+                  ) : (
+                    <div
+                      className="h-2 bg-blue-600 transition-[width] duration-200 ease-out"
+                      style={{ width: `${Math.max(0, Math.min(100, prog.v))}%` }}
+                      aria-valuenow={prog.v}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      role="progressbar"
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }
 
@@ -679,14 +817,14 @@ function Row({
   onMin: (v: number) => void;
   onMax: (v: number) => void;
 }) {
-  const isMobile = useMediaQuery("(max-width: 640px)"); 
+  const isMobile = useMediaQuery("(max-width: 640px)");
   const gradeOptions = useMemo(() => {
-    const showNum = !isMobile; 
+    const showNum = !isMobile;
     return [
-      { value: "heroic",  label: showNum ? "영웅(9)"  : "영웅"  },
-      { value: "legend",  label: showNum ? "전설(12)" : "전설"  },
-      { value: "relic",   label: showNum ? "유물(15)" : "유물"  },
-      { value: "ancient", label: showNum ? "고대(17)" : "고대"  },
+      { value: "heroic", label: showNum ? "영웅(9)" : "영웅" },
+      { value: "legend", label: showNum ? "전설(12)" : "전설" },
+      { value: "relic", label: showNum ? "유물(15)" : "유물" },
+      { value: "ancient", label: showNum ? "고대(17)" : "고대" },
     ];
   }, [isMobile]);
   return (
@@ -700,7 +838,7 @@ function Row({
             checked={core.enabled}
             onChange={(e) => onToggle(e.target.checked)}
           />
-      <div
+          <div
             className="
                 relative
                 /* 트랙 크기: base(모바일) → sm → md */
@@ -721,15 +859,14 @@ function Row({
                 /* 이동 */
                 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full
             "
-            ></div>
+          ></div>
 
-             </label>
+        </label>
         <span
-          className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs md:text-sm font-medium whitespace-nowrap ${
-            core.family === "order"
-              ? "bg-rose-900/50 text-rose-300 border border-rose-800/50"
-              : "bg-blue-900/50 text-blue-300 border border-blue-800/50"
-          }`}
+          className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs md:text-sm font-medium whitespace-nowrap ${core.family === "order"
+            ? "bg-rose-900/50 text-rose-300 border border-rose-800/50"
+            : "bg-blue-900/50 text-blue-300 border border-blue-800/50"
+            }`}
         >
           {core.label}
         </span>
@@ -737,7 +874,7 @@ function Row({
 
       {/* 등급 Select */}
       <div className="text-[12px] sm:text-sm">
-       <Select
+        <Select
           value={core.grade}
           onChange={(v) => onGrade(v as CoreDef["grade"])}
           options={gradeOptions}

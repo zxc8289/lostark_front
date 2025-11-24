@@ -33,6 +33,7 @@ function TaskCarouselBase(
         align: "start",
         containScroll: "trimSnaps",
         slidesToScroll: 1,
+        watchDrag: false,
     });
 
     const [idx, setIdx] = useState(0);
