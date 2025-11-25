@@ -117,47 +117,46 @@ export default function CharacterTaskStrip({
             <div className="flex items-center">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                        <span className="font-semibold text-xl">{character.name}</span>
-                        <span className="text-gray-500 text-sm">
+                        <span className="font-semibold text-base sm:text-xl">{character.name}</span>
+                        <span className="text-gray-500 text-[12px] sm:text-sm">
                             {character.itemLevel ? `Lv. ${character.itemLevel}` : "Lv. -"}
                             {character.className ? ` / ${character.className}` : ""}
                         </span>
                     </div>
                 </div>
 
-                {/* 좌/우 버튼은 TaskCarousel의 ref로 제어 */}
-                <div className="ml-auto mr-2 flex items-center gap-3">
+                <div className="ml-auto mr-2 flex items-center gap-1.5 sm:gap-3">
                     <button
                         onClick={() => carouselRef.current?.prev()}
                         disabled={!hasTasks || cur <= 0}
-                        className="h-8 w-8 inline-flex items-center justify-center rounded-full border border-white/15
-               text-gray-300/90 hover:text-white hover:border-white/30
-               disabled:opacity-30 disabled:pointer-events-none"
+                        className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-white/15
+                            text-gray-300/90 hover:text-white hover:border-white/30
+                            disabled:opacity-30 disabled:pointer-events-none"
                         aria-label="이전"
                     >
-                        <ChevronLeft className="w-4 h-4" strokeWidth={2} />
+                        <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={2} />
                     </button>
 
                     <button
                         onClick={() => carouselRef.current?.next()}
                         disabled={!hasTasks || cur >= maxIndex}
-                        className="h-8 w-8 inline-flex items-center justify-center rounded-full border border-white/15
-               text-gray-300/90 hover:text-white hover:border-white/30
-               disabled:opacity-30 disabled:pointer-events-none"
+                        className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-white/15
+                            text-gray-300/90 hover:text-white hover:border-white/30
+                            disabled:opacity-30 disabled:pointer-events-none"
                         aria-label="다음"
                     >
-                        <ChevronRight className="w-4 h-4" strokeWidth={2} />
+                        <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={2} />
                     </button>
                 </div>
 
                 <button
-                    className="inline-flex items-center gap-1.5 py-2 px-3 rounded-md
+                    className="inline-flex items-center gap-1.5 py-[5px] px-[10px] sm:py-2 sm:px-3 rounded-md
                      bg-white/[.04] border border-white/10  text-xs text-white hover:bg-white/5"
                     onClick={() => onEdit?.(character)}
                 >
                     숙제 편집
                     <SquarePen
-                        className="inline-block align-middle w-4 h-4  text-[#FFFFFF]/50"
+                        className="inline-block align-middle w-3 h-3 sm:w-4 sm:h-4  text-[#FFFFFF]/50"
                         strokeWidth={1.75}
                     />
                 </button>
@@ -200,13 +199,14 @@ export default function CharacterTaskStrip({
                     </SortableContext>
                 </DndContext>
             ) : (
-                <div className="px-3 py-6 text-sm text-gray-500 border border-[#FFFFFF]/15 rounded text-center">
-                    <span className="text-[#FFFFFF]/70">숙제 편집</span>
-                    <SquarePen
-                        className="inline-block align-middle w-4 h-4 mx-1 text-[#FFFFFF]/70"
-                        strokeWidth={1.75}
-                    />
-                    <span>에서 캐릭터의 레이드 숙제를 설정하고 관리해 보세요.</span>
+                <div className="py-2">
+                    <div className="px-3 py-6 text-[11px] sm:text-sm text-gray-500 border border-[#FFFFFF]/15 rounded text-center">
+                        <span className="text-[#FFFFFF]/70">숙제 편집</span>
+                        <SquarePen
+                            className="inline-block align-middle w-3 h-3 sm:w-4 sm:h-4 mx-1 text-[#FFFFFF]/70"
+                        />
+                        <span>에서 캐릭터의 레이드 숙제를 설정하고 관리해 보세요.</span>
+                    </div>
                 </div>
 
             )}

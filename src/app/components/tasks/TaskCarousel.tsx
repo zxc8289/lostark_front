@@ -14,7 +14,7 @@ export type TaskCarouselHandle = {
 
 export type TaskCarouselProps = {
     items: React.ReactNode[];
-    itemKeys?: (string | number)[];             // ✅ 추가
+    itemKeys?: (string | number)[];
     onIndexChange?: (
         i: number,
         count: number,
@@ -23,7 +23,6 @@ export type TaskCarouselProps = {
 };
 
 function TaskCarouselBase(
-    // ✅ itemKeys를 구조분해로 받아오기
     { items, itemKeys, onIndexChange }: TaskCarouselProps,
     ref: React.Ref<TaskCarouselHandle>
 ) {
@@ -83,7 +82,8 @@ function TaskCarouselBase(
                                 shrink-0
                                 basis-full
                                 sm:basis-[calc((100%-1rem)/2)]
-                                md:basis-[calc((100%-2rem)/3)]
+                                md:basis-[calc((100%-2rem)/2)]
+                                lg:basis-[calc((100%-2rem)/3)]
                             "
                         >
                             {node}

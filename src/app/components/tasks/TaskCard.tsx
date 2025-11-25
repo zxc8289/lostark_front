@@ -17,12 +17,16 @@ type Props = {
 
 const DIFF = {
     하드: {
-        badge: "bg-[#FF5252]/10 text-[#FF5252] border border-none ",
+        badge: "bg-[#FF5252]/10 text-[#FF5252] border border-none",
         check: "bg-[#ff5a5a] text-white",
+        // 🔹 하드일 때 hover 색
+        hover: "hover:bg-[#FF5252] hover:text-white",
     },
     노말: {
         badge: "bg-[#5B69FF]/10 text-[#5B69FF] border border-none",
         check: "bg-[#5B69FF] text-white",
+        // 🔹 노말일 때 hover 색
+        hover: "hover:bg-[#5B69FF] hover:text-white",
     },
 } as const;
 
@@ -61,9 +65,9 @@ export default function TaskCard({
         <div className="grid grid-cols-[1fr_auto] px-5 py-5 bg-[#222429] rounded-sm">
             {/* left */}
             <div className="min-w-0">
-                <div className="text-gray-500 text-xs">{kind} 레이드</div>
+                <div className="text-gray-500 text-[11px]">{kind} 레이드</div>
                 <div className="mt-1 flex items-center gap-2 min-w-0">
-                    <div className="text-lg truncate">{title}</div>
+                    <div className="text-base truncate">{title}</div>
                     <span className={`text-[11px] px-2 py-0.5 rounded-sm ${diffStyle.badge}`}>
                         {difficulty}
                     </span>
@@ -71,7 +75,7 @@ export default function TaskCard({
             </div>
 
             {/* right: 관문칩/체크아이콘 + 추가요소 */}
-            <div className="ml-auto row-span-2 flex items-center gap-2">
+            <div className="ml-auto row-span-2 flex items-center gap-1">
                 {all.map((g) => {
                     const isChecked = checked.has(g);
                     const base =
@@ -86,11 +90,16 @@ export default function TaskCard({
                             onClick={() => onToggleGate?.(g, !isChecked)}
                             className={[
                                 base,
-                                disabled ? "opacity-50 cursor-default" : "hover:scale-[1.1]",
+                                disabled
+                                    ? "opacity-50 cursor-default"
+                                    : "hover:scale-[1.1]",
                                 isChecked
                                     ? `${diffStyle.check} border-transparent`
-                                    : "bg-[#FFFFFF]/5 text-[#FFFFFF]/20 border-none hover:border-white/20 hover:bg-[#FF5252] hover:text-white",
-                                "scale-[1.1]"
+                                    : [
+                                        "bg-[#FFFFFF]/5 text-[#FFFFFF]/20 border-none hover:border-white/20",
+                                        diffStyle.hover,
+                                    ].join(" "),
+                                "scale-[1.0]",
                             ].join(" ")}
                         >
                             {isChecked ? (

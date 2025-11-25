@@ -12,7 +12,7 @@ type Props = {
     onChangeVisible?: (next: Record<string, boolean>) => void;
 };
 
-export default function EmptyCharacterState({ open, onSearch, loading, onClose, visibleByChar, onChangeVisible }: Props) {
+export default function EmptyCharacterState({ open, onSearch, loading, onClose }: Props) {
     const [input, setInput] = useState("");
 
 
@@ -24,25 +24,6 @@ export default function EmptyCharacterState({ open, onSearch, loading, onClose, 
     };
 
 
-    useEffect(() => {
-        if (!roster) {
-            setCharacters(DUMMY_CHARACTERS);
-            return;
-        }
-        if (roster.length === 0) {
-            setCharacters([]);
-            return;
-        }
-        setCharacters(
-            roster.map((c) => ({
-                name: c.name,
-                className: c.className,
-                itemLevel: c.itemLevelNum?.toLocaleString() ?? c.itemLevel,
-                // 🔹 부모가 준 visibleByChar를 우선 사용, 없으면 true
-                isVisible: visibleByChar?.[c.name] ?? true,
-            })),
-        );
-    }, [roster, visibleByChar]);
 
 
     if (!open) return null;

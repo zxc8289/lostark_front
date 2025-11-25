@@ -13,15 +13,7 @@ type ModalCharacter = {
 };
 
 const DUMMY_CHARACTERS: ModalCharacter[] = [
-    { name: "다미", className: "도화가", itemLevel: "1,743.33", itemLevelNum: 1743.33, isVisible: true },
-    { name: "응씰", className: "바드", itemLevel: "1,732.50", itemLevelNum: 1732.5, isVisible: true },
-    { name: "꼼지", className: "환수사", itemLevel: "1,730.83", itemLevelNum: 1730.83, isVisible: true },
-    { name: "쇼님", className: "발키리", itemLevel: "1,713.33", itemLevelNum: 1713.33, isVisible: true },
-    { name: "치붕", className: "홀리나이트", itemLevel: "1,700.00", itemLevelNum: 1700, isVisible: true },
-    { name: "람미", className: "브레이커", itemLevel: "1,685.00", itemLevelNum: 1685, isVisible: true },
-    { name: "배꼰", className: "도화가", itemLevel: "1,663.33", itemLevelNum: 1663.33, isVisible: false },
-    { name: "룽실", className: "소울이터", itemLevel: "1,610.00", itemLevelNum: 1610, isVisible: false },
-    { name: "큉미", className: "슬레이어", itemLevel: "1,601.67", itemLevelNum: 1601.67, isVisible: false },
+
 ];
 
 // 안전하게 아이템 레벨 숫자로 변환하는 헬퍼
@@ -57,12 +49,10 @@ export default function CharacterSettingModal({
     const [characters, setCharacters] = useState<ModalCharacter[]>([]);
 
     useEffect(() => {
-        // 🔹 원정대 데이터가 아직 없을 때: DUMMY 사용 + 아이템 레벨 내림차순 정렬
         if (!roster) {
             const dummy = DUMMY_CHARACTERS
                 .map((c) => ({
                     ...c,
-                    // 외부 visible 설정이 있으면 우선 적용
                     isVisible: visibleByChar?.[c.name] ?? c.isVisible,
                 }))
                 .sort((a, b) => b.itemLevelNum - a.itemLevelNum);
@@ -71,13 +61,11 @@ export default function CharacterSettingModal({
             return;
         }
 
-        // 🔹 roster는 있는데 빈 배열인 경우
         if (roster.length === 0) {
             setCharacters([]);
             return;
         }
 
-        // 🔹 실제 내 캐릭들 + 아이템 레벨 정렬
         const mapped: ModalCharacter[] = roster
             .map((c) => {
                 const levelNum =
@@ -98,21 +86,28 @@ export default function CharacterSettingModal({
         setCharacters(mapped);
     }, [roster, visibleByChar]);
 
+    const applyCharacters = (next: ModalCharacter[]) => {
+        setCharacters(next);
+    };
+
+    const commitVisible = () => {
+        if (!onChangeVisible) return;
+
+        const map: Record<string, boolean> = {};
+        for (const c of characters) {
+            map[c.name] = c.isVisible;
+        }
+        onChangeVisible(map);
+    };
+
+
     const toggleVisibility = (index: number) => {
         const next = characters.map((char, i) =>
             i === index ? { ...char, isVisible: !char.isVisible } : char
         );
-
-        setCharacters(next);
-
-        if (onChangeVisible) {
-            const map: Record<string, boolean> = {};
-            for (const c of next) {
-                map[c.name] = c.isVisible;
-            }
-            onChangeVisible(map);
-        }
+        applyCharacters(next);
     };
+
 
     const handleRefreshClick = async () => {
         if (!onRefreshAccount) return;
@@ -128,6 +123,24 @@ export default function CharacterSettingModal({
     };
 
     if (!open) return null;
+
+    const handleAutoSelect = (mode: "top6" | "all" | "none") => {
+        if (mode === "top6") {
+            const next = characters.map((char, index) => ({
+                ...char,
+                isVisible: index < 6,
+            }));
+            applyCharacters(next);
+        } else if (mode === "all" || mode === "none") {
+            const visible = mode === "all";
+            const next = characters.map((c) => ({
+                ...c,
+                isVisible: visible,
+            }));
+            applyCharacters(next);
+        }
+    };
+
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
@@ -146,18 +159,19 @@ export default function CharacterSettingModal({
                         <div className="text-sm text-gray-400 leading-snug">
                             <p>표시할 캐릭터를 선택하세요. (회색 처리된 캐릭터는 목록에서 숨겨집니다)</p>
                         </div>
+
                     </div>
 
                     <button
                         onClick={handleRefreshClick}
                         disabled={isRefreshing}
                         className={`
-              flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-white/10 text-xs transition-colors whitespace-nowrap
-              ${isRefreshing
+                                flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-white/10 text-xs transition-colors whitespace-nowrap
+                                ${isRefreshing
                                 ? "bg-white/5 text-gray-500 cursor-not-allowed"
                                 : "bg-white/5 hover:bg-white/10 text-gray-300"
                             }
-            `}
+                                `}
                     >
                         <RefreshCcw
                             size={14}
@@ -170,25 +184,45 @@ export default function CharacterSettingModal({
                 </header>
 
                 {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto max-h-[60vh] p-5 sm:p-8 bg-[#121418] custom-scrollbar">
+                <div className="flex-1 overflow-y-auto max-h-[60vh] p-5 sm:p-5 bg-[#121418] custom-scrollbar">
+                    <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
+                        <button
+                            onClick={() => handleAutoSelect("top6")}
+                            className="px-3 py-1.5 rounded-full bg-[#5B69FF]/10 border border-[#5B69FF]/30 text-[#5B69FF] text-xs font-bold hover:bg-[#5B69FF]/20 transition-colors whitespace-nowrap"
+                        >
+                            상위 6캐릭
+                        </button>
+                        <button
+                            onClick={() => handleAutoSelect("all")}
+                            className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
+                        >
+                            전체 선택
+                        </button>
+                        <button
+                            onClick={() => handleAutoSelect("none")}
+                            className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
+                        >
+                            전체 해제
+                        </button>
+                    </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {characters.map((char, index) => (
                             <div
                                 key={char.name}
                                 onClick={() => toggleVisibility(index)}
                                 className={`
-                  relative flex flex-col items-center justify-center py-4 px-2 rounded-lg cursor-pointer transition-all duration-200 select-none border
-                  ${char.isVisible
+                                relative flex flex-col items-center justify-center py-4 px-2 rounded-lg cursor-pointer transition-all duration-200 select-none border
+                                ${char.isVisible
                                         ? "bg-[#5B69FF] border-[#5B69FF] text-white shadow-lg shadow-indigo-500/20 translate-y-0"
                                         : "bg-[#1E222B] border-white/5 text-gray-500 hover:bg-[#252932] hover:border-white/10"
                                     }
-                `}
+                                `}
                             >
                                 <div
                                     className={`
-                    absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] transition-colors
-                    ${char.isVisible ? "bg-white/20 text-white" : "bg-black/20 text-gray-600"}
-                  `}
+                                        absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] transition-colors
+                                        ${char.isVisible ? "bg-white/20 text-white" : "bg-black/20 text-gray-600"}
+                                    `}
                                 >
                                     {char.isVisible ? <Check size={12} strokeWidth={3} /> : <X size={12} />}
                                 </div>
@@ -230,11 +264,15 @@ export default function CharacterSettingModal({
                     </div>
 
                     <button
-                        onClick={onClose}
+                        onClick={() => {
+                            commitVisible();
+                            onClose();
+                        }}
                         className="w-full sm:w-auto px-6 h-10 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-white text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center"
                     >
                         설정 완료 ({characters.filter((c) => c.isVisible).length})
                     </button>
+
                 </footer>
             </div>
 

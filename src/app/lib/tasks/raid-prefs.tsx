@@ -27,3 +27,16 @@ export function readPrefs(name: string): CharacterTaskPrefs | null {
 export function writePrefs(name: string, prefs: CharacterTaskPrefs) {
     localStorage.setItem(KEY(name), JSON.stringify(prefs));
 }
+
+const PREFIX = "raidTaskPrefs:";
+
+export function clearAllPrefs() {
+    if (typeof window === "undefined") return;
+    try {
+        Object.keys(localStorage).forEach((key) => {
+            if (key.startsWith(PREFIX)) {
+                localStorage.removeItem(key);
+            }
+        });
+    } catch { }
+}
