@@ -11,6 +11,7 @@ import type { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
 import { clearCharPrefs, readPrefs, writePrefs } from "@/app/lib/tasks/raid-prefs";
 import CharacterSettingModal from "../components/tasks/CharacterSettingModal";
 import TaskTable from "../components/tasks/TaskTable";
+import { Search, Sparkles, SquarePen, UserPlus } from "lucide-react";
 
 type SavedFilters = {
   // 현재는 "남은 숙제만 보기", "테이블로 보기" 두 옵션만 사용
@@ -784,94 +785,72 @@ export default function MyTasksPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:ml-auto gap-2 sm:gap-3">
-                {/* 자동 세팅 버튼 (상위 6캐릭 + 각 캐릭 top3 레이드 자동 선택) */}
+              <div className="flex flex-wrap gap-2 sm:gap-3 sm:ml-auto">
                 <button
                   onClick={handleAutoSetup}
                   disabled={!hasRoster}
                   className="
-                      relative group
-                      flex items-center justify-center
-                      py-2 px-6 rounded-lg
-                      bg-white/[.04] border border-white/10
-                      hover:bg-white/5 hover:border-white/20
-                      text-xs sm:text-sm font-medium text-gray-200
-                      transition-all duration-200
-                      disabled:opacity-50 disabled:cursor-not-allowed
-                    "
+                    relative group
+                    flex items-center justify-center
+                    py-2 px-6 sm:px-6 rounded-lg
+                    bg-white/[.04] border border-white/10
+                    hover:bg-white/5 hover:border-white/20
+                    text-xs sm:text-sm font-medium text-gray-200
+                    transition-all duration-200
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  "
                 >
                   <span>자동 세팅</span>
-
-                  {/* 오른쪽 위 물음표 (텍스트) */}
+                  {/* 오른쪽 위 물음표 (absolute로 띄워서 텍스트 위치에 영향 안 줌) */}
                   <span
-                    className="
-                      absolute top-1 right-1
-                      w-3 h-3
-                      rounded-full
-                      border border-white/20
-                      text-[9px] font-bold
-                      flex items-center justify-center
-                      text-gray-400
-                      bg-black/20
-                      group-hover:text-white group-hover:border-white/40
-                      transition-colors duration-200
-                      cursor-help
-                    "
-                  >
-                    ?
+                    className=" 
+                  absolute top-1 
+                  right-1 w-3 h-3 
+                  rounded-full border
+                   border-white/20 text-[9px]
+                    font-bold 
+                    flex items-center
+                     justify-center 
+                     text-gray-400 bg-black/20 group-hover:text-white group-hover:border-white/40 transition-colors duration-200 cursor-help " > ?
                   </span>
-
-                  {/* 설명 툴팁 */}
-                  <div
-                    className="
-                        pointer-events-none
-                        absolute bottom-full right-0 mb-3
-                        w-64 p-3
-                        rounded-xl
-                        bg-gray-900/95 backdrop-blur-md
-                        border border-white/10
-                        text-xs text-gray-300 leading-relaxed
-                        text-center
-                        shadow-2xl shadow-black/50
-                        opacity-0 translate-y-2 scale-95
-                        group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
-                        transition-all duration-200 ease-out
-                        z-20
-                      "
-                  >
+                  {/* 디자인이 개선된 툴팁 */}
+                  <div className="pointer-events-none absolute bottom-full right-0 mb-3 w-64 p-3 rounded-xl bg-gray-900/95 backdrop-blur-md border border-white/10 text-xs text-gray-300 leading-relaxed text-center shadow-2xl shadow-black/50 opacity-0 translate-y-2 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out z-20 " >
+                    {/* 툴팁 내용 */}
                     <p>
-                      <span className="text-white font-semibold">아이템 레벨 상위 6개 캐릭터</span>와
-                      해당 캐릭터의 <span className="text-indigo-400">Top 3 레이드</span>를
-                      자동으로 세팅합니다.
+                      <span className="text-white font-semibold">
+                        아이템 레벨 상위 6개 캐릭터
+                      </span>
+                      와 해당 캐릭터의
+                      <span className="text-indigo-400">
+                        Top 3 레이드
+                      </span>
+                      를 자동으로 세팅합니다.
                     </p>
-
-                    <div
-                      className="
-                          absolute -bottom-1.5 right-4 
-                          w-3 h-3 
-                          bg-gray-900/95 border-b border-r border-white/10 
-                          rotate-45
-                        "
-                    />
+                    {/* 툴팁 하단 화살표 (장식) */}
+                    <div className=" absolute -bottom-1.5 right-4 w-3 h-3 bg-gray-900/95 border-b border-r border-white/10 rotate-45 " />
                   </div>
                 </button>
 
-                {/* 관문 전체 초기화 */}
+
                 <button
                   onClick={gateAllClear}
                   className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 hover:bg-white/5 text-xs sm:text-sm"
                 >
-                  <span>관문 초기화</span>
+                  <span className="inline">관문 초기화</span>
                 </button>
 
-                {/* 캐릭터 설정 모달 열기 */}
                 <button
                   onClick={() => setIsCharSettingOpen(true)}
-                  className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium"
+                  className="inline-flex gap-1.5 items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium"
                 >
                   캐릭터 설정
+                  <SquarePen
+                    className="inline-block align-middle w-4 h-4 text-[#FFFFFF]/50"
+                    strokeWidth={1.75}
+                  />
                 </button>
               </div>
+
             </div>
 
             {/* 캐릭터가 전혀 없을 때 빈 상태 표시 */}
@@ -880,18 +859,18 @@ export default function MyTasksPage() {
                 <div className="relative mb-6">
                   <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
                   <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
-                    <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">
-                      LOA
-                    </span>
+                    <UserPlus size={30} className="sm:hidden text-[#5B69FF]" />
+                    <UserPlus size={36} className="hidden sm:block text-[#5B69FF]" />
                   </div>
-                  <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2 py-0.5 rounded-full border border-white/10">
-                    <span className="text-[10px] text-gray-400">검색</span>
+                  <div className="absolute -right-2 -bottom-2 bg-[#16181D] p-1.5 rounded-full border border-white/10">
+                    <Search size={16} className="text-gray-400" />
                   </div>
                 </div>
 
                 <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">
                   원정대 캐릭터를 불러오세요
                 </h2>
+
                 <p className="text-gray-400 max-w-md mb-6 sm:mb-8 leading-relaxed text-sm sm:text-base">
                   아직 등록된 캐릭터 데이터가 없습니다.
                   <br />
@@ -912,45 +891,58 @@ export default function MyTasksPage() {
                     disabled={loading}
                     className="w-full h-11 sm:h-12 pl-4 pr-11 sm:pr-12 rounded-lg bg-[#0F1115] border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
                   />
+
                   <button
                     type="submit"
                     disabled={loading || !searchInput.trim()}
-                    className="absolute right-1.5 px-3 py-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-500 transition-colors text-xs sm:text-sm"
+                    className="absolute right-1.5 p-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-500 transition-colors"
                   >
                     {loading ? (
                       <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
-                      "검색"
+                      <Search size={16} className="sm:hidden" />
                     )}
+                    {!loading && <Search size={18} className="hidden sm:block" />}
                   </button>
                 </form>
               </div>
             )}
 
             {/* 에러 메시지 */}
-            {err && <div className="text-sm text-red-400">에러: {err}</div>}
+            {err && (
+              <div className="text-sm text-red-400">
+                에러: {err}
+              </div>
+            )}
 
-            {/* 초기 부팅/로딩 중 + 아직 roster 없음 */}
+            {/* 로딩 / 부팅 중 + 아직 로스터 없음 */}
             {(loading || booting) && !hasRoster && (
-              <div className="w-full py-16 sm:py-24 flex flex-col items-center justify-center animate-in fade-in duration-300">
+              <div
+                className="w-full py-16 sm:py-24 flex flex-col items-center justify-center animate-in fade-in duration-300"
+              >
                 <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-5 sm:mb-6">
                   <div className="absolute inset-0 border-4 border-[#5B69FF]/20 rounded-full" />
                   <div className="absolute inset-0 border-4 border-[#5B69FF] rounded-full border-t-transparent animate-spin" />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs sm:text-sm font-semibold text-[#5B69FF]">
-                      LOA
-                    </span>
+                    <Sparkles
+                      size={24}
+                      className="text-[#5B69FF] animate-pulse"
+                      fill="currentColor"
+                      fillOpacity={0.3}
+                    />
                   </div>
                 </div>
 
                 <h3 className="text-lg sm:text-xl font-bold text-white mb-1 sm:mb-2 animate-pulse">
                   원정대 정보를 불러오는 중입니다
                 </h3>
-                <p className="text-xs sm:text-sm text-gray-500">잠시만 기다려주세요...</p>
+                <p className="text-xs sm:text-sm text-gray-500">
+                  잠시만 기다려주세요...
+                </p>
               </div>
             )}
 
-            {/* 실제 데이터가 있을 때: 카드 뷰 / 테이블 뷰 스위치 */}
+            {/* 테이블 뷰 / 카드 뷰 */}
             {tableView && hasRoster ? (
               <TaskTable
                 roster={visibleRoster}
@@ -965,7 +957,7 @@ export default function MyTasksPage() {
                   .map((c) => {
                     const tasks = buildTasksFor(c);
 
-                    // 카드 뷰 + "남은 숙제만 보기"일 때, 이 캐릭에 남은 레이드 카드가 없으면 숨김
+                    // 🔹 남은 숙제만 보기 ON인데, 이 캐릭에 남은 레이드 카드가 없으면 숨김
                     if (onlyRemain && tasks.length === 0) {
                       return null;
                     }
@@ -987,6 +979,7 @@ export default function MyTasksPage() {
                   })}
               </div>
             )}
+
           </div>
         </div>
       </div>
