@@ -13,8 +13,10 @@ export type CharacterTaskPrefs = {
     order?: string[];
 };
 
-const KEY = (name: string) => `raidPrefs:${encodeURIComponent(name)}`;
+const PREFIX = "raidPrefs:";
+const KEY = (name: string) => `${PREFIX}${encodeURIComponent(name)}`;
 
+// ✅ 기본 read/write
 export function readPrefs(name: string): CharacterTaskPrefs | null {
     try {
         const raw = localStorage.getItem(KEY(name));
@@ -25,11 +27,19 @@ export function readPrefs(name: string): CharacterTaskPrefs | null {
 }
 
 export function writePrefs(name: string, prefs: CharacterTaskPrefs) {
-    localStorage.setItem(KEY(name), JSON.stringify(prefs));
+    try {
+        localStorage.setItem(KEY(name), JSON.stringify(prefs));
+    } catch {
+        // quota 문제 등 나면 그냥 무시
+    }
 }
 
-const PREFIX = "raidTaskPrefs:";
-
+export function clearCharPrefs(name: string) {
+    try {
+        localStorage.removeItem(KEY(name));
+    } catch { }
+}
+// ✅ 전체 raidPrefs:* 삭제 (필요할 때만 사용)
 export function clearAllPrefs() {
     if (typeof window === "undefined") return;
     try {

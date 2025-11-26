@@ -1,7 +1,7 @@
 // components/tasks/EditTasksModal.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { raidInformation, type DifficultyKey } from "@/server/data/raids";
 import type { RosterCharacter } from "../AddAccount";
 import { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
@@ -39,6 +39,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
     const ilvl = character.itemLevelNum ?? 0;
     const [state, setState] = useState<CharacterTaskPrefs>({ raids: {} });
 
+
     useEffect(() => {
         if (!open) return;
 
@@ -52,6 +53,12 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
         }
         setState(filled);
     }, [open, initial, ilvl]);
+
+    const enabledCount = useMemo(
+        () =>
+            Object.values(state.raids ?? {}).filter((raid) => raid.enabled).length,
+        [state.raids]
+    );
 
 
     const handleAutoSelect = (mode: "top3" | "all" | "none") => {
@@ -173,7 +180,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                     <div className="flex gap-2 mb-4 ">
                         <button
                             onClick={() => handleAutoSelect("top3")}
-                            className="px-3 py-1.5 rounded-full bg-[#5B69FF]/10 border border-[#5B69FF]/30 text-[#5B69FF] text-xs font-bold hover:bg-[#5B69FF]/20 transition-colors whitespace-nowrap"
+                            className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
                         >
                             상위 3개 레이드
                         </button>
@@ -350,7 +357,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                         onClick={() => onSave(state)}
                         className="w-full sm:w-auto px-6 h-10 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-white text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center"
                     >
-                        변경사항 저장
+                        설정 완료 ({enabledCount})
                     </button>
                 </footer>
 
@@ -371,6 +378,6 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
           }
         `}</style>
             </div>
-        </div>
+        </div >
     );
 }

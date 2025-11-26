@@ -188,7 +188,7 @@ export default function CharacterSettingModal({
                     <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
                         <button
                             onClick={() => handleAutoSelect("top6")}
-                            className="px-3 py-1.5 rounded-full bg-[#5B69FF]/10 border border-[#5B69FF]/30 text-[#5B69FF] text-xs font-bold hover:bg-[#5B69FF]/20 transition-colors whitespace-nowrap"
+                            className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
                         >
                             상위 6캐릭
                         </button>
