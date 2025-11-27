@@ -16,7 +16,6 @@ export type CharacterTaskPrefs = {
 const PREFIX = "raidPrefs:";
 const KEY = (name: string) => `${PREFIX}${encodeURIComponent(name)}`;
 
-// ✅ 기본 read/write
 export function readPrefs(name: string): CharacterTaskPrefs | null {
     try {
         const raw = localStorage.getItem(KEY(name));
@@ -39,7 +38,7 @@ export function clearCharPrefs(name: string) {
         localStorage.removeItem(KEY(name));
     } catch { }
 }
-// ✅ 전체 raidPrefs:* 삭제 (필요할 때만 사용)
+
 export function clearAllPrefs() {
     if (typeof window === "undefined") return;
     try {

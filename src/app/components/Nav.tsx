@@ -79,6 +79,7 @@ export default function Nav() {
                         <div className="w-40 h-8 bg-gray-700 rounded-full animate-pulse" />
                     ) : session?.user ? (
                         <button
+                            onClick={() => signOut({ callbackUrl: "/" })}  // ✅ 로그아웃 + 홈으로 이동
                             className={[
                                 "flex items-center gap-2 rounded-full",
                                 "hover:bg-gray-700/50 transition-colors",
@@ -88,7 +89,7 @@ export default function Nav() {
                             {session.user.image && (
                                 <Image
                                     src={session.user.image}
-                                    alt={session.user.name ?? 'User Avatar'}
+                                    alt={session.user.name ?? "User Avatar"}
                                     width={28}
                                     height={28}
                                     className="w-7 h-7 rounded-full"
@@ -107,6 +108,7 @@ export default function Nav() {
                             Discord로 로그인
                         </button>
                     )}
+
                 </div>
             </div>
         </nav>

@@ -15,7 +15,6 @@ type Props = {
 export default function EmptyCharacterState({ open, onSearch, loading, onClose }: Props) {
     const [input, setInput] = useState("");
 
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (input.trim()) {
@@ -24,13 +23,9 @@ export default function EmptyCharacterState({ open, onSearch, loading, onClose }
     };
 
 
-
-
     if (!open) return null;
-
     return (
         <div
-
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
             <div
                 className="relative w-full max-w-md p-8 rounded-2xl bg-[#16181D] border border-white/5 text-center shadow-2xl">

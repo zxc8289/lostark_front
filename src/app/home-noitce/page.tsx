@@ -12,10 +12,9 @@ export default function HomeNotice() {
                 const res = await fetch("/api/lostark/notice", { cache: "no-store" });
 
                 const ct = res.headers.get("content-type") || "";
-                const raw = await res.text(); // 먼저 text로 읽음(뭐가 오든 안전)
+                const raw = await res.text(); 
 
                 if (!ct.includes("application/json")) {
-                    // HTML/텍스트가 오면 그대로 보여주고 종료 (콘솔에서 차단/오류 페이지 확인)
                     console.error("[lostark-notice] non-JSON response:", raw.slice(0, 500));
                     setErr("API returned non-JSON. See console for details.");
                     return;

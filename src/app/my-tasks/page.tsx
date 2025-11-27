@@ -8,10 +8,10 @@ import EditTasksModal from "../components/tasks/EditTasksModal";
 import type { CharacterSummary, RosterCharacter } from "../components/AddAccount";
 import { raidInformation, type DifficultyKey } from "@/server/data/raids";
 import type { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
-import { clearCharPrefs, readPrefs, writePrefs } from "@/app/lib/tasks/raid-prefs";
+import { clearAllPrefs, clearCharPrefs, readPrefs, writePrefs } from "@/app/lib/tasks/raid-prefs";
 import CharacterSettingModal from "../components/tasks/CharacterSettingModal";
 import TaskTable from "../components/tasks/TaskTable";
-import { Search, Sparkles, SquarePen, UserPlus } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 type SavedFilters = {
   // 현재는 "남은 숙제만 보기", "테이블로 보기" 두 옵션만 사용
@@ -34,6 +34,20 @@ function loadSavedFilters(): SavedFilters | null {
     return null;
   }
 }
+
+function getRaidBaseLevel(raidId: string): number {
+  const info = raidInformation[raidId];
+  if (!info) return Number.MAX_SAFE_INTEGER;
+
+  const levels = Object.values(info.difficulty).map(
+    (d) => d?.level ?? Number.MAX_SAFE_INTEGER
+  );
+  if (!levels.length) return Number.MAX_SAFE_INTEGER;
+
+  // 노말/하드 중 가장 낮은 입장 레벨
+  return Math.min(...levels);
+}
+
 
 /** 관문 토글 규칙:
  *  - 아무 것도 안 켜져 있을 때 → 클릭한 관문까지 모두 켜기
@@ -146,9 +160,9 @@ function autoSelectTop3Raids(ilvl: number, prev?: CharacterTaskPrefs): Character
 }
 
 export default function MyTasksPage() {
-  /* ──────────────────────────
-   *  좌측 필터 상태
-   * ────────────────────────── */
+  const { data: session, status: authStatus } = useSession();
+  const [syncedWithServer, setSyncedWithServer] = useState(false);
+  const isAuthed = authStatus === "authenticated" && !!session?.user;
   const [onlyRemain, setOnlyRemain] = useState<boolean>(() => {
     const saved = loadSavedFilters();
     return typeof saved?.onlyRemain === "boolean" ? saved.onlyRemain : false;
@@ -163,6 +177,18 @@ export default function MyTasksPage() {
   const resetFilters = () => {
     setOnlyRemain(false);
     setTableView(false);
+  };
+
+  const clearClientStorage = () => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.removeItem(LOCAL_KEY);
+      localStorage.removeItem(FILTER_KEY);
+      localStorage.removeItem(VISIBLE_KEY);
+      clearAllPrefs(); // 캐릭터별 raidPrefs:* 다 지움
+    } catch {
+      // 무시
+    }
   };
 
   /* ──────────────────────────
@@ -252,6 +278,8 @@ export default function MyTasksPage() {
    *  필터 상태를 localStorage에 저장
    * ────────────────────────── */
   useEffect(() => {
+    if (isAuthed) return; // 🔽 로그인 상태면 localStorage 쓰지 않음
+
     try {
       const payload: SavedFilters = {
         onlyRemain,
@@ -261,9 +289,8 @@ export default function MyTasksPage() {
     } catch {
       // 로컬스토리지 에러는 무시
     }
-  }, [onlyRemain, tableView]);
+  }, [onlyRemain, tableView, isAuthed]);
 
-  /** 캐릭터별 prefs 업데이트 + localStorage 동기화 공통 함수 */
   function setCharPrefs(
     name: string,
     updater: (cur: CharacterTaskPrefs) => CharacterTaskPrefs
@@ -271,18 +298,147 @@ export default function MyTasksPage() {
     setPrefsByChar((prev) => {
       const cur = prev[name] ?? { raids: {} };
       const next = updater(cur);
-      writePrefs(name, next);
+
+      if (!isAuthed) {
+        writePrefs(name, next);
+      }
+
       return { ...prev, [name]: next };
     });
   }
+
+
+
+  function buildServerStatePayload() {
+    return {
+      nickname,
+      summary: data,
+      prefsByChar,
+      visibleByChar,
+      filters: {
+        onlyRemain,
+        tableView,
+      } as SavedFilters,
+    };
+  }
+
+
+  function applyServerState(state: any) {
+    try {
+      if (state.nickname) setNickname(state.nickname);
+      if (state.summary) setData(state.summary);
+
+      if (state.prefsByChar) setPrefsByChar(state.prefsByChar);
+      if (state.visibleByChar) setVisibleByChar(state.visibleByChar);
+
+      if (state.filters) {
+        if (typeof state.filters.onlyRemain === "boolean") {
+          setOnlyRemain(state.filters.onlyRemain);
+        }
+        if (typeof state.filters.tableView === "boolean") {
+          setTableView(state.filters.tableView);
+        }
+      }
+
+      // ⚠️ 여기 이하 localStorage에 다시 저장하던 부분은 **전부 삭제**
+    } catch {
+      // 서버 state 구조가 변경되거나 에러 나면 그냥 무시
+    }
+  }
+
+
+
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+    if (syncedWithServer) return;
+    if (booting) return;
+
+    let cancelled = false;
+
+    async function syncWithServer() {
+      let didSync = false;
+
+      try {
+        const res = await fetch("/api/raid-tasks/state", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        });
+
+        if (cancelled) return;
+
+        if (res.status === 200) {
+          // ✅ 서버에 이미 저장된 상태가 있으면 그걸 기준으로 씀
+          const serverState = await res.json();
+          applyServerState(serverState);
+          didSync = true;
+        } else if (res.status === 204 || res.status === 404) {
+          // 🆕 서버에 아무것도 없으면 → 현재 상태를 서버로 업로드
+          const hasSomethingLocal =
+            !!data ||
+            !!nickname ||
+            Object.keys(prefsByChar).length > 0 ||
+            Object.keys(visibleByChar).length > 0;
+
+          if (hasSomethingLocal) {
+            const payload = buildServerStatePayload();
+            await fetch("/api/raid-tasks/state", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            didSync = true;
+          }
+        } else if (res.status === 401) {
+          console.warn("raid-tasks state: Unauthorized");
+        }
+      } catch (e) {
+        console.error("raid-tasks state sync failed", e);
+      } finally {
+        if (!cancelled && didSync) {
+          // ✅ 서버와 동기화 완료 → localStorage 데이터는 더 이상 필요 없음
+          clearClientStorage();
+          setSyncedWithServer(true);
+        }
+      }
+    }
+
+    syncWithServer();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    authStatus,
+    syncedWithServer,
+    booting,
+    data,
+    nickname,
+    prefsByChar,
+    visibleByChar,
+    onlyRemain,
+    tableView,
+  ]);
+
+
+
 
   /** 카드 뷰에서 한 캐릭터에 대한 TaskCard 리스트 생성 */
   const buildTasksFor = (c: RosterCharacter): TaskItem[] => {
     const prefs = prefsByChar[c.name];
     if (!prefs) return [];
 
-    const raidNames =
+    // 1) 기본 순서 후보 만들기
+    const baseRaidNames =
       prefs.order?.filter((r) => prefs.raids[r]) ?? Object.keys(prefs.raids);
+
+    // 2) order가 없는 경우에만 레이드 레벨 낮은순 → 높은순 정렬
+    const raidNames = prefs.order
+      ? baseRaidNames
+      : [...baseRaidNames].sort(
+        (a, b) => getRaidBaseLevel(a) - getRaidBaseLevel(b)
+      );
 
     const items: TaskItem[] = [];
 
@@ -405,10 +561,12 @@ export default function MyTasksPage() {
       setData(json);
 
       try {
-        localStorage.setItem(
-          LOCAL_KEY,
-          JSON.stringify({ nickname: trimmed, data: json })
-        );
+        if (!isAuthed) {
+          localStorage.setItem(
+            LOCAL_KEY,
+            JSON.stringify({ nickname: trimmed, data: json })
+          );
+        }
       } catch {
         // localStorage 저장 실패는 무시
       }
@@ -528,10 +686,13 @@ export default function MyTasksPage() {
     }
     setVisibleByChar(nextVisible);
     try {
-      localStorage.setItem(VISIBLE_KEY, JSON.stringify(nextVisible));
+      if (!isAuthed) {
+        localStorage.setItem(VISIBLE_KEY, JSON.stringify(nextVisible));
+      }
     } catch {
       // 로컬스토리지 에러는 무시
     }
+
 
     // 3) 각 상위 6캐릭에 대해 top3 레이드 자동 세팅
     setPrefsByChar((prev) => {
@@ -575,10 +736,13 @@ export default function MyTasksPage() {
         next[name] = updated;
 
         try {
-          writePrefs(name, updated);
+          if (!isAuthed) {
+            writePrefs(name, updated);
+          }
         } catch {
           // localStorage 에러는 무시
         }
+
       }
 
       return next;
@@ -785,72 +949,94 @@ export default function MyTasksPage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 sm:gap-3 sm:ml-auto">
+              <div className="flex flex-row flex-wrap gap-2 sm:gap-3 sm:ml-auto">
+                {/* 자동 세팅 버튼 (상위 6캐릭 + 각 캐릭 top3 레이드 자동 선택) */}
                 <button
                   onClick={handleAutoSetup}
                   disabled={!hasRoster}
                   className="
-                    relative group
-                    flex items-center justify-center
-                    py-2 px-6 sm:px-6 rounded-lg
-                    bg-white/[.04] border border-white/10
-                    hover:bg-white/5 hover:border-white/20
-                    text-xs sm:text-sm font-medium text-gray-200
-                    transition-all duration-200
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                  "
+                      relative group
+                      flex items-center justify-center
+                      py-2 px-6 rounded-lg
+                      bg-white/[.04] border border-white/10
+                      hover:bg-white/5 hover:border-white/20
+                      text-xs sm:text-sm font-medium text-gray-200
+                      transition-all duration-200
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                    "
                 >
                   <span>자동 세팅</span>
-                  {/* 오른쪽 위 물음표 (absolute로 띄워서 텍스트 위치에 영향 안 줌) */}
+
+                  {/* 오른쪽 위 물음표 (텍스트) */}
                   <span
-                    className=" 
-                  absolute top-1 
-                  right-1 w-3 h-3 
-                  rounded-full border
-                   border-white/20 text-[9px]
-                    font-bold 
-                    flex items-center
-                     justify-center 
-                     text-gray-400 bg-black/20 group-hover:text-white group-hover:border-white/40 transition-colors duration-200 cursor-help " > ?
+                    className="
+                      absolute top-1 right-1
+                      w-3 h-3
+                      rounded-full
+                      border border-white/20
+                      text-[9px] font-bold
+                      flex items-center justify-center
+                      text-gray-400
+                      bg-black/20
+                      group-hover:text-white group-hover:border-white/40
+                      transition-colors duration-200
+                      cursor-help
+                    "
+                  >
+                    ?
                   </span>
-                  {/* 디자인이 개선된 툴팁 */}
-                  <div className="pointer-events-none absolute bottom-full right-0 mb-3 w-64 p-3 rounded-xl bg-gray-900/95 backdrop-blur-md border border-white/10 text-xs text-gray-300 leading-relaxed text-center shadow-2xl shadow-black/50 opacity-0 translate-y-2 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out z-20 " >
-                    {/* 툴팁 내용 */}
+
+                  {/* 설명 툴팁 */}
+                  <div
+                    className="
+                      pointer-events-none
+                      absolute bottom-full left-15 mb-3  {/* right-0을 left-0으로 변경 */}
+                      w-64 p-3
+                      rounded-xl
+                      bg-gray-900/95 backdrop-blur-md
+                      border border-white/10
+                      text-xs text-gray-300 leading-relaxed
+                      text-center
+                      shadow-2xl shadow-black/50
+                      opacity-0 translate-y-2 scale-95
+                      group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
+                      transition-all duration-200 ease-out
+                      z-20
+                    "
+                  >
                     <p>
-                      <span className="text-white font-semibold">
-                        아이템 레벨 상위 6개 캐릭터
-                      </span>
-                      와 해당 캐릭터의
-                      <span className="text-indigo-400">
-                        Top 3 레이드
-                      </span>
-                      를 자동으로 세팅합니다.
+                      <span className="text-white font-semibold">아이템 레벨 상위 6개 캐릭터</span>와
+                      해당 캐릭터의 <span className="text-indigo-400">Top 3 레이드</span>를
+                      자동으로 세팅합니다.
                     </p>
-                    {/* 툴팁 하단 화살표 (장식) */}
-                    <div className=" absolute -bottom-1.5 right-4 w-3 h-3 bg-gray-900/95 border-b border-r border-white/10 rotate-45 " />
+
+                    <div
+                      className="
+                        absolute -bottom-1.5 left-4  {/* right-4를 left-4로 변경 */}
+                        w-3 h-3 
+                        bg-gray-900/95 border-b border-r border-white/10 
+                        rotate-45
+                      "
+                    />
                   </div>
                 </button>
 
-
+                {/* 관문 전체 초기화 */}
                 <button
                   onClick={gateAllClear}
                   className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 hover:bg-white/5 text-xs sm:text-sm"
                 >
-                  <span className="inline">관문 초기화</span>
+                  <span>관문 초기화</span>
                 </button>
 
+                {/* 캐릭터 설정 모달 열기 */}
                 <button
                   onClick={() => setIsCharSettingOpen(true)}
-                  className="inline-flex gap-1.5 items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium"
+                  className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium"
                 >
                   캐릭터 설정
-                  <SquarePen
-                    className="inline-block align-middle w-4 h-4 text-[#FFFFFF]/50"
-                    strokeWidth={1.75}
-                  />
                 </button>
               </div>
-
             </div>
 
             {/* 캐릭터가 전혀 없을 때 빈 상태 표시 */}
@@ -859,19 +1045,19 @@ export default function MyTasksPage() {
                 <div className="relative mb-6">
                   <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
                   <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
-                    <UserPlus size={30} className="sm:hidden text-[#5B69FF]" />
-                    <UserPlus size={36} className="hidden sm:block text-[#5B69FF]" />
+                    <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">
+                      LOA
+                    </span>
                   </div>
-                  <div className="absolute -right-2 -bottom-2 bg-[#16181D] p-1.5 rounded-full border border-white/10">
-                    <Search size={16} className="text-gray-400" />
+                  <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2 py-0.5 rounded-full border border-white/10">
+                    <span className="text-[10px] text-gray-400">검색</span>
                   </div>
                 </div>
 
                 <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">
                   원정대 캐릭터를 불러오세요
                 </h2>
-
-                <p className="text-gray-400 max-w-md mb-6 sm:mb-8 leading-relaxed text-sm sm:text-base">
+                <p className="text-gray-400 max-w-md mb-6 sm:mb-8 leading-relaxed text-[12px] sm:text-base">
                   아직 등록된 캐릭터 데이터가 없습니다.
                   <br />
                   <span className="text-gray-500">
@@ -891,58 +1077,45 @@ export default function MyTasksPage() {
                     disabled={loading}
                     className="w-full h-11 sm:h-12 pl-4 pr-11 sm:pr-12 rounded-lg bg-[#0F1115] border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
                   />
-
                   <button
                     type="submit"
                     disabled={loading || !searchInput.trim()}
-                    className="absolute right-1.5 p-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-500 transition-colors"
+                    className="absolute right-1.5 px-3 py-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-500 transition-colors text-xs sm:text-sm"
                   >
                     {loading ? (
                       <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
-                      <Search size={16} className="sm:hidden" />
+                      "검색"
                     )}
-                    {!loading && <Search size={18} className="hidden sm:block" />}
                   </button>
                 </form>
               </div>
             )}
 
             {/* 에러 메시지 */}
-            {err && (
-              <div className="text-sm text-red-400">
-                에러: {err}
-              </div>
-            )}
+            {err && <div className="text-sm text-red-400">에러: {err}</div>}
 
-            {/* 로딩 / 부팅 중 + 아직 로스터 없음 */}
+            {/* 초기 부팅/로딩 중 + 아직 roster 없음 */}
             {(loading || booting) && !hasRoster && (
-              <div
-                className="w-full py-16 sm:py-24 flex flex-col items-center justify-center animate-in fade-in duration-300"
-              >
+              <div className="w-full py-16 sm:py-24 flex flex-col items-center justify-center animate-in fade-in duration-300">
                 <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-5 sm:mb-6">
                   <div className="absolute inset-0 border-4 border-[#5B69FF]/20 rounded-full" />
                   <div className="absolute inset-0 border-4 border-[#5B69FF] rounded-full border-t-transparent animate-spin" />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Sparkles
-                      size={24}
-                      className="text-[#5B69FF] animate-pulse"
-                      fill="currentColor"
-                      fillOpacity={0.3}
-                    />
+                    <span className="text-xs sm:text-sm font-semibold text-[#5B69FF]">
+                      LOA
+                    </span>
                   </div>
                 </div>
 
                 <h3 className="text-lg sm:text-xl font-bold text-white mb-1 sm:mb-2 animate-pulse">
                   원정대 정보를 불러오는 중입니다
                 </h3>
-                <p className="text-xs sm:text-sm text-gray-500">
-                  잠시만 기다려주세요...
-                </p>
+                <p className="text-xs sm:text-sm text-gray-500">잠시만 기다려주세요...</p>
               </div>
             )}
 
-            {/* 테이블 뷰 / 카드 뷰 */}
+            {/* 실제 데이터가 있을 때: 카드 뷰 / 테이블 뷰 스위치 */}
             {tableView && hasRoster ? (
               <TaskTable
                 roster={visibleRoster}
@@ -957,7 +1130,6 @@ export default function MyTasksPage() {
                   .map((c) => {
                     const tasks = buildTasksFor(c);
 
-                    // 🔹 남은 숙제만 보기 ON인데, 이 캐릭에 남은 레이드 카드가 없으면 숨김
                     if (onlyRemain && tasks.length === 0) {
                       return null;
                     }
@@ -979,7 +1151,6 @@ export default function MyTasksPage() {
                   })}
               </div>
             )}
-
           </div>
         </div>
       </div>
@@ -1010,11 +1181,14 @@ export default function MyTasksPage() {
           onChangeVisible={(next) => {
             setVisibleByChar(next);
             try {
-              localStorage.setItem(VISIBLE_KEY, JSON.stringify(next));
+              if (!isAuthed) {
+                localStorage.setItem(VISIBLE_KEY, JSON.stringify(next));
+              }
             } catch {
               // 로컬스토리지 에러는 무시
             }
           }}
+
         />
       )}
     </div>

@@ -107,7 +107,7 @@ export default function CharacterTaskStrip({
 
 
     const hasTasks = tasks.length > 0;
-
+    const levelText = character.itemLevel ? `Lv. ${character.itemLevel}` : "Lv. -";
 
 
 
@@ -117,12 +117,29 @@ export default function CharacterTaskStrip({
             <div className="flex items-center">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                        <span className="font-semibold text-base sm:text-xl">{character.name}</span>
-                        <span className="text-gray-500 text-[12px] sm:text-sm">
-                            {character.itemLevel ? `Lv. ${character.itemLevel}` : "Lv. -"}
+                        <span
+                            className="
+                                block                    
+                                truncate                
+                                max-w-[120px]            
+                                sm:max-w-[220px]       
+                                font-semibold text-base sm:text-xl
+                                "
+                            title={character.name}
+                        >
+                            {character.name}
+                        </span>
+
+                        <span className="text-gray-500 text-[11px] sm:hidden">
+                            {levelText}
+                        </span>
+
+                        <span className="hidden sm:inline text-gray-500 text-sm">
+                            {levelText}
                             {character.className ? ` / ${character.className}` : ""}
                         </span>
                     </div>
+
                 </div>
 
                 <div className="ml-auto mr-2 flex items-center gap-1.5 sm:gap-3">

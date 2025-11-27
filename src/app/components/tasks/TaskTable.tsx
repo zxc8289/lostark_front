@@ -137,10 +137,19 @@ export default function TaskTable({
             <div className="flex items-center py-[0.8px]">
                 <div className="min-w-0 py-0.5">
                     <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm sm:text-base">
+                        <span
+                            className="
+                                    block
+                                    truncate
+                                    max-w-[100px] sm:max-w-[300px]
+                                    font-semibold text-sm sm:text-base
+                                "
+                            title={first.name}
+                        >
                             {first.name}
                         </span>
-                        <span className="text-gray-500 text-[11px] sm:text-sm">
+
+                        <span className="text-gray-500 text-[11px] sm:text-sm ">
                             {first.itemLevel ? `Lv. ${first.itemLevel}` : "Lv. -"}
                             {first.className ? ` / ${first.className}` : ""}
                         </span>
@@ -162,8 +171,8 @@ export default function TaskTable({
                                 setStartIndex((v) => Math.max(0, v - 1));
                             }}
                             className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-white/15
-                 text-gray-300/90 hover:text-white hover:border-white/30
-                 disabled:opacity-30 disabled:pointer-events-none"
+                                text-gray-300/90 hover:text-white hover:border-white/30
+                                disabled:opacity-30 disabled:pointer-events-none"
                             aria-label="이전"
                         >
                             <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={2} />
@@ -179,8 +188,8 @@ export default function TaskTable({
                                 );
                             }}
                             className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-white/15
-                 text-gray-300/90 hover:text-white hover:border-white/30
-                 disabled:opacity-30 disabled:pointer-events-none"
+                                text-gray-300/90 hover:text-white hover:border-white/30
+                                disabled:opacity-30 disabled:pointer-events-none"
                             aria-label="다음"
                         >
                             <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={2} />
@@ -251,7 +260,7 @@ export default function TaskTable({
                                         {/* 캐릭터 셀 */}
                                         <td
                                             className="
-                                                px-1 sm:px-0 py-2 sm:py-3
+                                                px-3 sm:px-0 py-2 sm:py-3
                                                 text-center align-middle
                                                 sticky left-0 z-10
                                                 border-r border-white/5
@@ -260,9 +269,18 @@ export default function TaskTable({
                                         >
                                             <div className="flex flex-col items-center justify-center h-full">
                                                 <div className="flex items-center gap-1.5 mb-0.5">
-                                                    <span className="text-white font-medium text-[11px] sm:text-sm truncate max-w-[96px]">
+                                                    <span
+                                                        className="
+                                                                block                   
+                                                                max-w-[80px] sm:max-w-[110px] 
+                                                                truncate
+                                                                text-white font-medium text-[10px] sm:text-sm
+                                                            "
+                                                        title={char.name}
+                                                    >
                                                         {char.name}
                                                     </span>
+
                                                     <button
                                                         onClick={() => onEdit(char)}
                                                         className="text-gray-600 hover:text-white transition-colors p-0.5 rounded hover:bg-white/10"
@@ -271,7 +289,7 @@ export default function TaskTable({
                                                         <SquarePen size={12} className="sm:w-[13px] sm:h-[13px]" strokeWidth={2} />
                                                     </button>
                                                 </div>
-                                                <div className="text-[10px] sm:text-[11px] text-gray-500 flex gap-1.5 mt-0.5 justify-center">
+                                                <div className="text-[9px] sm:text-[11px] text-gray-500 flex gap-1.5 mt-0.5 justify-center">
                                                     <span>{char.className}</span>
                                                     <span className="text-[#5B69FF]">
                                                         {char.itemLevel}

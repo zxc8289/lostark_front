@@ -39,6 +39,16 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
     const ilvl = character.itemLevelNum ?? 0;
     const [state, setState] = useState<CharacterTaskPrefs>({ raids: {} });
 
+    useEffect(() => {
+        if (!open) return;
+
+        const originalStyle = window.getComputedStyle(document.body).overflow;
+        document.body.style.overflow = "hidden";
+
+        return () => {
+            document.body.style.overflow = originalStyle;
+        };
+    }, [open]);
 
     useEffect(() => {
         if (!open) return;
@@ -162,21 +172,14 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                 Lv. {ilvl.toLocaleString()}
                             </span>
                         </div>
-                        <p className="text-sm text-gray-400 leading-snug">
+                        <p className="text-xs sm:text-sm text-gray-400 leading-snug">
                             이 캐릭터의 군단장 / 카제로스 / 어비스 / 에픽 숙제를 설정합니다.
                         </p>
                     </div>
-
-                    <button
-                        onClick={onClose}
-                        className="self-start sm:self-auto p-2 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-                    >
-                        <X size={20} />
-                    </button>
                 </header>
 
                 {/* Scrollable Content – CharacterSettingModal과 같은 배경/스크롤 스타일 */}
-                <div className="flex-1 overflow-y-auto max-h-[60vh] p-5 sm:p-5 bg-[#121418] custom-scrollbar space-y-8">
+                <div className="flex-1 overflow-y-auto max-h-[55vh] p-4 sm:max-h-[65vh] sm:p-5 bg-[#121418] custom-scrollbar">
                     <div className="flex gap-2 mb-4 ">
                         <button
                             onClick={() => handleAutoSelect("top3")}

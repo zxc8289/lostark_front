@@ -1,7 +1,7 @@
 // components/tasks/TaskCard.tsx
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { raidInformation, type DifficultyKey, type RaidKind } from "@/server/data/raids";
 
 type Props = {
@@ -50,6 +50,8 @@ export default function TaskCard({
 }: Props) {
     const diffStyle = DIFF[difficulty];
     const title = formatTitle(kind, raidName);
+
+
 
     // 전체 관문 목록 추론 (props 우선 → 데이터 파일 → 체크 목록)
     const all = useMemo(() => {

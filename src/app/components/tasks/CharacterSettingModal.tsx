@@ -12,9 +12,7 @@ type ModalCharacter = {
     isVisible: boolean;
 };
 
-const DUMMY_CHARACTERS: ModalCharacter[] = [
-
-];
+const DUMMY_CHARACTERS: ModalCharacter[] = [];
 
 // 안전하게 아이템 레벨 숫자로 변환하는 헬퍼
 function parseItemLevel(input: number | string | null | undefined): number {
@@ -47,6 +45,18 @@ export default function CharacterSettingModal({
 }: Props) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [characters, setCharacters] = useState<ModalCharacter[]>([]);
+
+
+    useEffect(() => {
+        if (!open) return;
+
+        const originalStyle = window.getComputedStyle(document.body).overflow;
+        document.body.style.overflow = "hidden";
+
+        return () => {
+            document.body.style.overflow = originalStyle;
+        };
+    }, [open]);
 
     useEffect(() => {
         if (!roster) {
@@ -100,14 +110,12 @@ export default function CharacterSettingModal({
         onChangeVisible(map);
     };
 
-
     const toggleVisibility = (index: number) => {
         const next = characters.map((char, i) =>
             i === index ? { ...char, isVisible: !char.isVisible } : char
         );
         applyCharacters(next);
     };
-
 
     const handleRefreshClick = async () => {
         if (!onRefreshAccount) return;
@@ -141,9 +149,10 @@ export default function CharacterSettingModal({
         }
     };
 
+    const visibleCount = characters.filter((c) => c.isVisible).length;
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-0">
             <div
                 className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
                 onClick={onClose}
@@ -153,66 +162,77 @@ export default function CharacterSettingModal({
                 {/* Header */}
                 <header className="px-5 py-5 sm:px-8 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#16181D]">
                     <div>
-                        <h2 className="text-xl font-bold text-white tracking-tight mb-1">
+                        <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight mb-1">
                             캐릭터 관리
                         </h2>
                         <div className="text-sm text-gray-400 leading-snug">
-                            <p>표시할 캐릭터를 선택하세요. (회색 처리된 캐릭터는 목록에서 숨겨집니다)</p>
+                            {/* 모바일: 짧은 설명 / PC: 풀 문구 */}
+                            <p className="sm:hidden text-xs text-gray-500">
+                                표시할 캐릭터를 선택하세요.
+                            </p>
+                            <p className="hidden sm:block">
+                                표시할 캐릭터를 선택하세요. (회색 처리된 캐릭터는 목록에서 숨겨집니다)
+                            </p>
                         </div>
-
                     </div>
 
                     <button
                         onClick={handleRefreshClick}
                         disabled={isRefreshing}
                         className={`
-                                flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-white/10 text-xs transition-colors whitespace-nowrap
-                                ${isRefreshing
+                            flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-white/10 text-xs transition-colors whitespace-nowrap
+                            ${isRefreshing
                                 ? "bg-white/5 text-gray-500 cursor-not-allowed"
                                 : "bg-white/5 hover:bg-white/10 text-gray-300"
                             }
-                                `}
+                        `}
                     >
                         <RefreshCcw
                             size={14}
                             className={isRefreshing ? "animate-spin text-indigo-400" : ""}
                         />
-                        <span>
+                        {/* 모바일: "업데이트" / PC: "계정 정보 업데이트" */}
+                        <span className="sm:hidden">
+                            {isRefreshing ? "업데이트..." : "업데이트"}
+                        </span>
+                        <span className="hidden sm:inline">
                             {isRefreshing ? "업데이트 중..." : "계정 정보 업데이트"}
                         </span>
                     </button>
                 </header>
 
                 {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto max-h-[60vh] p-5 sm:p-5 bg-[#121418] custom-scrollbar">
+                <div className="flex-1 overflow-y-auto max-h-[55vh] p-4 sm:max-h-[65vh] sm:p-5 bg-[#121418] custom-scrollbar">
                     <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
                         <button
                             onClick={() => handleAutoSelect("top6")}
                             className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
                         >
-                            상위 6캐릭
+                            {/* 모바일: 짧게 / PC: 원래대로 */}
+                            <span className="sm:inline">상위 6캐릭</span>
                         </button>
                         <button
                             onClick={() => handleAutoSelect("all")}
                             className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
                         >
-                            전체 선택
+                            <span className="sm:inline">전체 선택</span>
                         </button>
                         <button
                             onClick={() => handleAutoSelect("none")}
                             className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
                         >
-                            전체 해제
+                            <span className="sm:inline">전체 해제</span>
                         </button>
                     </div>
+
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {characters.map((char, index) => (
                             <div
                                 key={char.name}
                                 onClick={() => toggleVisibility(index)}
                                 className={`
-                                relative flex flex-col items-center justify-center py-4 px-2 rounded-lg cursor-pointer transition-all duration-200 select-none border
-                                ${char.isVisible
+                                    relative flex flex-col items-center justify-center py-3 sm:py-4 px-2 rounded-lg cursor-pointer transition-all duration-200 select-none border
+                                    ${char.isVisible
                                         ? "bg-[#5B69FF] border-[#5B69FF] text-white shadow-lg shadow-indigo-500/20 translate-y-0"
                                         : "bg-[#1E222B] border-white/5 text-gray-500 hover:bg-[#252932] hover:border-white/10"
                                     }
@@ -220,18 +240,28 @@ export default function CharacterSettingModal({
                             >
                                 <div
                                     className={`
-                                        absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] transition-colors
+                                        absolute top-2 right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[10px] transition-colors
                                         ${char.isVisible ? "bg-white/20 text-white" : "bg-black/20 text-gray-600"}
                                     `}
                                 >
-                                    {char.isVisible ? <Check size={12} strokeWidth={3} /> : <X size={12} />}
+                                    {char.isVisible ? (
+                                        <Check
+                                            className="w-2.5 h-2.5 sm:w-3 sm:h-3"
+                                            strokeWidth={3}
+                                        />
+                                    ) : (
+                                        <X
+                                            className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5"
+                                            strokeWidth={3}
+                                        />
+                                    )}
                                 </div>
 
-                                <div className="font-bold text-base sm:text-lg mb-1 truncate w-full text-center px-2">
+                                <div className="font-bold text-[13px] sm:text-lg mb-1 truncate w-full text-center px-2">
                                     {char.name}
                                 </div>
                                 <div
-                                    className={`text-xs font-medium ${char.isVisible ? "text-indigo-100" : "text-gray-600"
+                                    className={`text-[10px] sm:text-xs font-medium ${char.isVisible ? "text-indigo-100" : "text-gray-600"
                                         }`}
                                 >
                                     {char.className} <span className="opacity-50 mx-1">|</span>{" "}
@@ -259,7 +289,8 @@ export default function CharacterSettingModal({
                             }}
                         >
                             <Trash2 size={16} />
-                            <span className="sm:hidden">계정 삭제</span>
+                            {/* 모바일일 때만 짧게 텍스트 보여주기 */}
+                            <span className="sm:hidden">삭제</span>
                         </button>
                     </div>
 
@@ -270,27 +301,28 @@ export default function CharacterSettingModal({
                         }}
                         className="w-full sm:w-auto px-6 h-10 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-white text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center"
                     >
-                        설정 완료 ({characters.filter((c) => c.isVisible).length})
+                        {/* 모바일: "완료 (N)" / PC: "설정 완료 (N)" */}
+                        <span className="sm:hidden">완료 ({visibleCount})</span>
+                        <span className="hidden sm:inline">설정 완료 ({visibleCount})</span>
                     </button>
-
                 </footer>
             </div>
 
             <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #16181d;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #333;
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #444;
-        }
-      `}</style>
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: #16181d;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #333;
+                    border-radius: 3px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #444;
+                }
+            `}</style>
         </div>
     );
 }
