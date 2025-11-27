@@ -162,6 +162,7 @@ function autoSelectTop3Raids(ilvl: number, prev?: CharacterTaskPrefs): Character
 export default function MyTasksPage() {
   const { data: session, status: authStatus } = useSession();
   const [syncedWithServer, setSyncedWithServer] = useState(false);
+  const [syncingServer, setSyncingServer] = useState(false);
   const isAuthed = authStatus === "authenticated" && !!session?.user;
   const [onlyRemain, setOnlyRemain] = useState<boolean>(() => {
     const saved = loadSavedFilters();
@@ -217,6 +218,7 @@ export default function MyTasksPage() {
    *  (전투정보실에서 roster를 받아온 뒤 수행)
    * ────────────────────────── */
   useEffect(() => {
+    if (isAuthed) return;
     if (!data?.roster) return;
     setPrefsByChar((prev) => {
       const next = { ...prev };
@@ -233,6 +235,7 @@ export default function MyTasksPage() {
    *  - 새로운 캐릭터는 기본 true
    * ────────────────────────── */
   useEffect(() => {
+    if (isAuthed) return;
     if (!data?.roster) return;
 
     try {
@@ -340,11 +343,49 @@ export default function MyTasksPage() {
         }
       }
 
-      // ⚠️ 여기 이하 localStorage에 다시 저장하던 부분은 **전부 삭제**
     } catch {
-      // 서버 state 구조가 변경되거나 에러 나면 그냥 무시
     }
   }
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+    if (!syncedWithServer) return;
+    if (booting) return;
+
+    const controller = new AbortController();
+
+    const timeoutId = setTimeout(() => {
+      const payload = buildServerStatePayload();
+
+      fetch("/api/raid-tasks/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      }).catch((e: any) => {
+        if (e?.name === "AbortError") {
+          // 자동 저장 중간에 취소된 건 그냥 무시
+          return;
+        }
+        console.error("raid-tasks autosave failed", e);
+      });
+    }, 400); // 디바운스 줄이고 싶으면 여기 숫자 줄이면 됨
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
+  }, [
+    authStatus,
+    syncedWithServer,
+    booting,
+    nickname,
+    data,
+    prefsByChar,
+    visibleByChar,
+    onlyRemain,
+    tableView,
+  ]);
 
 
 
@@ -358,7 +399,7 @@ export default function MyTasksPage() {
 
     async function syncWithServer() {
       let didSync = false;
-
+      setSyncingServer(true);
       try {
         const res = await fetch("/api/raid-tasks/state", {
           method: "GET",
@@ -389,17 +430,24 @@ export default function MyTasksPage() {
               body: JSON.stringify(payload),
             });
             didSync = true;
+          } else {
+            // 로컬에도 아무 상태가 없으면, "동기화 할 게 없음" 상태로 간주
+            didSync = true;
           }
-        } else if (res.status === 401) {
+        }
+
+        else if (res.status === 401) {
           console.warn("raid-tasks state: Unauthorized");
         }
       } catch (e) {
         console.error("raid-tasks state sync failed", e);
       } finally {
         if (!cancelled && didSync) {
-          // ✅ 서버와 동기화 완료 → localStorage 데이터는 더 이상 필요 없음
           clearClientStorage();
           setSyncedWithServer(true);
+        }
+        if (!cancelled) {
+          setSyncingServer(false);     // ✅ 서버 동기화 종료
         }
       }
     }
@@ -644,6 +692,27 @@ export default function MyTasksPage() {
 
   const hasRoster = !!(data?.roster && data.roster.length > 0);
 
+  const isAuthLoading = authStatus === "loading";
+  const isAuthAuthed = authStatus === "authenticated";
+
+  const waitingInitialData =
+    isAuthLoading || (isAuthAuthed && !syncedWithServer);
+
+  const showInitialLoading =
+    !hasRoster && (waitingInitialData || loading || booting || syncingServer);
+
+  const showEmptyState =
+    !showInitialLoading &&
+    !hasRoster &&
+    (
+      // ① 아예 비로그인(게스트)일 때
+      authStatus === "unauthenticated" ||
+      // ② 로그인 유저인데, 서버 동기화까지 끝난 뒤에야 비로소 "진짜로 비어있다" 판단
+      (authStatus === "authenticated" && syncedWithServer)
+    );
+
+
+
   /** 테이블 뷰에서 관문 토글 */
   const handleTableToggleGate = (
     charName: string,
@@ -686,13 +755,12 @@ export default function MyTasksPage() {
     }
     setVisibleByChar(nextVisible);
     try {
-      if (!isAuthed) {
+      if (!isAuthed) {  // ✅ 로그인 아닐 때만 localStorage에 저장
         localStorage.setItem(VISIBLE_KEY, JSON.stringify(nextVisible));
       }
     } catch {
       // 로컬스토리지 에러는 무시
     }
-
 
     // 3) 각 상위 6캐릭에 대해 top3 레이드 자동 세팅
     setPrefsByChar((prev) => {
@@ -700,16 +768,25 @@ export default function MyTasksPage() {
 
       for (const c of top6) {
         const ilvlNum = c.itemLevelNum ?? 0;
-        const prevPrefs = prev[c.name] ?? readPrefs(c.name) ?? { raids: {} };
+        const prevPrefs =
+          prev[c.name] ?? (!isAuthed ? readPrefs(c.name) : null) ?? { raids: {} }; // ✅ 로그인 시엔 readPrefs 안 씀
 
         const updated = autoSelectTop3Raids(ilvlNum, prevPrefs);
         next[c.name] = updated;
-        writePrefs(c.name, updated);
+
+        try {
+          if (!isAuthed) {
+            writePrefs(c.name, updated);
+          }
+        } catch {
+          // 무시
+        }
       }
 
       return next;
     });
   };
+
 
   /** 모든 캐릭터의 관문 체크만 초기화 (enable/difficulty/order는 유지) */
   const gateAllClear = () => {
@@ -750,7 +827,7 @@ export default function MyTasksPage() {
   };
 
   return (
-    <div className="w-full text-gray-300 py-8 sm:py-12">
+    <div className="w-full text-white py-8 sm:py-12">
       {/* 공통 좌우 패딩 */}
       <div className="mx-auto max-w-7xl space-y-5">
         {/* 상단 헤더 */}
@@ -1040,7 +1117,7 @@ export default function MyTasksPage() {
             </div>
 
             {/* 캐릭터가 전혀 없을 때 빈 상태 표시 */}
-            {!loading && !booting && !hasRoster && (
+            {showEmptyState && (
               <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl animate-in fade-in zoom-in-95 duration-500">
                 <div className="relative mb-6">
                   <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
@@ -1096,7 +1173,7 @@ export default function MyTasksPage() {
             {err && <div className="text-sm text-red-400">에러: {err}</div>}
 
             {/* 초기 부팅/로딩 중 + 아직 roster 없음 */}
-            {(loading || booting) && !hasRoster && (
+            {showInitialLoading && (
               <div className="w-full py-16 sm:py-24 flex flex-col items-center justify-center animate-in fade-in duration-300">
                 <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-5 sm:mb-6">
                   <div className="absolute inset-0 border-4 border-[#5B69FF]/20 rounded-full" />

@@ -142,7 +142,7 @@ export default function TaskTable({
                                     block
                                     truncate
                                     max-w-[100px] sm:max-w-[300px]
-                                    font-semibold text-sm sm:text-base
+                                    font-semibold text-sm sm:text-xl
                                 "
                             title={first.name}
                         >
