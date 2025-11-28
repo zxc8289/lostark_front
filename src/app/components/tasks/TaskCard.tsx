@@ -19,13 +19,11 @@ const DIFF = {
     하드: {
         badge: "bg-[#FF5252]/10 text-[#FF5252] border border-none",
         check: "bg-[#ff5a5a] text-white",
-        // 🔹 하드일 때 hover 색
         hover: "hover:bg-[#FF5252] hover:text-white",
     },
     노말: {
         badge: "bg-[#5B69FF]/10 text-[#5B69FF] border border-none",
         check: "bg-[#5B69FF] text-white",
-        // 🔹 노말일 때 hover 색
         hover: "hover:bg-[#5B69FF] hover:text-white",
     },
 } as const;
@@ -63,11 +61,13 @@ export default function TaskCard({
 
     const checked = useMemo(() => new Set(gates), [gates]);
 
+
+
+
     return (
         <div className="grid grid-cols-[1fr_auto] px-5 py-5 bg-[#222429] rounded-sm">
-            {/* left */}
             <div className="min-w-0">
-                <div className="text-gray-500 text-[11px]">{kind} 레이드</div>
+                <div className="text-gray-400 text-[11px]">{kind} 레이드</div>
                 <div className="mt-1 flex items-center gap-2 min-w-0">
                     <div className="text-base truncate">{title}</div>
                     <span className={`text-[11px] px-2 py-0.5 rounded-sm ${diffStyle.badge}`}>
@@ -117,11 +117,14 @@ export default function TaskCard({
                             ) : (
                                 g
                             )}
+
                         </button>
+
                     );
                 })}
 
             </div>
+
         </div>
     );
 }

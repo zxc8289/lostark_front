@@ -6,12 +6,20 @@ import CharacterTaskStrip, { TaskItem } from "../components/tasks/CharacterTaskS
 import TaskCard from "../components/tasks/TaskCard";
 import EditTasksModal from "../components/tasks/EditTasksModal";
 import type { CharacterSummary, RosterCharacter } from "../components/AddAccount";
-import { raidInformation, type DifficultyKey } from "@/server/data/raids";
+import { raidInformation } from "@/server/data/raids";
 import type { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
 import { clearAllPrefs, clearCharPrefs, readPrefs, writePrefs } from "@/app/lib/tasks/raid-prefs";
 import CharacterSettingModal from "../components/tasks/CharacterSettingModal";
 import TaskTable from "../components/tasks/TaskTable";
 import { useSession } from "next-auth/react";
+import {
+  getRaidBaseLevel,
+  calcNextGates,
+  computeRaidSummaryForRoster,
+  buildAutoSetupForRoster,
+  type RaidSummary,
+} from "../lib/tasks/raid-utils";
+
 
 type SavedFilters = {
   // 현재는 "남은 숙제만 보기", "테이블로 보기" 두 옵션만 사용
@@ -35,129 +43,8 @@ function loadSavedFilters(): SavedFilters | null {
   }
 }
 
-function getRaidBaseLevel(raidId: string): number {
-  const info = raidInformation[raidId];
-  if (!info) return Number.MAX_SAFE_INTEGER;
-
-  const levels = Object.values(info.difficulty).map(
-    (d) => d?.level ?? Number.MAX_SAFE_INTEGER
-  );
-  if (!levels.length) return Number.MAX_SAFE_INTEGER;
-
-  // 노말/하드 중 가장 낮은 입장 레벨
-  return Math.min(...levels);
-}
 
 
-/** 관문 토글 규칙:
- *  - 아무 것도 안 켜져 있을 때 → 클릭한 관문까지 모두 켜기
- *  - 현재 가장 오른쪽보다 더 오른쪽 관문을 클릭 → 거기까지 확장
- *  - 현재 범위 안/왼쪽을 클릭 → 그 관문부터 오른쪽은 모두 끄기
- */
-function calcNextGates(
-  clickedGate: number,
-  currentGates: number[],
-  allGates: number[]
-): number[] {
-  if (!allGates.length) return [];
-
-  const sortedAll = [...allGates].sort((a, b) => a - b);
-  const selectedSet = new Set(currentGates);
-
-  // 현재 선택된 관문들 중 "가장 오른쪽" 인덱스
-  let currentMaxIdx = -1;
-  sortedAll.forEach((g, idx) => {
-    if (selectedSet.has(g) && idx > currentMaxIdx) {
-      currentMaxIdx = idx;
-    }
-  });
-
-  const clickedIdx = sortedAll.indexOf(clickedGate);
-  if (clickedIdx === -1) {
-    // 정의되지 않은 관문이면 기존 상태 유지
-    return currentGates;
-  }
-
-  let newMaxIdx: number;
-
-  if (currentMaxIdx === -1) {
-    // 1) 아무 것도 안 눌렸을 때 → 클릭한 관문까지 켜기 (예: [] 에서 3 → [1,2,3])
-    newMaxIdx = clickedIdx;
-  } else if (clickedIdx > currentMaxIdx) {
-    // 2) 현재 선택 범위보다 오른쪽 클릭 → 거기까지 확장 (예: [1] 에서 3 → [1,2,3])
-    newMaxIdx = clickedIdx;
-  } else {
-    // 3) 현재 선택 범위 안/왼쪽 클릭 → 그 관문부터 오른쪽 다 끄기
-    //    (예: [1,2,3] 에서 2 → [1], [1,2,3] 에서 1 → [])
-    newMaxIdx = clickedIdx - 1;
-  }
-
-  if (newMaxIdx < 0) {
-    return [];
-  }
-
-  // 앞에서부터 newMaxIdx 까지의 관문만 켜기
-  return sortedAll.slice(0, newMaxIdx + 1);
-}
-
-/** 캐릭터 템렙 기준으로 "갈 수 있는 레이드" 중 요구 레벨이 높은 순으로 TOP 3 자동 선택 */
-function autoSelectTop3Raids(ilvl: number, prev?: CharacterTaskPrefs): CharacterTaskPrefs {
-  const raidEntries = Object.entries(raidInformation);
-  const updatedRaids: CharacterTaskPrefs["raids"] = { ...(prev?.raids ?? {}) };
-
-  const candidates: {
-    raidName: string;
-    difficulty: DifficultyKey;
-    levelReq: number;
-  }[] = [];
-
-  // 1) 캐릭터 템렙으로 갈 수 있는 난이도만 후보에 넣기
-  for (const [raidName, info] of raidEntries) {
-    const hard = info.difficulty["하드"];
-    const normal = info.difficulty["노말"];
-
-    let pickedDiff: DifficultyKey | null = null;
-    let levelReq = 0;
-
-    if (hard && ilvl >= hard.level) {
-      pickedDiff = "하드";
-      levelReq = hard.level;
-    } else if (normal && ilvl >= normal.level) {
-      pickedDiff = "노말";
-      levelReq = normal.level;
-    } else {
-      continue;
-    }
-
-    candidates.push({ raidName, difficulty: pickedDiff, levelReq });
-  }
-
-  // 2) 요구 레벨 높은 순으로 정렬 → 상위 3개
-  const top3 = candidates.sort((a, b) => b.levelReq - a.levelReq).slice(0, 3);
-
-  // 3) 기존에는 모두 OFF + 관문 비우기
-  for (const [raidName, pref] of Object.entries(updatedRaids)) {
-    updatedRaids[raidName] = {
-      ...pref,
-      enabled: false,
-      gates: [],
-    };
-  }
-
-  // 4) top3만 ON + 난이도 세팅 (관문은 비워둠)
-  for (const { raidName, difficulty } of top3) {
-    updatedRaids[raidName] = {
-      ...(updatedRaids[raidName] ?? { gates: [] }),
-      enabled: true,
-      difficulty,
-    };
-  }
-
-  // 5) order 는 top3만 앞에 두기
-  const order = top3.map((x) => x.raidName);
-
-  return { raids: updatedRaids, order };
-}
 
 export default function MyTasksPage() {
   const { data: session, status: authStatus } = useSession();
@@ -485,7 +372,7 @@ export default function MyTasksPage() {
     const raidNames = prefs.order
       ? baseRaidNames
       : [...baseRaidNames].sort(
-        (a, b) => getRaidBaseLevel(a) - getRaidBaseLevel(b)
+        (a, b) => getRaidBaseLevel(b) - getRaidBaseLevel(a)
       );
 
     const items: TaskItem[] = [];
@@ -645,50 +532,19 @@ export default function MyTasksPage() {
   /* ──────────────────────────
    *  남은 숙제/캐릭터 수 계산
    * ────────────────────────── */
-  const { totalRemainingTasks, remainingCharacters } = useMemo(() => {
-    let taskCount = 0;
-    let charCount = 0;
-
-    for (const char of visibleRoster) {
-      const prefs = prefsByChar[char.name];
-      if (!prefs) continue;
-
-      let hasRemainingForChar = false;
-
-      for (const [raidName, p] of Object.entries(prefs.raids)) {
-        if (!p?.enabled) continue;
-
-        const info = raidInformation[raidName];
-        if (!info) continue;
-
-        const diffInfo = info.difficulty[p.difficulty];
-        if (!diffInfo || !diffInfo.gates?.length) continue;
-
-        // 이 레이드의 "마지막 관문 index"
-        const lastGateIndex = diffInfo.gates.reduce(
-          (max, g) => (g.index > max ? g.index : max),
-          0
-        );
-
-        const gates = p.gates ?? [];
-        const isCompleted = gates.includes(lastGateIndex);
-
-        if (!isCompleted) {
-          taskCount += 1;
-          hasRemainingForChar = true;
-        }
-      }
-
-      if (hasRemainingForChar) {
-        charCount += 1;
-      }
-    }
-
-    return {
-      totalRemainingTasks: taskCount,
-      remainingCharacters: charCount,
-    };
+  const {
+    totalRemainingTasks,
+    remainingCharacters,
+    totalRemainingGold,
+    totalGold,
+  } = useMemo<RaidSummary>(() => {
+    return computeRaidSummaryForRoster(visibleRoster, prefsByChar);
   }, [visibleRoster, prefsByChar]);
+
+
+  const isAllCleared = totalRemainingGold === 0 && totalGold > 0;
+
+
 
   const hasRoster = !!(data?.roster && data.roster.length > 0);
 
@@ -737,55 +593,37 @@ export default function MyTasksPage() {
     });
   };
 
-  /** 상위 6캐릭 visible + 각 캐릭 top3 레이드 자동 세팅 */
   const handleAutoSetup = () => {
     if (!data?.roster || data.roster.length === 0) return;
 
-    // 1) 아이템 레벨 기준 상위 6캐릭 추출
-    const sorted = [...data.roster].sort(
-      (a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)
-    );
-    const top6 = sorted.slice(0, 6);
-    const top6Names = new Set(top6.map((c) => c.name));
+    const roster = data.roster;
 
-    // 2) visibleByChar 갱신 (상위 6만 true)
-    const nextVisible: Record<string, boolean> = {};
-    for (const c of data.roster) {
-      nextVisible[c.name] = top6Names.has(c.name);
-    }
-    setVisibleByChar(nextVisible);
+    // 1) 공통 유틸로 새 상태 계산
+    const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(
+      roster,
+      prefsByChar
+    );
+
+    // 2) 상태 반영
+    setPrefsByChar(nextPrefsByChar);
+    setVisibleByChar(nextVisibleByChar);
+
+    // 3) 게스트 모드일 때만 localStorage 반영
     try {
-      if (!isAuthed) {  // ✅ 로그인 아닐 때만 localStorage에 저장
-        localStorage.setItem(VISIBLE_KEY, JSON.stringify(nextVisible));
+      if (!isAuthed) {
+        // visibleByChar 저장
+        localStorage.setItem(VISIBLE_KEY, JSON.stringify(nextVisibleByChar));
+
+        // 각 캐릭 prefs 저장
+        for (const [name, prefs] of Object.entries(nextPrefsByChar)) {
+          writePrefs(name, prefs);
+        }
       }
     } catch {
       // 로컬스토리지 에러는 무시
     }
-
-    // 3) 각 상위 6캐릭에 대해 top3 레이드 자동 세팅
-    setPrefsByChar((prev) => {
-      const next = { ...prev };
-
-      for (const c of top6) {
-        const ilvlNum = c.itemLevelNum ?? 0;
-        const prevPrefs =
-          prev[c.name] ?? (!isAuthed ? readPrefs(c.name) : null) ?? { raids: {} }; // ✅ 로그인 시엔 readPrefs 안 씀
-
-        const updated = autoSelectTop3Raids(ilvlNum, prevPrefs);
-        next[c.name] = updated;
-
-        try {
-          if (!isAuthed) {
-            writePrefs(c.name, updated);
-          }
-        } catch {
-          // 무시
-        }
-      }
-
-      return next;
-    });
   };
+
 
 
   /** 모든 캐릭터의 관문 체크만 초기화 (enable/difficulty/order는 유지) */
@@ -835,6 +673,7 @@ export default function MyTasksPage() {
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight truncate break-keep">
               내 숙제
+
             </h1>
           </div>
         </div>
@@ -943,7 +782,7 @@ export default function MyTasksPage() {
 
                           <div className="w-full h-px bg-white/5 my-0.5" />
 
-                          <p className="text-gray-500 font-medium">
+                          <p className="text-gray-400 font-medium">
                             ※ 테이블 보기에서는 이 옵션이 적용되지 않습니다.
                           </p>
                         </div>
@@ -1006,25 +845,48 @@ export default function MyTasksPage() {
 
           {/* 오른쪽 메인 영역 */}
           <div className="grid grid-cols-1 gap-4 sm:gap-5">
-            {/* 상단 요약 카드 (남은 숙제/캐릭터 수 + 액션 버튼) */}
             <div className="bg-[#16181D] rounded-md px-4 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 text-sm sm:text-base">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="font-semibold text-base sm:text-lg pr-1">남은 숙제</span>
-                  <span className="text-gray-500 text-xs sm:text-sm">
+                  <span className="font-semibold text-sm sm:text-lg pr-1">남은 숙제</span>
+                  <span className="text-gray-400 text-xs sm:text-sm font-semibold">
                     {totalRemainingTasks}
                   </span>
                 </div>
+
                 <span className="hidden sm:inline h-4 w-px bg-white/10" />
+
                 <div className="flex items-baseline gap-1.5">
-                  <span className="font-semibold text-base sm:text-lg pr-1">
+                  <span className="font-semibold text-sm sm:text-lg pr-1">
                     숙제 남은 캐릭터
                   </span>
-                  <span className="text-gray-500 text-xs sm:text-sm">
+                  <span className="text-gray-400 text-xs sm:text-sm font-semibold">
                     {remainingCharacters}
                   </span>
                 </div>
+
+                <span className="hidden sm:inline h-4 w-px bg-white/10" />
+
+                <div className="flex items-baseline gap-1.5">
+                  <span className="font-semibold text-sm sm:text-lg pr-1">
+                    남은 골드
+                  </span>
+                  <span
+                    className={`
+                      text-xs sm:text-sm font-semibold
+                      ${isAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400"}
+                    `}
+                  >
+                    {isAllCleared
+                      ? `${totalGold.toLocaleString()}g`
+                      : `${totalRemainingGold.toLocaleString()}g`
+                    }
+                  </span>
+                </div>
+
               </div>
+
+
 
               <div className="flex flex-row flex-wrap gap-2 sm:gap-3 sm:ml-auto">
                 {/* 자동 세팅 버튼 (상위 6캐릭 + 각 캐릭 top3 레이드 자동 선택) */}
@@ -1037,7 +899,7 @@ export default function MyTasksPage() {
                       py-2 px-6 rounded-lg
                       bg-white/[.04] border border-white/10
                       hover:bg-white/5 hover:border-white/20
-                      text-xs sm:text-sm font-medium text-gray-200
+                      text-xs sm:text-sm font-medium text-white
                       transition-all duration-200
                       disabled:opacity-50 disabled:cursor-not-allowed
                     "
@@ -1122,7 +984,7 @@ export default function MyTasksPage() {
                 <div className="relative mb-6">
                   <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
                   <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
-                    <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">
+                    <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">s
                       LOA
                     </span>
                   </div>
@@ -1137,7 +999,7 @@ export default function MyTasksPage() {
                 <p className="text-gray-400 max-w-md mb-6 sm:mb-8 leading-relaxed text-[12px] sm:text-base">
                   아직 등록된 캐릭터 데이터가 없습니다.
                   <br />
-                  <span className="text-gray-500">
+                  <span className="text-gray-400">
                     대표 캐릭터 닉네임을 입력하면 전투정보실에서 정보를 가져옵니다.
                   </span>
                 </p>
@@ -1157,7 +1019,7 @@ export default function MyTasksPage() {
                   <button
                     type="submit"
                     disabled={loading || !searchInput.trim()}
-                    className="absolute right-1.5 px-3 py-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-500 transition-colors text-xs sm:text-sm"
+                    className="absolute right-1.5 px-3 py-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-400 transition-colors text-xs sm:text-sm"
                   >
                     {loading ? (
                       <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1188,7 +1050,7 @@ export default function MyTasksPage() {
                 <h3 className="text-lg sm:text-xl font-bold text-white mb-1 sm:mb-2 animate-pulse">
                   원정대 정보를 불러오는 중입니다
                 </h3>
-                <p className="text-xs sm:text-sm text-gray-500">잠시만 기다려주세요...</p>
+                <p className="text-xs sm:text-sm text-gray-400">잠시만 기다려주세요...</p>
               </div>
             )}
 

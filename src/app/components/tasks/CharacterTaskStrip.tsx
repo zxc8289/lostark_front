@@ -130,11 +130,11 @@ export default function CharacterTaskStrip({
                             {character.name}
                         </span>
 
-                        <span className="text-gray-500 text-[11px] sm:hidden">
+                        <span className="text-gray-400 text-[11px] sm:hidden">
                             {levelText}
                         </span>
 
-                        <span className="hidden sm:inline text-gray-500 text-sm">
+                        <span className="hidden sm:inline text-gray-400 text-sm">
                             {levelText}
                             {character.className ? ` / ${character.className}` : ""}
                         </span>

@@ -39,6 +39,7 @@ const DIFF_STYLES = {
 const DESKTOP_MAX_VISIBLE = 5;
 const MOBILE_MAX_VISIBLE = 2;
 const SLIDE_PX = 32;
+const CHAR_COL_WIDTH = "w-[120px] sm:w-[170px]"
 
 function getRaidBaseLevel(raidId: string): number {
     const info = raidInformation[raidId];
@@ -205,15 +206,17 @@ export default function TaskTable({
                         <thead className="bg-[#1E222B] text-gray-200 uppercase text-[10px] sm:text-xs font-semibold">
                             <tr>
                                 <th
-                                    className="
-                                            px-3 py-3 sm:py-4 min-w-[100px] sm:min-w-[110px] text-center
-                                            sticky left-0 z-20
-                                            bg-[#1E222B] border-r border-white/5
-                                            shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]
-                                        "
+                                    className={`
+                                        px-3 py-3 sm:py-4 text-center
+                                        sticky left-0 z-20
+                                        bg-[#1E222B] border-r border-white/5
+                                        shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]
+                                        ${CHAR_COL_WIDTH}
+                                    `}
                                 >
                                     <span className="pl-1">캐릭터</span>
                                 </th>
+
                                 {visibleRaidColumns.map((raidId) => {
                                     const info = raidInformation[raidId];
                                     const displayName = info
