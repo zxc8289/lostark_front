@@ -20,6 +20,30 @@ type PartyMemberRow = {
     image: string | null;
 };
 
+type RaidStateJson = {
+    // 멀티 계정 정보
+    accounts?: {
+        id: string;
+        nickname: string;
+        summary: any | null;  // CharacterSummary
+        isPrimary?: boolean;
+        isSelected?: boolean;
+    }[];
+
+    // 옛날 전역 대표 (안 써도 되지만 남겨두기)
+    activeAccountId?: string | null;
+
+    // 새로 쓰는: 파티별 대표 계정 id
+    activeAccountByParty?: Record<string, string | null>;
+
+    // 기존 필드들
+    nickname?: string;
+    summary?: any | null;
+    prefsByChar?: Record<string, any>;
+    visibleByChar?: Record<string, boolean>;
+};
+
+
 type RaidTaskStateRow = {
     user_id: string;
     state_json: string;
@@ -151,15 +175,41 @@ export async function GET(
     }
 
     // 4) PartyMemberTasks 형태로 변환
+    const partyKey = String(partyIdNum);
+
     const members: PartyMemberTasks[] = memberRows.map((m) => {
         const stateRow = stateByUserId.get(m.user_id);
-        let parsed: any = null;
+        let parsed: RaidStateJson | null = null;
 
         if (stateRow) {
             try {
-                parsed = JSON.parse(stateRow.state_json);
+                parsed = JSON.parse(stateRow.state_json) as RaidStateJson;
             } catch {
                 parsed = null;
+            }
+        }
+
+        // 기본값: 옛날 single-summary 구조
+        let effectiveSummary: any = parsed?.summary ?? null;
+
+        const accounts = parsed?.accounts;
+        if (accounts && accounts.length > 0) {
+            // 1순위: 이 파티에서 선택한 대표 계정
+            const partyActiveId = parsed?.activeAccountByParty?.[partyKey] ?? null;
+
+            // 2순위: 전역 대표 (activeAccountId)
+            const globalActiveId = parsed?.activeAccountId ?? null;
+
+            // 3,4,5순위: isSelected / isPrimary / 첫 번째 계정
+            const selectedAcc =
+                (partyActiveId && accounts.find((a) => a.id === partyActiveId)) ||
+                (globalActiveId && accounts.find((a) => a.id === globalActiveId)) ||
+                accounts.find((a) => a.isSelected) ||
+                accounts.find((a) => a.isPrimary) ||
+                accounts[0];
+
+            if (selectedAcc?.summary) {
+                effectiveSummary = selectedAcc.summary;
             }
         }
 
@@ -168,11 +218,13 @@ export async function GET(
             name: m.name,
             image: m.image,
             nickname: parsed?.nickname ?? "",
-            summary: parsed?.summary ?? null,
+            summary: effectiveSummary,
             prefsByChar: parsed?.prefsByChar ?? {},
             visibleByChar: parsed?.visibleByChar ?? {},
         };
     });
+
+
 
     return NextResponse.json(
         { members } satisfies PartyRaidTasksResponse,

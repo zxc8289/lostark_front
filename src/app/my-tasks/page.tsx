@@ -32,8 +32,10 @@ type SavedAccount = {
   id: string;
   nickname: string;
   summary: CharacterSummary;
-  isPrimary?: boolean; // 대표 계정 여부
+  isPrimary?: boolean;  // 대표 계정 (기본으로 열리는 계정)
+  isSelected?: boolean; // 현재 화면에서 선택된 계정 (state_json에 true/false)
 };
+
 
 const FILTER_KEY = "raidTaskFilters";
 const LOCAL_KEY = "raidTaskLastAccount"; // 예전 단일 구조용 (마이그레이션용)
@@ -97,10 +99,19 @@ export default function MyTasksPage() {
   /* ──────────────────────────
    *  계정/검색 관련 상태
    * ────────────────────────── */
+
   const [accounts, setAccounts] = useState<SavedAccount[]>([]);
-  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+
+  // isSelected가 true인 계정 하나를 “현재 계정”으로 사용
   const activeAccount =
-    accounts.find((a) => a.id === activeAccountId) ?? accounts[0] ?? null;
+    accounts.find((a) => a.isSelected) ??
+    accounts.find((a) => a.isPrimary) ??
+    accounts[0] ??
+    null;
+
+  const [isAccountListOpen, setIsAccountListOpen] = useState(false);
+  const currentAccount = activeAccount;
+
 
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
 
@@ -111,8 +122,6 @@ export default function MyTasksPage() {
   const [err, setErr] = useState<string | null>(null);
 
 
-  const [isAccountListOpen, setIsAccountListOpen] = useState(false);
-  const currentAccount = accounts.find(acc => acc.id === activeAccountId);
 
   /* ──────────────────────────
    *  캐릭터별 레이드 설정 상태
@@ -130,26 +139,35 @@ export default function MyTasksPage() {
    * ────────────────────────── */
   useEffect(() => {
     try {
-      // 1) 새 구조(여러 계정)가 이미 있다면 그걸 먼저 사용
       const rawAccounts = localStorage.getItem(ACCOUNTS_KEY);
       if (rawAccounts) {
-        const parsed = JSON.parse(rawAccounts) as SavedAccount[];
+        let parsed = JSON.parse(rawAccounts) as SavedAccount[];
         if (Array.isArray(parsed) && parsed.length > 0) {
+          // 1) 이미 isSelected 정보가 있다면 그대로 사용
+          const hasSelected = parsed.some((a) => a.isSelected);
+
+          if (!hasSelected) {
+            // 2) 옛날 ACTIVE_ACCOUNT_KEY를 한 번만 참고해서 isSelected 채우기
+            const savedActiveId = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
+            const fallbackActive =
+              (savedActiveId && parsed.find((a) => a.id === savedActiveId)) ||
+              parsed.find((a) => a.isPrimary) ||
+              parsed[0];
+
+            parsed = parsed.map((a) =>
+              a.id === fallbackActive.id
+                ? { ...a, isSelected: true }
+                : { ...a, isSelected: false }
+            );
+          }
+
           setAccounts(parsed);
-
-          const savedActiveId = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
-          const active =
-            parsed.find((a) => a.id === savedActiveId) ??
-            parsed.find((a) => a.isPrimary) ??
-            parsed[0];
-
-          if (active) setActiveAccountId(active.id);
           setBooting(false);
           return;
         }
       }
 
-      // 2) 예전 단일 구조(LOCAL_KEY)에 저장되어 있던 유저라면 → 한 번만 마이그레이션
+      // 2) Legacy 단일 구조 마이그레이션
       const rawLegacy = localStorage.getItem(LOCAL_KEY);
       if (rawLegacy) {
         const legacy = JSON.parse(rawLegacy) as {
@@ -162,14 +180,14 @@ export default function MyTasksPage() {
           nickname: legacy.nickname,
           summary: legacy.data,
           isPrimary: true,
+          isSelected: true, // 단일 계정일 때는 기본 선택
         };
 
         const list = [migrated];
         setAccounts(list);
-        setActiveAccountId(migrated.id);
 
         localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(list));
-        localStorage.setItem(ACTIVE_ACCOUNT_KEY, migrated.id);
+        localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
       }
     } catch {
       // 무시
@@ -177,6 +195,7 @@ export default function MyTasksPage() {
       setBooting(false);
     }
   }, []);
+
 
   /* ──────────────────────────
    *  캐릭터별 prefs 초기 로드
@@ -267,15 +286,14 @@ export default function MyTasksPage() {
       accounts.find((a) => a.isPrimary) ?? accounts[0] ?? null;
 
     return {
-      // ✅ 옛날 구조와 호환용 (단일 계정 기준)
+      // 옛날 단일 구조 호환용
       nickname: primaryAccount?.nickname ?? null,
       summary: primaryAccount?.summary ?? null,
 
-      // ✅ 새 구조: 여러 계정 전체
+      // 새 구조: 계정 리스트 (여기에 isSelected, isPrimary까지 다 들어감)
       accounts,
-      activeAccountId,
 
-      // 기존 그대로
+      // 전역 설정
       prefsByChar,
       visibleByChar,
       filters: {
@@ -285,31 +303,48 @@ export default function MyTasksPage() {
     };
   }
 
+
   function applyServerState(state: any) {
     try {
-      // 1) 새 구조: accounts 배열이 있다면 그걸 그대로 사용
+      // 1) 새 구조: accounts 배열
       if (state.accounts && Array.isArray(state.accounts)) {
-        const serverAccounts = state.accounts as SavedAccount[];
-        setAccounts(serverAccounts);
+        let serverAccounts = state.accounts as SavedAccount[];
 
-        if (state.activeAccountId) {
-          setActiveAccountId(state.activeAccountId);
-        } else if (serverAccounts.length > 0) {
-          const primary =
-            serverAccounts.find((a) => a.isPrimary) ?? serverAccounts[0];
-          setActiveAccountId(primary.id);
+        const hasSelected = serverAccounts.some((a) => a.isSelected);
+
+        if (!hasSelected) {
+          // 1-1) 옛날 activeAccountId가 있다면 그것을 선택 계정으로
+          if (state.activeAccountId) {
+            serverAccounts = serverAccounts.map((a) =>
+              a.id === state.activeAccountId
+                ? { ...a, isSelected: true }
+                : { ...a, isSelected: false }
+            );
+          } else if (serverAccounts.length > 0) {
+            // 1-2) 아니면 대표 계정 or 첫 계정을 선택
+            const primary =
+              serverAccounts.find((a) => a.isPrimary) ?? serverAccounts[0];
+
+            serverAccounts = serverAccounts.map((a) =>
+              a.id === primary.id
+                ? { ...a, isSelected: true }
+                : { ...a, isSelected: false }
+            );
+          }
         }
+
+        setAccounts(serverAccounts);
       }
-      // 2) 옛날 구조(단일 nickname/summary)만 있는 경우 → 한 계정으로 마이그레이션
+      // 2) 옛날 단일 구조만 있는 경우
       else if (state.nickname && state.summary) {
         const migrated: SavedAccount = {
           id: state.nickname,
           nickname: state.nickname,
           summary: state.summary,
           isPrimary: true,
+          isSelected: true,
         };
         setAccounts([migrated]);
-        setActiveAccountId(migrated.id);
       }
 
       if (state.prefsByChar) setPrefsByChar(state.prefsByChar);
@@ -327,6 +362,7 @@ export default function MyTasksPage() {
       // 무시
     }
   }
+
 
   /* ──────────────────────────
    *  로그인 상태에서 자동 저장 (디바운스)
@@ -364,7 +400,6 @@ export default function MyTasksPage() {
     syncedWithServer,
     booting,
     accounts,
-    activeAccountId,
     prefsByChar,
     visibleByChar,
     onlyRemain,
@@ -582,26 +617,33 @@ export default function MyTasksPage() {
       // 무시
     }
 
-    // 2) accounts 리스트에서 제거
     setAccounts((prev) => {
-      const next = prev.filter((a) => a.id !== activeAccount.id);
+      const without = prev.filter((a) => a.id !== activeAccount.id);
 
-      const nextActive =
-        next.find((a) => a.isPrimary) ?? next[0] ?? null;
+      if (without.length === 0) {
+        if (!isAuthed) {
+          localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(without));
+        }
+        return [];
+      }
+
+      // 남은 계정 중 대표계정 or 첫 계정을 선택 상태로
+      const baseActive =
+        without.find((a) => a.isPrimary) ?? without[0];
+
+      const next = without.map((a) =>
+        a.id === baseActive.id
+          ? { ...a, isSelected: true }
+          : { ...a, isSelected: false }
+      );
 
       if (!isAuthed) {
         localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
-        if (nextActive) {
-          localStorage.setItem(ACTIVE_ACCOUNT_KEY, nextActive.id);
-        } else {
-          localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
-        }
       }
-
-      setActiveAccountId(nextActive ? nextActive.id : null);
 
       return next;
     });
+
 
     setIsCharSettingOpen(false);
   };
@@ -626,18 +668,19 @@ export default function MyTasksPage() {
 
       const json = (await r.json()) as CharacterSummary;
 
-      let newActiveId: string | null = null;
-
       setAccounts((prev) => {
-        const next = [...prev];
+        let next = [...prev];
         const idx = next.findIndex(
           (a) => a.nickname.toLowerCase() === trimmed.toLowerCase()
         );
 
         if (idx >= 0) {
-          // 이미 있는 계정이라면 summary만 갱신
-          next[idx] = { ...next[idx], summary: json };
-          newActiveId = next[idx].id;
+          // 이미 있는 계정이면 summary만 갱신 + 그 계정 선택
+          next = next.map((a, i) =>
+            i === idx
+              ? { ...a, summary: json, isSelected: true }
+              : { ...a, isSelected: false }
+          );
         } else {
           const id =
             typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -648,26 +691,24 @@ export default function MyTasksPage() {
             id,
             nickname: trimmed,
             summary: json,
-            isPrimary: prev.length === 0, // 첫 계정은 대표 계정으로
+            isPrimary: prev.length === 0,
+            isSelected: true, // 새 계정은 기본 선택
           };
 
+          // 기존 계정들은 선택 해제
+          next = prev.map((a) => ({ ...a, isSelected: false }));
           next.push(acc);
-          newActiveId = id;
         }
 
         if (!isAuthed) {
           localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
-          if (newActiveId) {
-            localStorage.setItem(ACTIVE_ACCOUNT_KEY, newActiveId);
-          }
         }
 
         return next;
       });
 
-      if (newActiveId) {
-        setActiveAccountId(newActiveId);
-      }
+
+
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -751,7 +792,6 @@ export default function MyTasksPage() {
     });
   };
 
-  /** 활성 계정 기준으로 자동 세팅 */
   const handleAutoSetup = () => {
     if (!activeAccount?.summary?.roster || activeAccount.summary.roster.length === 0)
       return;
@@ -763,20 +803,46 @@ export default function MyTasksPage() {
       prefsByChar
     );
 
-    setPrefsByChar(nextPrefsByChar);
-    setVisibleByChar(nextVisibleByChar);
+    // 1) prefsByChar 머지
+    setPrefsByChar((prev) => {
+      const merged: typeof prev = {
+        ...prev,
+        ...nextPrefsByChar, // 이번 계정에 해당하는 캐릭터들 위주로 덮어쓰기
+      };
 
-    try {
-      if (!isAuthed) {
-        localStorage.setItem(VISIBLE_KEY, JSON.stringify(nextVisibleByChar));
-        for (const [name, prefs] of Object.entries(nextPrefsByChar)) {
-          writePrefs(name, prefs);
+      try {
+        if (!isAuthed) {
+          for (const [name, prefs] of Object.entries(nextPrefsByChar)) {
+            writePrefs(name, prefs);
+          }
         }
+      } catch {
+        // 무시
       }
-    } catch {
-      // 무시
-    }
+
+      return merged;
+    });
+
+    // 2) visibleByChar 머지
+    setVisibleByChar((prev) => {
+      const merged: typeof prev = {
+        ...prev,
+        ...nextVisibleByChar,
+      };
+
+      try {
+        if (!isAuthed) {
+          localStorage.setItem(VISIBLE_KEY, JSON.stringify(merged));
+        }
+      } catch {
+        // 무시
+      }
+
+      return merged;
+    });
   };
+
+
 
   /** 모든 캐릭터의 관문 체크만 초기화 (enable/difficulty/order는 유지) */
   const gateAllClear = () => {
@@ -839,7 +905,7 @@ export default function MyTasksPage() {
         >
           {/* 왼쪽 필터 영역 */}
           <div className="space-y-4">
-            <section className="">
+            <section className="rounded-sm bg-[#16181D] shadow-sm">
 
               {/* 헤더: 현재 선택된 계정 표시 (클릭 시 펼치기/접기) */}
               <button
@@ -869,18 +935,26 @@ export default function MyTasksPage() {
                 <div className="px-3 pb-3 pt-2 bg-[#16181D] animate-in slide-in-from-top-2 duration-200">
                   <div className="flex flex-col gap-1">
 
-                    {/* 1. 계정 리스트 */}
                     {accounts.map((acc) => {
-                      const isActive = acc.id === activeAccountId;
+                      const isActive = !!acc.isSelected;
                       return (
                         <button
                           key={acc.id}
                           onClick={() => {
-                            setActiveAccountId(acc.id);
-                            if (!isAuthed) {
-                              localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
-                            }
-                            setIsAccountListOpen(false); // 선택 후 닫기 (선택사항)
+                            setAccounts((prev) => {
+                              const next = prev.map((a) =>
+                                a.id === acc.id
+                                  ? { ...a, isSelected: true }
+                                  : { ...a, isSelected: false }
+                              );
+
+                              if (!isAuthed) {
+                                localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
+                              }
+
+                              return next;
+                            });
+                            setIsAccountListOpen(false);
                           }}
                           className={[
                             "relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all",
@@ -889,7 +963,7 @@ export default function MyTasksPage() {
                               : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
                           ].join(" ")}
                         >
-                          {/* 체크 아이콘 (활성화된 경우) */}
+                          {/* 체크 아이콘은 그대로 */}
                           <div className={`flex items-center justify-center w-5 h-5 ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
                             <Check className="h-4 w-4" strokeWidth={3} />
                           </div>
@@ -900,6 +974,7 @@ export default function MyTasksPage() {
                         </button>
                       );
                     })}
+
 
                     {/* 구분선 */}
                     <div className="my-1 border-t border-white/5 mx-2" />

@@ -68,7 +68,6 @@ type PartyDetail = {
     raidState?: RaidStateFromServer;
 };
 
-
 /** 파티원 한 명의 "내 숙제 상태" */
 type PartyMemberTasks = {
     userId: string;
@@ -99,17 +98,19 @@ type SavedAccount = {
     id: string;
     nickname: string;
     summary: CharacterSummary;
-    isPrimary?: boolean;
+    isPrimary?: boolean;   // 대표 계정
+    isSelected?: boolean;  // 현재 선택된 계정 (MyTasks와 동일)
 };
+
 
 type RaidStateFromServer = {
     accounts?: SavedAccount[];
     activeAccountId?: string | null;
+    activeAccountByParty?: Record<string, string | null>;
     prefsByChar?: Record<string, CharacterTaskPrefs>;
     visibleByChar?: Record<string, boolean>;
     filters?: SavedFilters;
 };
-
 
 const PARTY_FILTER_KEY = (partyId: number | string) =>
     `partyTaskFilters:${partyId}`;
@@ -122,7 +123,7 @@ const ACTIVE_ACCOUNT_KEY = "raidTaskActiveAccount";
  * 공통 함수
  * ───────────────────────────── */
 
-/** 카드 뷰에서 한 캐릭터에 대한 TaskCard 리스트 생성 */
+/** 카드 뷰에서 한 캐릭터에 대한 TaskCard 리스트 생성 (MyTasks의 buildTasksFor와 동일 스타일) */
 function buildTasksForCharacter(
     c: RosterCharacter,
     prefsByChar: Record<string, CharacterTaskPrefs>,
@@ -189,9 +190,8 @@ function buildTasksForCharacter(
         }, 0);
 
         const right = (
-            <span className="text-xs px-2 py-1 rounded bg-yellow-500/10 text-yellow-300 border border-yellow-300/20 inline-flex items-baseline justify-end min-w-[72px] font-mono tabular-nums">
-                <AnimatedNumber value={totalGold} />
-                <span className="ml-0.5 text-[0.8em]">g</span>
+            <span className="text-xs px-2 py-1 rounded bg-yellow-500/10 text-yellow-300 border border-yellow-300/20">
+                {totalGold.toLocaleString()}g
             </span>
         );
 
@@ -219,7 +219,7 @@ function buildTasksForCharacter(
 }
 
 /** 파티원 단위 레이드 요약 */
-function computeMemberSummary(member: PartyMemberTasks): RaidSummary {
+function computeMemberSummary(member: PartyMemberTasks & { summary: CharacterSummary | null }): RaidSummary {
     const visibleRoster =
         member.summary?.roster?.filter(
             (c) => member.visibleByChar?.[c.name] ?? true
@@ -279,15 +279,19 @@ export default function PartyDetailPage() {
     /* ──────────────────────────
      *  계정 드롭다운 (MyTasks와 동일 기능)
      * ────────────────────────── */
-    const [accounts, setAccounts] = useState<SavedAccount[]>([]);
-    const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
-    const [isAccountListOpen, setIsAccountListOpen] = useState(false);
-    const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
     const [accountSearchLoading, setAccountSearchLoading] = useState(false);
     const [accountSearchErr, setAccountSearchErr] = useState<string | null>(null);
+    const [accounts, setAccounts] = useState<SavedAccount[]>([]);
+    const [isAccountListOpen, setIsAccountListOpen] = useState(false);
+    const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
 
     const currentAccount =
-        accounts.find((acc) => acc.id === activeAccountId) ?? accounts[0] ?? null;
+        accounts.find((a) => a.isSelected) ??
+        accounts.find((a) => a.isPrimary) ??
+        accounts[0] ??
+        null;
+
+
 
     // 로컬스토리지에서 계정 목록 복원
     useEffect(() => {
@@ -296,24 +300,68 @@ export default function PartyDetailPage() {
             const rawAccounts = localStorage.getItem(ACCOUNTS_KEY);
             if (!rawAccounts) return;
 
-            const parsed = JSON.parse(rawAccounts) as SavedAccount[];
+            let parsed = JSON.parse(rawAccounts) as SavedAccount[];
             if (!Array.isArray(parsed) || parsed.length === 0) return;
+
+            const hasSelected = parsed.some((a) => a.isSelected);
+
+            if (!hasSelected) {
+                const savedActiveId = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
+                const fallbackActive =
+                    (savedActiveId && parsed.find((a) => a.id === savedActiveId)) ||
+                    parsed.find((a) => a.isPrimary) ||
+                    parsed[0];
+
+                if (fallbackActive) {
+                    parsed = parsed.map((a) =>
+                        a.id === fallbackActive.id
+                            ? { ...a, isSelected: true }
+                            : { ...a, isSelected: false }
+                    );
+                }
+            }
 
             setAccounts(parsed);
 
-            const savedActiveId = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
-            const active =
-                parsed.find((a) => a.id === savedActiveId) ??
-                parsed.find((a) => a.isPrimary) ??
-                parsed[0];
-
-            if (active) setActiveAccountId(active.id);
+            // 한 번 마이그레이션 해 두면 이후엔 MyTasks/파티 페이지 모두 isSelected만 사용
+            try {
+                localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(parsed));
+            } catch {
+                // ignore
+            }
         } catch {
             // 무시
         }
     }, []);
 
-    // LOA 캐릭터 검색 → 계정 추가/갱신 (MyTasks와 동일 로직)
+
+    async function saveActiveAccountToServer(
+        partyId: number,
+        activeAccountId: string
+    ) {
+        try {
+            const res = await fetch(`/api/party-tasks/${partyId}/active-account`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ activeAccountId }),
+            });
+            if (!res.ok) {
+                console.error(
+                    "[파티 activeAccount 저장 실패]",
+                    res.status,
+                    res.statusText,
+                    await res.text()
+                );
+            } else {
+                console.log("[파티 activeAccount 저장 성공]", partyId, activeAccountId);
+            }
+        } catch (e) {
+            console.error("파티 activeAccount 저장 실패 (네트워크 에러):", e);
+        }
+    }
+
+
+
     const handleCharacterSearch = async (name: string): Promise<void> => {
         const trimmed = name.trim();
         if (!trimmed) return;
@@ -324,9 +372,7 @@ export default function PartyDetailPage() {
         try {
             const r = await fetch(
                 `/api/lostark/character/${encodeURIComponent(trimmed)}`,
-                {
-                    cache: "no-store",
-                }
+                { cache: "no-store" }
             );
 
             if (!r.ok) {
@@ -335,18 +381,19 @@ export default function PartyDetailPage() {
 
             const json = (await r.json()) as CharacterSummary;
 
-            let newActiveId: string | null = null;
-
             setAccounts((prev) => {
-                const next = [...prev];
+                let next = [...prev];
                 const idx = next.findIndex(
                     (a) => a.nickname.toLowerCase() === trimmed.toLowerCase()
                 );
 
                 if (idx >= 0) {
-                    // 이미 있는 계정이라면 summary만 갱신
-                    next[idx] = { ...next[idx], summary: json };
-                    newActiveId = next[idx].id;
+                    // 이미 있는 계정이면 summary 갱신 + 그 계정 선택
+                    next = next.map((a, i) =>
+                        i === idx
+                            ? { ...a, summary: json, isSelected: true }
+                            : { ...a, isSelected: false }
+                    );
                 } else {
                     const id =
                         typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -357,18 +404,25 @@ export default function PartyDetailPage() {
                         id,
                         nickname: trimmed,
                         summary: json,
-                        isPrimary: prev.length === 0, // 첫 계정은 대표 계정
+                        isPrimary: prev.length === 0,
+                        isSelected: true,
                     };
 
+                    next = prev.map((a) => ({ ...a, isSelected: false }));
                     next.push(acc);
-                    newActiveId = id;
+
+
+                    if (party) {
+                        void saveActiveAccountToServer(party.id, acc.id);
+                    }
                 }
 
                 if (typeof window !== "undefined") {
                     try {
                         localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
-                        if (newActiveId) {
-                            localStorage.setItem(ACTIVE_ACCOUNT_KEY, newActiveId);
+                        const active = next.find((a) => a.isSelected);
+                        if (active) {
+                            localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
                         }
                     } catch {
                         // 무시
@@ -377,16 +431,13 @@ export default function PartyDetailPage() {
 
                 return next;
             });
-
-            if (newActiveId) {
-                setActiveAccountId(newActiveId);
-            }
         } catch (e: any) {
             setAccountSearchErr(e?.message ?? String(e));
         } finally {
             setAccountSearchLoading(false);
         }
     };
+
 
     const openEditModal = (member: PartyMemberTasks, char: RosterCharacter) => {
         const prefs = member.prefsByChar[char.name] ?? { raids: {} };
@@ -399,11 +450,12 @@ export default function PartyDetailPage() {
         setEditOpen(true);
     };
 
+    // 두 번째 인자는 옵션으로 변경 (카드뷰에서는 baseSummary, 테이블에서는 member.summary 사용)
     const openMemberCharSetting = (
         member: PartyMemberTasks,
-        baseSummary: CharacterSummary | null
+        baseSummary?: CharacterSummary | null
     ) => {
-        const roster = baseSummary?.roster ?? [];
+        const roster = baseSummary?.roster ?? member.summary?.roster ?? [];
         setCharSettingTarget({
             memberUserId: member.userId,
             roster,
@@ -416,7 +468,6 @@ export default function PartyDetailPage() {
         setInviteLoading(true);
         setInviteErr(null);
         try {
-            // 엔드포인트/응답 형식은 프로젝트에 맞게 수정 가능
             const res = await fetch(`/api/party-tasks/${party.id}/invite`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -491,25 +542,27 @@ export default function PartyDetailPage() {
 
     const handleMemberChangeVisible = (
         memberUserId: string,
-        nextVisibleByChar: Record<string, boolean>
+        partialVisibleByChar: Record<string, boolean>
     ) => {
         if (!party || !partyTasks) return;
         const partyIdNum = party.id;
 
-        // 1) next 상태 계산
         const next: PartyMemberTasks[] = partyTasks.map((m) => {
             if (m.userId !== memberUserId) return m;
 
+            const mergedVisible: Record<string, boolean> = {
+                ...(m.visibleByChar ?? {}),
+                ...partialVisibleByChar,
+            };
+
             return {
                 ...m,
-                visibleByChar: nextVisibleByChar,
+                visibleByChar: mergedVisible,
             };
         });
 
-        // 2) state 반영
         setPartyTasks(next);
 
-        // 3) 서버 저장
         const updated = next.find((m) => m.userId === memberUserId);
         if (updated) {
             void saveMemberPrefsToServer(
@@ -520,6 +573,7 @@ export default function PartyDetailPage() {
             );
         }
     };
+
 
     const handleSaveEdit = (nextPrefs: CharacterTaskPrefs) => {
         if (!party || !editTarget || !partyTasks) return;
@@ -700,10 +754,17 @@ export default function PartyDetailPage() {
                 m.prefsByChar ?? {}
             );
 
+            // 🔹 기존 prefs/visible에 "현재 계정 캐릭터들만" 덮어쓰기
             return {
                 ...m,
-                prefsByChar: nextPrefsByChar,
-                visibleByChar: nextVisibleByChar,
+                prefsByChar: {
+                    ...(m.prefsByChar ?? {}),
+                    ...nextPrefsByChar,
+                },
+                visibleByChar: {
+                    ...(m.visibleByChar ?? {}),
+                    ...nextVisibleByChar,
+                },
             };
         });
 
@@ -719,6 +780,7 @@ export default function PartyDetailPage() {
             );
         }
     };
+
 
     /** 파티원 레이드 순서 재정렬 */
     const handleMemberReorder = (
@@ -912,35 +974,53 @@ export default function PartyDetailPage() {
                 if (!cancelled) {
                     setParty(data);
 
-                    // 🔹 raid_task_state 에서 온 계정/활성계정 반영
                     const raidState = data.raidState;
-                    if (raidState?.accounts && Array.isArray(raidState.accounts) && raidState.accounts.length > 0) {
-                        const accs = raidState.accounts;
+                    if (
+                        raidState?.accounts &&
+                        Array.isArray(raidState.accounts) &&
+                        raidState.accounts.length > 0
+                    ) {
+                        let accs = raidState.accounts as SavedAccount[];
+
+                        const hasSelected = accs.some((a) => a.isSelected);
+
+                        const partyKey = String(data.id); // 또는 partyId 변수
+
+                        const partyActiveId =
+                            raidState.activeAccountByParty?.[partyKey] ?? null;
+
+                        if (!hasSelected) {
+                            const initialActiveId =
+                                partyActiveId ??
+                                raidState.activeAccountId ?? // 전역 대표 (없으면 넘어감)
+                                accs.find((a) => a.isPrimary)?.id ??
+                                accs[0]?.id ??
+                                null;
+
+                            if (initialActiveId) {
+                                accs = accs.map((a) =>
+                                    a.id === initialActiveId
+                                        ? { ...a, isSelected: true }
+                                        : { ...a, isSelected: false }
+                                );
+                            }
+                        }
 
                         setAccounts(accs);
 
-                        const initialActiveId =
-                            raidState.activeAccountId ??
-                            accs.find((a) => a.isPrimary)?.id ??
-                            accs[0]?.id ??
-                            null;
-
-                        if (initialActiveId) {
-                            setActiveAccountId(initialActiveId);
-                        }
-
-                        // localStorage에도 같이 넣어주면 MyTasks랑 공유됨
                         if (typeof window !== "undefined") {
                             try {
                                 localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accs));
-                                if (initialActiveId) {
-                                    localStorage.setItem(ACTIVE_ACCOUNT_KEY, initialActiveId);
+                                const active = accs.find((a) => a.isSelected);
+                                if (active) {
+                                    localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
                                 }
                             } catch {
                                 // ignore
                             }
                         }
                     }
+
                 }
 
             } catch (e: any) {
@@ -1186,24 +1266,38 @@ export default function PartyDetailPage() {
                             {isAccountListOpen && (
                                 <div className="px-3 pb-3 pt-2 bg-[#16181D] animate-in slide-in-from-top-2 duration-200">
                                     <div className="flex flex-col gap-1">
-                                        {/* 1. 계정 리스트 */}
                                         {accounts.map((acc) => {
-                                            const isActive = acc.id === activeAccountId;
+                                            const isActive = !!acc.isSelected;
                                             return (
                                                 <button
                                                     key={acc.id}
                                                     onClick={() => {
-                                                        setActiveAccountId(acc.id);
-                                                        if (typeof window !== "undefined") {
-                                                            try {
-                                                                localStorage.setItem(
-                                                                    ACTIVE_ACCOUNT_KEY,
-                                                                    acc.id
-                                                                );
-                                                            } catch {
-                                                                // 무시
+                                                        setAccounts((prev) => {
+                                                            const next = prev.map((a) =>
+                                                                a.id === acc.id
+                                                                    ? { ...a, isSelected: true }
+                                                                    : { ...a, isSelected: false }
+                                                            );
+
+                                                            if (typeof window !== "undefined") {
+                                                                try {
+                                                                    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
+                                                                    const active = next.find((a) => a.isSelected);
+                                                                    if (active) {
+                                                                        localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
+                                                                    }
+                                                                } catch {
+                                                                    // 무시
+                                                                }
                                                             }
+
+                                                            return next;
+                                                        });
+
+                                                        if (party) {
+                                                            void saveActiveAccountToServer(party.id, acc.id);
                                                         }
+
                                                         setIsAccountListOpen(false);
                                                     }}
                                                     className={[
@@ -1213,7 +1307,6 @@ export default function PartyDetailPage() {
                                                             : "text-gray-400 hover:bg-white/5 hover:text-gray-200",
                                                     ].join(" ")}
                                                 >
-                                                    {/* 체크 아이콘 (활성화된 경우) */}
                                                     <div
                                                         className={`flex items-center justify-center w-5 h-5 ${isActive ? "text-[#5B69FF]" : "text-transparent"
                                                             }`}
@@ -1221,12 +1314,11 @@ export default function PartyDetailPage() {
                                                         <Check className="h-4 w-4" strokeWidth={3} />
                                                     </div>
 
-                                                    <span className="text-sm font-medium">
-                                                        {acc.nickname}
-                                                    </span>
+                                                    <span className="text-sm font-medium">{acc.nickname}</span>
                                                 </button>
                                             );
                                         })}
+
 
                                         {/* 구분선 */}
                                         <div className="my-1 border-t border-white/5 mx-2" />
@@ -1426,7 +1518,6 @@ export default function PartyDetailPage() {
                                 {tasksErr}
                             </div>
                         )}
-
                         {/* 카드 뷰 */}
                         {!tasksLoading &&
                             !tasksErr &&
@@ -1436,6 +1527,8 @@ export default function PartyDetailPage() {
                                 <div className="flex flex-col gap-10">
                                     {sortedPartyTasks.map((m) => {
                                         const isMe = myUserId && m.userId === myUserId;
+
+                                        // 나인 경우, 현재 선택된 계정의 summary를 우선 사용
                                         const baseSummary =
                                             isMe && currentAccount?.summary ? currentAccount.summary : m.summary;
 
@@ -1448,11 +1541,7 @@ export default function PartyDetailPage() {
                                             return (
                                                 <div
                                                     key={m.userId}
-                                                    className="
-                    grid grid-cols-1 gap-4 sm:gap-1
-                    rounded-lg border border-white/10
-                    px-3 sm:px-4 py-3 sm:py-4
-                "
+                                                    className="grid grid-cols-1 gap-4 sm:gap-1 rounded-lg border border-white/10 px-3 sm:px-4 py-3 sm:py-4"
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         <MemberAvatar
@@ -1487,42 +1576,67 @@ export default function PartyDetailPage() {
                                         return (
                                             <div
                                                 key={m.userId}
-                                                className="
-                grid grid-cols-1 gap-4 sm:gap-1
-                rounded-lg border border-white/10
-                px-3 sm:px-4 py-3 sm:py-4
-            "
+                                                className="grid grid-cols-1 gap-4 sm:gap-1 rounded-lg border border-white/10 px-3 sm:px-4 py-3 sm:py-4"
                                             >
                                                 <PartyMemberSummaryBar member={m} summary={memberSummary}>
                                                     <PartyMemberActions
                                                         onAutoSetup={() => handleMemberAutoSetup(m.userId, !!isMe)}
                                                         onGateAllClear={() => handleMemberGateAllClear(m.userId)}
-                                                        onOpenCharSetting={() => openMemberCharSetting(m, baseSummary)}
+                                                        onOpenCharSetting={() =>
+                                                            openMemberCharSetting(m, baseSummary)
+                                                        }
                                                     />
                                                 </PartyMemberSummaryBar>
 
-                                                <div className="mt-2">
-                                                    <TaskTable
-                                                        roster={sortedRoster}
-                                                        prefsByChar={m.prefsByChar}
-                                                        onToggleGate={(charName, raidName, gate, currentGates, allGates) =>
-                                                            handleMemberToggleGate(
-                                                                m.userId,
-                                                                charName,
-                                                                raidName,
-                                                                gate,
-                                                                currentGates,
-                                                                allGates
-                                                            )
+                                                {/* 🔹 MyTasks와 동일한 캐릭터별 카드 스트립 */}
+                                                <div className="mt-2 flex flex-col gap-4">
+                                                    {sortedRoster.map((c) => {
+                                                        const tasks = buildTasksForCharacter(
+                                                            c,
+                                                            m.prefsByChar,
+                                                            {
+                                                                onlyRemain,
+                                                                onToggleGate: (
+                                                                    raidName,
+                                                                    gate,
+                                                                    currentGates,
+                                                                    allGates
+                                                                ) =>
+                                                                    handleMemberToggleGate(
+                                                                        m.userId,
+                                                                        c.name,
+                                                                        raidName,
+                                                                        gate,
+                                                                        currentGates,
+                                                                        allGates
+                                                                    ),
+                                                            }
+                                                        );
+
+                                                        if (onlyRemain && tasks.length === 0) {
+                                                            return null;
                                                         }
-                                                        onEdit={(c) => openEditModal(m, c)}
-                                                    />
+
+                                                        return (
+                                                            <CharacterTaskStrip
+                                                                key={c.name}
+                                                                character={c}
+                                                                tasks={tasks}
+                                                                onEdit={() => openEditModal(m, c)}
+                                                                onReorder={(char, newOrderIds) =>
+                                                                    handleMemberReorder(
+                                                                        m.userId,
+                                                                        char.name,
+                                                                        newOrderIds
+                                                                    )
+                                                                }
+                                                            />
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         );
                                     })}
-
-
                                 </div>
                             )}
 
@@ -1534,8 +1648,13 @@ export default function PartyDetailPage() {
                             tableView && (
                                 <div className="flex flex-col gap-10">
                                     {sortedPartyTasks.map((m) => {
+                                        const isMe = myUserId && m.userId === myUserId;
+
+                                        const baseSummary =
+                                            isMe && currentAccount?.summary ? currentAccount.summary : m.summary;
+
                                         const visibleRoster =
-                                            m.summary?.roster?.filter(
+                                            baseSummary?.roster?.filter(
                                                 (c) => m.visibleByChar?.[c.name] ?? true
                                             ) ?? [];
 
@@ -1574,7 +1693,10 @@ export default function PartyDetailPage() {
                                             (a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)
                                         );
 
-                                        const memberSummary = computeMemberSummary(m);
+                                        const memberSummary = computeMemberSummary({
+                                            ...m,
+                                            summary: baseSummary,
+                                        });
 
                                         return (
                                             <div
@@ -1590,11 +1712,11 @@ export default function PartyDetailPage() {
                                                     summary={memberSummary}
                                                 >
                                                     <PartyMemberActions
-                                                        onAutoSetup={() => handleMemberAutoSetup(m.userId)}
+                                                        onAutoSetup={() => handleMemberAutoSetup(m.userId, !!isMe)}
                                                         onGateAllClear={() =>
                                                             handleMemberGateAllClear(m.userId)
                                                         }
-                                                        onOpenCharSetting={() => openMemberCharSetting(m)}
+                                                        onOpenCharSetting={() => openMemberCharSetting(m, baseSummary)}
                                                     />
                                                 </PartyMemberSummaryBar>
 
@@ -1651,9 +1773,7 @@ export default function PartyDetailPage() {
                             <CharacterSettingModal
                                 open
                                 onClose={() => setCharSettingOpen(false)}
-                                // 🔹 여기: 계정 선택 기준 roster 사용
                                 roster={charSettingTarget.roster}
-                                // 🔹 visibleByChar는 항상 최신 partyTasks에서 꺼내오기
                                 visibleByChar={
                                     partyTasks?.find((m) => m.userId === charSettingTarget.memberUserId)
                                         ?.visibleByChar ?? {}
@@ -1934,7 +2054,7 @@ function PartyMemberActions({
                 <div
                     className="
             pointer-events-none
-            absolute bottom-full left-15 mb-3
+            absolute bottom.full left-15 mb-3
             w-64 p-3
             rounded-xl
             bg-gray-900/95 backdrop-blur-md
@@ -1971,7 +2091,7 @@ function PartyMemberActions({
             {/* 관문 전체 초기화 */}
             <button
                 onClick={onGateAllClear}
-                className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 hover:bg-white/5 text-xs sm:text-sm"
+                className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 hover:bg.white/5 text-xs sm:text-sm"
             >
                 <span>관문 초기화</span>
             </button>
