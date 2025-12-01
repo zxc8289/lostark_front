@@ -289,7 +289,7 @@ export default function CharacterSettingModal({
                             }}
                         >
                             <Trash2 size={16} />
-                            {/* 모바일일 때만 짧게 텍스트 보여주기 */}
+                            계정 삭제
                             <span className="sm:hidden">삭제</span>
                         </button>
                     </div>

@@ -251,73 +251,71 @@ export default function PartyDetailPage() {
         memberUserId: string,
         nextVisibleByChar: Record<string, boolean>
     ) => {
-        if (!party) return;
+        if (!party || !partyTasks) return;
         const partyIdNum = party.id;
 
-        setPartyTasks((prev) => {
-            if (!prev) return prev;
+        // 1) next 상태 계산
+        const next: PartyMemberTasks[] = partyTasks.map((m) => {
+            if (m.userId !== memberUserId) return m;
 
-            const next: PartyMemberTasks[] = prev.map((m) => {
-                if (m.userId !== memberUserId) return m;
-
-                const updated: PartyMemberTasks = {
-                    ...m,
-                    visibleByChar: nextVisibleByChar,
-                };
-
-                return updated;
-            });
-
-            const updated = next.find((m) => m.userId === memberUserId);
-            if (updated) {
-                void saveMemberPrefsToServer(
-                    partyIdNum,
-                    updated.userId,
-                    updated.prefsByChar,
-                    updated.visibleByChar
-                );
-            }
-
-            return next;
+            return {
+                ...m,
+                visibleByChar: nextVisibleByChar,
+            };
         });
+
+        // 2) state 반영
+        setPartyTasks(next);
+
+        // 3) 서버 저장
+        const updated = next.find((m) => m.userId === memberUserId);
+        if (updated) {
+            void saveMemberPrefsToServer(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar,
+                updated.visibleByChar
+            );
+        }
     };
 
+
     const handleSaveEdit = (nextPrefs: CharacterTaskPrefs) => {
-        if (!party || !editTarget) return;
+        if (!party || !editTarget || !partyTasks) return;
         const partyIdNum = party.id;
         const { memberUserId, charName } = editTarget;
 
-        setPartyTasks((prev) => {
-            if (!prev) return prev;
+        // 1) next 상태 계산
+        const next: PartyMemberTasks[] = partyTasks.map((m) => {
+            if (m.userId !== memberUserId) return m;
 
-            const next: PartyMemberTasks[] = prev.map((m) => {
-                if (m.userId !== memberUserId) return m;
+            const memberPrefsByChar: Record<string, CharacterTaskPrefs> = {
+                ...(m.prefsByChar ?? {}),
+                [charName]: { ...nextPrefs },
+            };
 
-                const memberPrefsByChar: Record<string, CharacterTaskPrefs> = {
-                    ...(m.prefsByChar ?? {}),
-                    [charName]: { ...nextPrefs },
-                };
-
-                return {
-                    ...m,
-                    prefsByChar: memberPrefsByChar,
-                };
-            });
-
-            const updated = next.find((m) => m.userId === memberUserId);
-            if (updated) {
-                void saveMemberPrefsToServer(
-                    partyIdNum,
-                    updated.userId,
-                    updated.prefsByChar
-                );
-            }
-
-            return next;
+            return {
+                ...m,
+                prefsByChar: memberPrefsByChar,
+            };
         });
+
+        // 2) state 반영
+        setPartyTasks(next);
+
+        // 3) 서버 저장
+        const updated = next.find((m) => m.userId === memberUserId);
+        if (updated) {
+            void saveMemberPrefsToServer(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar
+            );
+        }
 
         setEditOpen(false);
     };
+
 
     const resetFilters = () => {
         setOnlyRemain(false);
@@ -373,116 +371,115 @@ export default function PartyDetailPage() {
         currentGates: number[],
         allGates: number[]
     ) => {
-        if (!party) return;
+        if (!party || !partyTasks) return;
 
         const partyIdNum = party.id;
 
-        setPartyTasks((prev) => {
-            if (!prev) return prev;
+        // 1) 현재 state를 기준으로 next 상태 먼저 계산
+        const next: PartyMemberTasks[] = partyTasks.map((m) => {
+            if (m.userId !== memberUserId) return m;
 
-            // 1) 우선 새 배열 생성
-            const next: PartyMemberTasks[] = prev.map((m) => {
-                if (m.userId !== memberUserId) return m;
+            const memberPrefsByChar: Record<string, CharacterTaskPrefs> = {
+                ...(m.prefsByChar ?? {}),
+            };
 
-                const memberPrefsByChar: Record<string, CharacterTaskPrefs> = {
-                    ...(m.prefsByChar ?? {}),
-                };
+            const curPrefsForChar: CharacterTaskPrefs =
+                memberPrefsByChar[charName] ?? { raids: {} };
 
-                const curPrefsForChar: CharacterTaskPrefs =
-                    memberPrefsByChar[charName] ?? { raids: {} };
-
-                const curRaidPref = curPrefsForChar.raids[raidName];
-                if (!curRaidPref) {
-                    // 해당 레이드 설정이 없으면 그대로
-                    return m;
-                }
-
-                const nextGates = calcNextGates(
-                    gate,
-                    currentGates ?? [],
-                    allGates ?? []
-                );
-
-                const updatedRaidPref: CharacterTaskPrefs["raids"][string] = {
-                    ...curRaidPref,
-                    gates: nextGates,
-                };
-
-                const updatedPrefsForChar: CharacterTaskPrefs = {
-                    ...curPrefsForChar,
-                    raids: {
-                        ...curPrefsForChar.raids,
-                        [raidName]: updatedRaidPref,
-                    },
-                };
-
-                const updatedPrefsByChar: Record<string, CharacterTaskPrefs> = {
-                    ...memberPrefsByChar,
-                    [charName]: updatedPrefsForChar,
-                };
-
-                const newMember: PartyMemberTasks = {
-                    ...m,
-                    prefsByChar: updatedPrefsByChar,
-                };
-
-                return newMember;
-            });
-
-            // 2) 새 상태에서 해당 멤버를 다시 찾아서 서버에 저장
-            const updated = next.find((m) => m.userId === memberUserId);
-            if (updated) {
-                void saveMemberPrefsToServer(
-                    partyIdNum,
-                    updated.userId,
-                    updated.prefsByChar
-                );
+            const curRaidPref = curPrefsForChar.raids[raidName];
+            if (!curRaidPref) {
+                return m;
             }
 
-            return next;
+            const nextGates = calcNextGates(
+                gate,
+                currentGates ?? [],
+                allGates ?? []
+            );
+
+            const updatedRaidPref: CharacterTaskPrefs["raids"][string] = {
+                ...curRaidPref,
+                gates: nextGates,
+            };
+
+            const updatedPrefsForChar: CharacterTaskPrefs = {
+                ...curPrefsForChar,
+                raids: {
+                    ...curPrefsForChar.raids,
+                    [raidName]: updatedRaidPref,
+                },
+            };
+
+            const updatedPrefsByChar: Record<string, CharacterTaskPrefs> = {
+                ...memberPrefsByChar,
+                [charName]: updatedPrefsForChar,
+            };
+
+            const newMember: PartyMemberTasks = {
+                ...m,
+                prefsByChar: updatedPrefsByChar,
+            };
+
+            return newMember;
         });
+
+        // 2) state 반영 (여기서는 순수하게 set만)
+        setPartyTasks(next);
+
+        // 3) 1번만 서버 저장
+        const updated = next.find((m) => m.userId === memberUserId);
+        if (updated) {
+            void saveMemberPrefsToServer(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar
+            );
+        }
     };
+
 
     /** 파티원 자동 세팅 (상위 6캐릭 + 각 캐릭 Top3 레이드) */
     const handleMemberAutoSetup = (memberUserId: string) => {
-        if (!party) return;
+        if (!party || !partyTasks) return;
 
         const partyIdNum = party.id;
 
-        setPartyTasks((prev) => {
-            if (!prev) return prev;
+        // 1) next 상태 계산
+        const next: PartyMemberTasks[] = partyTasks.map((m) => {
+            if (m.userId !== memberUserId) return m;
 
-            const next: PartyMemberTasks[] = prev.map((m) => {
-                if (m.userId !== memberUserId) return m;
+            const roster = m.summary?.roster ?? [];
+            if (!roster.length) return m;
 
-                const roster = m.summary?.roster ?? [];
-                if (!roster.length) return m;
+            const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(
+                roster,
+                m.prefsByChar ?? {}
+            );
 
-                const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(
-                    roster,
-                    m.prefsByChar ?? {}
-                );
+            const updated: PartyMemberTasks = {
+                ...m,
+                prefsByChar: nextPrefsByChar,
+                visibleByChar: nextVisibleByChar,
+            };
 
-                const updated: PartyMemberTasks = {
-                    ...m,
-                    prefsByChar: nextPrefsByChar,
-                    visibleByChar: nextVisibleByChar,
-                };
-
-                // 서버에 저장
-                void saveMemberPrefsToServer(
-                    partyIdNum,
-                    updated.userId,
-                    updated.prefsByChar,
-                    updated.visibleByChar
-                );
-
-                return updated;
-            });
-
-            return next;
+            return updated;
         });
+
+        // 2) state 반영
+        setPartyTasks(next);
+
+        // 3) 해당 멤버 서버 저장
+        const updated = next.find((m) => m.userId === memberUserId);
+        if (updated) {
+            void saveMemberPrefsToServer(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar,
+                updated.visibleByChar
+            );
+        }
     };
+
 
     /** 파티원 레이드 순서 재정렬 */
     const handleMemberReorder = (
@@ -490,111 +487,110 @@ export default function PartyDetailPage() {
         charName: string,
         newOrderIds: string[]
     ) => {
-        if (!party) return;
+        if (!party || !partyTasks) return;
         const partyIdNum = party.id;
 
-        setPartyTasks((prev) => {
-            if (!prev) return prev;
+        // 1) next 상태 계산
+        const next: PartyMemberTasks[] = partyTasks.map((m) => {
+            if (m.userId !== memberUserId) return m;
 
-            const next: PartyMemberTasks[] = prev.map((m) => {
-                if (m.userId !== memberUserId) return m;
+            const memberPrefsByChar: Record<string, CharacterTaskPrefs> = {
+                ...(m.prefsByChar ?? {}),
+            };
 
-                const memberPrefsByChar: Record<string, CharacterTaskPrefs> = {
-                    ...(m.prefsByChar ?? {}),
-                };
+            const curPrefsForChar: CharacterTaskPrefs =
+                memberPrefsByChar[charName] ?? { raids: {} };
 
-                const curPrefsForChar: CharacterTaskPrefs =
-                    memberPrefsByChar[charName] ?? { raids: {} };
+            // 기존에 있던 레이드 이름들
+            const allRaidNames = Object.keys(curPrefsForChar.raids ?? {});
 
-                // 기존에 있던 레이드 이름들
-                const allRaidNames = Object.keys(curPrefsForChar.raids ?? {});
+            // 드래그 결과로 온 순서 + 나머지(탈락된 애들) 뒤에 붙이기
+            const mergedOrder = [
+                ...newOrderIds,
+                ...allRaidNames.filter((name) => !newOrderIds.includes(name)),
+            ];
 
-                // 드래그 결과로 온 순서 + 나머지(탈락된 애들) 뒤에 붙이기
-                const mergedOrder = [
-                    ...newOrderIds,
-                    ...allRaidNames.filter((name) => !newOrderIds.includes(name)),
-                ];
+            const updatedPrefsForChar: CharacterTaskPrefs = {
+                ...curPrefsForChar,
+                order: mergedOrder,
+            };
 
-                const updatedPrefsForChar: CharacterTaskPrefs = {
-                    ...curPrefsForChar,
-                    order: mergedOrder,
-                };
+            const updatedPrefsByChar: Record<string, CharacterTaskPrefs> = {
+                ...memberPrefsByChar,
+                [charName]: updatedPrefsForChar,
+            };
 
-                const updatedPrefsByChar: Record<string, CharacterTaskPrefs> = {
-                    ...memberPrefsByChar,
-                    [charName]: updatedPrefsForChar,
-                };
-
-                return {
-                    ...m,
-                    prefsByChar: updatedPrefsByChar,
-                };
-            });
-
-            // 서버에도 저장
-            const updated = next.find((m) => m.userId === memberUserId);
-            if (updated) {
-                void saveMemberPrefsToServer(
-                    partyIdNum,
-                    updated.userId,
-                    updated.prefsByChar
-                );
-            }
-
-            return next;
+            return {
+                ...m,
+                prefsByChar: updatedPrefsByChar,
+            };
         });
+
+        // 2) state 반영
+        setPartyTasks(next);
+
+        // 3) 서버 저장
+        const updated = next.find((m) => m.userId === memberUserId);
+        if (updated) {
+            void saveMemberPrefsToServer(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar
+            );
+        }
     };
+
 
     /** 파티원 관문 전체 초기화 (해당 파티원의 모든 캐릭터에 대해 gates만 초기화) */
     const handleMemberGateAllClear = (memberUserId: string) => {
-        if (!party) return;
+        if (!party || !partyTasks) return;
         const partyIdNum = party.id;
 
-        setPartyTasks((prev) => {
-            if (!prev) return prev;
+        // 1) next 상태 계산
+        const next: PartyMemberTasks[] = partyTasks.map((m) => {
+            if (m.userId !== memberUserId) return m;
 
-            const next: PartyMemberTasks[] = prev.map((m) => {
-                if (m.userId !== memberUserId) return m;
+            const prevPrefsByChar = m.prefsByChar ?? {};
+            const updatedPrefsByChar: Record<string, CharacterTaskPrefs> = {};
 
-                const prevPrefsByChar = m.prefsByChar ?? {};
-                const updatedPrefsByChar: Record<string, CharacterTaskPrefs> = {};
+            for (const [charName, prefs] of Object.entries(prevPrefsByChar)) {
+                const raids = prefs.raids ?? {};
+                const clearedRaids: CharacterTaskPrefs["raids"] = {};
 
-                for (const [charName, prefs] of Object.entries(prevPrefsByChar)) {
-                    const raids = prefs.raids ?? {};
-                    const clearedRaids: CharacterTaskPrefs["raids"] = {};
-
-                    for (const [raidName, raidPref] of Object.entries(raids)) {
-                        clearedRaids[raidName] = {
-                            ...raidPref,
-                            gates: [],
-                        };
-                    }
-
-                    updatedPrefsByChar[charName] = {
-                        ...prefs,
-                        raids: clearedRaids,
+                for (const [raidName, raidPref] of Object.entries(raids)) {
+                    clearedRaids[raidName] = {
+                        ...raidPref,
+                        gates: [],
                     };
                 }
 
-                return {
-                    ...m,
-                    prefsByChar: updatedPrefsByChar,
+                updatedPrefsByChar[charName] = {
+                    ...prefs,
+                    raids: clearedRaids,
                 };
-            });
-
-            const updated = next.find((m) => m.userId === memberUserId);
-            if (updated) {
-                void saveMemberPrefsToServer(
-                    partyIdNum,
-                    updated.userId,
-                    updated.prefsByChar,
-                    updated.visibleByChar
-                );
             }
 
-            return next;
+            return {
+                ...m,
+                prefsByChar: updatedPrefsByChar,
+            };
         });
+
+        // 2) state 반영
+        setPartyTasks(next);
+
+        // 3) 서버 저장
+        const updated = next.find((m) => m.userId === memberUserId);
+        if (updated) {
+            void saveMemberPrefsToServer(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar,
+                updated.visibleByChar
+            );
+        }
     };
+
 
     // 🔹 파티별 필터 로컬스토리지에서 불러오기
     useEffect(() => {
@@ -987,12 +983,6 @@ export default function PartyDetailPage() {
                                         </label>
                                     </div>
                                 </div>
-                            </div>
-                        </section>
-
-                        {/* 보기 설정 카드 */}
-                        <section className="rounded-sm bg-[#16181D] shadow-sm">
-                            <div className="px-4 sm:px-5 py-5 sm:py-7 space-y-4 sm:space-y-5">
                                 <div className="mb-3 text-xs sm:text-sm font-semibold">
                                     보기 설정
                                 </div>
@@ -1108,7 +1098,11 @@ export default function PartyDetailPage() {
                                         return (
                                             <div
                                                 key={m.userId}
-                                                className="grid grid-cols-1 gap-4 sm:gap-1"
+                                                className="
+                                                    grid grid-cols-1 gap-4 sm:gap-1
+                                                    rounded-lg border border-white/10
+                                                    px-3 sm:px-4 py-3 sm:py-4
+                                                    "
                                             >
                                                 <PartyMemberSummaryBar
                                                     member={m}
@@ -1150,6 +1144,7 @@ export default function PartyDetailPage() {
                             )}
 
                         {/* 테이블 뷰 */}
+                        {/* 테이블 뷰 */}
                         {!tasksLoading &&
                             !tasksErr &&
                             sortedPartyTasks &&
@@ -1163,10 +1158,15 @@ export default function PartyDetailPage() {
                                             ) ?? [];
 
                                         if (visibleRoster.length === 0) {
+                                            // ⬇️ 이미 카드처럼 보더 준 케이스 (그대로 두면 됨)
                                             return (
                                                 <div
                                                     key={m.userId}
-                                                    className="rounded-lg border border.white/5 bg-black/20 px-4 py-3 text-xs text-gray-500 flex items-center justify-between"
+                                                    className="
+                                grid grid-cols-1 gap-4 sm:gap-1
+                                rounded-lg border border-white/10
+                                px-3 sm:px-4 py-3 sm:py-4
+                            "
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         <MemberAvatar
@@ -1195,8 +1195,16 @@ export default function PartyDetailPage() {
 
                                         const memberSummary = computeMemberSummary(m);
 
+                                        // ⬇️ 여기만 카드 뷰랑 동일하게 감싸주기
                                         return (
-                                            <div key={m.userId} className="space-y-3">
+                                            <div
+                                                key={m.userId}
+                                                className="
+                            grid grid-cols-1 gap-4 sm:gap-1
+                            rounded-lg border border-white/10
+                            px-3 sm:px-4 py-3 sm:py-4
+                        "
+                                            >
                                                 <PartyMemberSummaryBar
                                                     member={m}
                                                     summary={memberSummary}
@@ -1212,7 +1220,7 @@ export default function PartyDetailPage() {
                                                     />
                                                 </PartyMemberSummaryBar>
 
-                                                <div>
+                                                <div className="mt-2">
                                                     <TaskTable
                                                         roster={sortedRoster}
                                                         prefsByChar={m.prefsByChar}
@@ -1232,9 +1240,7 @@ export default function PartyDetailPage() {
                                                                 allGates
                                                             )
                                                         }
-                                                        onEdit={() => {
-                                                            /* 파티 페이지에서는 편집 모달 안 띄움 */
-                                                        }}
+                                                        onEdit={(c) => openEditModal(m, c)}
                                                     />
                                                 </div>
                                             </div>
@@ -1242,6 +1248,7 @@ export default function PartyDetailPage() {
                                     })}
                                 </div>
                             )}
+
 
                         {/* 아무도 상태를 저장 안 한 경우 */}
                         {!tasksLoading &&
@@ -1300,7 +1307,7 @@ function PartyMemberSummaryBar({
         summary.totalRemainingGold === 0 && summary.totalGold > 0;
 
     return (
-        <div className="bg-[#16181D] rounded-md px-4 sm:px-5 py-3 sm:py-4 flex flex-wrap sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="rounded-md py-2 sm:py-2 flex flex-wrap sm:flex-row sm:items-center gap-3 sm:gap-4">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 text-sm sm:text-base">
                 <div className="flex items-center gap-3">
                     <MemberAvatar
@@ -1310,7 +1317,7 @@ function PartyMemberSummaryBar({
                             image: member.image,
                             role: "member",
                         }}
-                        className="h-8 w-8 rounded-full border border-black/60"
+                        className="h-8 w-8 rounded-full b"
                     />
 
                     <div className="flex flex-col">
@@ -1359,9 +1366,11 @@ function PartyMemberSummaryBar({
                 </div>
             </div>
 
-            <div className="flex flex-row flex-wrap gap-2 sm:gap-3 sm:ml-auto">
+            <div className="flex flex-row gap-2 sm:gap-3  sm:ml-auto">
                 {children}
             </div>
+
+
         </div>
     );
 }
@@ -1379,8 +1388,6 @@ function PartyMemberActions({
 }: PartyMemberActionsProps) {
     return (
         <>
-
-
             {/* 자동 세팅 */}
             <button
                 onClick={onAutoSetup}

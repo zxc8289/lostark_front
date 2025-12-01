@@ -295,7 +295,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                 </div>
 
                                                 {/* 난이도 선택 (Segmented Control) */}
-                                                <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-2 gap-1 mb-4">
+                                                <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-2 gap-1 ">
                                                     {[
                                                         { key: "노말", info: normal, ok: normalOk },
                                                         { key: "하드", info: hard, ok: hardOk },

@@ -150,7 +150,7 @@ export default function TaskTable({
                             {first.name}
                         </span>
 
-                        <span className="text-gray-500 text-[11px] sm:text-sm ">
+                        <span className="text-gray-400 text-[11px] sm:text-sm ">
                             {first.itemLevel ? `Lv. ${first.itemLevel}` : "Lv. -"}
                             {first.className ? ` / ${first.className}` : ""}
                         </span>

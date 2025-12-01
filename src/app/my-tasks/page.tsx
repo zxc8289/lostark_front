@@ -848,20 +848,20 @@ export default function MyTasksPage() {
             <div className="bg-[#16181D] rounded-md px-4 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 text-sm sm:text-base">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="font-semibold text-sm sm:text-lg pr-1">남은 숙제</span>
+                  <span className="font-semibold text-sm sm:text-lg pr-1">
+                    숙제 남은 캐릭터
+                  </span>
                   <span className="text-gray-400 text-xs sm:text-sm font-semibold">
-                    {totalRemainingTasks}
+                    {remainingCharacters}
                   </span>
                 </div>
 
                 <span className="hidden sm:inline h-4 w-px bg-white/10" />
 
                 <div className="flex items-baseline gap-1.5">
-                  <span className="font-semibold text-sm sm:text-lg pr-1">
-                    숙제 남은 캐릭터
-                  </span>
+                  <span className="font-semibold text-sm sm:text-lg pr-1">남은 숙제</span>
                   <span className="text-gray-400 text-xs sm:text-sm font-semibold">
-                    {remainingCharacters}
+                    {totalRemainingTasks}
                   </span>
                 </div>
 

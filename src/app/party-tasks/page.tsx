@@ -222,11 +222,10 @@ export default function PartyTasksPage() {
 
     return (
         <div className="w-full text-white py-8 sm:py-12">
-            <div className="mx-auto max-w-7xl space-y-8 px-4 sm:px-0">
+            <div className="mx-auto max-w-7xl space-y-4 px-4 sm:px-0">
                 {/* 헤더 */}
-                <div className="relative">
+                <div className="relative pb-7">
                     <div className="absolute -top-10 -left-10 w-64 h-64 rounded-full pointer-events-none" />
-
                     <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                         <div className="space-y-2">
                             <div className="inline-flex items-center gap-2 text-xs font-medium text-[#5B69FF]">
@@ -261,22 +260,22 @@ export default function PartyTasksPage() {
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                                <h2 className="text-base sm:text-lg font-semibold text-white">
+                                <h2 className="text-base sm:text-xl font-semibold text-white">
                                     참여 중인 파티
                                 </h2>
                                 {!loading && (
-                                    <span className="inline-flex items-center justify-center rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-gray-400">
+                                    <span className="inline-flex items-center justify-center rounded-full bg-white/10 px-2 py-0.5 text-[12px] font-medium text-gray-400">
                                         총 {parties.length}개
                                     </span>
                                 )}
                             </div>
-                            <p className="mt-0.5 text-[11px] sm:text-xs text-gray-400">
+                            {/* <p className="mt-0.5 text-[11px] sm:text-xs text-gray-400">
                                 {loading
                                     ? "파티 목록을 불러오는 중입니다..."
                                     : hasParties
                                         ? "아래에서 파티를 선택해 상세 숙제를 확인하세요."
                                         : "아직 참여 중인 파티가 없습니다. 새 파티를 만들어 시작해보세요."}
-                            </p>
+                            </p> */}
                         </div>
                     </div>
 
@@ -580,17 +579,7 @@ function PartyCard({
                             >
                                 닉네임 {showNames ? "숨기기" : "보기"}
                             </span>
-                            <div
-                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 border border-transparent ${showNames
-                                    ? "bg-[#5B69FF]"
-                                    : "bg-gray-700 group-hover/toggle:bg-gray-600"
-                                    }`}
-                            >
-                                <span
-                                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${showNames ? "translate-x-4.5" : "translate-x-1"
-                                        }`}
-                                />
-                            </div>
+
                         </button>
                     </div>
 
