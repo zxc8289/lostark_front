@@ -1,7 +1,7 @@
 // src/app/party-tasks/[partyId]/page.tsx
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import {
@@ -11,6 +11,14 @@ import {
     AlertTriangle,
     Clock,
     LogIn,
+    Link2,
+    Copy,
+    Check,
+    Sparkles,
+    X,
+    ChevronDown,
+    ChevronUp,
+    Plus,
 } from "lucide-react";
 
 import CharacterTaskStrip, {
@@ -33,6 +41,8 @@ import {
     buildAutoSetupForRoster,
     type RaidSummary,
 } from "@/app/lib/tasks/raid-utils";
+import AnimatedNumber from "@/app/components/tasks/AnimatedNumber";
+import EmptyCharacterState from "@/app/components/tasks/EmptyCharacterState";
 
 /* ─────────────────────────────
  * 타입 정의
@@ -55,7 +65,9 @@ type PartyDetail = {
     members: PartyMember[];
     raidCount: number;
     nextResetAt: string | null;
+    raidState?: RaidStateFromServer;
 };
+
 
 /** 파티원 한 명의 "내 숙제 상태" */
 type PartyMemberTasks = {
@@ -72,13 +84,39 @@ type PartyRaidTasksResponse = {
     members: PartyMemberTasks[];
 };
 
+type PartyInvite = {
+    code: string;
+    url?: string;
+    expiresAt?: string | null;
+};
+
 type SavedFilters = {
     onlyRemain?: boolean;
     tableView?: boolean;
 };
 
+type SavedAccount = {
+    id: string;
+    nickname: string;
+    summary: CharacterSummary;
+    isPrimary?: boolean;
+};
+
+type RaidStateFromServer = {
+    accounts?: SavedAccount[];
+    activeAccountId?: string | null;
+    prefsByChar?: Record<string, CharacterTaskPrefs>;
+    visibleByChar?: Record<string, boolean>;
+    filters?: SavedFilters;
+};
+
+
 const PARTY_FILTER_KEY = (partyId: number | string) =>
     `partyTaskFilters:${partyId}`;
+
+// MyTasks와 동일한 계정 저장 키
+const ACCOUNTS_KEY = "raidTaskAccounts";
+const ACTIVE_ACCOUNT_KEY = "raidTaskActiveAccount";
 
 /* ─────────────────────────────
  * 공통 함수
@@ -150,10 +188,10 @@ function buildTasksForCharacter(
             return sum + (g?.gold ?? 0);
         }, 0);
 
-        // 카드 오른쪽 골드 뱃지
         const right = (
-            <span className="text-xs px-2 py-1 rounded bg-yellow-500/10 text-yellow-300 border border-yellow-300/20">
-                {totalGold.toLocaleString()}g
+            <span className="text-xs px-2 py-1 rounded bg-yellow-500/10 text-yellow-300 border border-yellow-300/20 inline-flex items-baseline justify-end min-w-[72px] font-mono tabular-nums">
+                <AnimatedNumber value={totalGold} />
+                <span className="ml-0.5 text-[0.8em]">g</span>
             </span>
         );
 
@@ -229,7 +267,126 @@ export default function PartyDetailPage() {
 
     const [charSettingOpen, setCharSettingOpen] = useState(false);
     const [charSettingTarget, setCharSettingTarget] =
-        useState<PartyMemberTasks | null>(null);
+        useState<{ memberUserId: string; roster: RosterCharacter[] } | null>(null);
+
+    // 파티 코드 모달 상태
+    const [inviteOpen, setInviteOpen] = useState(false);
+    const [inviteLoading, setInviteLoading] = useState(false);
+    const [inviteErr, setInviteErr] = useState<string | null>(null);
+    const [invite, setInvite] = useState<PartyInvite | null>(null);
+    const [inviteCopied, setInviteCopied] = useState(false);
+
+    /* ──────────────────────────
+     *  계정 드롭다운 (MyTasks와 동일 기능)
+     * ────────────────────────── */
+    const [accounts, setAccounts] = useState<SavedAccount[]>([]);
+    const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+    const [isAccountListOpen, setIsAccountListOpen] = useState(false);
+    const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+    const [accountSearchLoading, setAccountSearchLoading] = useState(false);
+    const [accountSearchErr, setAccountSearchErr] = useState<string | null>(null);
+
+    const currentAccount =
+        accounts.find((acc) => acc.id === activeAccountId) ?? accounts[0] ?? null;
+
+    // 로컬스토리지에서 계정 목록 복원
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        try {
+            const rawAccounts = localStorage.getItem(ACCOUNTS_KEY);
+            if (!rawAccounts) return;
+
+            const parsed = JSON.parse(rawAccounts) as SavedAccount[];
+            if (!Array.isArray(parsed) || parsed.length === 0) return;
+
+            setAccounts(parsed);
+
+            const savedActiveId = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
+            const active =
+                parsed.find((a) => a.id === savedActiveId) ??
+                parsed.find((a) => a.isPrimary) ??
+                parsed[0];
+
+            if (active) setActiveAccountId(active.id);
+        } catch {
+            // 무시
+        }
+    }, []);
+
+    // LOA 캐릭터 검색 → 계정 추가/갱신 (MyTasks와 동일 로직)
+    const handleCharacterSearch = async (name: string): Promise<void> => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+
+        setAccountSearchLoading(true);
+        setAccountSearchErr(null);
+
+        try {
+            const r = await fetch(
+                `/api/lostark/character/${encodeURIComponent(trimmed)}`,
+                {
+                    cache: "no-store",
+                }
+            );
+
+            if (!r.ok) {
+                throw new Error("캐릭터 정보를 불러오지 못했습니다.");
+            }
+
+            const json = (await r.json()) as CharacterSummary;
+
+            let newActiveId: string | null = null;
+
+            setAccounts((prev) => {
+                const next = [...prev];
+                const idx = next.findIndex(
+                    (a) => a.nickname.toLowerCase() === trimmed.toLowerCase()
+                );
+
+                if (idx >= 0) {
+                    // 이미 있는 계정이라면 summary만 갱신
+                    next[idx] = { ...next[idx], summary: json };
+                    newActiveId = next[idx].id;
+                } else {
+                    const id =
+                        typeof crypto !== "undefined" && "randomUUID" in crypto
+                            ? crypto.randomUUID()
+                            : `${trimmed}-${Date.now()}`;
+
+                    const acc: SavedAccount = {
+                        id,
+                        nickname: trimmed,
+                        summary: json,
+                        isPrimary: prev.length === 0, // 첫 계정은 대표 계정
+                    };
+
+                    next.push(acc);
+                    newActiveId = id;
+                }
+
+                if (typeof window !== "undefined") {
+                    try {
+                        localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
+                        if (newActiveId) {
+                            localStorage.setItem(ACTIVE_ACCOUNT_KEY, newActiveId);
+                        }
+                    } catch {
+                        // 무시
+                    }
+                }
+
+                return next;
+            });
+
+            if (newActiveId) {
+                setActiveAccountId(newActiveId);
+            }
+        } catch (e: any) {
+            setAccountSearchErr(e?.message ?? String(e));
+        } finally {
+            setAccountSearchLoading(false);
+        }
+    };
 
     const openEditModal = (member: PartyMemberTasks, char: RosterCharacter) => {
         const prefs = member.prefsByChar[char.name] ?? { raids: {} };
@@ -242,9 +399,94 @@ export default function PartyDetailPage() {
         setEditOpen(true);
     };
 
-    const openMemberCharSetting = (member: PartyMemberTasks) => {
-        setCharSettingTarget(member);
+    const openMemberCharSetting = (
+        member: PartyMemberTasks,
+        baseSummary: CharacterSummary | null
+    ) => {
+        const roster = baseSummary?.roster ?? [];
+        setCharSettingTarget({
+            memberUserId: member.userId,
+            roster,
+        });
         setCharSettingOpen(true);
+    };
+
+    async function fetchInvite() {
+        if (!party) return;
+        setInviteLoading(true);
+        setInviteErr(null);
+        try {
+            // 엔드포인트/응답 형식은 프로젝트에 맞게 수정 가능
+            const res = await fetch(`/api/party-tasks/${party.id}/invite`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+
+            if (!res.ok) {
+                throw new Error("파티 초대 코드를 생성하지 못했습니다.");
+            }
+
+            const data = await res.json();
+            setInvite({
+                code: data.code ?? "",
+                url: data.url ?? "",
+                expiresAt: data.expiresAt ?? null,
+            });
+        } catch (e: any) {
+            setInviteErr(e?.message ?? "알 수 없는 오류가 발생했습니다.");
+        } finally {
+            setInviteLoading(false);
+        }
+    }
+
+    const openInviteModal = () => {
+        if (!party) return;
+        setInviteOpen(true);
+        setInviteCopied(false);
+        void fetchInvite();
+    };
+
+    const handleCopyInvite = async () => {
+        if (!invite) return;
+        const text = invite.url || invite.code;
+        if (!text) return;
+
+        try {
+            // https / localhost 환경
+            if (
+                typeof navigator !== "undefined" &&
+                navigator.clipboard &&
+                (window.location.protocol === "https:" ||
+                    window.location.hostname === "localhost" ||
+                    window.location.hostname === "127.0.0.1")
+            ) {
+                await navigator.clipboard.writeText(text);
+            } else if (typeof document !== "undefined") {
+                // 폴백
+                const textarea = document.createElement("textarea");
+                textarea.value = text;
+                textarea.readOnly = true;
+                textarea.style.position = "fixed";
+                textarea.style.top = "0";
+                textarea.style.left = "-9999px";
+                textarea.style.opacity = "0";
+
+                document.body.appendChild(textarea);
+                textarea.select();
+
+                const ok = document.execCommand("copy");
+                document.body.removeChild(textarea);
+
+                if (!ok) {
+                    throw new Error("execCommand copy 실패");
+                }
+            }
+
+            setInviteCopied(true);
+            setTimeout(() => setInviteCopied(false), 1500);
+        } catch (e) {
+            console.error("초대 링크 복사 실패:", e);
+        }
     };
 
     const handleMemberChangeVisible = (
@@ -278,7 +520,6 @@ export default function PartyDetailPage() {
             );
         }
     };
-
 
     const handleSaveEdit = (nextPrefs: CharacterTaskPrefs) => {
         if (!party || !editTarget || !partyTasks) return;
@@ -315,7 +556,6 @@ export default function PartyDetailPage() {
 
         setEditOpen(false);
     };
-
 
     const resetFilters = () => {
         setOnlyRemain(false);
@@ -423,7 +663,7 @@ export default function PartyDetailPage() {
             return newMember;
         });
 
-        // 2) state 반영 (여기서는 순수하게 set만)
+        // 2) state 반영
         setPartyTasks(next);
 
         // 3) 1번만 서버 저장
@@ -437,18 +677,22 @@ export default function PartyDetailPage() {
         }
     };
 
-
-    /** 파티원 자동 세팅 (상위 6캐릭 + 각 캐릭 Top3 레이드) */
-    const handleMemberAutoSetup = (memberUserId: string) => {
+    const handleMemberAutoSetup = (memberUserId: string, isMe: boolean) => {
         if (!party || !partyTasks) return;
 
         const partyIdNum = party.id;
 
-        // 1) next 상태 계산
         const next: PartyMemberTasks[] = partyTasks.map((m) => {
             if (m.userId !== memberUserId) return m;
 
-            const roster = m.summary?.roster ?? [];
+            // 🔹 기본은 서버에서 온 summary
+            let roster = m.summary?.roster ?? [];
+
+            // 🔹 내 줄 + currentAccount 선택되어 있으면 -> 그 계정의 roster 사용
+            if (isMe && currentAccount?.summary?.roster) {
+                roster = currentAccount.summary.roster;
+            }
+
             if (!roster.length) return m;
 
             const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(
@@ -456,19 +700,15 @@ export default function PartyDetailPage() {
                 m.prefsByChar ?? {}
             );
 
-            const updated: PartyMemberTasks = {
+            return {
                 ...m,
                 prefsByChar: nextPrefsByChar,
                 visibleByChar: nextVisibleByChar,
             };
-
-            return updated;
         });
 
-        // 2) state 반영
         setPartyTasks(next);
 
-        // 3) 해당 멤버 서버 저장
         const updated = next.find((m) => m.userId === memberUserId);
         if (updated) {
             void saveMemberPrefsToServer(
@@ -479,7 +719,6 @@ export default function PartyDetailPage() {
             );
         }
     };
-
 
     /** 파티원 레이드 순서 재정렬 */
     const handleMemberReorder = (
@@ -540,7 +779,6 @@ export default function PartyDetailPage() {
         }
     };
 
-
     /** 파티원 관문 전체 초기화 (해당 파티원의 모든 캐릭터에 대해 gates만 초기화) */
     const handleMemberGateAllClear = (memberUserId: string) => {
         if (!party || !partyTasks) return;
@@ -590,7 +828,6 @@ export default function PartyDetailPage() {
             );
         }
     };
-
 
     // 🔹 파티별 필터 로컬스토리지에서 불러오기
     useEffect(() => {
@@ -674,7 +911,38 @@ export default function PartyDetailPage() {
                 const data = (await res.json()) as PartyDetail;
                 if (!cancelled) {
                     setParty(data);
+
+                    // 🔹 raid_task_state 에서 온 계정/활성계정 반영
+                    const raidState = data.raidState;
+                    if (raidState?.accounts && Array.isArray(raidState.accounts) && raidState.accounts.length > 0) {
+                        const accs = raidState.accounts;
+
+                        setAccounts(accs);
+
+                        const initialActiveId =
+                            raidState.activeAccountId ??
+                            accs.find((a) => a.isPrimary)?.id ??
+                            accs[0]?.id ??
+                            null;
+
+                        if (initialActiveId) {
+                            setActiveAccountId(initialActiveId);
+                        }
+
+                        // localStorage에도 같이 넣어주면 MyTasks랑 공유됨
+                        if (typeof window !== "undefined") {
+                            try {
+                                localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accs));
+                                if (initialActiveId) {
+                                    localStorage.setItem(ACTIVE_ACCOUNT_KEY, initialActiveId);
+                                }
+                            } catch {
+                                // ignore
+                            }
+                        }
+                    }
                 }
+
             } catch (e: any) {
                 if (!cancelled) {
                     setPartyErr(e?.message ?? "알 수 없는 오류가 발생했습니다.");
@@ -765,7 +1033,7 @@ export default function PartyDetailPage() {
     if (status === "unauthenticated") {
         return (
             <div className="w-full min-h-[60vh] flex flex-col items-center justify-center text-gray-300 px-4">
-                <div className="max-w-md w-full text-center space-y-6">
+                <div className="max-w-md w-full textcenter space-y-6">
                     <div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-1.5 text-xs font-medium text-[#5B69FF] border border-[#5B69FF]/20">
                         <UsersRound className="h-3.5 w-3.5" />
                         <span>파티 숙제</span>
@@ -805,9 +1073,7 @@ export default function PartyDetailPage() {
                     <div className="flex justify-center">
                         <AlertTriangle className="h-8 w-8 text-red-400" />
                     </div>
-                    <p className="text-sm text-red-200 whitespace-pre-line">
-                        {partyErr}
-                    </p>
+                    <p className="text-sm text-red-200 whitespace-pre-line">{partyErr}</p>
                     <div className="flex flex-col sm:flex-row gap-2 justify-center mt-2">
                         <button
                             onClick={() => router.push("/party-tasks")}
@@ -834,7 +1100,7 @@ export default function PartyDetailPage() {
         partyTasks && myUserId
             ? [...partyTasks].sort((a, b) => {
                 if (a.userId === myUserId && b.userId !== myUserId) return -1; // a가 나면 위로
-                if (b.userId === myUserId && a.userId !== myUserId) return 1;  // b가 나면 위로
+                if (b.userId === myUserId && a.userId !== myUserId) return 1; // b가 나면 위로
                 return 0;
             })
             : partyTasks;
@@ -844,30 +1110,151 @@ export default function PartyDetailPage() {
             <div className="mx-auto max-w-7xl space-y-5">
                 {/* 상단 헤더 */}
                 <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-1 sm:py-2">
-                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                        <button
+                            type="button"
+                            onClick={() => router.push("/party-tasks")}
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/30 text-gray-300 hover:bg-white/5 hover:text-white"
+                            aria-label="파티 목록으로 돌아가기"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                        </button>
                         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight truncate break-keep">
                             {party.name}
                         </h1>
                     </div>
 
-                    {party.nextResetAt && (
-                        <div className="inline-flex items-center gap-1.5 rounded-full bg-black/30 px-3 py-1 text-[11px] text-gray-400">
-                            <Clock className="h-3 w-3" />
-                            <span>다음 초기화: {party.nextResetAt}</span>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        {party.nextResetAt && (
+                            <div className="inline-flex items-center gap-1.5 rounded-full bg-black/30 px-3 py-1 text-[11px] text-gray-400">
+                                <Clock className="h-3 w-3" />
+                                <span>다음 초기화: {party.nextResetAt}</span>
+                            </div>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={openInviteModal}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-[#5B69FF]/80 px-3 py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#4a57e0]"
+                        >
+                            <Link2 className="h-3.5 w-3.5" />
+                            <span>파티 코드 생성</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* 바디 (좌 필터 / 우 메인) */}
                 <div
                     className="
-                        grid grid-cols-1 
-                        lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)]
-                        gap-5 lg:items-start
-                    "
+            grid grid-cols-1 
+            lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)]
+            gap-5 lg:items-start
+          "
                 >
                     {/* 왼쪽 필터 영역 */}
                     <div className="space-y-4">
+                        {/* 🔹 MyTasks의 계정 선택 섹션 이식 */}
+                        <section className="rounded-sm bg-[#16181D] shadow-sm">
+                            {/* 헤더: 현재 선택된 계정 표시 (클릭 시 펼치기/접기) */}
+                            <button
+                                onClick={() => setIsAccountListOpen(!isAccountListOpen)}
+                                className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-white/5 transition-colors ${isAccountListOpen ? "bg-white/5" : ""
+                                    }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="flex flex-col items-start">
+                                        <span className="text-[10px] text-gray-400 font-medium">
+                                            현재 계정
+                                        </span>
+                                        <span className="text-sm font-bold text-white">
+                                            {currentAccount ? currentAccount.nickname : "계정 선택"}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* 화살표 아이콘 (열림/닫힘 상태에 따라 변경) */}
+                                <div className="text-gray-400">
+                                    {isAccountListOpen ? (
+                                        <ChevronUp className="h-5 w-5" />
+                                    ) : (
+                                        <ChevronDown className="h-5 w-5" />
+                                    )}
+                                </div>
+                            </button>
+
+                            {/* 펼쳐지는 목록 영역 */}
+                            {isAccountListOpen && (
+                                <div className="px-3 pb-3 pt-2 bg-[#16181D] animate-in slide-in-from-top-2 duration-200">
+                                    <div className="flex flex-col gap-1">
+                                        {/* 1. 계정 리스트 */}
+                                        {accounts.map((acc) => {
+                                            const isActive = acc.id === activeAccountId;
+                                            return (
+                                                <button
+                                                    key={acc.id}
+                                                    onClick={() => {
+                                                        setActiveAccountId(acc.id);
+                                                        if (typeof window !== "undefined") {
+                                                            try {
+                                                                localStorage.setItem(
+                                                                    ACTIVE_ACCOUNT_KEY,
+                                                                    acc.id
+                                                                );
+                                                            } catch {
+                                                                // 무시
+                                                            }
+                                                        }
+                                                        setIsAccountListOpen(false);
+                                                    }}
+                                                    className={[
+                                                        "relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all",
+                                                        isActive
+                                                            ? "bg-[#5B69FF]/10 text-white"
+                                                            : "text-gray-400 hover:bg-white/5 hover:text-gray-200",
+                                                    ].join(" ")}
+                                                >
+                                                    {/* 체크 아이콘 (활성화된 경우) */}
+                                                    <div
+                                                        className={`flex items-center justify-center w-5 h-5 ${isActive ? "text-[#5B69FF]" : "text-transparent"
+                                                            }`}
+                                                    >
+                                                        <Check className="h-4 w-4" strokeWidth={3} />
+                                                    </div>
+
+                                                    <span className="text-sm font-medium">
+                                                        {acc.nickname}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+
+                                        {/* 구분선 */}
+                                        <div className="my-1 border-t border-white/5 mx-2" />
+
+                                        {/* 2. 계정 추가 버튼 (맨 아래 배치) */}
+                                        <button
+                                            onClick={() => {
+                                                setIsAddAccountOpen(true);
+                                                setIsAccountListOpen(false);
+                                            }}
+                                            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
+                                        >
+                                            <div className="flex items-center justify-center w-5 h-5">
+                                                <Plus className="h-4 w-4" />
+                                            </div>
+                                            <span className="text-sm font-medium">계정 추가</span>
+                                        </button>
+                                    </div>
+
+                                    {accountSearchErr && (
+                                        <p className="mt-2 text-[11px] text-red-400 px-1">
+                                            에러: {accountSearchErr}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </section>
+
                         {/* 필터 카드 */}
                         <section className="rounded-sm bg-[#16181D] shadow-sm">
                             <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
@@ -880,18 +1267,122 @@ export default function PartyDetailPage() {
                                 </button>
                             </header>
 
-                            <div className="px-4 sm:px-5 py-5 sm:py-7 space-y-5">
-                                <div>
-                                    <div className="mb-3 text-xs sm:text-sm font-bold">
-                                        숙제/보상
+                            <div className="px-4 sm:px-5 py-5 sm:py-7">
+                                {/* 🔹 모바일: 2컬럼 / sm 이상: 1컬럼 */}
+                                <div className="grid grid-cols-2 sm:grid-cols-1 gap-4 sm:gap-5 text-xs sm:text-sm">
+                                    {/* 왼쪽: 숙제/보상 */}
+                                    <div className="space-y-3">
+                                        <div className="font-bold">숙제/보상</div>
+                                        <div className="space-y-3">
+                                            <label className="flex items-center gap-2 cursor-pointer select-none text-[#A2A3A5] relative group">
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={onlyRemain}
+                                                    onChange={(e) => setOnlyRemain(e.target.checked)}
+                                                />
+                                                <span
+                                                    className="grid place-items-center h-5 w-5 rounded-md border border.white/30 transition
+                                                    peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
+                                                    peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
+                                                    peer-checked:[&_svg]:opacity-100
+                                                "
+                                                >
+                                                    <svg
+                                                        className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
+                                                        viewBox="0 0 20 20"
+                                                        fill="none"
+                                                    >
+                                                        <path
+                                                            d="M5 10l3 3 7-7"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                        />
+                                                    </svg>
+                                                </span>
+
+                                                <span className="text-xs sm:text-sm">
+                                                    남은 숙제만 보기
+                                                </span>
+
+                                                <span
+                                                    className="
+                                                        w-3 h-3
+                                                        rounded-full
+                                                        border border-white/20
+                                                        text-[9px] font-bold
+                                                        flex items-center justify-center
+                                                        text-gray-400
+                                                        bg-black/20
+                                                        group-hover:text-white group-hover:border-white/40
+                                                        transition-colors duration-200
+                                                        cursor-help
+                                                    "
+                                                >
+                                                    ?
+                                                </span>
+
+                                                {/* 설명 툴팁 그대로 유지 */}
+                                                <div
+                                                    className="
+                                                        pointer-events-none
+                                                        absolute left-6 top-full mt-2.5
+                                                        w-64 p-4
+                                                        rounded-2xl
+                                                        bg-gray-900/95 backdrop-blur-xl
+                                                        border border-white/[0.08]
+                                                        shadow-[0_8px_30px_rgb(0,0,0,0.4)]
+                                                        opacity-0 translate-y-1 scale-95
+                                                        group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
+                                                        transition-all duration-200 ease-out
+                                                        z-[200]
+                                                    "
+                                                >
+                                                    <div className="flex flex-col gap-2 text-xs leading-relaxed text-left">
+                                                        <p className="text-gray-200">
+                                                            <span className="font-bold text-sky-400">
+                                                                카드 보기
+                                                            </span>
+                                                            에서만 적용됩니다.
+                                                            <span className="block text-gray-400 font-normal mt-0.5">
+                                                                마지막 관문까지 완료되지 않은 레이드만 필터링하여
+                                                                보여줍니다.
+                                                            </span>
+                                                        </p>
+
+                                                        <div className="w-full h-px bg-white/5 my-0.5" />
+
+                                                        <p className="text-gray-400 font-medium">
+                                                            ※ 테이블 보기에서는 이 옵션이 적용되지 않습니다.
+                                                        </p>
+                                                    </div>
+
+                                                    <div
+                                                        className="
+                                                                absolute -top-[5px] left-6
+                                                                w-2.5 h-2.5
+                                                                bg-gray-900/95
+                                                                border-t border-l border-white/[0.08]
+                                                                rotate-45
+                                                                z-10
+                                                                "
+                                                    />
+                                                </div>
+                                            </label>
+                                        </div>
                                     </div>
-                                    <div className="space-y-3 text-xs sm:text-sm">
-                                        <label className="flex items-center gap-2 cursor-pointer select-none text-[#A2A3A5] relative group">
+
+                                    {/* 오른쪽: 보기 설정 */}
+                                    <div className="space-y-3">
+                                        <div className="font-semibold">보기 설정</div>
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-[#A2A3A5] text-xs sm:text-sm">
                                             <input
                                                 type="checkbox"
                                                 className="sr-only peer"
-                                                checked={onlyRemain}
-                                                onChange={(e) => setOnlyRemain(e.target.checked)}
+                                                checked={tableView}
+                                                onChange={(e) => setTableView(e.target.checked)}
                                             />
                                             <span
                                                 className="grid place-items-center h-5 w-5 rounded-md border border.white/30 transition
@@ -914,108 +1405,10 @@ export default function PartyDetailPage() {
                                                     />
                                                 </svg>
                                             </span>
-
-                                            <span className="text-xs sm:text-sm">
-                                                남은 숙제만 보기
-                                            </span>
-
-                                            <span
-                                                className="
-                                                    w-3 h-3
-                                                    rounded-full
-                                                    border border-white/20
-                                                    text-[9px] font-bold
-                                                    flex items-center justify-center
-                                                    text-gray-400
-                                                    bg-black/20
-                                                    group-hover:text-white group-hover:border-white/40
-                                                    transition-colors duration-200
-                                                    cursor-help
-                                                    "
-                                            >
-                                                ?
-                                            </span>
-
-                                            {/* 설명 툴팁 */}
-                                            <div
-                                                className="
-                                                    pointer-events-none
-                                                    absolute left-6 top-full mt-2.5
-                                                    w-64 p-4
-                                                    rounded-2xl
-                                                    bg-gray-900/95 backdrop-blur-xl
-                                                    border border-white/[0.08]
-                                                    shadow-[0_8px_30px_rgb(0,0,0,0.4)]
-                                                    
-                                                    opacity-0 translate-y-1 scale-95
-                                                    group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
-                                                    transition-all duration-200 ease-out
-                                                    z-[200]
-                                                    "
-                                            >
-                                                <div className="flex flex-col gap-2 text-xs leading-relaxed text-left">
-                                                    <p className="text-gray-200">
-                                                        <span className="font-bold text-sky-400">카드 보기</span>에서만 적용됩니다.
-                                                        <span className="block text-gray-400 font-normal mt-0.5">
-                                                            마지막 관문까지 완료되지 않은 레이드만 필터링하여 보여줍니다.
-                                                        </span>
-                                                    </p>
-
-                                                    <div className="w-full h-px bg-white/5 my-0.5" />
-
-                                                    <p className="text-gray-400 font-medium">
-                                                        ※ 테이블 보기에서는 이 옵션이 적용되지 않습니다.
-                                                    </p>
-                                                </div>
-
-                                                {/* 위쪽 화살표 */}
-                                                <div
-                                                    className="
-                                                        absolute -top-[5px] left-6
-                                                        w-2.5 h-2.5
-                                                        bg-gray-900/95
-                                                        border-t border-l border-white/[0.08]
-                                                        rotate-45
-                                                        z-10
-                                                    "
-                                                />
-                                            </div>
+                                            테이블로 보기
                                         </label>
                                     </div>
                                 </div>
-                                <div className="mb-3 text-xs sm:text-sm font-semibold">
-                                    보기 설정
-                                </div>
-                                <label className="flex items-center gap-2 cursor-pointer select-none text-[#A2A3A5] text-xs sm:text-sm">
-                                    <input
-                                        type="checkbox"
-                                        className="sr-only peer"
-                                        checked={tableView}
-                                        onChange={(e) => setTableView(e.target.checked)}
-                                    />
-                                    <span
-                                        className="grid place-items-center h-5 w-5 rounded-md border border.white/30 transition
-                                            peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
-                                            peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
-                                            peer-checked:[&_svg]:opacity-100
-                                            "
-                                    >
-                                        <svg
-                                            className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
-                                            viewBox="0 0 20 20"
-                                            fill="none"
-                                        >
-                                            <path
-                                                d="M5 10l3 3 7-7"
-                                                stroke="currentColor"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                            />
-                                        </svg>
-                                    </span>
-                                    테이블로 보기
-                                </label>
                             </div>
                         </section>
                     </div>
@@ -1040,117 +1433,106 @@ export default function PartyDetailPage() {
                             sortedPartyTasks &&
                             sortedPartyTasks.length > 0 &&
                             !tableView && (
-                                <div className="flex flex-col gap-14">
+                                <div className="flex flex-col gap-10">
                                     {sortedPartyTasks.map((m) => {
+                                        const isMe = myUserId && m.userId === myUserId;
+                                        const baseSummary =
+                                            isMe && currentAccount?.summary ? currentAccount.summary : m.summary;
+
                                         const visibleRoster =
-                                            m.summary?.roster?.filter(
+                                            baseSummary?.roster?.filter(
                                                 (c) => m.visibleByChar?.[c.name] ?? true
                                             ) ?? [];
 
+                                        if (visibleRoster.length === 0) {
+                                            return (
+                                                <div
+                                                    key={m.userId}
+                                                    className="
+                    grid grid-cols-1 gap-4 sm:gap-1
+                    rounded-lg border border-white/10
+                    px-3 sm:px-4 py-3 sm:py-4
+                "
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <MemberAvatar
+                                                            member={{
+                                                                id: m.userId,
+                                                                name: m.name,
+                                                                image: m.image,
+                                                                role: "member",
+                                                            }}
+                                                            className="h-7 w-7 rounded-full border border-black/60"
+                                                        />
+                                                    </div>
+                                                    <span className="font-medium text-gray-200">
+                                                        {m.name || "이름 없음"}
+                                                    </span>
+                                                    <span className="text-[11px] text-gray-400">
+                                                        표시 중인 캐릭터가 없습니다
+                                                    </span>
+                                                </div>
+                                            );
+                                        }
+
                                         const sortedRoster = [...visibleRoster].sort(
-                                            (a, b) =>
-                                                (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)
+                                            (a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)
                                         );
 
-                                        // 캐릭별 tasks 만들고, onlyRemain + tasks.length === 0 이면 캐릭터 숨김
-                                        const rosterForRender = sortedRoster
-                                            .map((c) => {
-                                                const tasks = buildTasksForCharacter(
-                                                    c,
-                                                    m.prefsByChar,
-                                                    {
-                                                        onlyRemain,
-                                                        onToggleGate: (
-                                                            raidName,
-                                                            gate,
-                                                            currentGates,
-                                                            allGates
-                                                        ) => {
-                                                            handleMemberToggleGate(
-                                                                m.userId,
-                                                                c.name,
-                                                                raidName,
-                                                                gate,
-                                                                currentGates,
-                                                                allGates
-                                                            );
-                                                        },
-                                                    }
-                                                );
-
-                                                if (onlyRemain && tasks.length === 0) {
-                                                    return null;
-                                                }
-
-                                                return { char: c, tasks };
-                                            })
-                                            .filter(
-                                                (
-                                                    x
-                                                ): x is {
-                                                    char: RosterCharacter;
-                                                    tasks: TaskItem[];
-                                                } => x !== null
-                                            );
-
-                                        const memberSummary = computeMemberSummary(m);
+                                        const memberSummary = computeMemberSummary({
+                                            ...m,
+                                            summary: baseSummary,
+                                        });
 
                                         return (
                                             <div
                                                 key={m.userId}
                                                 className="
-                                                    grid grid-cols-1 gap-4 sm:gap-1
-                                                    rounded-lg border border-white/10
-                                                    px-3 sm:px-4 py-3 sm:py-4
-                                                    "
+                grid grid-cols-1 gap-4 sm:gap-1
+                rounded-lg border border-white/10
+                px-3 sm:px-4 py-3 sm:py-4
+            "
                                             >
-                                                <PartyMemberSummaryBar
-                                                    member={m}
-                                                    summary={memberSummary}
-                                                >
+                                                <PartyMemberSummaryBar member={m} summary={memberSummary}>
                                                     <PartyMemberActions
-                                                        onAutoSetup={() => handleMemberAutoSetup(m.userId)}
-                                                        onGateAllClear={() =>
-                                                            handleMemberGateAllClear(m.userId)
-                                                        }
-                                                        onOpenCharSetting={() =>
-                                                            openMemberCharSetting(m)
-                                                        }
+                                                        onAutoSetup={() => handleMemberAutoSetup(m.userId, !!isMe)}
+                                                        onGateAllClear={() => handleMemberGateAllClear(m.userId)}
+                                                        onOpenCharSetting={() => openMemberCharSetting(m, baseSummary)}
                                                     />
                                                 </PartyMemberSummaryBar>
 
-                                                {/* 캐릭터별 스트립 */}
-                                                <div className="flex flex-col gap-3 mt-2">
-                                                    {rosterForRender.map(({ char, tasks }) => (
-                                                        <CharacterTaskStrip
-                                                            key={`${m.userId}-${char.name}`}
-                                                            character={char}
-                                                            tasks={tasks}
-                                                            onEdit={() => openEditModal(m, char)}
-                                                            onReorder={(_, newOrderIds) =>
-                                                                handleMemberReorder(
-                                                                    m.userId,
-                                                                    char.name,
-                                                                    newOrderIds
-                                                                )
-                                                            }
-                                                        />
-                                                    ))}
+                                                <div className="mt-2">
+                                                    <TaskTable
+                                                        roster={sortedRoster}
+                                                        prefsByChar={m.prefsByChar}
+                                                        onToggleGate={(charName, raidName, gate, currentGates, allGates) =>
+                                                            handleMemberToggleGate(
+                                                                m.userId,
+                                                                charName,
+                                                                raidName,
+                                                                gate,
+                                                                currentGates,
+                                                                allGates
+                                                            )
+                                                        }
+                                                        onEdit={(c) => openEditModal(m, c)}
+                                                    />
                                                 </div>
                                             </div>
                                         );
                                     })}
+
+
                                 </div>
                             )}
 
-                        {/* 테이블 뷰 */}
                         {/* 테이블 뷰 */}
                         {!tasksLoading &&
                             !tasksErr &&
                             sortedPartyTasks &&
                             sortedPartyTasks.length > 0 &&
                             tableView && (
-                                <div className="flex flex-col gap-14">
+                                <div className="flex flex-col gap-10">
                                     {sortedPartyTasks.map((m) => {
                                         const visibleRoster =
                                             m.summary?.roster?.filter(
@@ -1158,15 +1540,14 @@ export default function PartyDetailPage() {
                                             ) ?? [];
 
                                         if (visibleRoster.length === 0) {
-                                            // ⬇️ 이미 카드처럼 보더 준 케이스 (그대로 두면 됨)
                                             return (
                                                 <div
                                                     key={m.userId}
                                                     className="
-                                grid grid-cols-1 gap-4 sm:gap-1
-                                rounded-lg border border-white/10
-                                px-3 sm:px-4 py-3 sm:py-4
-                            "
+                            grid grid-cols-1 gap-4 sm:gap-1
+                            rounded-lg border border-white/10
+                            px-3 sm:px-4 py-3 sm:py-4
+                          "
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         <MemberAvatar
@@ -1195,14 +1576,13 @@ export default function PartyDetailPage() {
 
                                         const memberSummary = computeMemberSummary(m);
 
-                                        // ⬇️ 여기만 카드 뷰랑 동일하게 감싸주기
                                         return (
                                             <div
                                                 key={m.userId}
                                                 className="
-                            grid grid-cols-1 gap-4 sm:gap-1
-                            rounded-lg border border-white/10
-                            px-3 sm:px-4 py-3 sm:py-4
+                          grid grid-cols-1 gap-4 sm:gap-1
+                          rounded-lg border border-white/10
+                          px-3 sm:px-4 py-3 sm:py-4
                         "
                                             >
                                                 <PartyMemberSummaryBar
@@ -1214,9 +1594,7 @@ export default function PartyDetailPage() {
                                                         onGateAllClear={() =>
                                                             handleMemberGateAllClear(m.userId)
                                                         }
-                                                        onOpenCharSetting={() =>
-                                                            openMemberCharSetting(m)
-                                                        }
+                                                        onOpenCharSetting={() => openMemberCharSetting(m)}
                                                     />
                                                 </PartyMemberSummaryBar>
 
@@ -1249,7 +1627,6 @@ export default function PartyDetailPage() {
                                 </div>
                             )}
 
-
                         {/* 아무도 상태를 저장 안 한 경우 */}
                         {!tasksLoading &&
                             !tasksErr &&
@@ -1274,18 +1651,137 @@ export default function PartyDetailPage() {
                             <CharacterSettingModal
                                 open
                                 onClose={() => setCharSettingOpen(false)}
-                                roster={charSettingTarget.summary?.roster ?? []}
-                                visibleByChar={charSettingTarget.visibleByChar ?? {}}
+                                // 🔹 여기: 계정 선택 기준 roster 사용
+                                roster={charSettingTarget.roster}
+                                // 🔹 visibleByChar는 항상 최신 partyTasks에서 꺼내오기
+                                visibleByChar={
+                                    partyTasks?.find((m) => m.userId === charSettingTarget.memberUserId)
+                                        ?.visibleByChar ?? {}
+                                }
                                 onChangeVisible={(next) => {
-                                    handleMemberChangeVisible(charSettingTarget.userId, next);
+                                    handleMemberChangeVisible(charSettingTarget.memberUserId, next);
                                 }}
                                 onDeleteAccount={() => { }}
                                 onRefreshAccount={() => { }}
                             />
                         )}
+
                     </div>
                 </div>
             </div>
+
+            {/* 파티 코드 모달 */}
+            {inviteOpen && (
+                <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+                    <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                        {/* 1. 모달 헤더 */}
+                        <div className="relative flex items-center justify-between bg-[#252832] px-5 py-4 border-b border-white/5">
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="h-5 w-5 text-[#5B69FF]" />
+                                <h2 className="text-base sm:text-lg font-bold text-white">
+                                    파티 초대
+                                </h2>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setInviteOpen(false)}
+                                className="rounded-full p-1 text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        {/* 2. 모달 바디 */}
+                        <div className="px-5 py-6 space-y-5 text-sm">
+                            <p className="text-gray-300 leading-relaxed">
+                                아래 초대 링크를 파티원에게 공유하세요.
+                                <br />
+                                링크를 통해 파티의 숙제 페이지로 바로 접속할 수 있습니다.
+                            </p>
+
+                            {inviteLoading && (
+                                <div className="flex items-center justify-center gap-3 py-8 text-gray-400 bg-black/20 rounded-xl">
+                                    <Loader2 className="h-5 w-5 animate-spin text-[#5B69FF]" />
+                                    <span>초대 코드를 생성하는 중입니다...</span>
+                                </div>
+                            )}
+
+                            {inviteErr && (
+                                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-200 text-sm flex items-center gap-2">
+                                    <X className="h-4 w-4 shrink-0" />
+                                    {inviteErr}
+                                </div>
+                            )}
+
+                            {!inviteLoading && !inviteErr && invite && (
+                                <div className="space-y-4">
+                                    {invite.url && (
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-medium text-gray-400 ml-1">
+                                                초대 링크
+                                            </label>
+                                            <div className="flex items-center gap-2 p-2 rounded-xl bg-black/30 border border-white/10 focus-within:border-[#5B69FF]/50 transition-colors">
+                                                <div className="flex-1 flex items-center gap-2 min-w-0 px-2">
+                                                    <Link2 className="h-4 w-4 text-[#5B69FF] shrink-0" />
+                                                    <span className="truncate text-sm text-gray-100 font-medium">
+                                                        {invite.url}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleCopyInvite}
+                                                    className={`shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${inviteCopied
+                                                        ? "bg-[#5B69FF] text-white"
+                                                        : "bg-white/10 text-gray-200 hover:bg-white/15 hover:text-white"
+                                                        }`}
+                                                >
+                                                    {inviteCopied ? (
+                                                        <>
+                                                            <Check
+                                                                className="h-3.5 w-3.5"
+                                                                strokeWidth={3}
+                                                            />
+                                                            복사됨
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Copy className="h-3.5 w-3.5" />
+                                                            복사
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center justify-between text-xs text-gray-400 bg-white/5 px-3 py-2 rounded-lg">
+                                        <span className="flex items-center gap-1.5">
+                                            <span>초대 코드:</span>
+                                            <span className="font-mono text-sm font-bold text-[#5B69FF]">
+                                                {invite.code}
+                                            </span>
+                                        </span>
+                                        {invite.expiresAt && (
+                                            <span>만료: {invite.expiresAt}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 계정 추가 모달 (EmptyCharacterState) */}
+            <EmptyCharacterState
+                open={isAddAccountOpen}
+                onClose={() => setIsAddAccountOpen(false)}
+                loading={accountSearchLoading}
+                onSearch={async (nickname) => {
+                    await handleCharacterSearch(nickname);
+                    setIsAddAccountOpen(false);
+                }}
+            />
         </div>
     );
 }
@@ -1307,7 +1803,7 @@ function PartyMemberSummaryBar({
         summary.totalRemainingGold === 0 && summary.totalGold > 0;
 
     return (
-        <div className="rounded-md py-2 sm:py-2 flex flex-wrap sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="rounded-md py-2 sm:py-2 flex flex-wrap sm:flex-row sm:items-center gap-3 sm:gap-4  max-[1247px]:flex-col max-[1247px]:items-start">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 text-sm sm:text-base">
                 <div className="flex items-center gap-3">
                     <MemberAvatar
@@ -1332,9 +1828,10 @@ function PartyMemberSummaryBar({
                     <span className="font-semibold text-sm sm:text-base pr-1">
                         남은 숙제
                     </span>
-                    <span className="text-gray-400 text-xs sm:text-sm font-semibold">
-                        {summary.totalRemainingTasks}
-                    </span>
+                    <AnimatedNumber
+                        value={summary.totalRemainingTasks}
+                        className="text-gray-400 text-xs sm:text-sm font-semibold"
+                    />
                 </div>
 
                 <span className="hidden sm:inline h-4 w-px bg-white/10 " />
@@ -1343,34 +1840,46 @@ function PartyMemberSummaryBar({
                     <span className="font-semibold text-sm sm:text-base pr-1">
                         숙제 남은 캐릭터
                     </span>
-                    <span className="text-gray-400 text-xs sm:text-sm font-semibold">
-                        {summary.remainingCharacters}
-                    </span>
+                    <AnimatedNumber
+                        value={summary.remainingCharacters}
+                        className="text-gray-400 text-xs sm:text-sm font-semibold"
+                    />
                 </div>
+
                 <span className="hidden sm:inline h-4 w-px bg-white/10" />
 
                 <div className="flex items-baseline gap-1.5">
                     <span className="font-semibold text-sm sm:text-base pr-1">
                         남은 골드
                     </span>
-                    <span
-                        className={`text-xs sm:text-sm font-semibold ${memberAllCleared
-                            ? "line-through decoration-gray-300 decoration-1 text-gray-400"
-                            : "text-gray-400"
-                            }`}
+
+                    <div
+                        className={[
+                            "inline-flex items-baseline justify-end",
+                            "min-w-[50px]",
+                            "text-xs sm:text-sm font-semibold",
+                            "font-mono tabular-nums",
+                            memberAllCleared
+                                ? "line-through decoration-gray-300 decoration-1 text-gray-400"
+                                : "text-gray-400",
+                        ].join(" ")}
                     >
-                        {memberAllCleared
-                            ? `${summary.totalGold.toLocaleString()}g`
-                            : `${summary.totalRemainingGold.toLocaleString()}g`}
-                    </span>
+                        <AnimatedNumber
+                            value={memberAllCleared ? summary.totalGold : summary.totalRemainingGold}
+                        />
+                        <span className="ml-0.5 text-[0.75em]">g</span>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex flex-row gap-2 sm:gap-3  sm:ml-auto">
+            <div
+                className="
+          flex flex-row flex-wrap gap-2 sm:gap-3 sm:ml-auto justify-end
+          max-[1247px]:w-full max-[1247px]:justify-start  
+        "
+            >
                 {children}
             </div>
-
-
         </div>
     );
 }
@@ -1392,52 +1901,52 @@ function PartyMemberActions({
             <button
                 onClick={onAutoSetup}
                 className="
-                    relative group
-                    flex items-center justify-center
-                    py-2 px-6 rounded-lg
-                    bg-white/[.04] border border-white/10
-                    hover:bg-white/5 hover:border-white/20
-                    text-xs sm:text-sm font-medium text-white
-                    transition-all duration-200
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                    "
+          relative group
+          flex items-center justify-center
+          py-2 px-6 rounded-lg
+          bg-white/[.04] border border-white/10
+          hover:bg-white/5 hover:border-white/20
+          text-xs sm:text-sm font-medium text-white
+          transition-all duration-200
+          disabled:opacity-50 disabled:cursor-not-allowed
+        "
             >
                 <span>자동 세팅</span>
 
                 <span
                     className="
-                        absolute top-1 right-1
-                        w-3 h-3
-                        rounded-full
-                        border border-white/20
-                        text-[9px] font-bold
-                        flex items-center justify-center
-                        text-gray-400
-                        bg-black/20
-                        group-hover:text-white group-hover:border-white/40
-                        transition-colors duration-200
-                        cursor-help
-                    "
+            absolute top-1 right-1
+            w-3 h-3
+            rounded-full
+            border border-white/20
+            text-[9px] font-bold
+            flex items-center justify-center
+            text-gray-400
+            bg-black/20
+            group-hover:text-white group-hover:border-white/40
+            transition-colors duration-200
+            cursor-help
+          "
                 >
                     ?
                 </span>
 
                 <div
                     className="
-                      pointer-events-none
-                      absolute bottom-full left-15 mb-3  {/* right-0을 left-0으로 변경 */}
-                      w-64 p-3
-                      rounded-xl
-                      bg-gray-900/95 backdrop-blur-md
-                      border border-white/10
-                      text-xs text-gray-300 leading-relaxed
-                      text-center
-                      shadow-2xl shadow-black/50
-                      opacity-0 translate-y-2 scale-95
-                      group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
-                      transition-all duration-200 ease-out
-                      z-20
-                    "
+            pointer-events-none
+            absolute bottom-full left-15 mb-3
+            w-64 p-3
+            rounded-xl
+            bg-gray-900/95 backdrop-blur-md
+            border border-white/10
+            text-xs text-gray-300 leading-relaxed
+            text-center
+            shadow-2xl shadow-black/50
+            opacity-0 translate-y-2 scale-95
+            group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
+            transition-all duration-200 ease-out
+            z-20
+          "
                 >
                     <p>
                         <span className="text-white font-semibold">

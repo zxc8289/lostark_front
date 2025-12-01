@@ -4,15 +4,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { db } from "@/db/client";
 
-
-
 export async function GET(
     req: NextRequest,
     { params }: { params: Promise<{ partyId: string }> }
 ) {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userId = (session.user as any).id as string;
@@ -59,7 +57,6 @@ export async function GET(
         .get(partyIdNum, userId) as { role: string } | undefined;
 
     if (!membership) {
-        // 파티에 속하지 않은 사람은 열람 불가
         return new NextResponse("Forbidden", { status: 403 });
     }
 
@@ -87,8 +84,28 @@ export async function GET(
             role: string;
         }[];
 
-    // TODO: 나중에 파티 숙제(레이드) 정보도 여기에서 계산해서 내려줄 예정
-    // 지금은 일단 껍데기만
+    // 🔹 4) 이 유저의 raid_task_state도 같이 가져오기
+    const raidStateRow = db
+        .prepare(
+            `
+      SELECT state_json
+      FROM raid_task_state
+      WHERE user_id = ?
+      LIMIT 1
+    `
+        )
+        .get(userId) as { state_json: string } | undefined;
+
+    let raidState: any = null;
+    if (raidStateRow?.state_json) {
+        try {
+            raidState = JSON.parse(raidStateRow.state_json);
+        } catch (e) {
+            console.error("Invalid raid_task_state JSON", e);
+        }
+    }
+
+    // 5) 응답
     return NextResponse.json({
         id: party.id,
         name: party.name,
@@ -99,5 +116,8 @@ export async function GET(
         members,
         raidCount: 0,
         nextResetAt: null,
+
+        // ✅ 여기 추가
+        raidState,
     });
 }

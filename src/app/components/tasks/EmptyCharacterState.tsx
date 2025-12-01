@@ -22,13 +22,21 @@ export default function EmptyCharacterState({ open, onSearch, loading, onClose }
         }
     };
 
-
     if (!open) return null;
+
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+            {/* 🔹 배경 오버레이: 캐릭터 설정 모달과 동일하게 */}
             <div
-                className="relative w-full max-w-md p-8 rounded-2xl bg-[#16181D] border border-white/5 text-center shadow-2xl">
+                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                onClick={onClose}
+            />
+
+            {/* 🔹 실제 모달 카드 (이 안에서 클릭해도 배경 onClick 안 타게 막기) */}
+            <div
+                className="relative w-full max-w-md p-8 rounded-2xl bg-[#16181D] border border-white/5 text-center shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+            >
                 {/* 닫기 버튼 */}
                 <button
                     type="button"

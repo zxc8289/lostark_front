@@ -7,7 +7,7 @@ const dbDir = path.join(process.cwd(), "data");
 const dbPath = path.join(dbDir, "app.db");
 
 if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
+  fs.mkdirSync(dbDir, { recursive: true });
 }
 
 export const db = new Database(dbPath);
@@ -44,7 +44,6 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
-  -- ★ 내 숙제 페이지 전체 상태를 유저별로 들고 있는 테이블
   CREATE TABLE IF NOT EXISTS raid_task_state (
     user_id    TEXT PRIMARY KEY,
     state_json TEXT NOT NULL,

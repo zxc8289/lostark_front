@@ -37,14 +37,19 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 이미 들어가 있으면 에러 대신 조용히 통과
         const insertMember = db.prepare(
             `INSERT OR IGNORE INTO party_members (party_id, user_id, role)
              VALUES (?, ?, 'member')`
         );
         insertMember.run(party.id, userId);
 
-        return NextResponse.json({ id: String(party.id) }, { status: 200 });
+        return NextResponse.json(
+            {
+                id: String(party.id),
+                partyId: String(party.id),
+            },
+            { status: 200 }
+        );
     } catch (err: any) {
         console.error(err);
         return NextResponse.json(

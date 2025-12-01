@@ -1,6 +1,6 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     Users,
@@ -55,14 +55,116 @@ export default function PartyTasksPage() {
 
     const [createName, setCreateName] = useState("");
     const [createMemo, setCreateMemo] = useState("");
-    const [joinCode, setJoinCode] = useState("");
+    const [joinCode, setJoinCode] = useState<string[]>(Array(8).fill("")); // 8자리 코드
+    const inputRefs = useRef<(HTMLInputElement | null)[]>([]); // 각 입력창 ref
+
 
     const [joining, setJoining] = useState(false);
     const [creating, setCreating] = useState(false);
 
+
     // 모달 상태
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [joinModalOpen, setJoinModalOpen] = useState(false);
+
+    // 한 글자 정규화: 영문/숫자만, 대문자로
+    const normalizeChar = (v: string) =>
+        v.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 1);
+
+    // 각 칸 입력 변경
+    const handleInputChange = (index: number, raw: string) => {
+        const ch = normalizeChar(raw);
+
+        setJoinCode((prev) => {
+            const next = [...prev];
+            next[index] = ch;
+            return next;
+        });
+
+        // 글자 입력되면 다음 칸으로 포커스 이동
+        if (ch && index < 7) {
+            const nextInput = inputRefs.current[index + 1];
+            if (nextInput) {
+                nextInput.focus();
+                nextInput.select();
+            }
+        }
+    };
+
+    // 백스페이스/화살표 처리
+    const handleKeyDown = (
+        index: number,
+        e: React.KeyboardEvent<HTMLInputElement>
+    ) => {
+        if (e.key === "Backspace") {
+            e.preventDefault();
+            setJoinCode((prev) => {
+                const next = [...prev];
+
+                if (next[index]) {
+                    // 현재 칸에 글자 있으면 그거만 지우기
+                    next[index] = "";
+                } else if (index > 0) {
+                    // 현재 칸이 비어있고, 이전 칸으로 돌아가서 지우기
+                    next[index - 1] = "";
+                    const prevInput = inputRefs.current[index - 1];
+                    if (prevInput) {
+                        prevInput.focus();
+                        prevInput.select();
+                    }
+                }
+
+                return next;
+            });
+        }
+
+        if (e.key === "ArrowLeft" && index > 0) {
+            e.preventDefault();
+            const prev = inputRefs.current[index - 1];
+            if (prev) {
+                prev.focus();
+                prev.select();
+            }
+        }
+
+        if (e.key === "ArrowRight" && index < 7) {
+            e.preventDefault();
+            const next = inputRefs.current[index + 1];
+            if (next) {
+                next.focus();
+                next.select();
+            }
+        }
+    };
+
+    // 붙여넣기(맨 앞 칸에서만)
+    const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        e.preventDefault();
+        const text = e.clipboardData.getData("text") || "";
+        const cleaned = text.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 8);
+        if (!cleaned) return;
+
+        const chars = cleaned.split("");
+
+        setJoinCode(() => {
+            const next = Array(8)
+                .fill("")
+                .map((_, i) => chars[i] ?? "");
+            return next;
+        });
+
+        // 마지막 글자 칸에 포커스 이동
+        const lastIndex = Math.min(chars.length - 1, 7);
+        const target = inputRefs.current[lastIndex >= 0 ? lastIndex : 0];
+
+        if (target) {
+            requestAnimationFrame(() => {
+                target.focus();
+                target.select();
+            });
+        }
+    };
+
 
     /* 내 파티 목록 불러오기 */
     useEffect(() => {
@@ -148,10 +250,16 @@ export default function PartyTasksPage() {
         }
     };
 
+
+
+
     /* 초대 코드로 참가 */
     const handleJoinParty = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!joinCode.trim()) return;
+
+        const code = joinCode.join("");
+
+        if (code.length < 8) return;
 
         try {
             setJoining(true);
@@ -160,7 +268,7 @@ export default function PartyTasksPage() {
             const res = await fetch("/api/party-tasks/join", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ code: joinCode.trim() }),
+                body: JSON.stringify({ code }),   // ← joinCode.trim() 대신
             });
 
             if (!res.ok) {
@@ -171,8 +279,9 @@ export default function PartyTasksPage() {
             const partyId: string = data.id;
 
             setJoinModalOpen(false);
-            setJoinCode("");
+            setJoinCode(Array(8).fill(""));
             router.push(`/party-tasks/${partyId}`);
+
         } catch (e: any) {
             setErr(e?.message ?? "파티 참가 중 오류가 발생했습니다.");
         } finally {
@@ -222,7 +331,7 @@ export default function PartyTasksPage() {
 
     return (
         <div className="w-full text-white py-8 sm:py-12">
-            <div className="mx-auto max-w-7xl space-y-4 px-4 sm:px-0">
+            <div className="mx-auto max-w-7xl space-y-4  sm:px-0">
                 {/* 헤더 */}
                 <div className="relative pb-7">
                     <div className="absolute -top-10 -left-10 w-64 h-64 rounded-full pointer-events-none" />
@@ -440,11 +549,9 @@ export default function PartyTasksPage() {
                         </div>
                     </div>
                 )}
-
-                {/* ───────── 모달: 초대 코드로 참여 (디자인 개선됨) ───────── */}
                 {joinModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-                        <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="w-full max-w-[600px] overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
                             {/* 모달 헤더 */}
                             <div className="relative bg-[#252832] px-6 py-6 border-b border-white/5">
                                 <button
@@ -460,40 +567,56 @@ export default function PartyTasksPage() {
                                     <div>
                                         <h3 className="text-lg font-bold text-white">초대 코드로 참여</h3>
                                         <p className="text-xs text-gray-400 mt-1">
-                                            공유받은 코드를 입력해 파티에 합류하세요.
+                                            공유받은 8자리 코드를 입력해 파티에 합류하세요.
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
                             {/* 모달 바디 */}
-                            <div className="p-6">
-                                <form onSubmit={handleJoinParty} className="space-y-4">
-                                    <div className="relative group">
-                                        <div className="pointer-events-none absolute left-3 top-3 text-gray-500 group-focus-within:text-[#10B981] transition-colors">
-                                            <Hash className="h-5 w-5" />
-                                        </div>
-                                        <input
-                                            type="text"
-                                            placeholder="초대 코드 (예: X8K2-99A1)"
-                                            value={joinCode}
-                                            onChange={(e) => setJoinCode(e.target.value)}
-                                            className="w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-4 py-3 text-sm text-white placeholder:text-gray-600 focus:border-[#10B981] focus:outline-none focus:ring-1 focus:ring-[#10B981] transition-all uppercase tracking-wide"
-                                        />
+                            <div className="p-8">
+                                <form onSubmit={handleJoinParty} className="space-y-8">
+                                    {/* 2. 8자리 사각형 입력 UI */}
+                                    <div className="flex justify-center gap-2 sm:gap-3">
+                                        {[...Array(8)].map((_, index) => (
+                                            <input
+                                                key={index}
+                                                ref={(el) => {
+                                                    inputRefs.current[index] = el;
+                                                }}
+                                                type="text"
+                                                maxLength={1}
+                                                value={joinCode[index] || ""}
+                                                onChange={(e) => handleInputChange(index, e.target.value)}
+                                                onKeyDown={(e) => handleKeyDown(index, e)}
+                                                onPaste={index === 0 ? handlePaste : undefined}
+                                                /* 3. 정사각형 스타일 적용 */
+                                                className={`
+                                                w-10 h-10 sm:w-14 sm:h-14 
+                                                text-center text-xl sm:text-2xl font-bold 
+                                                rounded-lg border bg-black/20 text-white transition-all caret-[#10B981]
+                                                ${joinCode[index]
+                                                        ? 'border-[#10B981] shadow-[0_0_15px_rgba(16,185,129,0.25)]'
+                                                        : 'border-white/10 hover:border-white/30'}
+                                                focus:border-[#10B981] focus:outline-none focus:ring-1 focus:ring-[#10B981]
+                                `}
+                                            />
+                                        ))}
                                     </div>
 
-                                    <div className="pt-2 flex gap-3">
+                                    <div className="flex gap-3">
                                         <button
                                             type="button"
                                             onClick={() => setJoinModalOpen(false)}
-                                            className="flex-1 rounded-xl bg-white/5 py-3 text-sm font-semibold text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+                                            className="flex-1 rounded-xl bg-white/5 py-3.5 text-sm font-semibold text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
                                         >
                                             취소
                                         </button>
                                         <button
                                             type="submit"
-                                            disabled={!joinCode.trim() || joining}
-                                            className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-[#10B981] py-3 text-sm font-semibold text-white hover:bg-[#059669] hover:shadow-lg hover:shadow-[#10B981]/20 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:shadow-none disabled:text-gray-400 transition-all"
+                                            /* 변경됨: flex-[2] -> flex-1 (1:1 비율) */
+                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[#10B981] py-3.5 text-sm font-semibold text-white hover:bg-[#059669] hover:shadow-lg hover:shadow-[#10B981]/20 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:shadow-none disabled:text-gray-400 transition-all"
+                                            disabled={joinCode.join("").length < 8 || joining}
                                         >
                                             {joining ? (
                                                 <Loader2 className="h-4 w-4 animate-spin" />

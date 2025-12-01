@@ -19,17 +19,29 @@ import {
   buildAutoSetupForRoster,
   type RaidSummary,
 } from "../lib/tasks/raid-utils";
-
+import AnimatedNumber from "../components/tasks/AnimatedNumber";
+import EmptyCharacterState from "../components/tasks/EmptyCharacterState";
+import { Check, ChevronDown, ChevronUp, Plus, UserCircle2 } from "lucide-react";
 
 type SavedFilters = {
-  // 현재는 "남은 숙제만 보기", "테이블로 보기" 두 옵션만 사용
   onlyRemain?: boolean;
   tableView?: boolean;
 };
 
+type SavedAccount = {
+  id: string;
+  nickname: string;
+  summary: CharacterSummary;
+  isPrimary?: boolean; // 대표 계정 여부
+};
+
 const FILTER_KEY = "raidTaskFilters";
-const LOCAL_KEY = "raidTaskLastAccount";
+const LOCAL_KEY = "raidTaskLastAccount"; // 예전 단일 구조용 (마이그레이션용)
 const VISIBLE_KEY = "raidTaskVisibleByChar";
+
+// 🔹 새로 추가된 키들
+const ACCOUNTS_KEY = "raidTaskAccounts"; // 여러 계정 저장
+const ACTIVE_ACCOUNT_KEY = "raidTaskActiveAccount"; // 현재 선택 계정 ID
 
 /** 좌측 필터 영역에서 쓸 필터 값 localStorage에서 복원 */
 function loadSavedFilters(): SavedFilters | null {
@@ -43,14 +55,12 @@ function loadSavedFilters(): SavedFilters | null {
   }
 }
 
-
-
-
 export default function MyTasksPage() {
   const { data: session, status: authStatus } = useSession();
   const [syncedWithServer, setSyncedWithServer] = useState(false);
   const [syncingServer, setSyncingServer] = useState(false);
   const isAuthed = authStatus === "authenticated" && !!session?.user;
+
   const [onlyRemain, setOnlyRemain] = useState<boolean>(() => {
     const saved = loadSavedFilters();
     return typeof saved?.onlyRemain === "boolean" ? saved.onlyRemain : false;
@@ -70,9 +80,14 @@ export default function MyTasksPage() {
   const clearClientStorage = () => {
     if (typeof window === "undefined") return;
     try {
+      // 예전 + 새 키 모두 정리
       localStorage.removeItem(LOCAL_KEY);
       localStorage.removeItem(FILTER_KEY);
       localStorage.removeItem(VISIBLE_KEY);
+
+      localStorage.removeItem(ACCOUNTS_KEY);
+      localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+
       clearAllPrefs(); // 캐릭터별 raidPrefs:* 다 지움
     } catch {
       // 무시
@@ -82,13 +97,22 @@ export default function MyTasksPage() {
   /* ──────────────────────────
    *  계정/검색 관련 상태
    * ────────────────────────── */
-  const [nickname, setNickname] = useState(""); // 현재 불러온 대표 캐릭터 닉네임
-  const [searchInput, setSearchInput] = useState(""); // 빈 상태에서 입력하는 검색어
+  const [accounts, setAccounts] = useState<SavedAccount[]>([]);
+  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+  const activeAccount =
+    accounts.find((a) => a.id === activeAccountId) ?? accounts[0] ?? null;
 
-  const [data, setData] = useState<CharacterSummary | null>(null);
+  const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+
+  const [searchInput, setSearchInput] = useState(""); // 빈 상태 카드에서 쓰는 검색어
+
   const [loading, setLoading] = useState(false);
   const [booting, setBooting] = useState(true); // 첫 로딩 중인지 여부
   const [err, setErr] = useState<string | null>(null);
+
+
+  const [isAccountListOpen, setIsAccountListOpen] = useState(false);
+  const currentAccount = accounts.find(acc => acc.id === activeAccountId);
 
   /* ──────────────────────────
    *  캐릭터별 레이드 설정 상태
@@ -101,20 +125,78 @@ export default function MyTasksPage() {
   const [visibleByChar, setVisibleByChar] = useState<Record<string, boolean>>({});
 
   /* ──────────────────────────
+   *  첫 진입 시 localStorage에서 여러 계정/활성 계정 복원
+   *  + 예전 단일 구조(LOCAL_KEY) 마이그레이션
+   * ────────────────────────── */
+  useEffect(() => {
+    try {
+      // 1) 새 구조(여러 계정)가 이미 있다면 그걸 먼저 사용
+      const rawAccounts = localStorage.getItem(ACCOUNTS_KEY);
+      if (rawAccounts) {
+        const parsed = JSON.parse(rawAccounts) as SavedAccount[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAccounts(parsed);
+
+          const savedActiveId = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
+          const active =
+            parsed.find((a) => a.id === savedActiveId) ??
+            parsed.find((a) => a.isPrimary) ??
+            parsed[0];
+
+          if (active) setActiveAccountId(active.id);
+          setBooting(false);
+          return;
+        }
+      }
+
+      // 2) 예전 단일 구조(LOCAL_KEY)에 저장되어 있던 유저라면 → 한 번만 마이그레이션
+      const rawLegacy = localStorage.getItem(LOCAL_KEY);
+      if (rawLegacy) {
+        const legacy = JSON.parse(rawLegacy) as {
+          nickname: string;
+          data: CharacterSummary;
+        };
+
+        const migrated: SavedAccount = {
+          id: legacy.nickname,
+          nickname: legacy.nickname,
+          summary: legacy.data,
+          isPrimary: true,
+        };
+
+        const list = [migrated];
+        setAccounts(list);
+        setActiveAccountId(migrated.id);
+
+        localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(list));
+        localStorage.setItem(ACTIVE_ACCOUNT_KEY, migrated.id);
+      }
+    } catch {
+      // 무시
+    } finally {
+      setBooting(false);
+    }
+  }, []);
+
+  /* ──────────────────────────
    *  캐릭터별 prefs 초기 로드
-   *  (전투정보실에서 roster를 받아온 뒤 수행)
+   *  (모든 계정의 roster 기준)
    * ────────────────────────── */
   useEffect(() => {
     if (isAuthed) return;
-    if (!data?.roster) return;
+    if (!accounts.length) return;
+
     setPrefsByChar((prev) => {
       const next = { ...prev };
-      for (const c of data.roster) {
-        next[c.name] = readPrefs(c.name) ?? next[c.name] ?? { raids: {} };
+
+      for (const acc of accounts) {
+        for (const c of acc.summary?.roster ?? []) {
+          next[c.name] = readPrefs(c.name) ?? next[c.name] ?? { raids: {} };
+        }
       }
       return next;
     });
-  }, [data?.roster]);
+  }, [accounts, isAuthed]);
 
   /* ──────────────────────────
    *  visibleByChar 초기 로드
@@ -123,15 +205,17 @@ export default function MyTasksPage() {
    * ────────────────────────── */
   useEffect(() => {
     if (isAuthed) return;
-    if (!data?.roster) return;
+    if (!accounts.length) return;
 
     try {
       const raw = localStorage.getItem(VISIBLE_KEY);
       const saved = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
 
       const next: Record<string, boolean> = {};
-      for (const c of data.roster) {
-        next[c.name] = saved[c.name] ?? true;
+      for (const acc of accounts) {
+        for (const c of acc.summary?.roster ?? []) {
+          next[c.name] = saved[c.name] ?? true;
+        }
       }
 
       setVisibleByChar(next);
@@ -139,36 +223,13 @@ export default function MyTasksPage() {
     } catch {
       // 로컬스토리지 에러는 무시
     }
-  }, [data?.roster]);
+  }, [accounts, isAuthed]);
 
   /* ──────────────────────────
-   *  첫 진입 시 마지막 계정 복원
+   *  필터 상태를 localStorage에 저장 (게스트 모드에서만)
    * ────────────────────────── */
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_KEY);
-
-      if (raw) {
-        const saved = JSON.parse(raw) as {
-          nickname: string;
-          data: CharacterSummary;
-        };
-
-        setNickname(saved.nickname);
-        setData(saved.data);
-      }
-    } catch {
-      // 파싱 실패하면 무시
-    } finally {
-      setBooting(false);
-    }
-  }, []);
-
-  /* ──────────────────────────
-   *  필터 상태를 localStorage에 저장
-   * ────────────────────────── */
-  useEffect(() => {
-    if (isAuthed) return; // 🔽 로그인 상태면 localStorage 쓰지 않음
+    if (isAuthed) return;
 
     try {
       const payload: SavedFilters = {
@@ -197,12 +258,24 @@ export default function MyTasksPage() {
     });
   }
 
-
+  /* ──────────────────────────
+   *  서버 동기화용 상태 구성/적용
+   * ────────────────────────── */
 
   function buildServerStatePayload() {
+    const primaryAccount =
+      accounts.find((a) => a.isPrimary) ?? accounts[0] ?? null;
+
     return {
-      nickname,
-      summary: data,
+      // ✅ 옛날 구조와 호환용 (단일 계정 기준)
+      nickname: primaryAccount?.nickname ?? null,
+      summary: primaryAccount?.summary ?? null,
+
+      // ✅ 새 구조: 여러 계정 전체
+      accounts,
+      activeAccountId,
+
+      // 기존 그대로
       prefsByChar,
       visibleByChar,
       filters: {
@@ -212,11 +285,32 @@ export default function MyTasksPage() {
     };
   }
 
-
   function applyServerState(state: any) {
     try {
-      if (state.nickname) setNickname(state.nickname);
-      if (state.summary) setData(state.summary);
+      // 1) 새 구조: accounts 배열이 있다면 그걸 그대로 사용
+      if (state.accounts && Array.isArray(state.accounts)) {
+        const serverAccounts = state.accounts as SavedAccount[];
+        setAccounts(serverAccounts);
+
+        if (state.activeAccountId) {
+          setActiveAccountId(state.activeAccountId);
+        } else if (serverAccounts.length > 0) {
+          const primary =
+            serverAccounts.find((a) => a.isPrimary) ?? serverAccounts[0];
+          setActiveAccountId(primary.id);
+        }
+      }
+      // 2) 옛날 구조(단일 nickname/summary)만 있는 경우 → 한 계정으로 마이그레이션
+      else if (state.nickname && state.summary) {
+        const migrated: SavedAccount = {
+          id: state.nickname,
+          nickname: state.nickname,
+          summary: state.summary,
+          isPrimary: true,
+        };
+        setAccounts([migrated]);
+        setActiveAccountId(migrated.id);
+      }
 
       if (state.prefsByChar) setPrefsByChar(state.prefsByChar);
       if (state.visibleByChar) setVisibleByChar(state.visibleByChar);
@@ -229,11 +323,14 @@ export default function MyTasksPage() {
           setTableView(state.filters.tableView);
         }
       }
-
     } catch {
+      // 무시
     }
   }
 
+  /* ──────────────────────────
+   *  로그인 상태에서 자동 저장 (디바운스)
+   * ────────────────────────── */
   useEffect(() => {
     if (authStatus !== "authenticated") return;
     if (!syncedWithServer) return;
@@ -256,7 +353,7 @@ export default function MyTasksPage() {
         }
         console.error("raid-tasks autosave failed", e);
       });
-    }, 400); // 디바운스 줄이고 싶으면 여기 숫자 줄이면 됨
+    }, 400);
 
     return () => {
       controller.abort();
@@ -266,17 +363,17 @@ export default function MyTasksPage() {
     authStatus,
     syncedWithServer,
     booting,
-    nickname,
-    data,
+    accounts,
+    activeAccountId,
     prefsByChar,
     visibleByChar,
     onlyRemain,
     tableView,
   ]);
 
-
-
-
+  /* ──────────────────────────
+   *  로그인 상태에서 초기 서버 동기화
+   * ────────────────────────── */
   useEffect(() => {
     if (authStatus !== "authenticated") return;
     if (syncedWithServer) return;
@@ -304,8 +401,7 @@ export default function MyTasksPage() {
         } else if (res.status === 204 || res.status === 404) {
           // 🆕 서버에 아무것도 없으면 → 현재 상태를 서버로 업로드
           const hasSomethingLocal =
-            !!data ||
-            !!nickname ||
+            accounts.length > 0 ||
             Object.keys(prefsByChar).length > 0 ||
             Object.keys(visibleByChar).length > 0;
 
@@ -321,9 +417,7 @@ export default function MyTasksPage() {
             // 로컬에도 아무 상태가 없으면, "동기화 할 게 없음" 상태로 간주
             didSync = true;
           }
-        }
-
-        else if (res.status === 401) {
+        } else if (res.status === 401) {
           console.warn("raid-tasks state: Unauthorized");
         }
       } catch (e) {
@@ -334,7 +428,7 @@ export default function MyTasksPage() {
           setSyncedWithServer(true);
         }
         if (!cancelled) {
-          setSyncingServer(false);     // ✅ 서버 동기화 종료
+          setSyncingServer(false);
         }
       }
     }
@@ -348,18 +442,16 @@ export default function MyTasksPage() {
     authStatus,
     syncedWithServer,
     booting,
-    data,
-    nickname,
+    accounts,
     prefsByChar,
     visibleByChar,
     onlyRemain,
     tableView,
   ]);
 
-
-
-
-  /** 카드 뷰에서 한 캐릭터에 대한 TaskCard 리스트 생성 */
+  /* ──────────────────────────
+   *  카드 뷰에서 한 캐릭터에 대한 TaskCard 리스트 생성
+   * ────────────────────────── */
   const buildTasksFor = (c: RosterCharacter): TaskItem[] => {
     const prefs = prefsByChar[c.name];
     if (!prefs) return [];
@@ -368,12 +460,10 @@ export default function MyTasksPage() {
     const baseRaidNames =
       prefs.order?.filter((r) => prefs.raids[r]) ?? Object.keys(prefs.raids);
 
-    // 2) order가 없는 경우에만 레이드 레벨 낮은순 → 높은순 정렬
+    // 2) order가 없는 경우에만 레이드 레벨 높은 순 정렬
     const raidNames = prefs.order
       ? baseRaidNames
-      : [...baseRaidNames].sort(
-        (a, b) => getRaidBaseLevel(b) - getRaidBaseLevel(a)
-      );
+      : [...baseRaidNames].sort((a, b) => getRaidBaseLevel(b) - getRaidBaseLevel(a));
 
     const items: TaskItem[] = [];
 
@@ -452,29 +542,73 @@ export default function MyTasksPage() {
     return items;
   };
 
-  /** 계정 삭제(데이터/설정 모두 초기화) */
+  /* ──────────────────────────
+   *  계정 삭제(활성 계정만 삭제)
+   * ────────────────────────── */
   const handleDeleteAccount = () => {
+    if (!activeAccount) return;
+
+    // 1) prefs / visibleByChar 정리
     try {
-      if (data?.roster) {
-        for (const c of data.roster) {
-          clearCharPrefs(c.name);
+      const namesToRemove = new Set(
+        activeAccount.summary?.roster?.map((c) => c.name) ?? []
+      );
+
+      // localStorage raidPrefs 정리 (게스트 모드)
+      if (!isAuthed) {
+        for (const name of namesToRemove) {
+          clearCharPrefs(name);
         }
       }
+
+      setPrefsByChar((prev) => {
+        const next: typeof prev = {};
+        for (const [charName, prefs] of Object.entries(prev)) {
+          if (!namesToRemove.has(charName)) {
+            next[charName] = prefs;
+          }
+        }
+        return next;
+      });
+
+      setVisibleByChar((prev) => {
+        const next = { ...prev };
+        for (const name of namesToRemove) {
+          delete next[name];
+        }
+        return next;
+      });
     } catch {
-      // localStorage 오류는 무시
+      // 무시
     }
 
-    localStorage.removeItem(LOCAL_KEY);
-    localStorage.removeItem(VISIBLE_KEY);
+    // 2) accounts 리스트에서 제거
+    setAccounts((prev) => {
+      const next = prev.filter((a) => a.id !== activeAccount.id);
 
-    setData(null);
-    setNickname("");
-    setPrefsByChar({});
-    setVisibleByChar({});
+      const nextActive =
+        next.find((a) => a.isPrimary) ?? next[0] ?? null;
+
+      if (!isAuthed) {
+        localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
+        if (nextActive) {
+          localStorage.setItem(ACTIVE_ACCOUNT_KEY, nextActive.id);
+        } else {
+          localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+        }
+      }
+
+      setActiveAccountId(nextActive ? nextActive.id : null);
+
+      return next;
+    });
+
     setIsCharSettingOpen(false);
   };
 
-  /** 원정대 정보 불러오기(검색/새로고침 공통 사용) */
+  /* ──────────────────────────
+   *  계정 검색/추가/갱신
+   * ────────────────────────── */
   const handleCharacterSearch = async (name: string): Promise<void> => {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -490,20 +624,49 @@ export default function MyTasksPage() {
         }
       );
 
-      const json = await r.json();
+      const json = (await r.json()) as CharacterSummary;
 
-      setNickname(trimmed);
-      setData(json);
+      let newActiveId: string | null = null;
 
-      try {
-        if (!isAuthed) {
-          localStorage.setItem(
-            LOCAL_KEY,
-            JSON.stringify({ nickname: trimmed, data: json })
-          );
+      setAccounts((prev) => {
+        const next = [...prev];
+        const idx = next.findIndex(
+          (a) => a.nickname.toLowerCase() === trimmed.toLowerCase()
+        );
+
+        if (idx >= 0) {
+          // 이미 있는 계정이라면 summary만 갱신
+          next[idx] = { ...next[idx], summary: json };
+          newActiveId = next[idx].id;
+        } else {
+          const id =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${trimmed}-${Date.now()}`;
+
+          const acc: SavedAccount = {
+            id,
+            nickname: trimmed,
+            summary: json,
+            isPrimary: prev.length === 0, // 첫 계정은 대표 계정으로
+          };
+
+          next.push(acc);
+          newActiveId = id;
         }
-      } catch {
-        // localStorage 저장 실패는 무시
+
+        if (!isAuthed) {
+          localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
+          if (newActiveId) {
+            localStorage.setItem(ACTIVE_ACCOUNT_KEY, newActiveId);
+          }
+        }
+
+        return next;
+      });
+
+      if (newActiveId) {
+        setActiveAccountId(newActiveId);
       }
     } catch (e) {
       setErr(String(e));
@@ -512,22 +675,23 @@ export default function MyTasksPage() {
     }
   };
 
-  /** 빈 상태에서 검색 폼 submit */
+  /** 빈 상태 카드에서 검색 폼 submit */
   const handleSearchSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!searchInput.trim()) return;
-    handleCharacterSearch(searchInput);
+    void handleCharacterSearch(searchInput);
   };
 
-  /** 캐릭터 정보 새로고침(현재 닉네임 기준) */
+  /** 활성 계정 기준으로 새로고침 */
   const handleRefreshAccount = async () => {
-    if (!nickname) return;
-    await handleCharacterSearch(nickname);
+    if (!activeAccount) return;
+    await handleCharacterSearch(activeAccount.nickname);
   };
 
-  /** 표시 대상 캐릭터 목록 (visibleByChar 적용) */
+  /** 표시 대상 캐릭터 목록 (활성 계정 + visibleByChar 적용) */
   const visibleRoster =
-    data?.roster?.filter((c) => visibleByChar[c.name] ?? true) ?? [];
+    activeAccount?.summary?.roster?.filter((c) => visibleByChar[c.name] ?? true) ??
+    [];
 
   /* ──────────────────────────
    *  남은 숙제/캐릭터 수 계산
@@ -541,12 +705,10 @@ export default function MyTasksPage() {
     return computeRaidSummaryForRoster(visibleRoster, prefsByChar);
   }, [visibleRoster, prefsByChar]);
 
-
   const isAllCleared = totalRemainingGold === 0 && totalGold > 0;
 
-
-
-  const hasRoster = !!(data?.roster && data.roster.length > 0);
+  const hasRoster =
+    !!activeAccount && !!activeAccount.summary?.roster?.length;
 
   const isAuthLoading = authStatus === "loading";
   const isAuthAuthed = authStatus === "authenticated";
@@ -561,13 +723,9 @@ export default function MyTasksPage() {
     !showInitialLoading &&
     !hasRoster &&
     (
-      // ① 아예 비로그인(게스트)일 때
       authStatus === "unauthenticated" ||
-      // ② 로그인 유저인데, 서버 동기화까지 끝난 뒤에야 비로소 "진짜로 비어있다" 판단
       (authStatus === "authenticated" && syncedWithServer)
     );
-
-
 
   /** 테이블 뷰에서 관문 토글 */
   const handleTableToggleGate = (
@@ -593,38 +751,32 @@ export default function MyTasksPage() {
     });
   };
 
+  /** 활성 계정 기준으로 자동 세팅 */
   const handleAutoSetup = () => {
-    if (!data?.roster || data.roster.length === 0) return;
+    if (!activeAccount?.summary?.roster || activeAccount.summary.roster.length === 0)
+      return;
 
-    const roster = data.roster;
+    const roster = activeAccount.summary.roster;
 
-    // 1) 공통 유틸로 새 상태 계산
     const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(
       roster,
       prefsByChar
     );
 
-    // 2) 상태 반영
     setPrefsByChar(nextPrefsByChar);
     setVisibleByChar(nextVisibleByChar);
 
-    // 3) 게스트 모드일 때만 localStorage 반영
     try {
       if (!isAuthed) {
-        // visibleByChar 저장
         localStorage.setItem(VISIBLE_KEY, JSON.stringify(nextVisibleByChar));
-
-        // 각 캐릭 prefs 저장
         for (const [name, prefs] of Object.entries(nextPrefsByChar)) {
           writePrefs(name, prefs);
         }
       }
     } catch {
-      // 로컬스토리지 에러는 무시
+      // 무시
     }
   };
-
-
 
   /** 모든 캐릭터의 관문 체크만 초기화 (enable/difficulty/order는 유지) */
   const gateAllClear = () => {
@@ -657,7 +809,6 @@ export default function MyTasksPage() {
         } catch {
           // localStorage 에러는 무시
         }
-
       }
 
       return next;
@@ -668,15 +819,15 @@ export default function MyTasksPage() {
     <div className="w-full text-white py-8 sm:py-12">
       {/* 공통 좌우 패딩 */}
       <div className="mx-auto max-w-7xl space-y-5">
-        {/* 상단 헤더 */}
+        {/* 상단 헤더 + 계정 탭 */}
         <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-1 sm:py-2">
-          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+          <div className="flex flex-col gap-1 flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight truncate break-keep">
               내 숙제
-
             </h1>
           </div>
         </div>
+
 
         {/* 바디 (필터 + 메인 영역) */}
         <div
@@ -688,7 +839,88 @@ export default function MyTasksPage() {
         >
           {/* 왼쪽 필터 영역 */}
           <div className="space-y-4">
-            {/* 필터 카드 */}
+            <section className="">
+
+              {/* 헤더: 현재 선택된 계정 표시 (클릭 시 펼치기/접기) */}
+              <button
+                onClick={() => setIsAccountListOpen(!isAccountListOpen)}
+                className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-white/5 transition-colors ${isAccountListOpen ? 'bg-white/5' : ''}`}
+              >
+                <div className="flex items-center gap-3">
+
+
+                  <div className="flex flex-col items-start">
+                    <span className="text-[10px] text-gray-400 font-medium">현재 계정</span>
+                    <span className="text-sm font-bold text-white">
+                      {currentAccount ? currentAccount.nickname : '계정 선택'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 화살표 아이콘 (열림/닫힘 상태에 따라 변경) */}
+                <div className="text-gray-400">
+                  {isAccountListOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                </div>
+              </button>
+
+
+              {/* 펼쳐지는 목록 영역 */}
+              {isAccountListOpen && (
+                <div className="px-3 pb-3 pt-2 bg-[#16181D] animate-in slide-in-from-top-2 duration-200">
+                  <div className="flex flex-col gap-1">
+
+                    {/* 1. 계정 리스트 */}
+                    {accounts.map((acc) => {
+                      const isActive = acc.id === activeAccountId;
+                      return (
+                        <button
+                          key={acc.id}
+                          onClick={() => {
+                            setActiveAccountId(acc.id);
+                            if (!isAuthed) {
+                              localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
+                            }
+                            setIsAccountListOpen(false); // 선택 후 닫기 (선택사항)
+                          }}
+                          className={[
+                            "relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all",
+                            isActive
+                              ? "bg-[#5B69FF]/10 text-white"
+                              : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                          ].join(" ")}
+                        >
+                          {/* 체크 아이콘 (활성화된 경우) */}
+                          <div className={`flex items-center justify-center w-5 h-5 ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
+                            <Check className="h-4 w-4" strokeWidth={3} />
+                          </div>
+
+                          <span className="text-sm font-medium">
+                            {acc.nickname}
+                          </span>
+                        </button>
+                      );
+                    })}
+
+                    {/* 구분선 */}
+                    <div className="my-1 border-t border-white/5 mx-2" />
+
+                    {/* 2. 계정 추가 버튼 (맨 아래 배치) */}
+                    <button
+                      onClick={() => {
+                        setIsAddAccountOpen(true);
+                        setIsAccountListOpen(false);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
+                    >
+                      <div className="flex items-center justify-center w-5 h-5">
+                        <Plus className="h-4 w-4" />
+                      </div>
+                      <span className="text-sm font-medium">계정 추가</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
             <section className="rounded-sm bg-[#16181D] shadow-sm">
               <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                 <h3 className="text-base sm:text-lg font-semibold">필터</h3>
@@ -700,25 +932,126 @@ export default function MyTasksPage() {
                 </button>
               </header>
 
-              <div className="px-4 sm:px-5 py-5 sm:py-7 space-y-5">
-                {/* 숙제/보상 섹션 */}
-                <div>
-                  <div className="mb-3 text-xs sm:text-sm font-bold">숙제/보상</div>
-                  <div className="space-y-3 text-xs sm:text-sm">
-                    {/* 남은 숙제만 보기 (카드 뷰 전용) */}
-                    <label className="flex items-center gap-2 cursor-pointer select-none text-[#A2A3A5] relative group">
+              <div className="px-4 sm:px-5 py-5 sm:py-7">
+                {/* 모바일: 2컬럼 / sm 이상: 1컬럼 */}
+                <div className="grid grid-cols-2 sm:grid-cols-1 gap-4 sm:gap-5 text-xs sm:text-sm">
+                  {/* 왼쪽: 숙제/보상 */}
+                  <div className="space-y-3">
+                    <div className="font-bold">숙제/보상</div>
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-2 cursor-pointer select-none text-[#A2A3A5] relative group">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={onlyRemain}
+                          onChange={(e) => setOnlyRemain(e.target.checked)}
+                        />
+                        <span
+                          className="grid place-items-center h-5 w-5 rounded-md border border.white/30 transition
+                                                    peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
+                                                    peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
+                                                    peer-checked:[&_svg]:opacity-100
+                                                "
+                        >
+                          <svg
+                            className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                          >
+                            <path
+                              d="M5 10l3 3 7-7"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+
+                        <span className="text-xs sm:text-sm">
+                          남은 숙제만 보기
+                        </span>
+
+                        <span
+                          className="
+                                w-3 h-3
+                                rounded-full
+                                border border-white/20
+                                text-[9px] font-bold
+                                flex items-center justify-center
+                                text-gray-400
+                                bg-black/20
+                                group-hover:text-white group-hover:border-white/40
+                                transition-colors duration-200
+                                cursor-help
+                           "
+                        >
+                          ?
+                        </span>
+
+                        {/* 설명 툴팁 */}
+                        <div
+                          className="
+                                pointer-events-none
+                                absolute left-6 top-full mt-2.5
+                                w-64 p-4
+                                rounded-2xl
+                                bg-gray-900/95 backdrop-blur-xl
+                                border border-white/[0.08]
+                                shadow-[0_8px_30px_rgb(0,0,0,0.4)]
+                                opacity-0 translate-y-1 scale-95
+                                group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
+                                transition-all duration-200 ease-out
+                                z-[200]
+                        "
+                        >
+                          <div className="flex flex-col gap-2 text-xs leading-relaxed text-left">
+                            <p className="text-gray-200">
+                              <span className="font-bold text-sky-400">카드 보기</span>에서만
+                              적용됩니다.
+                              <span className="block text-gray-400 font-normal mt-0.5">
+                                마지막 관문까지 완료되지 않은 레이드만 필터링하여 보여줍니다.
+                              </span>
+                            </p>
+
+                            <div className="w-full h-px bg-white/5 my-0.5" />
+
+                            <p className="text-gray-400 font-medium">
+                              ※ 테이블 보기에서는 이 옵션이 적용되지 않습니다.
+                            </p>
+                          </div>
+
+                          <div
+                            className="
+                                absolute -top-[5px] left-6
+                                w-2.5 h-2.5
+                                bg-gray-900/95
+                                border-t border-l border-white/[0.08]
+                                rotate-45
+                                z-10
+                                "
+                          />
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* 오른쪽: 보기 설정 */}
+                  <div className="space-y-3">
+                    <div className="font-semibold">보기 설정</div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-[#A2A3A5] text-xs sm:text-sm">
                       <input
                         type="checkbox"
                         className="sr-only peer"
-                        checked={onlyRemain}
-                        onChange={(e) => setOnlyRemain(e.target.checked)}
+                        checked={tableView}
+                        onChange={(e) => setTableView(e.target.checked)}
                       />
                       <span
-                        className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition
-                            peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
-                            peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
-                            peer-checked:[&_svg]:opacity-100
-                          "
+                        className="grid place-items-center h-5 w-5 rounded-md border border.white/30 transition
+                                                    peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
+                                                    peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
+                                                    peer-checked:[&_svg]:opacity-100
+                                                    "
                       >
                         <svg
                           className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
@@ -734,247 +1067,168 @@ export default function MyTasksPage() {
                           />
                         </svg>
                       </span>
-
-                      <span className="text-xs sm:text-sm">남은 숙제만 보기</span>
-
-                      {/* 물음표 텍스트 아이콘(디자인용) */}
-                      <span
-                        className="
-                          w-3 h-3
-                          rounded-full
-                          border border-white/20
-                          text-[9px] font-bold
-                          flex items-center justify-center
-                          text-gray-400
-                          bg-black/20
-                          group-hover:text-white group-hover:border-white/40
-                          transition-colors duration-200
-                          cursor-help
-                        "
-                      >
-                        ?
-                      </span>
-
-                      {/* 설명 툴팁 */}
-                      <div
-                        className="
-                          pointer-events-none
-                          absolute left-6 top-full mt-2.5
-                          w-64 p-4
-                          rounded-2xl
-                          bg-gray-900/95 backdrop-blur-xl
-                          border border-white/[0.08]
-                          shadow-[0_8px_30px_rgb(0,0,0,0.4)]
-                          
-                          opacity-0 translate-y-1 scale-95
-                          group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
-                          transition-all duration-200 ease-out
-                          z-[200]
-                        "
-                      >
-                        <div className="flex flex-col gap-2 text-xs leading-relaxed text-left">
-                          <p className="text-gray-200">
-                            <span className="font-bold text-sky-400">카드 보기</span>에서만 적용됩니다.
-                            <span className="block text-gray-400 font-normal mt-0.5">
-                              마지막 관문까지 완료되지 않은 레이드만 필터링하여 보여줍니다.
-                            </span>
-                          </p>
-
-                          <div className="w-full h-px bg-white/5 my-0.5" />
-
-                          <p className="text-gray-400 font-medium">
-                            ※ 테이블 보기에서는 이 옵션이 적용되지 않습니다.
-                          </p>
-                        </div>
-
-                        {/* 위쪽 화살표 */}
-                        <div
-                          className="
-                            absolute -top-[5px] left-6
-                            w-2.5 h-2.5
-                            bg-gray-900/95
-                            border-t border-l border-white/[0.08]
-                            rotate-45
-                            z-10
-                          "
-                        />
-                      </div>
+                      테이블로 보기
                     </label>
                   </div>
                 </div>
-              </div>
-            </section>
-
-            {/* 보기 설정 카드 */}
-            <section className="rounded-sm bg-[#16181D] shadow-sm">
-              <div className="px-4 sm:px-5 py-5 sm:py-7 space-y-4 sm:space-y-5">
-                <div className="mb-3 text-xs sm:text-sm font-semibold">보기 설정</div>
-                <label className="flex items-center gap-2 cursor-pointer select-none text-[#A2A3A5] text-xs sm:text-sm">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={tableView}
-                    onChange={(e) => setTableView(e.target.checked)}
-                  />
-                  <span
-                    className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition
-                      peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
-                      peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
-                      peer-checked:[&_svg]:opacity-100
-                    "
-                  >
-                    <svg
-                      className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
-                      viewBox="0 0 20 20"
-                      fill="none"
-                    >
-                      <path
-                        d="M5 10l3 3 7-7"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </span>
-                  테이블로 보기
-                </label>
               </div>
             </section>
           </div>
 
           {/* 오른쪽 메인 영역 */}
           <div className="grid grid-cols-1 gap-4 sm:gap-5">
-            <div className="bg-[#16181D] rounded-md px-4 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 text-sm sm:text-base">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-semibold text-sm sm:text-lg pr-1">
-                    숙제 남은 캐릭터
-                  </span>
-                  <span className="text-gray-400 text-xs sm:text-sm font-semibold">
-                    {remainingCharacters}
-                  </span>
+            {/* 상단 요약 + 버튼 바 */}
+            <div className="bg-[#16181D] rounded-md px-4 sm:px-5 py-3 sm:py-4">
+              <div
+                className="
+        flex flex-wrap
+        gap-3 sm:gap-4
+        sm:flex-row sm:items-center sm:justify-between
+        max-[1246px]:flex-col max-[1246px]:items-start max-[1246px]:justify-start
+      "
+              >
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 text-sm sm:text-base">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="font-semibold text-sm sm:text-lg pr-1">
+                      숙제 남은 캐릭터
+                    </span>
+                    <AnimatedNumber
+                      value={remainingCharacters}
+                      className="text-gray-400 text-xs sm:text-sm font-semibold"
+                    />
+                  </div>
+
+                  <span className="hidden sm:inline h-4 w-px bg-white/10" />
+
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="font-semibold text-sm sm:text-lg pr-1">
+                      남은 숙제
+                    </span>
+                    <AnimatedNumber
+                      value={totalRemainingTasks}
+                      className="text-gray-400 text-xs sm:text-sm font-semibold"
+                    />
+                  </div>
+
+                  <span className="hidden sm:inline h-4 w-px bg-white/10" />
+
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="font-semibold text-sm sm:text-lg pr-1">
+                      남은 골드
+                    </span>
+                    <div
+                      className={[
+                        "inline-flex items-baseline justify-end",
+                        "min-w-[50px]",
+                        "text-xs sm:text-sm font-semibold",
+                        "font-mono tabular-nums",
+                        isAllCleared
+                          ? "line-through decoration-gray-300 decoration-1 text-gray-400"
+                          : "text-gray-400",
+                      ].join(" ")}
+                    >
+                      <AnimatedNumber
+                        value={isAllCleared ? totalGold : totalRemainingGold}
+                      />
+                      <span className="ml-0.5 text-[0.75em]">g</span>
+                    </div>
+                  </div>
                 </div>
 
-                <span className="hidden sm:inline h-4 w-px bg-white/10" />
-
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-semibold text-sm sm:text-lg pr-1">남은 숙제</span>
-                  <span className="text-gray-400 text-xs sm:text-sm font-semibold">
-                    {totalRemainingTasks}
-                  </span>
-                </div>
-
-                <span className="hidden sm:inline h-4 w-px bg-white/10" />
-
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-semibold text-sm sm:text-lg pr-1">
-                    남은 골드
-                  </span>
-                  <span
-                    className={`
-                      text-xs sm:text-sm font-semibold
-                      ${isAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400"}
-                    `}
-                  >
-                    {isAllCleared
-                      ? `${totalGold.toLocaleString()}g`
-                      : `${totalRemainingGold.toLocaleString()}g`
-                    }
-                  </span>
-                </div>
-
-              </div>
-
-
-
-              <div className="flex flex-row flex-wrap gap-2 sm:gap-3 sm:ml-auto">
-                {/* 자동 세팅 버튼 (상위 6캐릭 + 각 캐릭 top3 레이드 자동 선택) */}
-                <button
-                  onClick={handleAutoSetup}
-                  disabled={!hasRoster}
+                <div
                   className="
-                      relative group
-                      flex items-center justify-center
-                      py-2 px-6 rounded-lg
-                      bg-white/[.04] border border-white/10
-                      hover:bg-white/5 hover:border-white/20
-                      text-xs sm:text-sm font-medium text-white
-                      transition-all duration-200
-                      disabled:opacity-50 disabled:cursor-not-allowed
-                    "
+          flex flex-row flex-wrap gap-2 sm:gap-3
+          max-[]:w-full max-[]:justify-start
+        "
                 >
-                  <span>자동 세팅</span>
-
-                  {/* 오른쪽 위 물음표 (텍스트) */}
-                  <span
+                  {/* 자동 세팅 버튼 */}
+                  <button
+                    onClick={handleAutoSetup}
+                    disabled={!hasRoster}
                     className="
-                      absolute top-1 right-1
-                      w-3 h-3
-                      rounded-full
-                      border border-white/20
-                      text-[9px] font-bold
-                      flex items-center justify-center
-                      text-gray-400
-                      bg-black/20
-                      group-hover:text-white group-hover:border-white/40
-                      transition-colors duration-200
-                      cursor-help
-                    "
+            relative group
+            flex items-center justify-center
+            py-2 px-6 rounded-lg
+            bg-white/[.04] border border-white/10
+            hover:bg-white/5 hover:border-white/20
+            text-xs sm:text-sm font-medium text-white
+            transition-all duration-200
+            disabled:opacity-50 disabled:cursor-not-allowed
+          "
                   >
-                    ?
-                  </span>
+                    <span>자동 세팅</span>
 
-                  {/* 설명 툴팁 */}
-                  <div
-                    className="
-                      pointer-events-none
-                      absolute bottom-full left-15 mb-3  {/* right-0을 left-0으로 변경 */}
-                      w-64 p-3
-                      rounded-xl
-                      bg-gray-900/95 backdrop-blur-md
-                      border border-white/10
-                      text-xs text-gray-300 leading-relaxed
-                      text-center
-                      shadow-2xl shadow-black/50
-                      opacity-0 translate-y-2 scale-95
-                      group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
-                      transition-all duration-200 ease-out
-                      z-20
-                    "
-                  >
-                    <p>
-                      <span className="text-white font-semibold">아이템 레벨 상위 6개 캐릭터</span>와
-                      해당 캐릭터의 <span className="text-indigo-400">Top 3 레이드</span>를
-                      자동으로 세팅합니다.
-                    </p>
+                    <span
+                      className="
+              absolute top-1 right-1
+              w-3 h-3
+              rounded-full
+              border border-white/20
+              text-[9px] font-bold
+              flex items-center justify-center
+              text-gray-400
+              bg-black/20
+              group-hover:text-white group-hover:border-white/40
+              transition-colors duration-200
+              cursor-help
+            "
+                    >
+                      ?
+                    </span>
 
                     <div
                       className="
-                        absolute -bottom-1.5 left-4  {/* right-4를 left-4로 변경 */}
-                        w-3 h-3 
-                        bg-gray-900/95 border-b border-r border-white/10 
-                        rotate-45
-                      "
-                    />
-                  </div>
-                </button>
+              pointer-events-none
+              absolute bottom-full left-15 mb-3
+              w-64 p-3
+              rounded-xl
+              bg-gray-900/95 backdrop-blur-md
+              border border-white/10
+              text-xs text-gray-300 leading-relaxed
+              text-center
+              shadow-2xl shadow-black/50
+              opacity-0 translate-y-2 scale-95
+              group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
+              transition-all duration-200 ease-out
+              z-20
+            "
+                    >
+                      <p>
+                        <span className="text-white font-semibold">
+                          아이템 레벨 상위 6개 캐릭터
+                        </span>
+                        와 해당 캐릭터의{" "}
+                        <span className="text-indigo-400">Top 3 레이드</span>를 자동으로
+                        세팅합니다.
+                      </p>
 
-                {/* 관문 전체 초기화 */}
-                <button
-                  onClick={gateAllClear}
-                  className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 hover:bg-white/5 text-xs sm:text-sm"
-                >
-                  <span>관문 초기화</span>
-                </button>
+                      <div
+                        className="
+                absolute -bottom-1.5 left-4
+                w-3 h-3 
+                bg-gray-900/95 border-b border-r border-white/10 
+                rotate-45
+              "
+                      />
+                    </div>
+                  </button>
 
-                {/* 캐릭터 설정 모달 열기 */}
-                <button
-                  onClick={() => setIsCharSettingOpen(true)}
-                  className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium"
-                >
-                  캐릭터 설정
-                </button>
+                  {/* 관문 전체 초기화 */}
+                  <button
+                    onClick={gateAllClear}
+                    className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 hover:bg-white/5 text-xs sm:text-sm"
+                  >
+                    <span>관문 초기화</span>
+                  </button>
+
+                  {/* 캐릭터 설정 모달 */}
+                  <button
+                    onClick={() => setIsCharSettingOpen(true)}
+                    className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium"
+                  >
+                    캐릭터 설정
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -984,7 +1238,7 @@ export default function MyTasksPage() {
                 <div className="relative mb-6">
                   <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
                   <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
-                    <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">s
+                    <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">
                       LOA
                     </span>
                   </div>
@@ -1113,7 +1367,7 @@ export default function MyTasksPage() {
         <CharacterSettingModal
           open
           onClose={() => setIsCharSettingOpen(false)}
-          roster={data?.roster ?? []}
+          roster={activeAccount?.summary?.roster ?? []}
           onDeleteAccount={handleDeleteAccount}
           onRefreshAccount={handleRefreshAccount}
           visibleByChar={visibleByChar}
@@ -1127,9 +1381,21 @@ export default function MyTasksPage() {
               // 로컬스토리지 에러는 무시
             }
           }}
-
         />
       )}
+
+      {/* 계정 추가 모달 (EmptyCharacterState 단독 사용) */}
+      <EmptyCharacterState
+        open={isAddAccountOpen}
+        onClose={() => setIsAddAccountOpen(false)}
+        loading={loading}
+        onSearch={async (nickname) => {
+          await handleCharacterSearch(nickname);
+          setIsAddAccountOpen(false);
+        }}
+      />
+
+
     </div>
   );
 }

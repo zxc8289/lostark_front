@@ -7,7 +7,6 @@ import type { JWT } from "next-auth/jwt";
 
 import { db } from "@/db/client";
 
-// ✅ REPLACE 대신 UPSERT용 쿼리 준비
 const upsertUserStmt = db.prepare(`
   INSERT INTO users (id, name, email, image)
   VALUES (?, ?, ?, ?)
@@ -41,7 +40,6 @@ export const authOptions: NextAuthOptions = {
             }
 
             try {
-                // ✅ 여기서 REPLACE 말고 upsert 사용
                 upsertUserStmt.run(
                     userId,
                     user.name ?? null,

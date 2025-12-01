@@ -1,0 +1,95 @@
+// src/app/api/party-tasks/[partyId]/invite/route.tsx
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { db } from "@/db/client";
+
+export const runtime = "nodejs";
+
+export async function POST(
+    req: NextRequest,
+    { params }: { params: Promise<{ partyId: string }> }
+) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+        return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const userId = (session.user as any).id as string;
+
+    const { partyId } = await params;
+    const partyIdNum = Number(partyId);
+
+    if (!Number.isInteger(partyIdNum)) {
+        return new NextResponse("Invalid party id", { status: 400 });
+    }
+
+    const party = db
+        .prepare(
+            `
+      SELECT
+        id,
+        name,
+        memo,
+        owner_id,
+        invite_code,
+        created_at
+      FROM parties
+      WHERE id = ?
+    `
+        )
+        .get(partyIdNum) as
+        | {
+            id: number;
+            name: string;
+            memo: string | null;
+            owner_id: string;
+            invite_code: string | null;
+            created_at: string;
+        }
+        | undefined;
+
+    if (!party) {
+        return new NextResponse("Not found", { status: 404 });
+    }
+
+    const membership = db
+        .prepare(
+            `
+      SELECT role
+      FROM party_members
+      WHERE party_id = ? AND user_id = ?
+    `
+        )
+        .get(partyIdNum, userId) as { role: string } | undefined;
+
+    if (!membership) {
+        return new NextResponse("Forbidden", { status: 403 });
+    }
+
+    if (!party.invite_code) {
+        return NextResponse.json(
+            {
+                code: null,
+                url: null,
+                createdAt: party.created_at,
+                expiresAt: null as string | null,
+            },
+            { status: 200 }
+        );
+    }
+
+    // 🔹 🔹 🔹 이 부분만 수정!
+    const origin = req.nextUrl.origin;
+    // 예: http://localhost:3000/party-tasks/join?code=ABCDEFG
+    const url = `${origin}/party-tasks/join?code=${encodeURIComponent(
+        party.invite_code
+    )}`;
+
+    return NextResponse.json({
+        code: party.invite_code,
+        url,
+        createdAt: party.created_at,
+        expiresAt: null as string | null,
+    });
+}

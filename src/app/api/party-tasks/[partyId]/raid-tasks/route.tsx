@@ -1,13 +1,15 @@
 // app/api/party-tasks/[partyId]/raid-tasks/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import type { Session } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { db } from "@/db/client";
-import type { Session } from "next-auth";
 
 export const runtime = "nodejs"; // better-sqlite3 쓰니까 node 런타임 강제
 
+// ─────────────────────────────
 // 타입들
+// ─────────────────────────────
 type PartyMemberRow = {
     party_id: number;
     user_id: string;
@@ -29,7 +31,7 @@ type PartyMemberTasks = {
     name: string | null;
     image: string | null;
     nickname: string;
-    summary: any | null;
+    summary: any | null; // CharacterSummary
     prefsByChar: Record<string, any>;
     visibleByChar: Record<string, boolean>;
 };
@@ -41,6 +43,18 @@ type PartyRaidTasksResponse = {
 // ✅ Next 15 스타일: params 는 Promise 여서 await 해줘야 함
 type RouteParams = Promise<{ partyId: string }>;
 
+// 🔹 raid_task_state upsert용 준비된 스테이트먼트 (모듈 레벨에서 한 번만 생성)
+const upsertRaidTaskStateStmt = db.prepare(`
+  INSERT INTO raid_task_state (user_id, state_json, updated_at)
+  VALUES (@user_id, @state_json, datetime('now'))
+  ON CONFLICT(user_id) DO UPDATE SET
+    state_json = excluded.state_json,
+    updated_at = datetime('now')
+`);
+
+// ─────────────────────────────
+// GET: 파티원들의 "내 숙제 상태" 조회
+// ─────────────────────────────
 export async function GET(
     req: NextRequest,
     { params }: { params: RouteParams }
@@ -51,9 +65,9 @@ export async function GET(
     }
 
     const userId = (session.user as any).id as string;
-
-    const { partyId } = await params; // ✅ 여기 추가
+    const { partyId } = await params;
     const partyIdNum = Number(partyId);
+
     if (!partyIdNum || Number.isNaN(partyIdNum)) {
         return NextResponse.json({ message: "Invalid party id" }, { status: 400 });
     }
@@ -160,21 +174,16 @@ export async function GET(
         };
     });
 
-    // 아무도 raid_task_state를 저장한 적이 없으면 빈 배열
-    const hasAnySummary = members.some((m) => m.summary);
-    if (!hasAnySummary) {
-        return NextResponse.json(
-            { members: [] } satisfies PartyRaidTasksResponse,
-            { status: 200 }
-        );
-    }
-
     return NextResponse.json(
         { members } satisfies PartyRaidTasksResponse,
         { status: 200 }
     );
 }
 
+// ─────────────────────────────
+// POST: raid_task_state (전역) 업데이트
+//  - 파티원이라면, 같은 파티의 다른 멤버 상태도 수정 가능하게 유지
+// ─────────────────────────────
 export async function POST(
     req: NextRequest,
     { params }: { params: RouteParams }
@@ -192,12 +201,15 @@ export async function POST(
 
     const me = (session.user as any).id as string;
 
-    // ⬇️ visibleByChar 도 같이 받기
+    // ⬇️ nickname / summary 까지 같이 받도록 확장
     let body: {
         userId?: string;
+        nickname?: string;
+        summary?: any;
         prefsByChar?: any;
         visibleByChar?: Record<string, boolean>;
     };
+
     try {
         body = await req.json();
     } catch {
@@ -210,6 +222,8 @@ export async function POST(
     const targetUserId = body.userId;
     const prefsByChar = body.prefsByChar;
     const visibleByChar = body.visibleByChar;
+    const nickname = body.nickname;
+    const summary = body.summary;
 
     if (!targetUserId || typeof prefsByChar !== "object") {
         return NextResponse.json(
@@ -246,7 +260,7 @@ export async function POST(
         );
     }
 
-    // 3) 기존 raid_task_state 가져와서 prefsByChar / visibleByChar만 교체
+    // 3) 기존 raid_task_state 가져와서 필드만 부분 업데이트
     const existing = db
         .prepare(
             `SELECT state_json FROM raid_task_state WHERE user_id = ? LIMIT 1`
@@ -264,26 +278,45 @@ export async function POST(
         nextState = {};
     }
 
-    // ⬇️ 여기서 부분 업데이트
+    // ⬇️ 여기서 필요한 필드만 갈아끼우기
     nextState.prefsByChar = prefsByChar;
+
     if (visibleByChar && typeof visibleByChar === "object") {
         nextState.visibleByChar = visibleByChar;
     }
 
+    // nickname / summary는 body에 들어온 경우에만 덮어씀
+    if (typeof nickname === "string") {
+        nextState.nickname = nickname;
+    }
+    if (summary !== undefined) {
+        nextState.summary = summary;
+    }
+
     const stateJson = JSON.stringify(nextState);
 
-    db.prepare(
-        `
-        INSERT INTO raid_task_state (user_id, state_json, updated_at)
-        VALUES (@user_id, @state_json, datetime('now'))
-        ON CONFLICT(user_id) DO UPDATE SET
-          state_json = excluded.state_json,
-          updated_at = datetime('now')
-      `
-    ).run({
-        user_id: targetUserId,
-        state_json: stateJson,
-    });
+    try {
+        // 🔹 DB 쓰기 시도 (여기서 가끔 SQLITE_BUSY 터졌던 부분)
+        upsertRaidTaskStateStmt.run({
+            user_id: targetUserId,
+            state_json: stateJson,
+        });
 
-    return NextResponse.json({ ok: true });
+        return NextResponse.json({ ok: true });
+    } catch (e: any) {
+        if (e?.code === "SQLITE_BUSY") {
+            // DB 락 걸려 있을 때
+            console.error("[raid_task_state] DB locked:", e);
+            return NextResponse.json(
+                { ok: false, message: "database is busy, please retry" },
+                { status: 503 }
+            );
+        }
+
+        console.error("[raid_task_state] Unexpected error:", e);
+        return NextResponse.json(
+            { ok: false, message: "internal error" },
+            { status: 500 }
+        );
+    }
 }
