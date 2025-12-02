@@ -242,9 +242,17 @@ export default function PartyDetailPage() {
 
     const { data: session, status } = useSession();
 
+    const myUserId =
+        (session as any)?.user?.id ??
+        (session as any)?.userId ??
+        (session as any)?.user?.discordId ??
+        null;
+
     const [party, setParty] = useState<PartyDetail | null>(null);
     const [partyLoading, setPartyLoading] = useState(true);
     const [partyErr, setPartyErr] = useState<string | null>(null);
+
+
 
     // 파티 숙제 상태
     const [partyTasks, setPartyTasks] = useState<PartyMemberTasks[] | null>(null);
@@ -254,6 +262,9 @@ export default function PartyDetailPage() {
     // 필터 (파티별 localStorage)
     const [onlyRemain, setOnlyRemain] = useState(false);
     const [tableView, setTableView] = useState(false);
+
+    const wsRef = useRef<WebSocket | null>(null);
+    const [wsReady, setWsReady] = useState(false);
 
     // 레이드 설정(숙제 편집) 모달 상태
     const [editOpen, setEditOpen] = useState(false);
@@ -672,7 +683,7 @@ export default function PartyDetailPage() {
 
         const partyIdNum = party.id;
 
-        // 1) 현재 state를 기준으로 next 상태 먼저 계산
+        // 1) 현재 state를 기준으로 next 상태 먼저 계산 (기존 로직 그대로)
         const next: PartyMemberTasks[] = partyTasks.map((m) => {
             if (m.userId !== memberUserId) return m;
 
@@ -720,18 +731,40 @@ export default function PartyDetailPage() {
             return newMember;
         });
 
-        // 2) state 반영
+        // 2) state 반영 (optimistic UI)
         setPartyTasks(next);
 
-        // 3) 1번만 서버 저장
+        // 3) 변경된 멤버 찾기
         const updated = next.find((m) => m.userId === memberUserId);
-        if (updated) {
-            void saveMemberPrefsToServer(
-                partyIdNum,
-                updated.userId,
-                updated.prefsByChar
-            );
+        if (!updated) return;
+
+        const payload = {
+            type: "gateUpdate" as const,
+            partyId: partyIdNum,
+            userId: updated.userId,
+            prefsByChar: updated.prefsByChar,
+            visibleByChar: updated.visibleByChar,
+        };
+
+        const ws = wsRef.current;
+
+        // 4) WebSocket이 연결되어 있으면 WS로 전송 (실시간 동기화용)
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            try {
+                ws.send(JSON.stringify(payload));
+            } catch (e) {
+                console.error("[WS] send failed:", e);
+            }
         }
+
+        // 5) DB 저장은 항상 HTTP로 (폴백이 아니라 메인 경로)
+        void saveMemberPrefsToServer(
+            partyIdNum,
+            updated.userId,
+            updated.prefsByChar,
+            updated.visibleByChar
+        );
+
     };
 
     const handleMemberAutoSetup = (memberUserId: string, isMe: boolean) => {
@@ -1042,15 +1075,14 @@ export default function PartyDetailPage() {
     }, [status, partyId]);
 
     /* ─────────────────────────────
-     * 2차: 파티원들의 "내 숙제 상태" 불러오기 (폴링)
-     * ───────────────────────────── */
+  * 2차: 파티원들의 "내 숙제 상태" 불러오기 (초기 1회 로딩만)
+  * ───────────────────────────── */
     useEffect(() => {
         if (!party || status !== "authenticated") return;
 
         const partyIdForFetch = party.id;
 
         let cancelled = false;
-        let timerId: ReturnType<typeof setInterval> | null = null;
 
         // showSpinner=true  : 첫 로딩 때만 스피너
         async function loadPartyTasks(showSpinner: boolean) {
@@ -1096,17 +1128,112 @@ export default function PartyDetailPage() {
 
         loadPartyTasks(true);
 
-        timerId = setInterval(() => {
-            loadPartyTasks(false);
-        }, 10_000); // 10초
-
         return () => {
             cancelled = true;
-            if (timerId) {
-                clearInterval(timerId);
-            }
         };
     }, [party, status]);
+
+
+
+    useEffect(() => {
+        if (!party || status !== "authenticated") return;
+        if (typeof window === "undefined") return;
+
+        // 기본값: 같은 호스트 사용 (개발 시 localhost:3000)
+        const base =
+            process.env.NEXT_PUBLIC_WS_URL ||
+            (window.location.protocol === "https:"
+                ? `wss://${window.location.host}`
+                : `ws://${window.location.host}`);
+
+        const url = `${base}/ws/party-tasks?partyId=${party.id}`;
+        const ws = new WebSocket(url);
+
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+            setWsReady(true);
+            console.log("[WS] connected:", url);
+        };
+
+        ws.onclose = () => {
+            console.log("[WS] closed");
+            setWsReady(false);
+            if (wsRef.current === ws) {
+                wsRef.current = null;
+            }
+        };
+
+        ws.onerror = (err) => {
+            console.error("[WS] error:", err);
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data as string);
+                console.log("[WS] message from server:", msg);
+                if (msg.type === "memberUpdated" && msg.partyId === party.id) {
+                    setPartyTasks((prev) => {
+                        if (!prev) return prev;
+                        const exists = prev.some((m) => m.userId === msg.userId);
+                        if (!exists) return prev;
+
+                        return prev.map((m) =>
+                            m.userId === msg.userId
+                                ? {
+                                    ...m,
+                                    prefsByChar: msg.prefsByChar ?? m.prefsByChar,
+                                    visibleByChar:
+                                        msg.visibleByChar ?? m.visibleByChar,
+                                }
+                                : m
+                        );
+                    });
+                }
+                else if (
+                    msg.type === "activeAccountUpdated" &&
+                    msg.partyId === party.id
+                ) {
+                    setAccounts((prev) => {
+                        if (!prev || prev.length === 0) return prev;
+
+                        // 내 계정 목록에 이 activeAccountId 가 없으면 그냥 무시
+                        const exists = prev.some(
+                            (a) => a.id === msg.activeAccountId
+                        );
+                        if (!exists) return prev;
+
+                        const next = prev.map((a) =>
+                            a.id === msg.activeAccountId
+                                ? { ...a, isSelected: true }
+                                : { ...a, isSelected: false }
+                        );
+
+                        if (typeof window !== "undefined") {
+                            try {
+                                localStorage.setItem(
+                                    ACCOUNTS_KEY,
+                                    JSON.stringify(next)
+                                );
+                            } catch {
+                                // ignore
+                            }
+                        }
+
+                        return next;
+                    });
+                }
+
+            } catch (e) {
+                console.error("[WS] invalid message:", e);
+            }
+        };
+
+
+        return () => {
+            ws.close();
+        };
+    }, [party?.id, status, myUserId]);
 
     /* ─────────────────────────────
      * 상태별 렌더링
@@ -1173,11 +1300,6 @@ export default function PartyDetailPage() {
 
     if (!party) return null;
 
-    const myUserId =
-        (session as any)?.user?.id ??
-        (session as any)?.userId ??
-        (session as any)?.user?.discordId ??
-        null;
 
     const sortedPartyTasks =
         partyTasks && myUserId
@@ -1275,6 +1397,7 @@ export default function PartyDetailPage() {
                                                 <button
                                                     key={acc.id}
                                                     onClick={() => {
+                                                        // 1) 로컬 상태 + localStorage 반영
                                                         setAccounts((prev) => {
                                                             const next = prev.map((a) =>
                                                                 a.id === acc.id
@@ -1282,23 +1405,42 @@ export default function PartyDetailPage() {
                                                                     : { ...a, isSelected: false }
                                                             );
 
-                                                            // if (typeof window !== "undefined") {
-                                                            //     try {
-                                                            //         localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
-                                                            //         const active = next.find((a) => a.isSelected);
-                                                            //         if (active) {
-                                                            //             localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
-                                                            //         }
-                                                            //     } catch {
-                                                            //         // 무시
-                                                            //     }
-                                                            // }
+                                                            if (typeof window !== "undefined") {
+                                                                try {
+                                                                    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
+                                                                } catch {
+                                                                    // ignore
+                                                                }
+                                                            }
 
                                                             return next;
                                                         });
 
+                                                        // 2) DB에도 저장 (기존 HTTP)
                                                         if (party) {
                                                             void saveActiveAccountToServer(party.id, acc.id);
+                                                        }
+
+                                                        // 3) WebSocket으로 다른 탭/창에 알림 (같은 유저인 경우만 적용)
+                                                        if (party && myUserId) {
+                                                            const ws = wsRef.current;
+                                                            if (ws && ws.readyState === WebSocket.OPEN) {
+                                                                try {
+                                                                    ws.send(
+                                                                        JSON.stringify({
+                                                                            type: "activeAccountUpdate",
+                                                                            partyId: party.id,
+                                                                            userId: myUserId,
+                                                                            activeAccountId: acc.id,
+                                                                        })
+                                                                    );
+                                                                } catch (e) {
+                                                                    console.error(
+                                                                        "[WS] send activeAccountUpdate failed:",
+                                                                        e
+                                                                    );
+                                                                }
+                                                            }
                                                         }
 
                                                         setIsAccountListOpen(false);

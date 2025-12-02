@@ -84,7 +84,7 @@ export default function MyTasksPage() {
     try {
       // 예전 + 새 키 모두 정리 (선택값 제외)
       localStorage.removeItem(LOCAL_KEY);
-      localStorage.removeItem(FILTER_KEY);
+      // localStorage.removeItem(FILTER_KEY);
       localStorage.removeItem(VISIBLE_KEY);
 
       localStorage.removeItem(ACCOUNTS_KEY);
@@ -276,8 +276,6 @@ export default function MyTasksPage() {
    *  필터 상태를 localStorage에 저장 (게스트 모드에서만)
    * ────────────────────────── */
   useEffect(() => {
-    if (isAuthed) return;
-
     try {
       const payload: SavedFilters = {
         onlyRemain,
@@ -323,10 +321,10 @@ export default function MyTasksPage() {
       // 전역 설정
       prefsByChar,
       visibleByChar,
-      filters: {
-        onlyRemain,
-        tableView,
-      } as SavedFilters,
+      // filters: {
+      //   onlyRemain,
+      //   tableView,
+      // } as SavedFilters,
     };
   }
 
@@ -352,14 +350,14 @@ export default function MyTasksPage() {
       if (state.prefsByChar) setPrefsByChar(state.prefsByChar);
       if (state.visibleByChar) setVisibleByChar(state.visibleByChar);
 
-      if (state.filters) {
-        if (typeof state.filters.onlyRemain === "boolean") {
-          setOnlyRemain(state.filters.onlyRemain);
-        }
-        if (typeof state.filters.tableView === "boolean") {
-          setTableView(state.filters.tableView);
-        }
-      }
+      // if (state.filters) {
+      //   if (typeof state.filters.onlyRemain === "boolean") {
+      //     setOnlyRemain(state.filters.onlyRemain);
+      //   }
+      //   if (typeof state.filters.tableView === "boolean") {
+      //     setTableView(state.filters.tableView);
+      //   }
+      // }
     } catch {
       // 무시
     }
