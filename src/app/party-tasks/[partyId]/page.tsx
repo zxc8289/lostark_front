@@ -323,12 +323,11 @@ export default function PartyDetailPage() {
 
             setAccounts(parsed);
 
-            // 한 번 마이그레이션 해 두면 이후엔 MyTasks/파티 페이지 모두 isSelected만 사용
-            try {
-                localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(parsed));
-            } catch {
-                // ignore
-            }
+            // try {
+            //     localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(parsed));
+            // } catch {
+            //     // ignore
+            // }
         } catch {
             // 무시
         }
@@ -411,7 +410,6 @@ export default function PartyDetailPage() {
                     next = prev.map((a) => ({ ...a, isSelected: false }));
                     next.push(acc);
 
-
                     if (party) {
                         void saveActiveAccountToServer(party.id, acc.id);
                     }
@@ -419,11 +417,15 @@ export default function PartyDetailPage() {
 
                 if (typeof window !== "undefined") {
                     try {
-                        localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
-                        const active = next.find((a) => a.isSelected);
-                        if (active) {
-                            localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
-                        }
+                        // ✅ 선택 정보(isSelected)는 빼고 계정 목록만 저장
+                        const toSave = next.map(({ isSelected, ...rest }) => rest);
+                        localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(toSave));
+
+                        // 🔻 이 부분 삭제
+                        // const active = next.find((a) => a.isSelected);
+                        // if (active) {
+                        //   localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
+                        // }
                     } catch {
                         // 무시
                     }
@@ -431,6 +433,7 @@ export default function PartyDetailPage() {
 
                 return next;
             });
+
         } catch (e: any) {
             setAccountSearchErr(e?.message ?? String(e));
         } finally {
@@ -1011,10 +1014,10 @@ export default function PartyDetailPage() {
                         if (typeof window !== "undefined") {
                             try {
                                 localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accs));
-                                const active = accs.find((a) => a.isSelected);
-                                if (active) {
-                                    localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
-                                }
+                                // const active = accs.find((a) => a.isSelected);
+                                // if (active) {
+                                //     localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
+                                // }
                             } catch {
                                 // ignore
                             }
@@ -1226,10 +1229,10 @@ export default function PartyDetailPage() {
                 {/* 바디 (좌 필터 / 우 메인) */}
                 <div
                     className="
-            grid grid-cols-1 
-            lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)]
-            gap-5 lg:items-start
-          "
+                        grid grid-cols-1 
+                        lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)]
+                        gap-5 lg:items-start
+                    "
                 >
                     {/* 왼쪽 필터 영역 */}
                     <div className="space-y-4">
@@ -1279,17 +1282,17 @@ export default function PartyDetailPage() {
                                                                     : { ...a, isSelected: false }
                                                             );
 
-                                                            if (typeof window !== "undefined") {
-                                                                try {
-                                                                    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
-                                                                    const active = next.find((a) => a.isSelected);
-                                                                    if (active) {
-                                                                        localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
-                                                                    }
-                                                                } catch {
-                                                                    // 무시
-                                                                }
-                                                            }
+                                                            // if (typeof window !== "undefined") {
+                                                            //     try {
+                                                            //         localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
+                                                            //         const active = next.find((a) => a.isSelected);
+                                                            //         if (active) {
+                                                            //             localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
+                                                            //         }
+                                                            //     } catch {
+                                                            //         // 무시
+                                                            //     }
+                                                            // }
 
                                                             return next;
                                                         });

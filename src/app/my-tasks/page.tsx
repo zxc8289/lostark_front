@@ -32,8 +32,8 @@ type SavedAccount = {
   id: string;
   nickname: string;
   summary: CharacterSummary;
-  isPrimary?: boolean;  // 대표 계정 (기본으로 열리는 계정)
-  isSelected?: boolean; // 현재 화면에서 선택된 계정 (state_json에 true/false)
+  isPrimary?: boolean;  // 대표 계정 (서버에 저장)
+  isSelected?: boolean; // 과거 데이터용, 실제 선택은 ACTIVE_ACCOUNT_KEY로 관리
 };
 
 
@@ -82,13 +82,12 @@ export default function MyTasksPage() {
   const clearClientStorage = () => {
     if (typeof window === "undefined") return;
     try {
-      // 예전 + 새 키 모두 정리
+      // 예전 + 새 키 모두 정리 (선택값 제외)
       localStorage.removeItem(LOCAL_KEY);
       localStorage.removeItem(FILTER_KEY);
       localStorage.removeItem(VISIBLE_KEY);
 
       localStorage.removeItem(ACCOUNTS_KEY);
-      localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
 
       clearAllPrefs(); // 캐릭터별 raidPrefs:* 다 지움
     } catch {
@@ -96,15 +95,16 @@ export default function MyTasksPage() {
     }
   };
 
+
   /* ──────────────────────────
    *  계정/검색 관련 상태
    * ────────────────────────── */
 
   const [accounts, setAccounts] = useState<SavedAccount[]>([]);
+  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
 
-  // isSelected가 true인 계정 하나를 “현재 계정”으로 사용
   const activeAccount =
-    accounts.find((a) => a.isSelected) ??
+    accounts.find((a) => a.id === activeAccountId) ??
     accounts.find((a) => a.isPrimary) ??
     accounts[0] ??
     null;
@@ -141,26 +141,8 @@ export default function MyTasksPage() {
     try {
       const rawAccounts = localStorage.getItem(ACCOUNTS_KEY);
       if (rawAccounts) {
-        let parsed = JSON.parse(rawAccounts) as SavedAccount[];
+        const parsed = JSON.parse(rawAccounts) as SavedAccount[];
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // 1) 이미 isSelected 정보가 있다면 그대로 사용
-          const hasSelected = parsed.some((a) => a.isSelected);
-
-          if (!hasSelected) {
-            // 2) 옛날 ACTIVE_ACCOUNT_KEY를 한 번만 참고해서 isSelected 채우기
-            const savedActiveId = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
-            const fallbackActive =
-              (savedActiveId && parsed.find((a) => a.id === savedActiveId)) ||
-              parsed.find((a) => a.isPrimary) ||
-              parsed[0];
-
-            parsed = parsed.map((a) =>
-              a.id === fallbackActive.id
-                ? { ...a, isSelected: true }
-                : { ...a, isSelected: false }
-            );
-          }
-
           setAccounts(parsed);
           setBooting(false);
           return;
@@ -180,14 +162,13 @@ export default function MyTasksPage() {
           nickname: legacy.nickname,
           summary: legacy.data,
           isPrimary: true,
-          isSelected: true, // 단일 계정일 때는 기본 선택
         };
 
         const list = [migrated];
         setAccounts(list);
 
         localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(list));
-        localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+        // ACTIVE_ACCOUNT_KEY는 그대로 두고, 아래 activeAccountId useEffect에서 처리
       }
     } catch {
       // 무시
@@ -244,6 +225,53 @@ export default function MyTasksPage() {
     }
   }, [accounts, isAuthed]);
 
+
+  useEffect(() => {
+    if (!accounts.length) {
+      setActiveAccountId(null);
+      return;
+    }
+
+    setActiveAccountId((prev) => {
+      // 1) 이전에 선택된 계정이 아직 남아 있으면 그대로 유지
+      if (prev && accounts.some((a) => a.id === prev)) {
+        return prev;
+      }
+
+      let nextId: string | null = null;
+
+      // 2) localStorage에 저장된 선택 계정 우선
+      if (typeof window !== "undefined") {
+        try {
+          const savedId = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
+          if (savedId && accounts.some((a) => a.id === savedId)) {
+            nextId = savedId;
+          }
+        } catch {
+          // 무시
+        }
+      }
+
+      // 3) 없으면 대표 계정 or 첫 계정
+      if (!nextId) {
+        const base =
+          accounts.find((a) => a.isPrimary) ?? accounts[0];
+        nextId = base.id;
+      }
+
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(ACTIVE_ACCOUNT_KEY, nextId);
+        } catch {
+          // 무시
+        }
+      }
+
+      return nextId;
+    });
+  }, [accounts]);
+
+
   /* ──────────────────────────
    *  필터 상태를 localStorage에 저장 (게스트 모드에서만)
    * ────────────────────────── */
@@ -277,21 +305,20 @@ export default function MyTasksPage() {
     });
   }
 
-  /* ──────────────────────────
-   *  서버 동기화용 상태 구성/적용
-   * ────────────────────────── */
-
   function buildServerStatePayload() {
     const primaryAccount =
       accounts.find((a) => a.isPrimary) ?? accounts[0] ?? null;
+
+    // isSelected는 로컬 상태이므로 서버 전송에서 제거
+    const accountsForServer = accounts.map(({ isSelected, ...rest }) => rest);
 
     return {
       // 옛날 단일 구조 호환용
       nickname: primaryAccount?.nickname ?? null,
       summary: primaryAccount?.summary ?? null,
 
-      // 새 구조: 계정 리스트 (여기에 isSelected, isPrimary까지 다 들어감)
-      accounts,
+      // 새 구조: 계정 리스트 (선택 정보 제외)
+      accounts: accountsForServer,
 
       // 전역 설정
       prefsByChar,
@@ -308,31 +335,7 @@ export default function MyTasksPage() {
     try {
       // 1) 새 구조: accounts 배열
       if (state.accounts && Array.isArray(state.accounts)) {
-        let serverAccounts = state.accounts as SavedAccount[];
-
-        const hasSelected = serverAccounts.some((a) => a.isSelected);
-
-        if (!hasSelected) {
-          // 1-1) 옛날 activeAccountId가 있다면 그것을 선택 계정으로
-          if (state.activeAccountId) {
-            serverAccounts = serverAccounts.map((a) =>
-              a.id === state.activeAccountId
-                ? { ...a, isSelected: true }
-                : { ...a, isSelected: false }
-            );
-          } else if (serverAccounts.length > 0) {
-            // 1-2) 아니면 대표 계정 or 첫 계정을 선택
-            const primary =
-              serverAccounts.find((a) => a.isPrimary) ?? serverAccounts[0];
-
-            serverAccounts = serverAccounts.map((a) =>
-              a.id === primary.id
-                ? { ...a, isSelected: true }
-                : { ...a, isSelected: false }
-            );
-          }
-        }
-
+        const serverAccounts = state.accounts as SavedAccount[];
         setAccounts(serverAccounts);
       }
       // 2) 옛날 단일 구조만 있는 경우
@@ -342,7 +345,6 @@ export default function MyTasksPage() {
           nickname: state.nickname,
           summary: state.summary,
           isPrimary: true,
-          isSelected: true,
         };
         setAccounts([migrated]);
       }
@@ -362,6 +364,7 @@ export default function MyTasksPage() {
       // 무시
     }
   }
+
 
 
   /* ──────────────────────────
@@ -576,20 +579,14 @@ export default function MyTasksPage() {
 
     return items;
   };
-
-  /* ──────────────────────────
-   *  계정 삭제(활성 계정만 삭제)
-   * ────────────────────────── */
   const handleDeleteAccount = () => {
     if (!activeAccount) return;
 
-    // 1) prefs / visibleByChar 정리
     try {
       const namesToRemove = new Set(
         activeAccount.summary?.roster?.map((c) => c.name) ?? []
       );
 
-      // localStorage raidPrefs 정리 (게스트 모드)
       if (!isAuthed) {
         for (const name of namesToRemove) {
           clearCharPrefs(name);
@@ -617,40 +614,55 @@ export default function MyTasksPage() {
       // 무시
     }
 
+    let nextActiveId: string | null = null;
+
     setAccounts((prev) => {
       const without = prev.filter((a) => a.id !== activeAccount.id);
 
       if (without.length === 0) {
         if (!isAuthed) {
-          localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(without));
+          try {
+            localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(without));
+          } catch {
+            // 무시
+          }
         }
+        nextActiveId = null;
         return [];
       }
 
-      // 남은 계정 중 대표계정 or 첫 계정을 선택 상태로
       const baseActive =
         without.find((a) => a.isPrimary) ?? without[0];
 
-      const next = without.map((a) =>
-        a.id === baseActive.id
-          ? { ...a, isSelected: true }
-          : { ...a, isSelected: false }
-      );
+      nextActiveId = baseActive.id;
 
       if (!isAuthed) {
-        localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
+        try {
+          localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(without));
+        } catch {
+          // 무시
+        }
       }
 
-      return next;
+      return without;
     });
 
+    if (typeof window !== "undefined") {
+      try {
+        if (nextActiveId) {
+          localStorage.setItem(ACTIVE_ACCOUNT_KEY, nextActiveId);
+        } else {
+          localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+        }
+      } catch {
+        // 무시
+      }
+    }
+    setActiveAccountId(nextActiveId);
 
     setIsCharSettingOpen(false);
   };
 
-  /* ──────────────────────────
-   *  계정 검색/추가/갱신
-   * ────────────────────────── */
   const handleCharacterSearch = async (name: string): Promise<void> => {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -668,6 +680,8 @@ export default function MyTasksPage() {
 
       const json = (await r.json()) as CharacterSummary;
 
+      let newActiveId: string | null = null;
+
       setAccounts((prev) => {
         let next = [...prev];
         const idx = next.findIndex(
@@ -675,12 +689,11 @@ export default function MyTasksPage() {
         );
 
         if (idx >= 0) {
-          // 이미 있는 계정이면 summary만 갱신 + 그 계정 선택
-          next = next.map((a, i) =>
-            i === idx
-              ? { ...a, summary: json, isSelected: true }
-              : { ...a, isSelected: false }
-          );
+          // 이미 있는 계정이면 summary만 갱신
+          const existing = next[idx];
+          const updated = { ...existing, summary: json };
+          next[idx] = updated;
+          newActiveId = updated.id;
         } else {
           const id =
             typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -692,29 +705,41 @@ export default function MyTasksPage() {
             nickname: trimmed,
             summary: json,
             isPrimary: prev.length === 0,
-            isSelected: true, // 새 계정은 기본 선택
           };
 
-          // 기존 계정들은 선택 해제
-          next = prev.map((a) => ({ ...a, isSelected: false }));
-          next.push(acc);
+          next = [...prev, acc];
+          newActiveId = id;
         }
 
         if (!isAuthed) {
-          localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
+          try {
+            localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
+          } catch {
+            // 무시
+          }
         }
 
         return next;
       });
 
-
-
+      // 새로 검색한 계정으로 선택 변경 + localStorage 저장
+      if (newActiveId) {
+        setActiveAccountId(newActiveId);
+        try {
+          if (typeof window !== "undefined") {
+            localStorage.setItem(ACTIVE_ACCOUNT_KEY, newActiveId);
+          }
+        } catch {
+          // 무시
+        }
+      }
     } catch (e) {
       setErr(String(e));
     } finally {
       setLoading(false);
     }
   };
+
 
   /** 빈 상태 카드에서 검색 폼 submit */
   const handleSearchSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -936,24 +961,19 @@ export default function MyTasksPage() {
                   <div className="flex flex-col gap-1">
 
                     {accounts.map((acc) => {
-                      const isActive = !!acc.isSelected;
+                      const isActive = acc.id === activeAccountId;
                       return (
                         <button
                           key={acc.id}
                           onClick={() => {
-                            setAccounts((prev) => {
-                              const next = prev.map((a) =>
-                                a.id === acc.id
-                                  ? { ...a, isSelected: true }
-                                  : { ...a, isSelected: false }
-                              );
-
-                              if (!isAuthed) {
-                                localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
+                            setActiveAccountId(acc.id);
+                            try {
+                              if (typeof window !== "undefined") {
+                                localStorage.setItem(ACTIVE_ACCOUNT_KEY, acc.id);
                               }
-
-                              return next;
-                            });
+                            } catch {
+                              // 무시
+                            }
                             setIsAccountListOpen(false);
                           }}
                           className={[
@@ -963,7 +983,6 @@ export default function MyTasksPage() {
                               : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
                           ].join(" ")}
                         >
-                          {/* 체크 아이콘은 그대로 */}
                           <div className={`flex items-center justify-center w-5 h-5 ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
                             <Check className="h-4 w-4" strokeWidth={3} />
                           </div>
@@ -974,6 +993,7 @@ export default function MyTasksPage() {
                         </button>
                       );
                     })}
+
 
 
                     {/* 구분선 */}
