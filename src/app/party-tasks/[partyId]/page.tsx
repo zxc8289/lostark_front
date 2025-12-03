@@ -19,6 +19,7 @@ import {
     ChevronDown,
     ChevronUp,
     Plus,
+    Settings,
 } from "lucide-react";
 
 import CharacterTaskStrip, {
@@ -43,6 +44,7 @@ import {
 } from "@/app/lib/tasks/raid-utils";
 import AnimatedNumber from "@/app/components/tasks/AnimatedNumber";
 import EmptyCharacterState from "@/app/components/tasks/EmptyCharacterState";
+import PartySettingsModal from "@/app/components/tasks/PartySettingsModal";
 
 /* ─────────────────────────────
  * 타입 정의
@@ -228,7 +230,14 @@ function computeMemberSummary(member: PartyMemberTasks & { summary: CharacterSum
     return computeRaidSummaryForRoster(visibleRoster, member.prefsByChar ?? {});
 }
 
-/* ─────────────────────────────
+
+
+
+
+
+
+
+/* ─────────────────────────────f
  * 메인 컴포넌트
  * ───────────────────────────── */
 
@@ -286,6 +295,7 @@ export default function PartyDetailPage() {
     const [inviteErr, setInviteErr] = useState<string | null>(null);
     const [invite, setInvite] = useState<PartyInvite | null>(null);
     const [inviteCopied, setInviteCopied] = useState(false);
+    const [partySettingOpen, setPartySettingOpen] = useState(false);
 
     /* ──────────────────────────
      *  계정 드롭다운 (MyTasks와 동일 기능)
@@ -304,45 +314,44 @@ export default function PartyDetailPage() {
 
 
 
-    // 로컬스토리지에서 계정 목록 복원
-    useEffect(() => {
-        if (typeof window === "undefined") return;
+
+
+
+    type RaidStatePatch = Partial<RaidStateFromServer> & {
+        deleteAccountId?: string;
+    };
+
+    async function saveRaidState(partial: RaidStatePatch) {
         try {
-            const rawAccounts = localStorage.getItem(ACCOUNTS_KEY);
-            if (!rawAccounts) return;
+            const res = await fetch("/api/raid-tasks/state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(partial),
+            });
 
-            let parsed = JSON.parse(rawAccounts) as SavedAccount[];
-            if (!Array.isArray(parsed) || parsed.length === 0) return;
-
-            const hasSelected = parsed.some((a) => a.isSelected);
-
-            if (!hasSelected) {
-                const savedActiveId = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
-                const fallbackActive =
-                    (savedActiveId && parsed.find((a) => a.id === savedActiveId)) ||
-                    parsed.find((a) => a.isPrimary) ||
-                    parsed[0];
-
-                if (fallbackActive) {
-                    parsed = parsed.map((a) =>
-                        a.id === fallbackActive.id
-                            ? { ...a, isSelected: true }
-                            : { ...a, isSelected: false }
-                    );
-                }
+            let payload: any = null;
+            const text = await res.text();
+            try {
+                payload = text ? JSON.parse(text) : null;
+            } catch {
+                payload = text;
             }
 
-            setAccounts(parsed);
-
-            // try {
-            //     localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(parsed));
-            // } catch {
-            //     // ignore
-            // }
-        } catch {
-            // 무시
+            if (!res.ok) {
+                console.error(
+                    "[raid_task_state 저장 실패]",
+                    res.status,
+                    res.statusText,
+                    payload
+                );
+            } else {
+                console.log("[raid_task_state 저장 성공]", partial);
+            }
+        } catch (e) {
+            console.error("raid_task_state 저장 실패 (네트워크 에러):", e);
         }
-    }, []);
+    }
+
 
 
     async function saveActiveAccountToServer(
@@ -370,6 +379,30 @@ export default function PartyDetailPage() {
         }
     }
 
+
+    function sendMemberUpdateWS(
+        partyId: number,
+        userId: string,
+        prefsByChar: Record<string, CharacterTaskPrefs>,
+        visibleByChar?: Record<string, boolean>
+    ) {
+        const ws = wsRef.current;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+        const payload = {
+            type: "gateUpdate" as const,
+            partyId,
+            userId,
+            prefsByChar,
+            visibleByChar,
+        };
+
+        try {
+            ws.send(JSON.stringify(payload));
+        } catch (e) {
+            console.error("[WS] send memberUpdate failed:", e);
+        }
+    }
 
 
     const handleCharacterSearch = async (name: string): Promise<void> => {
@@ -421,36 +454,34 @@ export default function PartyDetailPage() {
                     next = prev.map((a) => ({ ...a, isSelected: false }));
                     next.push(acc);
 
+                    // 🔹 파티별 대표 계정은 기존처럼 파티 API로 저장
                     if (party) {
                         void saveActiveAccountToServer(party.id, acc.id);
                     }
                 }
 
-                if (typeof window !== "undefined") {
-                    try {
-                        // ✅ 선택 정보(isSelected)는 빼고 계정 목록만 저장
-                        const toSave = next.map(({ isSelected, ...rest }) => rest);
-                        localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(toSave));
+                const active =
+                    next.find((a) => a.isSelected) ??
+                    next.find((a) => a.isPrimary) ??
+                    next[0] ??
+                    null;
 
-                        // 🔻 이 부분 삭제
-                        // const active = next.find((a) => a.isSelected);
-                        // if (active) {
-                        //   localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
-                        // }
-                    } catch {
-                        // 무시
-                    }
-                }
+                // ✅ 여기서 바로 raid_task_state에 저장
+                void saveRaidState({
+                    accounts: next,
+                    activeAccountId: active?.id ?? null,
+                });
 
                 return next;
             });
-
         } catch (e: any) {
             setAccountSearchErr(e?.message ?? String(e));
         } finally {
             setAccountSearchLoading(false);
         }
     };
+
+
 
 
     const openEditModal = (member: PartyMemberTasks, char: RosterCharacter) => {
@@ -579,6 +610,13 @@ export default function PartyDetailPage() {
 
         const updated = next.find((m) => m.userId === memberUserId);
         if (updated) {
+            sendMemberUpdateWS(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar,
+                updated.visibleByChar
+            );
+
             void saveMemberPrefsToServer(
                 partyIdNum,
                 updated.userId,
@@ -586,7 +624,140 @@ export default function PartyDetailPage() {
                 updated.visibleByChar
             );
         }
+
     };
+
+    const handleMyDeleteAccount = () => {
+        if (!party || !partyTasks || !myUserId || !currentAccount) return;
+
+        const partyIdNum = party.id;
+        const targetAccountId = currentAccount.id;
+
+        // 현재 계정에 속한 캐릭터 이름들
+        const namesToRemove = new Set(
+            currentAccount.summary?.roster?.map((c) => c.name) ?? []
+        );
+
+        // 1) 파티 숙제 상태에서 "내 계정의 캐릭터들"만 정리 (기존 로직 그대로)
+        const nextTasks: PartyMemberTasks[] = partyTasks.map((m) => {
+            if (m.userId !== myUserId) return m;
+
+            const prevPrefsByChar = m.prefsByChar ?? {};
+            const prevVisibleByChar = m.visibleByChar ?? {};
+
+            const nextPrefsByChar: Record<string, CharacterTaskPrefs> = {};
+            for (const [charName, prefs] of Object.entries(prevPrefsByChar)) {
+                // 현재 삭제하려는 계정에 속한 캐릭터면 제거
+                if (!namesToRemove.has(charName)) {
+                    nextPrefsByChar[charName] = prefs;
+                }
+            }
+
+            const nextVisibleByChar: Record<string, boolean> = { ...prevVisibleByChar };
+            for (const name of namesToRemove) {
+                delete nextVisibleByChar[name];
+            }
+
+            return {
+                ...m,
+                prefsByChar: nextPrefsByChar,
+                visibleByChar: nextVisibleByChar,
+            };
+        });
+
+        setPartyTasks(nextTasks);
+
+        // 정리된 내 row 찾아서 WS 브로드캐스트 + 파티용 DB 저장
+        const me = nextTasks.find((m) => m.userId === myUserId);
+        if (me) {
+            sendMemberUpdateWS(
+                partyIdNum,
+                me.userId,
+                me.prefsByChar,
+                me.visibleByChar
+            );
+
+            void saveMemberPrefsToServer(
+                partyIdNum,
+                me.userId,
+                me.prefsByChar,
+                me.visibleByChar
+            );
+        }
+
+        // 2) 전역 계정 목록에서도 현재 계정 제거 + active 계정 재지정
+        if (accounts && accounts.length > 0) {
+            // 지금 삭제되는 계정을 빼고 나머지만 남기기
+            const filtered = accounts.filter((a) => a.id !== targetAccountId);
+
+            // 새로 active로 사용할 계정 선택
+            let nextActive: SavedAccount | null = null;
+            if (filtered.length > 0) {
+                // 남아 있는 계정 중에서 현재 선택된 계정이 있으면 유지
+                nextActive =
+                    filtered.find((a) => a.isSelected) ||
+                    filtered.find((a) => a.isPrimary) ||
+                    filtered[0];
+            }
+
+            const hasPrimaryAfter = filtered.some((a) => a.isPrimary);
+
+            const nextAccounts: SavedAccount[] = filtered.map((a) => ({
+                ...a,
+                isSelected: nextActive ? a.id === nextActive.id : false,
+                // 남은 계정 중에 primary가 없으면 nextActive를 primary로 승격
+                isPrimary: hasPrimaryAfter
+                    ? a.isPrimary
+                    : nextActive
+                        ? a.id === nextActive.id
+                        : false,
+            }));
+
+            setAccounts(nextAccounts);
+
+            // MyTasks에서 쓰고 있는 구조 그대로라면 이 패치로 계정이 완전히 삭제됨
+            void saveRaidState({
+                accounts: nextAccounts,
+                activeAccountId: nextActive?.id ?? null,
+                deleteAccountId: targetAccountId,
+            });
+
+            // 이 파티의 activeAccount도 갱신
+            if (nextActive) {
+                void saveActiveAccountToServer(partyIdNum, nextActive.id);
+            }
+
+            // 다른 탭/창(같은 유저)에게도 WS로 알려주기
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && myUserId) {
+                try {
+                    wsRef.current.send(
+                        JSON.stringify({
+                            type: "activeAccountUpdate",
+                            partyId: partyIdNum,
+                            userId: myUserId,
+                            activeAccountId: nextActive?.id ?? null,
+                        })
+                    );
+                } catch (e) {
+                    console.error("[WS] send activeAccountUpdate (delete) failed:", e);
+                }
+            }
+        }
+
+        // 캐릭터 설정 모달 닫기
+        setCharSettingOpen(false);
+    };
+
+
+
+
+    /** 내 계정 새로고침 (파티 화면에서 호출) */
+    const handleMyRefreshAccount = async () => {
+        if (!currentAccount) return;
+        // 이미 위에서 정의된 handleCharacterSearch 재사용
+        await handleCharacterSearch(currentAccount.nickname);
+    };
+
 
 
     const handleSaveEdit = (nextPrefs: CharacterTaskPrefs) => {
@@ -612,17 +783,25 @@ export default function PartyDetailPage() {
         // 2) state 반영
         setPartyTasks(next);
 
-        // 3) 서버 저장
         const updated = next.find((m) => m.userId === memberUserId);
         if (updated) {
+            sendMemberUpdateWS(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar,
+                updated.visibleByChar
+            );
+
             void saveMemberPrefsToServer(
                 partyIdNum,
                 updated.userId,
-                updated.prefsByChar
+                updated.prefsByChar,
+                updated.visibleByChar
             );
         }
 
         setEditOpen(false);
+
     };
 
     const resetFilters = () => {
@@ -734,36 +913,25 @@ export default function PartyDetailPage() {
         // 2) state 반영 (optimistic UI)
         setPartyTasks(next);
 
-        // 3) 변경된 멤버 찾기
         const updated = next.find((m) => m.userId === memberUserId);
         if (!updated) return;
 
-        const payload = {
-            type: "gateUpdate" as const,
-            partyId: partyIdNum,
-            userId: updated.userId,
-            prefsByChar: updated.prefsByChar,
-            visibleByChar: updated.visibleByChar,
-        };
+        // 1) WebSocket으로 실시간 브로드캐스트
+        sendMemberUpdateWS(
+            partyIdNum,
+            updated.userId,
+            updated.prefsByChar,
+            updated.visibleByChar
+        );
 
-        const ws = wsRef.current;
-
-        // 4) WebSocket이 연결되어 있으면 WS로 전송 (실시간 동기화용)
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            try {
-                ws.send(JSON.stringify(payload));
-            } catch (e) {
-                console.error("[WS] send failed:", e);
-            }
-        }
-
-        // 5) DB 저장은 항상 HTTP로 (폴백이 아니라 메인 경로)
+        // 2) 항상 DB 저장
         void saveMemberPrefsToServer(
             partyIdNum,
             updated.userId,
             updated.prefsByChar,
             updated.visibleByChar
         );
+
 
     };
 
@@ -808,6 +976,15 @@ export default function PartyDetailPage() {
 
         const updated = next.find((m) => m.userId === memberUserId);
         if (updated) {
+            // 1) WebSocket 브로드캐스트
+            sendMemberUpdateWS(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar,
+                updated.visibleByChar
+            );
+
+            // 2) DB 저장
             void saveMemberPrefsToServer(
                 partyIdNum,
                 updated.userId,
@@ -815,6 +992,7 @@ export default function PartyDetailPage() {
                 updated.visibleByChar
             );
         }
+
     };
 
 
@@ -863,18 +1041,25 @@ export default function PartyDetailPage() {
             };
         });
 
-        // 2) state 반영
         setPartyTasks(next);
 
-        // 3) 서버 저장
         const updated = next.find((m) => m.userId === memberUserId);
         if (updated) {
+            sendMemberUpdateWS(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar,
+                updated.visibleByChar
+            );
+
             void saveMemberPrefsToServer(
                 partyIdNum,
                 updated.userId,
-                updated.prefsByChar
+                updated.prefsByChar,
+                updated.visibleByChar
             );
         }
+
     };
 
     /** 파티원 관문 전체 초기화 (해당 파티원의 모든 캐릭터에 대해 gates만 초기화) */
@@ -915,9 +1100,15 @@ export default function PartyDetailPage() {
         // 2) state 반영
         setPartyTasks(next);
 
-        // 3) 서버 저장
         const updated = next.find((m) => m.userId === memberUserId);
         if (updated) {
+            sendMemberUpdateWS(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar,
+                updated.visibleByChar
+            );
+
             void saveMemberPrefsToServer(
                 partyIdNum,
                 updated.userId,
@@ -1016,46 +1207,56 @@ export default function PartyDetailPage() {
                         Array.isArray(raidState.accounts) &&
                         raidState.accounts.length > 0
                     ) {
-                        let accs = raidState.accounts as SavedAccount[];
+                        // 원본 훼손 방지용 복사
+                        let accs = raidState.accounts.map((a) => ({ ...a })) as SavedAccount[];
 
-                        const hasSelected = accs.some((a) => a.isSelected);
-
-                        const partyKey = String(data.id); // 또는 partyId 변수
-
+                        const partyKey = String(data.id);
                         const partyActiveId =
                             raidState.activeAccountByParty?.[partyKey] ?? null;
 
-                        if (!hasSelected) {
-                            const initialActiveId =
-                                partyActiveId ??
-                                raidState.activeAccountId ?? // 전역 대표 (없으면 넘어감)
-                                accs.find((a) => a.isPrimary)?.id ??
-                                accs[0]?.id ??
-                                null;
+                        // 1️⃣ 서버에 이미 저장된 값(파티별 activeAccount > 전역 activeAccount) 우선
+                        let initialActiveId: string | null =
+                            partyActiveId ?? raidState.activeAccountId ?? null;
+
+                        // 2️⃣ 둘 다 없으면 → 대표 계정(isPrimary)이나 첫 번째 계정으로 기본값 설정
+                        let shouldSaveDefault = false;
+                        if (!initialActiveId) {
+                            const primary = accs.find((a) => a.isPrimary);
+                            const first = accs[0];
+                            initialActiveId = primary?.id ?? first?.id ?? null;
 
                             if (initialActiveId) {
-                                accs = accs.map((a) =>
-                                    a.id === initialActiveId
-                                        ? { ...a, isSelected: true }
-                                        : { ...a, isSelected: false }
-                                );
+                                // “처음 들어와서 자동으로 골라준 경우” 표시
+                                shouldSaveDefault = true;
                             }
+                        }
+
+                        // 3️⃣ 선택된 계정 플래그(isSelected) 세팅
+                        if (initialActiveId) {
+                            accs = accs.map((a) =>
+                                a.id === initialActiveId
+                                    ? { ...a, isSelected: true }
+                                    : { ...a, isSelected: false }
+                            );
+                        } else {
+                            accs = accs.map((a) => ({ ...a, isSelected: false }));
                         }
 
                         setAccounts(accs);
 
-                        if (typeof window !== "undefined") {
-                            try {
-                                localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accs));
-                                // const active = accs.find((a) => a.isSelected);
-                                // if (active) {
-                                //     localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
-                                // }
-                            } catch {
-                                // ignore
-                            }
+                        // if (typeof window !== "undefined") {
+                        //     try {
+                        //         localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accs));
+                        //     } catch {
+                        //         // ignore
+                        //     }
+                        // }
+
+                        if (shouldSaveDefault && initialActiveId) {
+                            void saveActiveAccountToServer(data.id, initialActiveId);
                         }
                     }
+
 
                 }
 
@@ -1172,6 +1373,7 @@ export default function PartyDetailPage() {
             try {
                 const msg = JSON.parse(event.data as string);
                 console.log("[WS] message from server:", msg);
+
                 if (msg.type === "memberUpdated" && msg.partyId === party.id) {
                     setPartyTasks((prev) => {
                         if (!prev) return prev;
@@ -1183,13 +1385,13 @@ export default function PartyDetailPage() {
                                 ? {
                                     ...m,
                                     prefsByChar: msg.prefsByChar ?? m.prefsByChar,
-                                    visibleByChar:
-                                        msg.visibleByChar ?? m.visibleByChar,
+                                    visibleByChar: msg.visibleByChar ?? m.visibleByChar,
                                 }
                                 : m
                         );
                     });
                 }
+
                 else if (
                     msg.type === "activeAccountUpdated" &&
                     msg.partyId === party.id
@@ -1197,11 +1399,11 @@ export default function PartyDetailPage() {
                     setAccounts((prev) => {
                         if (!prev || prev.length === 0) return prev;
 
-                        // 내 계정 목록에 이 activeAccountId 가 없으면 그냥 무시
-                        const exists = prev.some(
-                            (a) => a.id === msg.activeAccountId
-                        );
-                        if (!exists) return prev;
+                        const exists = prev.some((a) => a.id === msg.activeAccountId);
+                        if (!exists) {
+                            // 다른 유저의 activeAccount 변경일 수도 있음
+                            return prev;
+                        }
 
                         const next = prev.map((a) =>
                             a.id === msg.activeAccountId
@@ -1209,21 +1411,80 @@ export default function PartyDetailPage() {
                                 : { ...a, isSelected: false }
                         );
 
-                        if (typeof window !== "undefined") {
-                            try {
-                                localStorage.setItem(
-                                    ACCOUNTS_KEY,
-                                    JSON.stringify(next)
-                                );
-                            } catch {
-                                // ignore
-                            }
-                        }
-
                         return next;
                     });
+
+                    // 2) 🔥 파티 숙제도 새로 불러오기 (모든 클라이언트에서)
+                    //    → 누가 어떤 계정을 대표로 쓰는지 바뀌면
+                    //       /raid-tasks 결과(summary)가 바뀌어야 하기 때문
+                    if (party) {
+                        void (async () => {
+                            try {
+                                const res = await fetch(
+                                    `/api/party-tasks/${party.id}/raid-tasks`,
+                                    {
+                                        method: "GET",
+                                        headers: { "Content-Type": "application/json" },
+                                        cache: "no-store",
+                                    }
+                                );
+
+                                if (!res.ok) {
+                                    if (res.status === 204 || res.status === 404) {
+                                        setPartyTasks([]);
+                                        return;
+                                    }
+                                    console.error(
+                                        "activeAccountUpdated 이후 파티 숙제 재로딩 실패:",
+                                        res.status,
+                                        res.statusText
+                                    );
+                                    return;
+                                }
+
+                                const json = (await res.json()) as PartyRaidTasksResponse;
+                                setPartyTasks(json.members ?? []);
+                            } catch (e) {
+                                console.error(
+                                    "activeAccountUpdated 이후 파티 숙제 재로딩 (네트워크 에러):",
+                                    e
+                                );
+                            }
+                        })();
+                    }
                 }
 
+                else if (
+                    msg.type === "memberKicked" &&
+                    String(msg.partyId) === String(party.id)
+                ) {
+                    const kickedUserId = String(msg.userId);
+
+                    // 내가 킥당한 경우 → 바로 목록으로 튕겨내기
+                    if (myUserId && String(myUserId) === kickedUserId) {
+                        alert("파티에서 강퇴되어 파티 목록으로 이동합니다.");
+                        router.push("/party-tasks");
+                        return;
+                    }
+
+                    // 다른 파티원이 킥당한 경우 → 파티 정보/숙제 목록에서 제거
+                    setParty((prev) =>
+                        prev
+                            ? {
+                                ...prev,
+                                members: prev.members.filter(
+                                    (m) => String(m.id) !== kickedUserId
+                                ),
+                            }
+                            : prev
+                    );
+
+                    setPartyTasks((prev) =>
+                        prev
+                            ? prev.filter((m) => String(m.userId) !== kickedUserId)
+                            : prev
+                    );
+                }
             } catch (e) {
                 console.error("[WS] invalid message:", e);
             }
@@ -1233,7 +1494,45 @@ export default function PartyDetailPage() {
         return () => {
             ws.close();
         };
-    }, [party?.id, status, myUserId]);
+    }, [party?.id, status, myUserId, router]);
+
+    // 내가 더 이상 이 파티의 member가 아니면 강제 퇴장
+    useEffect(() => {
+        if (!party || !myUserId) return;
+
+        const isStillMember = party.members.some((m) => m.id === myUserId);
+
+        // 파티원 목록에 내 userId가 없으면 → 킥당한 상태로 간주하고 튕겨내기
+        if (!isStillMember) {
+            alert("파티에서 강퇴되어 파티 목록으로 이동합니다.");
+            router.push("/party-tasks");
+        }
+    }, [party, myUserId, router]);
+
+
+
+    // 파티 설정 모달에서 이름/파티장/파티원 목록이 변경됐을 때 반영
+    const handlePartyUpdated = (patch: Partial<PartyDetail>) => {
+        setParty((prev) => (prev ? { ...prev, ...patch } : prev));
+    };
+
+    // 특정 파티원이 강퇴됐을 때 파티 정보 + 숙제 목록에서 제거
+    const handlePartyMemberKicked = (userId: string) => {
+        setParty((prev) =>
+            prev
+                ? {
+                    ...prev,
+                    members: prev.members.filter((m) => m.id !== userId),
+                }
+                : prev
+        );
+
+        setPartyTasks((prev) =>
+            prev ? prev.filter((m) => m.userId !== userId) : prev
+        );
+    };
+
+
 
     /* ─────────────────────────────
      * 상태별 렌더링
@@ -1324,9 +1623,22 @@ export default function PartyDetailPage() {
                         >
                             <ArrowLeft className="h-4 w-4" />
                         </button>
-                        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight truncate break-keep">
-                            {party.name}
-                        </h1>
+
+                        {/* ⬇ 파티 제목 + 설정 버튼 묶음 */}
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight truncate break-keep">
+                                {party.name}
+                            </h1>
+
+                            <button
+                                type="button"
+                                onClick={() => setPartySettingOpen(true)}
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/30 text-gray-300 hover:bg-white/5 hover:text-white"
+                                aria-label="파티 설정 열기"
+                            >
+                                <Settings className="h-4 w-4" />
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-3">
@@ -1392,12 +1704,12 @@ export default function PartyDetailPage() {
                                 <div className="px-3 pb-3 pt-2 bg-[#16181D] animate-in slide-in-from-top-2 duration-200">
                                     <div className="flex flex-col gap-1">
                                         {accounts.map((acc) => {
-                                            const isActive = !!acc.isSelected;
+                                            const isActive = currentAccount?.id === acc.id;
+
                                             return (
                                                 <button
                                                     key={acc.id}
                                                     onClick={() => {
-                                                        // 1) 로컬 상태 + localStorage 반영
                                                         setAccounts((prev) => {
                                                             const next = prev.map((a) =>
                                                                 a.id === acc.id
@@ -1405,23 +1717,26 @@ export default function PartyDetailPage() {
                                                                     : { ...a, isSelected: false }
                                                             );
 
-                                                            if (typeof window !== "undefined") {
-                                                                try {
-                                                                    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
-                                                                } catch {
-                                                                    // ignore
-                                                                }
-                                                            }
+                                                            const active =
+                                                                next.find((a) => a.isSelected) ??
+                                                                next.find((a) => a.isPrimary) ??
+                                                                next[0] ??
+                                                                null;
+
+                                                            void saveRaidState({
+                                                                accounts: next,
+                                                                activeAccountId: active?.id ?? null,
+                                                            });
 
                                                             return next;
                                                         });
 
-                                                        // 2) DB에도 저장 (기존 HTTP)
+                                                        // 2) 파티별 activeAccount는 DB에 따로 저장
                                                         if (party) {
                                                             void saveActiveAccountToServer(party.id, acc.id);
                                                         }
 
-                                                        // 3) WebSocket으로 다른 탭/창에 알림 (같은 유저인 경우만 적용)
+                                                        // 3) WS 알림(있으면)
                                                         if (party && myUserId) {
                                                             const ws = wsRef.current;
                                                             if (ws && ws.readyState === WebSocket.OPEN) {
@@ -1435,10 +1750,7 @@ export default function PartyDetailPage() {
                                                                         })
                                                                     );
                                                                 } catch (e) {
-                                                                    console.error(
-                                                                        "[WS] send activeAccountUpdate failed:",
-                                                                        e
-                                                                    );
+                                                                    console.error("[WS] send activeAccountUpdate failed:", e);
                                                                 }
                                                             }
                                                         }
@@ -1926,14 +2238,36 @@ export default function PartyDetailPage() {
                                 onChangeVisible={(next) => {
                                     handleMemberChangeVisible(charSettingTarget.memberUserId, next);
                                 }}
-                                onDeleteAccount={() => { }}
-                                onRefreshAccount={() => { }}
+                                // 🔹 내 줄일 때만 계정 삭제/새로고침 동작
+                                onDeleteAccount={
+                                    myUserId && charSettingTarget.memberUserId === myUserId
+                                        ? handleMyDeleteAccount
+                                        : undefined
+                                }
+                                onRefreshAccount={
+                                    myUserId && charSettingTarget.memberUserId === myUserId
+                                        ? handleMyRefreshAccount
+                                        : undefined
+                                }
                             />
                         )}
+
 
                     </div>
                 </div>
             </div>
+
+            {partySettingOpen && (
+                <PartySettingsModal
+                    open={partySettingOpen}
+                    onClose={() => setPartySettingOpen(false)}
+                    party={party}
+                    myUserId={myUserId}
+                    onPartyUpdated={handlePartyUpdated}
+                    onMemberKicked={handlePartyMemberKicked}
+                />
+            )}
+
 
             {/* 파티 코드 모달 */}
             {inviteOpen && (

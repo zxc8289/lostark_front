@@ -260,6 +260,10 @@ export async function POST(
         summary?: any;
         prefsByChar?: any;
         visibleByChar?: Record<string, boolean>;
+
+        accounts?: RaidStateJson["accounts"];
+        activeAccountId?: string | null;
+        activeAccountByParty?: Record<string, string | null>;
     };
 
     try {
@@ -276,6 +280,10 @@ export async function POST(
     const visibleByChar = body.visibleByChar;
     const nickname = body.nickname;
     const summary = body.summary;
+
+    const accounts = body.accounts;
+    const activeAccountId = body.activeAccountId;
+    const activeAccountByParty = body.activeAccountByParty;
 
     if (!targetUserId || typeof prefsByChar !== "object") {
         return NextResponse.json(
