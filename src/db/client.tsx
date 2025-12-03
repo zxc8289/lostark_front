@@ -1,56 +1,28 @@
 // src/db/client.ts
-import path from "path";
-import fs from "fs";
-import Database from "better-sqlite3";
+import { MongoClient, Db } from "mongodb";
 
-const dbDir = path.join(process.cwd(), "data");
-const dbPath = path.join(dbDir, "app.db");
+const uri = process.env.MONGODB_URI!;
+const dbName = "lostark";
 
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+if (!uri) {
+  throw new Error("MONGODB_URI 환경변수가 설정되어 있지 않습니다.");
 }
 
-export const db = new Database(dbPath);
+// Next.js 개발모드에서 핫리로드 때문에 global에 캐시
+let clientPromise: Promise<MongoClient>;
 
-// 외래키 활성화
-db.pragma("foreign_keys = ON");
+const globalWithMongo = global as typeof globalThis & {
+  _mongoClientPromise?: Promise<MongoClient>;
+};
 
-// 여기서 모든 테이블 생성
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id    TEXT PRIMARY KEY,   -- Discord providerAccountId
-    name  TEXT,
-    email TEXT,
-    image TEXT
-  );
+if (!globalWithMongo._mongoClientPromise) {
+  const client = new MongoClient(uri);
+  globalWithMongo._mongoClientPromise = client.connect();
+}
 
-  CREATE TABLE IF NOT EXISTS parties (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT NOT NULL,
-    memo       TEXT,
-    owner_id   TEXT NOT NULL,
-    invite_code TEXT UNIQUE,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
-  );
+clientPromise = globalWithMongo._mongoClientPromise;
 
-  CREATE TABLE IF NOT EXISTS party_members (
-    party_id  INTEGER NOT NULL,
-    user_id   TEXT NOT NULL,
-    role      TEXT NOT NULL DEFAULT 'member', -- 'owner' / 'member'
-    joined_at TEXT NOT NULL DEFAULT (datetime('now')),
-    PRIMARY KEY (party_id, user_id),
-    FOREIGN KEY (party_id) REFERENCES parties(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS raid_task_state (
-    user_id    TEXT PRIMARY KEY,
-    state_json TEXT NOT NULL,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-`);
-
-
-
+export async function getDb(): Promise<Db> {
+  const client = await clientPromise;
+  return client.db(dbName);
+}

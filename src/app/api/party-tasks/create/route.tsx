@@ -1,13 +1,21 @@
 // app/api/party-tasks/create/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db/client";
 import crypto from "crypto";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";
+import { getDb } from "@/db/client";
+
+export const runtime = "nodejs";
 
 function makeInviteCode() {
     return crypto.randomBytes(4).toString("hex").toUpperCase();
 }
+
+// counters 컬렉션용 타입 정의
+type CounterDoc = {
+    _id: string; // 예: "parties"
+    seq: number;
+};
 
 export async function POST(req: NextRequest) {
     // 1) 로그인 체크
@@ -33,22 +41,44 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        const db = await getDb();
+        const partiesCol = db.collection("parties");
+        const partyMembersCol = db.collection("party_members");
+        const countersCol = db.collection<CounterDoc>("counters"); // ⬅ 여기!
+
         const inviteCode = makeInviteCode();
+        const createdAt = new Date().toISOString();
 
-        // 2) parties에 INSERT (owner_id = userId)
-        const insertParty = db.prepare(
-            `INSERT INTO parties (name, memo, owner_id, invite_code)
-       VALUES (?, ?, ?, ?)`
+        const counterDoc = await countersCol.findOneAndUpdate(
+            { _id: "parties" },
+            { $inc: { seq: 1 } },
+            {
+                upsert: true,
+                returnDocument: "after",
+            }
         );
-        const result = insertParty.run(name, memo, userId, inviteCode);
-        const partyId = Number(result.lastInsertRowid);
 
-        // 3) party_members에도 파티장 본인 추가
-        const insertMember = db.prepare(
-            `INSERT INTO party_members (party_id, user_id, role)
-       VALUES (?, ?, ?)`
-        );
-        insertMember.run(partyId, userId, "owner");
+        // counterDoc: WithId<CounterDoc> | null 이라고 타입이 잡히는 상태
+        const partyId = counterDoc?.seq ?? 1;
+
+
+        // 3) parties에 INSERT (owner_id = userId)
+        await partiesCol.insertOne({
+            id: partyId,
+            name,
+            memo,
+            owner_id: userId,
+            invite_code: inviteCode,
+            created_at: createdAt,
+        });
+
+        // 4) party_members에도 파티장 본인 추가
+        await partyMembersCol.insertOne({
+            party_id: partyId,
+            user_id: userId,
+            role: "owner",
+            joined_at: createdAt,
+        });
 
         return NextResponse.json(
             {

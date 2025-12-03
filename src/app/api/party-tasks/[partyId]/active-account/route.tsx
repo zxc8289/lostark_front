@@ -1,8 +1,7 @@
-// app/api/party-tasks/[partyId]/active-account/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { db } from "@/db/client";
+import { getDb } from "@/db/client";
 
 export const runtime = "nodejs";
 
@@ -23,7 +22,10 @@ export async function POST(
     const partyIdNum = Number(partyId);
 
     if (!partyIdNum || Number.isNaN(partyIdNum)) {
-        return NextResponse.json({ message: "Invalid party id" }, { status: 400 });
+        return NextResponse.json(
+            { message: "Invalid party id" },
+            { status: 400 }
+        );
     }
 
     let body: { activeAccountId?: string | null };
@@ -39,12 +41,15 @@ export async function POST(
     const activeAccountId = body.activeAccountId ?? null;
     const partyKey = String(partyIdNum);
 
+    const db = await getDb();
+    const partyMembersCol = db.collection("party_members");
+    const raidTaskStateCol = db.collection("raid_task_state");
+
     // 1) 내가 이 파티 멤버인지 확인
-    const meRow = db
-        .prepare(
-            `SELECT 1 FROM party_members WHERE party_id = ? AND user_id = ? LIMIT 1`
-        )
-        .get(partyIdNum, me) as { 1: number } | undefined;
+    const meRow = await partyMembersCol.findOne({
+        party_id: partyIdNum,
+        user_id: me,
+    });
 
     if (!meRow) {
         return NextResponse.json(
@@ -54,11 +59,11 @@ export async function POST(
     }
 
     // 2) 기존 raid_task_state 읽기
-    const existing = db
-        .prepare(
-            `SELECT state_json FROM raid_task_state WHERE user_id = ? LIMIT 1`
-        )
-        .get(me) as { state_json: string } | undefined;
+    const existing = (await raidTaskStateCol.findOne<{
+        state_json?: string;
+    }>({
+        user_id: me,
+    })) as { state_json?: string } | null;
 
     let nextState: any;
     if (existing?.state_json) {
@@ -82,13 +87,21 @@ export async function POST(
 
     const stateJson = JSON.stringify(nextState);
 
-    db.prepare(`
-    INSERT INTO raid_task_state (user_id, state_json, updated_at)
-    VALUES (?, ?, datetime('now'))
-    ON CONFLICT(user_id) DO UPDATE SET
-      state_json = excluded.state_json,
-      updated_at = datetime('now')
-  `).run(me, stateJson);
+    // 3) upsert (SQLite의 ON CONFLICT(user_id) DO UPDATE 와 동일한 동작)
+    await raidTaskStateCol.updateOne(
+        { user_id: me }, // 조건
+        {
+            $set: {
+                user_id: me,
+                state_json: stateJson,
+                updated_at: new Date().toISOString(),
+            },
+            $setOnInsert: {
+                created_at: new Date().toISOString(),
+            },
+        },
+        { upsert: true }
+    );
 
     return NextResponse.json({ ok: true });
 }

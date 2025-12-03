@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import type { Session } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { db } from "@/db/client";
+import { getDb } from "@/db/client";
 
-export const runtime = "nodejs"; // better-sqlite3 쓰니까 node 런타임 강제
+export const runtime = "nodejs"; // MongoDB 드라이버도 node 런타임에서만 사용
 
 // ─────────────────────────────
 // 타입들
@@ -25,7 +25,7 @@ type RaidStateJson = {
     accounts?: {
         id: string;
         nickname: string;
-        summary: any | null;  // CharacterSummary
+        summary: any | null; // CharacterSummary
         isPrimary?: boolean;
         isSelected?: boolean;
     }[];
@@ -42,7 +42,6 @@ type RaidStateJson = {
     prefsByChar?: Record<string, any>;
     visibleByChar?: Record<string, boolean>;
 };
-
 
 type RaidTaskStateRow = {
     user_id: string;
@@ -67,15 +66,6 @@ type PartyRaidTasksResponse = {
 // ✅ Next 15 스타일: params 는 Promise 여서 await 해줘야 함
 type RouteParams = Promise<{ partyId: string }>;
 
-// 🔹 raid_task_state upsert용 준비된 스테이트먼트 (모듈 레벨에서 한 번만 생성)
-const upsertRaidTaskStateStmt = db.prepare(`
-  INSERT INTO raid_task_state (user_id, state_json, updated_at)
-  VALUES (@user_id, @state_json, datetime('now'))
-  ON CONFLICT(user_id) DO UPDATE SET
-    state_json = excluded.state_json,
-    updated_at = datetime('now')
-`);
-
 // ─────────────────────────────
 // GET: 파티원들의 "내 숙제 상태" 조회
 // ─────────────────────────────
@@ -96,55 +86,103 @@ export async function GET(
         return NextResponse.json({ message: "Invalid party id" }, { status: 400 });
     }
 
+    const db = await getDb();
+    const partiesCol = db.collection("parties");
+    const partyMembersCol = db.collection("party_members");
+    const usersCol = db.collection("users");
+    const raidTaskStateCol = db.collection("raid_task_state");
+
     // 1) 파티 존재 여부 체크
-    const partyRow = db
-        .prepare(
-            `
-      SELECT id, name, memo, owner_id, created_at
-      FROM parties
-      WHERE id = ?
-    `
-        )
-        .get(partyIdNum) as
-        | {
+    const partyRow =
+        (await partiesCol.findOne<{
             id: number;
             name: string;
             memo: string | null;
             owner_id: string;
             created_at: string;
-        }
-        | undefined;
+        }>(
+            { id: partyIdNum },
+            {
+                projection: {
+                    _id: 0,
+                    id: 1,
+                    name: 1,
+                    memo: 1,
+                    owner_id: 1,
+                    created_at: 1,
+                },
+            }
+        )) || undefined;
 
     if (!partyRow) {
         return NextResponse.json({ message: "Not found" }, { status: 404 });
     }
 
-    // 2) 파티 멤버 목록 + 유저 정보 join
-    const memberRows = db
-        .prepare(
-            `
-      SELECT 
-        pm.party_id,
-        pm.user_id,
-        pm.role,
-        pm.joined_at,
-        u.name,
-        u.email,
-        u.image
-      FROM party_members pm
-      JOIN users u ON u.id = pm.user_id
-      WHERE pm.party_id = ?
-    `
-        )
-        .all(partyIdNum) as PartyMemberRow[];
+    // 2) 파티 멤버 목록
+    const memberDocs = (await partyMembersCol
+        .find<{
+            party_id: number;
+            user_id: string;
+            role: string;
+            joined_at: string;
+        }>({
+            party_id: partyIdNum,
+        })
+        .toArray()) as {
+            party_id: number;
+            user_id: string;
+            role: string;
+            joined_at: string;
+        }[];
 
-    if (!memberRows || memberRows.length === 0) {
+    if (!memberDocs || memberDocs.length === 0) {
         // 파티는 있는데 멤버가 하나도 없는 극단상황
         return NextResponse.json(
             { members: [] } satisfies PartyRaidTasksResponse,
             { status: 200 }
         );
     }
+
+    const memberUserIds = memberDocs.map((m) => m.user_id);
+
+    // 유저 정보(users) 조인
+    const userDocs = (await usersCol
+        .find<{
+            id: string;
+            name: string | null;
+            email: string | null;
+            image: string | null;
+        }>({
+            id: { $in: memberUserIds },
+        })
+        .toArray()) as {
+            id: string;
+            name: string | null;
+            email: string | null;
+            image: string | null;
+        }[];
+
+    const userById = new Map<
+        string,
+        { id: string; name: string | null; email: string | null; image: string | null }
+    >();
+    for (const u of userDocs) {
+        userById.set(u.id, u);
+    }
+
+    // PartyMemberRow 형태로 재구성 (JOIN 결과와 비슷하게)
+    const memberRows: PartyMemberRow[] = memberDocs.map((m) => {
+        const u = userById.get(m.user_id);
+        return {
+            party_id: m.party_id,
+            user_id: m.user_id,
+            role: m.role,
+            joined_at: m.joined_at,
+            name: u?.name ?? null,
+            email: u?.email ?? null,
+            image: u?.image ?? null,
+        };
+    });
 
     // 현재 로그인한 유저가 이 파티의 멤버인지 확인
     const isMember = memberRows.some((m) => m.user_id === userId);
@@ -156,22 +194,27 @@ export async function GET(
     }
 
     // 3) 파티 멤버들의 raid_task_state 조회
-    const memberUserIds = memberRows.map((m) => m.user_id);
-    const placeholders = memberUserIds.map(() => "?").join(","); // "?,?,?,..."
-
-    const stateRows = db
-        .prepare(
-            `
-      SELECT user_id, state_json, updated_at
-      FROM raid_task_state
-      WHERE user_id IN (${placeholders})
-    `
-        )
-        .all(...memberUserIds) as RaidTaskStateRow[];
+    const stateDocs = (await raidTaskStateCol
+        .find<{
+            user_id: string;
+            state_json: string;
+            updated_at: string;
+        }>({
+            user_id: { $in: memberUserIds },
+        })
+        .toArray()) as {
+            user_id: string;
+            state_json: string;
+            updated_at: string;
+        }[];
 
     const stateByUserId = new Map<string, RaidTaskStateRow>();
-    for (const s of stateRows) {
-        stateByUserId.set(s.user_id, s);
+    for (const s of stateDocs) {
+        stateByUserId.set(s.user_id, {
+            user_id: s.user_id,
+            state_json: s.state_json,
+            updated_at: s.updated_at,
+        });
     }
 
     // 4) PartyMemberTasks 형태로 변환
@@ -224,8 +267,6 @@ export async function GET(
         };
     });
 
-
-
     return NextResponse.json(
         { members } satisfies PartyRaidTasksResponse,
         { status: 200 }
@@ -253,7 +294,6 @@ export async function POST(
 
     const me = (session.user as any).id as string;
 
-    // ⬇️ nickname / summary 까지 같이 받도록 확장
     let body: {
         userId?: string;
         nickname?: string;
@@ -292,12 +332,15 @@ export async function POST(
         );
     }
 
+    const db = await getDb();
+    const partyMembersCol = db.collection("party_members");
+    const raidTaskStateCol = db.collection("raid_task_state");
+
     // 1) 내가 이 파티의 멤버인지 확인
-    const meRow = db
-        .prepare(
-            `SELECT 1 FROM party_members WHERE party_id = ? AND user_id = ? LIMIT 1`
-        )
-        .get(partyIdNum, me) as { 1: number } | undefined;
+    const meRow = await partyMembersCol.findOne({
+        party_id: partyIdNum,
+        user_id: me,
+    });
 
     if (!meRow) {
         return NextResponse.json(
@@ -307,11 +350,10 @@ export async function POST(
     }
 
     // 2) 수정 대상도 이 파티 멤버인지 확인
-    const targetRow = db
-        .prepare(
-            `SELECT 1 FROM party_members WHERE party_id = ? AND user_id = ? LIMIT 1`
-        )
-        .get(partyIdNum, targetUserId) as { 1: number } | undefined;
+    const targetRow = await partyMembersCol.findOne({
+        party_id: partyIdNum,
+        user_id: targetUserId,
+    });
 
     if (!targetRow) {
         return NextResponse.json(
@@ -321,11 +363,11 @@ export async function POST(
     }
 
     // 3) 기존 raid_task_state 가져와서 필드만 부분 업데이트
-    const existing = db
-        .prepare(
-            `SELECT state_json FROM raid_task_state WHERE user_id = ? LIMIT 1`
-        )
-        .get(targetUserId) as { state_json: string } | undefined;
+    const existing = (await raidTaskStateCol.findOne<{
+        state_json?: string;
+    }>({
+        user_id: targetUserId,
+    })) as { state_json?: string } | null;
 
     let nextState: any;
     if (existing?.state_json) {
@@ -353,26 +395,37 @@ export async function POST(
         nextState.summary = summary;
     }
 
+    // 멀티 계정 관련 필드도 body에 들어온 경우만 갱신
+    if (Array.isArray(accounts)) {
+        nextState.accounts = accounts;
+    }
+    if (activeAccountId !== undefined) {
+        nextState.activeAccountId = activeAccountId;
+    }
+    if (activeAccountByParty && typeof activeAccountByParty === "object") {
+        nextState.activeAccountByParty = activeAccountByParty;
+    }
+
     const stateJson = JSON.stringify(nextState);
 
     try {
-        // 🔹 DB 쓰기 시도 (여기서 가끔 SQLITE_BUSY 터졌던 부분)
-        upsertRaidTaskStateStmt.run({
-            user_id: targetUserId,
-            state_json: stateJson,
-        });
+        await raidTaskStateCol.updateOne(
+            { user_id: targetUserId }, // 조건
+            {
+                $set: {
+                    user_id: targetUserId,
+                    state_json: stateJson,
+                    updated_at: new Date().toISOString(),
+                },
+                $setOnInsert: {
+                    created_at: new Date().toISOString(),
+                },
+            },
+            { upsert: true }
+        );
 
         return NextResponse.json({ ok: true });
     } catch (e: any) {
-        if (e?.code === "SQLITE_BUSY") {
-            // DB 락 걸려 있을 때
-            console.error("[raid_task_state] DB locked:", e);
-            return NextResponse.json(
-                { ok: false, message: "database is busy, please retry" },
-                { status: 503 }
-            );
-        }
-
         console.error("[raid_task_state] Unexpected error:", e);
         return NextResponse.json(
             { ok: false, message: "internal error" },

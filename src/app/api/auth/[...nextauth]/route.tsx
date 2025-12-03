@@ -1,20 +1,14 @@
-// app/api/auth/[...nextauth]/route.ts (일부만)
+// app/api/auth/[...nextauth]/route.ts
 
 import NextAuth, { NextAuthOptions } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
 import type { Account, Profile, User, Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 
-import { db } from "@/db/client";
+import { getDb } from "@/db/client";
 
-const upsertUserStmt = db.prepare(`
-  INSERT INTO users (id, name, email, image)
-  VALUES (?, ?, ?, ?)
-  ON CONFLICT(id) DO UPDATE SET
-    name  = excluded.name,
-    email = excluded.email,
-    image = excluded.image
-`);
+// Mongo driver는 Edge에서 안 돌아가서 nodejs 런타임 고정하는 게 안전함
+export const runtime = "nodejs";
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -40,17 +34,34 @@ export const authOptions: NextAuthOptions = {
             }
 
             try {
-                upsertUserStmt.run(
-                    userId,
-                    user.name ?? null,
-                    user.email ?? null,
-                    (user as any).image ?? (user as any).picture ?? null
+                const db = await getDb();
+                const usersCol = db.collection("users");
+
+                const image =
+                    (user as any).image ?? (user as any).picture ?? null;
+
+                // SQLite의 INSERT ... ON CONFLICT(id) DO UPDATE 와 동일한 동작
+                await usersCol.updateOne(
+                    { id: userId }, // 조건: id가 같은 사용자
+                    {
+                        $set: {
+                            id: userId,
+                            name: user.name ?? null,
+                            email: user.email ?? null,
+                            image,
+                            updatedAt: new Date(),
+                        },
+                        $setOnInsert: {
+                            createdAt: new Date(),
+                        },
+                    },
+                    { upsert: true } // 없으면 insert, 있으면 update
                 );
 
-                console.log("User upsert to DB:", user.name, userId);
+                console.log("User upsert to MongoDB:", user.name, userId);
                 return true;
             } catch (error) {
-                console.error("Failed to save user to DB", error);
+                console.error("Failed to save user to MongoDB", error);
                 return false;
             }
         },
