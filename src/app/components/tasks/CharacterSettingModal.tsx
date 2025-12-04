@@ -289,7 +289,7 @@ export default function CharacterSettingModal({
                             }}
                         >
                             <Trash2 size={16} />
-                            계정 삭제ㄴ
+                            계정 삭제
                             <span className="sm:hidden">삭제</span>
                         </button>
                     </div>

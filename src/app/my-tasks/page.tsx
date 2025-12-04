@@ -1239,52 +1239,52 @@ export default function MyTasksPage() {
                     onClick={handleAutoSetup}
                     disabled={!hasRoster}
                     className="
-            relative group
-            flex items-center justify-center
-            py-2 px-6 rounded-lg
-            bg-white/[.04] border border-white/10
-            hover:bg-white/5 hover:border-white/20
-            text-xs sm:text-sm font-medium text-white
-            transition-all duration-200
-            disabled:opacity-50 disabled:cursor-not-allowed
-          "
+                      relative group
+                      flex items-center justify-center
+                      py-2 px-6 rounded-lg
+                      bg-white/[.04] border border-white/10
+                      hover:bg-white/5 hover:border-white/20
+                      text-xs sm:text-sm font-medium text-white
+                      transition-all duration-200
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                    "
                   >
                     <span>자동 세팅</span>
 
                     <span
                       className="
-              absolute top-1 right-1
-              w-3 h-3
-              rounded-full
-              border border-white/20
-              text-[9px] font-bold
-              flex items-center justify-center
-              text-gray-400
-              bg-black/20
-              group-hover:text-white group-hover:border-white/40
-              transition-colors duration-200
-              cursor-help
-            "
+                        absolute top-1 right-1
+                        w-3 h-3
+                        rounded-full
+                        border border-white/20
+                        text-[9px] font-bold
+                        flex items-center justify-center
+                        text-gray-400
+                        bg-black/20
+                        group-hover:text-white group-hover:border-white/40
+                        transition-colors duration-200
+                        cursor-help
+                      "
                     >
                       ?
                     </span>
 
                     <div
                       className="
-              pointer-events-none
-              absolute bottom-full left-15 mb-3
-              w-64 p-3
-              rounded-xl
-              bg-gray-900/95 backdrop-blur-md
-              border border-white/10
-              text-xs text-gray-300 leading-relaxed
-              text-center
-              shadow-2xl shadow-black/50
-              opacity-0 translate-y-2 scale-95
-              group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
-              transition-all duration-200 ease-out
-              z-20
-            "
+                      pointer-events-none
+                      absolute bottom-full left-15 mb-3
+                      w-64 p-3
+                      rounded-xl
+                      bg-gray-900/95 backdrop-blur-md
+                      border border-white/10
+                      text-xs text-gray-300 leading-relaxed
+                      text-center
+                      shadow-2xl shadow-black/50
+                      opacity-0 translate-y-2 scale-95
+                      group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
+                      transition-all duration-200 ease-out
+                      z-20
+                    "
                     >
                       <p>
                         <span className="text-white font-semibold">
@@ -1297,11 +1297,11 @@ export default function MyTasksPage() {
 
                       <div
                         className="
-                absolute -bottom-1.5 left-4
-                w-3 h-3 
-                bg-gray-900/95 border-b border-r border-white/10 
-                rotate-45
-              "
+                        absolute -bottom-1.5 left-4
+                        w-3 h-3 
+                        bg-gray-900/95 border-b border-r border-white/10 
+                        rotate-45
+                      "
                       />
                     </div>
                   </button>
