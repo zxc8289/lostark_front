@@ -71,6 +71,9 @@ export async function POST(req: NextRequest) {
         return new NextResponse("Invalid JSON", { status: 400 });
     }
 
+    // 🔹 deleteAccountId는 patch에서 분리해서 따로 처리
+    const { deleteAccountId, ...patch } = body ?? {};
+
     try {
         const db = await getDb();
         const raidTaskStateCol = db.collection<{
@@ -100,16 +103,91 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 2) 기존 값 + 새 값 병합 (shallow merge)
-        const next = {
+        // 2) 기본 병합 (shallow)
+        let next: any = {
             ...prev,
-            ...body, // 또는 ...bodyWithoutParty
+            ...patch,
         };
+
+        // 3) deleteAccountId가 있으면, 그 계정 관련 데이터 정리
+        if (deleteAccountId) {
+            try {
+                const prevAccounts: any[] = Array.isArray(prev.accounts)
+                    ? prev.accounts
+                    : [];
+
+                const deletedAcc = prevAccounts.find(
+                    (a) => a && a.id === deleteAccountId
+                );
+
+                // 이 계정이 가지고 있던 캐릭터 이름들
+                const namesToRemove = new Set<string>(
+                    (deletedAcc?.summary?.roster ?? [])
+                        .map((c: any) => c?.name)
+                        .filter((n: any): n is string => typeof n === "string")
+                );
+
+                if (namesToRemove.size > 0) {
+                    // 🔹 prefsByChar 정리
+                    if (prev.prefsByChar && typeof prev.prefsByChar === "object") {
+                        const cleanedPrefs: Record<string, any> = {};
+                        for (const [charName, value] of Object.entries(prev.prefsByChar)) {
+                            if (!namesToRemove.has(charName)) {
+                                cleanedPrefs[charName] = value;
+                            }
+                        }
+                        next.prefsByChar = cleanedPrefs;
+                    }
+
+                    // 🔹 visibleByChar 정리
+                    if (prev.visibleByChar && typeof prev.visibleByChar === "object") {
+                        const cleanedVisible: Record<string, any> = {};
+                        for (const [charName, value] of Object.entries(prev.visibleByChar)) {
+                            if (!namesToRemove.has(charName)) {
+                                cleanedVisible[charName] = value;
+                            }
+                        }
+                        next.visibleByChar = cleanedVisible;
+                    }
+                }
+
+                // 🔹 계정 목록 기반으로 nickname / summary / activeAccountId 재정리
+                const nextAccounts: any[] = Array.isArray(next.accounts)
+                    ? next.accounts
+                    : [];
+
+                if (nextAccounts.length === 0) {
+                    // 더 이상 계정이 없으면 루트 필드도 비워줌
+                    delete next.nickname;
+                    delete next.summary;
+                    next.activeAccountId = null;
+                } else {
+                    const activeId =
+                        next.activeAccountId ||
+                        nextAccounts.find((a) => a.isPrimary)?.id ||
+                        nextAccounts[0]?.id;
+
+                    const activeAcc = nextAccounts.find((a) => a.id === activeId);
+
+                    if (activeAcc) {
+                        next.activeAccountId = activeId;
+                        if (activeAcc.nickname) {
+                            next.nickname = activeAcc.nickname;
+                        }
+                        if (activeAcc.summary) {
+                            next.summary = activeAcc.summary;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("raid_task_state deleteAccountId merge failed", e);
+            }
+        }
 
         const stateJson = JSON.stringify(next);
         const now = new Date().toISOString();
 
-        // 3) upsert (SQLite의 INSERT ... ON CONFLICT(user_id) DO UPDATE 와 동일)
+        // 4) upsert
         await raidTaskStateCol.updateOne(
             { user_id: userId },
             {

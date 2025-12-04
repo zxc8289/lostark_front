@@ -672,7 +672,7 @@ function PartyCard({
                                     {party.name}
                                 </h3>
                                 <span className="text-xs text-gray-500">
-                                    멤버 {party.memberCount}명 · 레이드 {party.raidCount}개
+                                    멤버 {party.memberCount}명
                                 </span>
                             </div>
                         </div>

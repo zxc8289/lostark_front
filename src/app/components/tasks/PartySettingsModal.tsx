@@ -38,6 +38,7 @@ type PartySettingsModalProps = {
         members: PartySettingsMember[];
     };
     myUserId?: string | null;
+    myRemainingRaids?: number;
     onPartyUpdated?: (patch: {
         name?: string;
         ownerId?: string;
@@ -46,11 +47,13 @@ type PartySettingsModalProps = {
     onMemberKicked?: (userId: string) => void;
 };
 
+
 export default function PartySettingsModal({
     open,
     onClose,
     party,
     myUserId,
+    myRemainingRaids,
     onPartyUpdated,
     onMemberKicked,
 }: PartySettingsModalProps) {
@@ -69,6 +72,14 @@ export default function PartySettingsModal({
     // 드롭다운 상태 관리
     const [isOwnerDropdownOpen, setIsOwnerDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const getRoleLabel = (role?: string | null) => {
+        if (!role) return "-";
+        if (role === "owner") return "파티장";
+        if (role === "member") return "파티원";
+        return role; // 혹시 다른 값이 들어오면 그대로 표시
+    };
+
 
     useEffect(() => {
         setName(party.name);
@@ -362,15 +373,18 @@ export default function PartySettingsModal({
                                 <Shield className="w-3.5 h-3.5" />내 역할
                             </div>
                             <div className="text-sm font-semibold text-white truncate">
-                                {party.myRole || "-"}
+                                {getRoleLabel(party.myRole)}
                             </div>
+
                         </div>
                         <div className="flex flex-col p-3 rounded-xl bg-white/5 border border-white/5">
                             <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
                                 <Swords className="w-3.5 h-3.5" /> 레이드
                             </div>
                             <div className="text-sm font-semibold text-white">
-                                {party.raidCount}개
+                                {typeof myRemainingRaids === "number"
+                                    ? `${myRemainingRaids}개`
+                                    : "-"}
                             </div>
                         </div>
                         <div className="flex flex-col p-3 rounded-xl bg-white/5 border border-white/5">

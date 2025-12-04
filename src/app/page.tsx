@@ -1,22 +1,34 @@
 import Card from "./components/Card";
-import { headers } from "next/headers";
 
 export default async function HomePage() {
+  // dev 기본값은 localhost:3000, 배포 시에는 ENV로 덮어쓰기
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const apiUrl = `${baseUrl}/api/lostark/notice`;
 
-  const host = (await headers()).get("host");
-  const origin = host?.startsWith("localhost")
-    ? `http://${host}`
-    : `https://${host}`;
-
-  const res = await fetch(`${origin}/api/lostark/notice`, { cache: "no-store" }).catch(() => null);
+  console.log("[HomePage] fetch to:", apiUrl);
 
   let latestTitle = "공지 불러오기 실패";
   let latestUrl = "/notice";
-  if (res?.ok) {
-    const json = await res.json();
-    latestTitle = json?.latest?.title ?? "데이터 없음";
-    latestUrl = json?.latest?.link ?? "/notice";
+
+  try {
+    const res = await fetch(apiUrl, { cache: "no-store" });
+
+    console.log("[HomePage] res.ok:", res.ok, "status:", res.status);
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.log("[HomePage] error body head:", text.slice(0, 300));
+    } else {
+      const json = await res.json();
+      console.log("[HomePage] json:", json);
+
+      latestTitle = json?.latest?.title ?? "데이터 없음";
+      latestUrl = json?.latest?.link ?? "/notice";
+    }
+  } catch (e) {
+    console.error("[HomePage] fetch error:", e);
   }
+
 
   return (
     <div className="space-y-8 pt-25 text-gray-300 w-full">

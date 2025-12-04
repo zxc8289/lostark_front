@@ -170,19 +170,32 @@ export async function GET(
         userById.set(u.id, u);
     }
 
-    // PartyMemberRow 형태로 재구성 (JOIN 결과와 비슷하게)
-    const memberRows: PartyMemberRow[] = memberDocs.map((m) => {
+    // users 컬렉션에 문서가 없는 유저(탈퇴 등)는 파티 멤버에서 제외
+    const memberRows: PartyMemberRow[] = [];
+    for (const m of memberDocs) {
         const u = userById.get(m.user_id);
-        return {
+        if (!u) {
+            // 계정 삭제된 유저 → 껍데기 방지용으로 아예 제외
+            continue;
+        }
+        memberRows.push({
             party_id: m.party_id,
             user_id: m.user_id,
             role: m.role,
             joined_at: m.joined_at,
-            name: u?.name ?? null,
-            email: u?.email ?? null,
-            image: u?.image ?? null,
-        };
-    });
+            name: u.name ?? null,
+            email: u.email ?? null,
+            image: u.image ?? null,
+        });
+    }
+
+    if (memberRows.length === 0) {
+        // 필터링 결과 멤버가 없으면 그냥 빈 배열 반환
+        return NextResponse.json(
+            { members: [] } satisfies PartyRaidTasksResponse,
+            { status: 200 }
+        );
+    }
 
     // 현재 로그인한 유저가 이 파티의 멤버인지 확인
     const isMember = memberRows.some((m) => m.user_id === userId);
@@ -194,13 +207,14 @@ export async function GET(
     }
 
     // 3) 파티 멤버들의 raid_task_state 조회
+    const memberUserIdsForState = memberRows.map((m) => m.user_id);
     const stateDocs = (await raidTaskStateCol
         .find<{
             user_id: string;
             state_json: string;
             updated_at: string;
         }>({
-            user_id: { $in: memberUserIds },
+            user_id: { $in: memberUserIdsForState },
         })
         .toArray()) as {
             user_id: string;
@@ -219,8 +233,9 @@ export async function GET(
 
     // 4) PartyMemberTasks 형태로 변환
     const partyKey = String(partyIdNum);
+    const members: PartyMemberTasks[] = [];
 
-    const members: PartyMemberTasks[] = memberRows.map((m) => {
+    for (const m of memberRows) {
         const stateRow = stateByUserId.get(m.user_id);
         let parsed: RaidStateJson | null = null;
 
@@ -234,9 +249,9 @@ export async function GET(
 
         // 기본값: 옛날 single-summary 구조
         let effectiveSummary: any = parsed?.summary ?? null;
+        const accounts = parsed?.accounts ?? [];
 
-        const accounts = parsed?.accounts;
-        if (accounts && accounts.length > 0) {
+        if (accounts.length > 0) {
             // 1순위: 이 파티에서 선택한 대표 계정
             const partyActiveId = parsed?.activeAccountByParty?.[partyKey] ?? null;
 
@@ -256,7 +271,19 @@ export async function GET(
             }
         }
 
-        return {
+        // ⭐ 여기서 "껍데기 멤버" 판정
+        // - stateRow가 존재하는데도 accounts도 없고 summary도 없으면 → 계정 다 지워진 상태라고 보고 숨김
+        if (stateRow) {
+            const hasAnyAccount = accounts.length > 0;
+            const hasSummary = !!effectiveSummary;
+
+            if (!hasAnyAccount && !hasSummary) {
+                // 이 유저는 숙제/계정 정보가 완전히 비어 있으므로 파티 숙제 목록에서 제외
+                continue;
+            }
+        }
+
+        members.push({
             userId: m.user_id,
             name: m.name,
             image: m.image,
@@ -264,8 +291,8 @@ export async function GET(
             summary: effectiveSummary,
             prefsByChar: parsed?.prefsByChar ?? {},
             visibleByChar: parsed?.visibleByChar ?? {},
-        };
-    });
+        });
+    }
 
     return NextResponse.json(
         { members } satisfies PartyRaidTasksResponse,
