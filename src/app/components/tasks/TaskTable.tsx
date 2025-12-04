@@ -133,10 +133,10 @@ export default function TaskTable({
     const first = sortedRoster[0];
 
     return (
-        <div className="bg-[#16181D] rounded-md px-5 py-4 space-y-3">
+        <div className="bg-[#16181D] rounded-md space-y-3">
             {/* 헤더 */}
-            <div className="flex items-center py-[0.8px]">
-                <div className="min-w-0 py-0.5">
+            <div className="flex items-center px-5  py-[0.8px]">
+                <div className="min-w-0 pb-1 pt-4">
                     <div className="flex items-center gap-2">
                         <span
                             className="
@@ -200,7 +200,7 @@ export default function TaskTable({
             </div>
 
             {/* 테이블 */}
-            <div className="w-full overflow-hidden rounded-md border border-white/10 bg-[#111217]">
+            <div className="w-full overflow-hidden rounded-b-md border border-t-0 border-white/10 bg-[#111217]">
                 <div className="overflow-x-auto">
                     <table className="w-full text-center text-[11px] sm:text-sm text-gray-400 border-collapse">
                         <thead className="bg-[#1E222B] text-gray-200 uppercase text-[10px] sm:text-xs font-semibold">
