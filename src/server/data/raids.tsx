@@ -161,10 +161,10 @@ export const raidInformation: Record<
         difficulty: {
             "노말": {
                 level: 1640,
-                gold: 8800,
+                gold: 7200,
                 gates: [
-                    { index: 1, name: "1관문", gold: 2800 },
-                    { index: 2, name: "2관문", gold: 6000 },
+                    { index: 1, name: "1관문", gold: 2200 },
+                    { index: 2, name: "2관문", gold: 5000 },
                 ],
             },
         },
@@ -176,18 +176,18 @@ export const raidInformation: Record<
         difficulty: {
             "노말": {
                 level: 1620,
-                gold: 3650,
+                gold: 6100,
                 gates: [
-                    { index: 1, name: "1관문", gold: 1150 },
-                    { index: 2, name: "2관문", gold: 2500 },
+                    { index: 1, name: "1관문", gold: 1900 },
+                    { index: 2, name: "2관문", gold: 4200 },
                 ],
             },
             "하드": {
                 level: 1630,
-                gold: 8800,
+                gold: 7200,
                 gates: [
-                    { index: 1, name: "1관문", gold: 2800 },
-                    { index: 2, name: "2관문", gold: 6000 },
+                    { index: 1, name: "1관문", gold: 2200 },
+                    { index: 2, name: "2관문", gold: 5000 },
                 ],
             },
         },
@@ -199,18 +199,18 @@ export const raidInformation: Record<
         difficulty: {
             "노말": {
                 level: 1660,
-                gold: 15500,
+                gold: 11500,
                 gates: [
-                    { index: 1, name: "1관문", gold: 4750 },
-                    { index: 2, name: "2관문", gold: 10750 },
+                    { index: 1, name: "1관문", gold: 3500 },
+                    { index: 2, name: "2관문", gold: 8000 },
                 ],
             },
             "하드": {
                 level: 1680,
-                gold: 24500,
+                gold: 18000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 8000 },
-                    { index: 2, name: "2관문", gold: 16500 },
+                    { index: 1, name: "1관문", gold: 5500 },
+                    { index: 2, name: "2관문", gold: 12500 },
                 ],
             },
         },
@@ -221,18 +221,18 @@ export const raidInformation: Record<
         difficulty: {
             "노말": {
                 level: 1670,
-                gold: 21500,
+                gold: 16500,
                 gates: [
-                    { index: 1, name: "1관문", gold: 7250 },
-                    { index: 2, name: "2관문", gold: 14250 },
+                    { index: 1, name: "1관문", gold: 5500 },
+                    { index: 2, name: "2관문", gold: 11000 },
                 ],
             },
             "하드": {
                 level: 1690,
-                gold: 30500,
+                gold: 23000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 10000 },
-                    { index: 2, name: "2관문", gold: 20500 },
+                    { index: 1, name: "1관문", gold: 7500 },
+                    { index: 2, name: "2관문", gold: 15500 },
                 ],
             },
         },
@@ -243,20 +243,20 @@ export const raidInformation: Record<
         difficulty: {
             "노말": {
                 level: 1680,
-                gold: 28000,
+                gold: 21000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 6000 },
-                    { index: 2, name: "2관문", gold: 9500 },
-                    { index: 3, name: "3관문", gold: 12500 },
+                    { index: 1, name: "1관문", gold: 4000 },
+                    { index: 2, name: "2관문", gold: 7000 },
+                    { index: 3, name: "3관문", gold: 10000 },
                 ],
             },
             "하드": {
                 level: 1700,
-                gold: 38000,
+                gold: 27000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 7000 },
-                    { index: 2, name: "2관문", gold: 11000 },
-                    { index: 3, name: "3관문", gold: 20000 },
+                    { index: 1, name: "1관문", gold: 5000 },
+                    { index: 2, name: "2관문", gold: 8000 },
+                    { index: 3, name: "3관문", gold: 14000 },
                 ],
             },
         },

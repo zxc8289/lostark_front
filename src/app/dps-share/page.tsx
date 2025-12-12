@@ -52,9 +52,9 @@ const kaizeros: Record<ActKey, Record<DiffKey, GateRow[]>> = {
             { gate: 3, hp: 7319, range: [1000, 1360] },
         ],
         하드: [
-            { gate: 1, hp: 6525, range: [940, 1250] },
-            { gate: 2, hp: 6630, range: [970, 1300] },
-            { gate: 3, hp: 14737, range: [2150, 2950] },
+            { gate: 1, hp: 5872, range: [846, 1125] },
+            { gate: 2, hp: 5968, range: [873, 1170] },
+            { gate: 3, hp: 12527, range: [1828, 2508] },
         ],
     },
     "4막": {

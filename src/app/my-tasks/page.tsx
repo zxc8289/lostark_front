@@ -1464,16 +1464,19 @@ export default function MyTasksPage() {
           onDeleteAccount={handleDeleteAccount}
           onRefreshAccount={handleRefreshAccount}
           visibleByChar={visibleByChar}
-          onChangeVisible={(next) => {
-            setVisibleByChar(next);
-            try {
-              if (!isAuthed) {
-                localStorage.setItem(VISIBLE_KEY, JSON.stringify(next));
-              }
-            } catch {
-              // 로컬스토리지 에러는 무시
-            }
+          onChangeVisible={(partial) => {
+            setVisibleByChar((prev) => {
+              const merged = { ...prev, ...partial };
+              try {
+                if (!isAuthed) {
+                  localStorage.setItem(VISIBLE_KEY, JSON.stringify(merged));
+                }
+              } catch { }
+              return merged;
+            });
           }}
+
+
         />
       )}
 
