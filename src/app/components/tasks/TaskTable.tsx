@@ -158,7 +158,7 @@ export default function TaskTable({
                 </div>
 
                 {activeRaidColumns.length > maxVisible && (
-                    <div className="ml-auto flex items-center gap-2 text-[10px] sm:text-[11px] text-gray-400">
+                    <div className="ml-auto flex items-center gap-2 text-[10px] sm:text-[11px] pb-1 pt-4 text-gray-400">
                         <span className="pr-2">
                             {startIndex + 1} –{" "}
                             {Math.min(activeRaidColumns.length, startIndex + maxVisible)} /{" "}
