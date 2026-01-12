@@ -26,6 +26,12 @@ const DIFF = {
         check: "bg-[#5B69FF] text-white",
         hover: "hover:bg-[#5B69FF] hover:text-white",
     },
+
+    나메: {
+        badge: "bg-[#6D28D9]/20 text-[#D6BCFA] border border-none",
+        check: "bg-[#6D28D9] text-white",
+        hover: "hover:bg-[#6D28D9] hover:text-white",
+    },
 } as const;
 
 function formatTitle(kind: RaidKind, name: string) {

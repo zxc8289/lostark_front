@@ -1,27 +1,22 @@
+import { ChevronRight, ExternalLink, Link } from "lucide-react";
 import Card from "./components/Card";
+import HomeMyTasksSummary, {
+  HomeMyTasksHeader,
+  HomeMyTasksDetails,
+  HomeMyTasksGuard,
+} from "./components/HomeMyTasksSummary";
 
 export default async function HomePage() {
-  // dev 기본값은 localhost:3000, 배포 시에는 ENV로 덮어쓰기
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const apiUrl = `${baseUrl}/api/lostark/notice`;
-
-  console.log("[HomePage] fetch to:", apiUrl);
 
   let latestTitle = "공지 불러오기 실패";
   let latestUrl = "/notice";
 
   try {
     const res = await fetch(apiUrl, { cache: "no-store" });
-
-    console.log("[HomePage] res.ok:", res.ok, "status:", res.status);
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.log("[HomePage] error body head:", text.slice(0, 300));
-    } else {
+    if (res.ok) {
       const json = await res.json();
-      console.log("[HomePage] json:", json);
-
       latestTitle = json?.latest?.title ?? "데이터 없음";
       latestUrl = json?.latest?.link ?? "/notice";
     }
@@ -29,113 +24,165 @@ export default async function HomePage() {
     console.error("[HomePage] fetch error:", e);
   }
 
-
   return (
-    <div className="space-y-8 pt-25 text-gray-300 w-full">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="grid grid-cols-1 gap-6">
-          <Card variant="elevated" headerBorder={false} interactive contentPadding="md" align="center">
-            <div className="w-full flex items-center gap-2">
-              <div className="min-w-0 flex items-baseline gap-2 sm:gap-3">
-                <h3 className="font-semibold text-sm sm:text-base md:text-base">
-                  로스트아크 공지사항
+    <div className="space-y-8 pt-20 pb-10 text-gray-300 w-full max-w-7xl mx-auto ">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <div className="space-y-6">
+          <Card
+            variant="elevated"
+            headerBorder={false}
+            interactive
+            contentPadding="md"
+            className="border border-white/5 bg-[#1e2128]/50 hover:border-blue-500/30 transition-all"
+          >
+            <div className="w-full flex items-center justify-between gap-4">
+              <div className="min-w-0 flex items-center gap-3">
+                <div className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                <h3 className="font-bold text-sm text-gray-100 whitespace-nowrap">
+                  로아 공지
                 </h3>
                 <p
-                  className="text-gray-400 truncate text-xs sm:text-xs md:text-xs"
+                  className="text-gray-400 truncate text-xs border-l border-white/10 pl-3"
                   title={latestTitle}
                 >
                   {latestTitle}
                 </p>
               </div>
-
-
               <a
                 href={latestUrl}
-                className="ml-auto shrink-0 text-gray-400 hover:text-gray-200 flex items-center gap-1 text-xs sm:text-sm md:text-sm"
+                className="shrink-0 text-[11px] text-gray-500 hover:text-blue-400 transition-colors"
               >
-                더보기 <span aria-hidden>›</span>
-              </a>
-            </div>
-          </Card>
-          <Card
-            variant="elevated"
-            size="lg"
-            contentPadding="lg"
-            align="center"
-            headerBorder={false}
-            className="max-w-3xl"
-          >
-            <div className="grid grid-cols-[56px_1fr_auto] items-center gap-4 w-full">
-              <div className="w-14 h-14 rounded-md bg-white/10 overflow-hidden" />
-              <div className="grid grid-cols-1 gap-1">
-                <h3 className="font-semibold text-sm sm:text-base md:text-base">나는 강투일까 투사일까?</h3>
-                <p className="text-gray-400 text-xs sm:text-xs md:text-xs">
-                  레이드에서 나의 딜 지분을 알아보세요.
-                </p>
-              </div>
-              <a className="text-blue-400 hover:underline flex items-center gap-1 text-xs sm:text-sm md:text-sm" href="/dps">
-                딜지분 계산기 <span>›</span>
+                더보기 ›
               </a>
             </div>
           </Card>
 
-          <Card
-            variant="elevated"
-            size="lg"
-            contentPadding="lg"
-            align="center"
-            headerBorder={false}
-            className="max-w-3xl"
-          >
-            <div className="grid grid-cols-[56px_1fr_auto] items-center gap-4 w-full">
-              <div className="w-14 h-14 rounded-md bg-white/10 overflow-hidden" />
-              <div className="grid grid-cols-1 gap-1">
-                <h3 className="font-semibold text-sm sm:text-base md:text-base">코어별 젬 세팅 효율 계산기</h3>
-                <p className="text-gray-400 text-xs sm:text-xs md:text-xs">
-                  코어와 젬을 입력하고 효율적인 세팅을 확인해 보세요.
-                </p>
+          <div className="grid grid-cols-1 gap-6">
+            {[
+              {
+                id: "A",
+                title: "딜 지분 계산기",
+                desc: "레이드 정밀 딜 지분 확인",
+                href: "/dps-share",
+                color: "blue",
+              },
+              {
+                id: "G",
+                title: "젬 세팅 효율",
+                desc: "최적의 젬 조합 가이드",
+                href: "/gem-setup",
+                color: "blue",
+              },
+              {
+                id: "M",
+                title: "제작/구매 비교",
+                desc: "안할듯? 아마도",
+                href: "/market",
+                color: "blue",
+              },
+            ].map((item) => (
+              <Card
+                key={item.id}
+                variant="elevated"
+                size="lg"
+                contentPadding="lg"
+                headerBorder={false}
+                className="border border-white/5 bg-[#1e2128]/40 hover:bg-[#1e2128]/60 transition-all group"
+              >
+                <div className="flex items-center gap-5 w-full">
+                  <div
+                    className={`w-12 h-12 rounded-xl bg-${item.color}-600/10 border border-${item.color}-500/20 flex items-center justify-center group-hover:scale-105 transition-transform`}
+                  >
+                    <span className={`text-${item.color}-400 text-lg font-bold`}>
+                      {item.id}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-gray-100 group-hover:text-white transition-colors">
+                      {item.title}
+                    </h3>
+                    <p className="text-gray-400 text-xs mt-0.5">{item.desc}</p>
+                  </div>
+                  <a
+                    className="bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg text-gray-300 text-xs font-medium transition-all"
+                    href={item.href}
+                  >
+                    바로가기 ›
+                  </a>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* [오른쪽 컬럼] 숙제 현황 및 파티 현황 */}
+        <div className="space-y-6">
+          <Card className="border border-white/5 bg-[#1e2128]/30 shadow-2xl relative overflow-hidden">
+            <HomeMyTasksSummary>
+              {/* 제목 + 요약은 항상 노출 */}
+              <div className="w-full">
+                <div className="w-full flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-4 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                    <span className="font-bold text-lg text-gray-100">내 숙제 현황</span>
+                  </div>
+
+                  <a href="/my-tasks" className="text-gray-400 hover:text-gray-200 transition-colors">
+                    <ChevronRight size={20} />
+                  </a>
+                </div>
+
+
+                <div className="w-full pt-5">
+                  <HomeMyTasksHeader />
+                </div>
+
+
+                <HomeMyTasksGuard>
+                  <details className="group w-full flex flex-col">
+                    <summary className="order-2 mt-5 select-none list-none [&::-webkit-details-marker]:hidden
+                      border-t border-white/5 w-full cursor-pointer flex items-center justify-center gap-2
+                      px-5 py-3 text-[11px] font-bold text-gray-500 hover:text-gray-300 hover:bg-white/[0.03] transition-colors"
+                    >
+                      <span className="group-open:hidden">상세 보기</span>
+                      <span className="hidden group-open:inline">접기</span>
+                      <span className="transition-transform group-open:rotate-180">▾</span>
+                    </summary>
+
+                    <div className="order-1 pt-5">
+                      <HomeMyTasksDetails />
+                    </div>
+                  </details>
+                </HomeMyTasksGuard>
+
               </div>
-              <a className="text-blue-400 hover:underline flex items-center gap-1 text-xs sm:text-sm md:text-sm" href="/dps">
-                젬 세팅하러 가기 <span>›</span>
-              </a>
-            </div>
+            </HomeMyTasksSummary>
           </Card>
 
-          {/* 기능 카드 3 */}
+
+
           <Card
-            variant="elevated"
-            size="lg"
-            contentPadding="lg"
-            align="center"
-            headerBorder={false}
-            className="max-w-3xl"
-          >
-            <div className="grid grid-cols-[56px_1fr_auto] items-center gap-4 w-full">
-              <div className="w-14 h-14 rounded-md bg-white/10 overflow-hidden" />
-              <div className="grid grid-cols-1 gap-1">
-                <h3 className="font-semibold text-sm sm:text-base md:text-base">재료 제작/구매 효율 계산기</h3>
-                <p className="text-gray-400 text-xs sm:text-xs md:text-xs">
-                  재료별로 제작과 구매 중 저렴한 방법을 확인해 보세요.
-                </p>
+            className="border border-white/5 bg-[#1e2128]/30 overflow-hidden"
+            title={
+              <div className="flex items-center gap-2 ">
+                <div className="w-1 h-4 bg-emerald-500 rounded-full" />
+                <span className="font-bold text-lg text-gray-100">파티 현황</span>
               </div>
-              <a className="text-blue-400 hover:underline flex items-center gap-1 text-xs sm:text-sm md:text-sm" href="/dps">
-                제작 효율 계산 <span>›</span>
-              </a>
+            }
+          >
+            <div className="flex flex-col items-center justify-center">
+              <p className="text-base text-white/30">
+                아 <span className="text-[#1e2128]/30">일하기 싫다.</span>
+              </p>
             </div>
           </Card>
         </div>
-        <div className="grid grid-cols-1 grid-rows-[1.5fr_1fr] gap-6">
-          <Card
-            children="" title={<span className="font-semibold text-sm sm:text-base md:text-base" >내 숙제 현황</span>}
-            className="min-h-0"
-          />
-          <Card
-            children="" title={<span className="font-semibold text-sm sm:text-base md:text-base">파티 숙제</span>}
-            className="min-h-0"
-          />
-        </div>
+      </div>
 
-        <div className="bg-[#16181D] md:col-span-2 p-5 h-40"></div>
+      <div className="pt-8 border-t border-white/5 flex flex-col items-center">
+        <p className="text-gray-600 text-[10px] tracking-[0.3em] uppercase font-bold">
+          Arkrasia Utility System
+        </p>
       </div>
     </div>
   );

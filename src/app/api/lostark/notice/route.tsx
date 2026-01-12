@@ -19,7 +19,6 @@ type NoticeItem = {
 export async function GET() {
     console.log("[lostark-notice] start fetch:", LIST_URL);
 
-    // ▶ 타임아웃/강제중단(네트워크가 매달릴 때 대비)
     const ac = new AbortController();
     const timeout = setTimeout(() => {
         console.warn("[lostark-notice] aborting due to timeout (10s)");

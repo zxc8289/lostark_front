@@ -1260,7 +1260,6 @@ export default function PartyDetailPage() {
         }
     };
 
-    // 🔹 파티별 필터 로컬스토리지에서 불러오기
     useEffect(() => {
         if (!party) return;
         if (typeof window === "undefined") return;
@@ -1282,7 +1281,6 @@ export default function PartyDetailPage() {
         }
     }, [party]);
 
-    // 🔹 필터 변경 시 파티별로 로컬스토리지에 저장
     useEffect(() => {
         if (!party) return;
         if (typeof window === "undefined") return;
@@ -1355,11 +1353,9 @@ export default function PartyDetailPage() {
                         const partyActiveId =
                             raidState.activeAccountByParty?.[partyKey] ?? null;
 
-                        // 1️⃣ 서버에 이미 저장된 값(파티별 activeAccount > 전역 activeAccount) 우선
                         let initialActiveId: string | null =
                             partyActiveId ?? raidState.activeAccountId ?? null;
 
-                        // 2️⃣ 둘 다 없으면 → 대표 계정(isPrimary)이나 첫 번째 계정으로 기본값 설정
                         let shouldSaveDefault = false;
                         if (!initialActiveId) {
                             const primary = accs.find((a) => a.isPrimary);
@@ -1367,7 +1363,6 @@ export default function PartyDetailPage() {
                             initialActiveId = primary?.id ?? first?.id ?? null;
 
                             if (initialActiveId) {
-                                // “처음 들어와서 자동으로 골라준 경우” 표시
                                 shouldSaveDefault = true;
                             }
                         }
@@ -1436,16 +1431,14 @@ export default function PartyDetailPage() {
             console.log("[WS] connected:", url);
         };
 
-        ws.onclose = () => {
-            console.log("[WS] closed");
+        ws.onclose = (ev) => {
+            console.log("[WS] closed", { code: ev.code, reason: ev.reason, wasClean: ev.wasClean });
             setWsReady(false);
-            if (wsRef.current === ws) {
-                wsRef.current = null;
-            }
+            if (wsRef.current === ws) wsRef.current = null;
         };
 
-        ws.onerror = (err) => {
-            console.error("[WS] error:", err);
+        ws.onerror = (ev) => {
+            console.error("[WS] error event:", ev, "url:", url);
         };
 
         ws.onmessage = (event) => {
@@ -1599,14 +1592,41 @@ export default function PartyDetailPage() {
     // 2) 파티 정보 로딩
     if (partyLoading) {
         return (
-            <div className="w-full min-h-[60vh] flex flex-col items-center justify-center text-gray-300">
-                <Loader2 className="h-6 w-6 animate-spin mb-3" />
-                <p className="text-sm text-gray-400">
-                    파티 정보를 불러오는 중입니다...
-                </p>
+            <div className="w-full text-white py-8 sm:py-12">
+                <div className="mx-auto max-w-7xl space-y-6">
+                    {/* 헤더 스켈레톤 */}
+                    <div className="space-y-3 animate-pulse">
+                        <div className="h-4 w-28 rounded bg-white/5" />
+                        <div className="h-8 w-56 rounded bg-white/5" />
+                        <div className="h-4 w-72 rounded bg-white/5" />
+                    </div>
+
+                    {/* 카드 스켈레톤 (두번째 파일 로딩과 동일 톤) */}
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                            <div
+                                key={i}
+                                className="h-[180px] rounded-xl border border-white/5 bg-[#16181D] p-5 animate-pulse"
+                            >
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="h-10 w-10 rounded-full bg-white/5" />
+                                    <div className="space-y-2 flex-1">
+                                        <div className="h-4 w-1/2 rounded bg-white/5" />
+                                        <div className="h-3 w-1/3 rounded bg-white/5" />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="h-8 w-full rounded bg-white/5" />
+                                    <div className="h-3 w-1/4 rounded bg-white/5" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
         );
     }
+
 
     // 3) 에러
     if (partyErr && !party) {
@@ -1664,6 +1684,7 @@ export default function PartyDetailPage() {
         <div className="w-full text-white py-8 sm:py-12">
             <div className="mx-auto max-w-7xl space-y-5">
                 {/* 상단 헤더 */}
+
                 <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-1 sm:py-2">
                     <div className="flex items-center gap-2 sm:gap-5 min-w-0">
                         <button
@@ -1714,10 +1735,10 @@ export default function PartyDetailPage() {
                 {/* 바디 (좌 필터 / 우 메인) */}
                 <div
                     className="
-            grid grid-cols-1 
-            lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)]
-            gap-5 lg:items-start
-          "
+                        grid grid-cols-1 
+                        lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)]
+                        gap-5 lg:items-start
+                    "
                 >
                     {/* 왼쪽 필터 영역 */}
                     <div className="space-y-4">
@@ -1844,9 +1865,7 @@ export default function PartyDetailPage() {
                             </header>
 
                             <div className="px-4 sm:px-5 py-5 sm:py-7">
-                                {/* 🔹 모바일: 2컬럼 / sm 이상: 1컬럼 */}
                                 <div className="grid grid-cols-2 sm:grid-cols-1 gap-4 sm:gap-5 text-xs sm:text-sm">
-                                    {/* 왼쪽: 숙제/보상 */}
                                     <div className="space-y-3">
                                         <div className="font-bold">숙제/보상</div>
                                         <div className="space-y-3">
@@ -1859,9 +1878,9 @@ export default function PartyDetailPage() {
                                                 />
                                                 <span
                                                     className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition
-                            peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
-                            peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
-                            peer-checked:[&_svg]:opacity-100"
+                                                        peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
+                                                        peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
+                                                        peer-checked:[&_svg]:opacity-100"
                                                 >
                                                     <svg
                                                         className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
@@ -1884,16 +1903,16 @@ export default function PartyDetailPage() {
 
                                                 <span
                                                     className="
-                            w-3 h-3
-                            rounded-full
-                            border border-white/20
-                            text-[9px] font-bold
-                            flex items-center justify-center
-                            text-gray-400
-                            bg-black/20
-                            group-hover:text-white group-hover:border-white/40
-                            transition-colors duration-200
-                            cursor-help"
+                                                        w-3 h-3
+                                                        rounded-full
+                                                        border border-white/20
+                                                        text-[9px] font-bold
+                                                        flex items-center justify-center
+                                                        text-gray-400
+                                                        bg-black/20
+                                                        group-hover:text-white group-hover:border-white/40
+                                                        transition-colors duration-200
+                                                        cursor-help"
                                                 >
                                                     ?
                                                 </span>
@@ -1901,17 +1920,17 @@ export default function PartyDetailPage() {
                                                 {/* 설명 툴팁 그대로 유지 */}
                                                 <div
                                                     className="
-                            pointer-events-none
-                            absolute left-6 top-full mt-2.5
-                            w-64 p-4
-                            rounded-2xl
-                            bg-gray-900/95 backdrop-blur-xl
-                            border border-white/[0.08]
-                            shadow-[0_8px_30px_rgb(0,0,0,0.4)]
-                            opacity-0 translate-y-1 scale-95
-                            group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
-                            transition-all duration-200 ease-out
-                            z-[200]"
+                                                        pointer-events-none
+                                                        absolute left-6 top-full mt-2.5
+                                                        w-64 p-4
+                                                        rounded-2xl
+                                                        bg-gray-900/95 backdrop-blur-xl
+                                                        border border-white/[0.08]
+                                                        shadow-[0_8px_30px_rgb(0,0,0,0.4)]
+                                                        opacity-0 translate-y-1 scale-95
+                                                        group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
+                                                        transition-all duration-200 ease-out
+                                                        z-[200]"
                                                 >
                                                     <div className="flex flex-col gap-2 text-xs leading-relaxed text-left">
                                                         <p className="text-gray-200">
@@ -1934,12 +1953,12 @@ export default function PartyDetailPage() {
 
                                                     <div
                                                         className="
-                              absolute -top-[5px] left-6
-                              w-2.5 h-2.5
-                              bg-gray-900/95
-                              border-t border-l border-white/[0.08]
-                              rotate-45
-                              z-10"
+                                                            absolute -top-[5px] left-6
+                                                            w-2.5 h-2.5
+                                                            bg-gray-900/95
+                                                            border-t border-l border-white/[0.08]
+                                                            rotate-45
+                                                            z-10"
                                                     />
                                                 </div>
                                             </label>
@@ -1958,9 +1977,9 @@ export default function PartyDetailPage() {
                                             />
                                             <span
                                                 className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition
-                          peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
-                          peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
-                          peer-checked:[&_svg]:opacity-100"
+                                                    peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
+                                                    peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
+                                                    peer-checked:[&_svg]:opacity-100"
                                             >
                                                 <svg
                                                     className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
@@ -1987,10 +2006,34 @@ export default function PartyDetailPage() {
                     {/* 오른쪽 메인 영역 */}
                     <div className="grid grid-cols-1 gap-4 sm:gap-5">
                         {tasksLoading && (
-                            <div className="w-full flex items-center justify-center py-6 text-xs text-gray-400">
-                                파티 숙제 데이터를 불러오는 중입니다...
+                            <div className="w-full py-6">
+                                <div className="animate-pulse space-y-3">
+                                    {/* 상단 안내 스켈레톤 */}
+                                    <div className="h-4 w-40 rounded bg-white/5" />
+
+                                    {/* 리스트/테이블 대체 스켈레톤 */}
+                                    <div className="space-y-2">
+                                        {Array.from({ length: 6 }).map((_, i) => (
+                                            <div
+                                                key={i}
+                                                className="flex items-center gap-3 rounded-xl border border-white/5 bg-[#16181D] p-4"
+                                            >
+                                                <div className="h-9 w-9 rounded-full bg-white/5" />
+                                                <div className="flex-1 space-y-2">
+                                                    <div className="h-4 w-1/2 rounded bg-white/5" />
+                                                    <div className="h-3 w-1/3 rounded bg-white/5" />
+                                                </div>
+                                                <div className="h-8 w-20 rounded bg-white/5" />
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* 접근성용 텍스트(보이지 않음) */}
+                                    <span className="sr-only">파티 숙제 데이터를 불러오는 중입니다...</span>
+                                </div>
                             </div>
                         )}
+
 
                         {tasksErr && (
                             <div className="w-full rounded-md border border-red-500/40 bg-red-900/20 px-4 py-3 text-xs text-red-200">
@@ -2079,51 +2122,77 @@ export default function PartyDetailPage() {
                                                 </PartyMemberSummaryBar>
 
                                                 {/* 🔹 MyTasks와 동일한 캐릭터별 카드 스트립 */}
-                                                <div className="mt-2 flex flex-col gap-4">
-                                                    {sortedRoster.map((c) => {
-                                                        const tasks = buildTasksForCharacter(
-                                                            c,
-                                                            m.prefsByChar,
-                                                            {
-                                                                onlyRemain,
-                                                                onToggleGate: (
-                                                                    raidName,
-                                                                    gate,
-                                                                    currentGates,
-                                                                    allGates
-                                                                ) =>
-                                                                    handleMemberToggleGate(
-                                                                        m.userId,
-                                                                        c.name,
-                                                                        raidName,
-                                                                        gate,
-                                                                        currentGates,
-                                                                        allGates
-                                                                    ),
-                                                            }
-                                                        );
+                                                {(() => {
+                                                    // 1) 캐릭터별 tasks 계산 (전체/표시)
+                                                    const strips = sortedRoster.map((c) => {
+                                                        const onToggleGate = (
+                                                            raidName: string,
+                                                            gate: number,
+                                                            currentGates: number[],
+                                                            allGates: number[]
+                                                        ) =>
+                                                            handleMemberToggleGate(
+                                                                m.userId,
+                                                                c.name,
+                                                                raidName,
+                                                                gate,
+                                                                currentGates,
+                                                                allGates
+                                                            );
 
-                                                        if (onlyRemain && tasks.length === 0) {
-                                                            return null;
-                                                        }
+                                                        const tasksAll = buildTasksForCharacter(c, m.prefsByChar, {
+                                                            onlyRemain: false,
+                                                            onToggleGate,
+                                                        });
 
-                                                        return (
-                                                            <CharacterTaskStrip
-                                                                key={c.name}
-                                                                character={c}
-                                                                tasks={tasks}
-                                                                onEdit={() => openEditModal(m, c)}
-                                                                onReorder={(char, newOrderIds) =>
-                                                                    handleMemberReorder(
-                                                                        m.userId,
-                                                                        char.name,
-                                                                        newOrderIds
-                                                                    )
-                                                                }
-                                                            />
-                                                        );
-                                                    })}
-                                                </div>
+                                                        const tasksShown = onlyRemain
+                                                            ? buildTasksForCharacter(c, m.prefsByChar, {
+                                                                onlyRemain: true,
+                                                                onToggleGate,
+                                                            })
+                                                            : tasksAll;
+
+                                                        return { c, tasksAllLen: tasksAll.length, tasks: tasksShown };
+                                                    });
+
+                                                    // 2) onlyRemain일 때는 남은 숙제 없는 캐릭터는 숨김(기존 동작 유지)
+                                                    const visibleStrips = onlyRemain
+                                                        ? strips.filter((s) => s.tasks.length > 0)
+                                                        : strips;
+
+                                                    const hasAnyTasksConfigured = strips.some((s) => s.tasksAllLen > 0);
+                                                    const showAllDone =
+                                                        onlyRemain && hasAnyTasksConfigured && visibleStrips.length === 0;
+
+                                                    return (
+                                                        <div className="mt-2 flex flex-col gap-4">
+                                                            {showAllDone ? (
+                                                                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-10 text-center">
+                                                                    <div className="mx-auto mb-2 grid h-9 w-9 place-items-center rounded-full bg-emerald-500/10 text-emerald-400">
+                                                                        <Check className="h-5 w-5" />
+                                                                    </div>
+                                                                    <div className="text-sm font-semibold text-gray-200">
+                                                                        모든 숙제를 완료했어요
+                                                                    </div>
+
+                                                                </div>
+                                                            ) : (
+                                                                visibleStrips.map(({ c, tasks }) => (
+                                                                    <CharacterTaskStrip
+                                                                        key={c.name}
+                                                                        character={c}
+                                                                        tasks={tasks}
+                                                                        onEdit={() => openEditModal(m, c)}
+                                                                        onReorder={(char, newOrderIds) =>
+                                                                            handleMemberReorder(m.userId, char.name, newOrderIds)
+                                                                        }
+                                                                    />
+                                                                ))
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
+
                                             </div>
                                         );
                                     })}
@@ -2155,9 +2224,9 @@ export default function PartyDetailPage() {
                                                 <div
                                                     key={m.userId}
                                                     className="
-                            grid grid-cols-1 gap-4 sm:gap-1
-                            rounded-lg border border-white/10
-                            px-3 sm:px-4 py-3 sm:py-4"
+                                        grid grid-cols-1 gap-4 sm:gap-1
+                                        rounded-lg border border-white/10
+                                        px-3 sm:px-4 py-3 sm:py-4"
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         <MemberAvatar
@@ -2545,7 +2614,7 @@ function PartyMemberActions({
                 className="
           relative group
           flex items-center justify-center
-          py-2 px-6 rounded-lg
+          py-2 px-6 rounded-md
           bg-white/[.04] border border-white/10
           hover:bg-white/5 hover:border-white/20
           text-xs sm:text-sm font-medium text-white
@@ -2609,7 +2678,7 @@ function PartyMemberActions({
             {/* 관문 전체 초기화 */}
             <button
                 onClick={onGateAllClear}
-                className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 hover:bg.white/5 text-xs sm:text-sm"
+                className="hover:bg-white/5 hover:border-white/20 inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 hover:bg.white/5 text-xs sm:text-sm"
             >
                 <span>관문 초기화</span>
             </button>
@@ -2617,7 +2686,7 @@ function PartyMemberActions({
             {/* 캐릭터 설정 모달 열기 */}
             <button
                 onClick={onOpenCharSetting}
-                className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium"
+                className="hover:bg-white/5 hover:border-white/20 inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium"
             >
                 캐릭터 설정
             </button>
@@ -2625,7 +2694,6 @@ function PartyMemberActions({
     );
 }
 
-/* ── 아바타 컴포넌트 ── */
 function MemberAvatar({
     member,
     className,

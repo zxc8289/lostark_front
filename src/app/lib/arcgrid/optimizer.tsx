@@ -1,5 +1,13 @@
 // optimizer.tsx
-import { CORE_WILL_BY_GRADE, DEALER_WEIGHT_BY_LV, Role, ROLE_KEYS, STAT_ALIAS, SUPPORT_WEIGHT_BY_LV } from "./constants";
+import {
+  CORE_WILL_BY_GRADE,
+  DEALER_WEIGHT_BY_LV,
+  ROLE_KEYS,
+  STAT_ALIAS,
+  SUPPORT_WEIGHT_BY_LV,
+} from "./constants";
+import type { Role } from "./constants";
+
 import type { CoreDef, Gem, OptimizeItem, Params, PlanPack } from "./types";
 
 
@@ -111,7 +119,7 @@ function enumerateCandidatesForCorePoints(
     .filter((g) => g.family === core.family)
     .map((g) => {
       const need = effectiveWillRequired(g, params);
-      const pts  = gemCorePoints(g);
+      const pts = gemCorePoints(g);
       return { g, need, pts };
     })
     .filter((x) => x.pts > 0 && x.need >= 1 && x.need <= avail);
@@ -163,7 +171,7 @@ function enumerateCandidatesForCorePoints(
   // 3) 전개(아이템 1개씩, 역순 k, w)
   for (let i = 0; i < raw.length; i++) {
     const need = raw[i].need;
-    const pts  = raw[i].pts;
+    const pts = raw[i].pts;
     if (need > W) continue;
 
     for (let k = K - 1; k >= 0; k--) {
@@ -251,9 +259,9 @@ function enumerateCandidatesForCorePoints(
         };
 
         const p = res.pts;
-        if (p >= minPts && p <= maxPts)       offer(inRange,  opt, cap);
-        else if (p <= maxPts)                 offer(underMax, opt, cap);
-        else                                  offer(any,      opt, cap);
+        if (p >= minPts && p <= maxPts) offer(inRange, opt, cap);
+        else if (p <= maxPts) offer(underMax, opt, cap);
+        else offer(any, opt, cap);
       }
     }
   }
@@ -329,7 +337,7 @@ function optimizeFamilyMaxPoints(
     // 포인트 상계
     let ub = sumPts;
     for (let i = idx; i < order.length; i++) ub += maxByCore.get(order[i].key) || 0;
-    if (ub < bestPts) return; 
+    if (ub < bestPts) return;
 
     const core = order[idx];
     const list = candMap.get(core.key) || [];
@@ -345,7 +353,7 @@ function optimizeFamilyMaxPoints(
 
       const pts = it.res?.pts ?? 0;
       const rem = it.res?.remain ?? 0;
-      const st  = statOf(it);
+      const st = statOf(it);
 
       dfs(idx + 1, nextUsed, nextCur, sumPts + pts, sumStat + st, sumRemain + rem);
     }
@@ -427,13 +435,14 @@ export function optimizeAllByPermutations(
   const orderCores = cores.filter((c) => c.family === "order");
   const chaosCores = cores.filter((c) => c.family === "chaos");
 
-  const role: Role = (params.role as Role) ?? "dealer";        // ✅ 역할
-  const invMap = new Map<string, Gem>();                        // ✅ invMap
+  const role: Role = (params.role as Role) ?? "dealer";
+  const invMap = new Map<string, Gem>();
   for (const g of inventory.order || []) invMap.set(g.id, g);
   for (const g of inventory.chaos || []) invMap.set(g.id, g);
 
-  const orderPack = optimizeFamilyMaxPoints(orderCores, params, inventory.order || [], constraints, 1000, role, invMap);
-  const chaosPack = optimizeFamilyMaxPoints(chaosCores, params, inventory.chaos || [], constraints, 1000, role, invMap);
+  const orderPack = optimizeFamilyMaxPoints(orderCores, params, inventory.order || [], constraints, 700, role, invMap);
+  const chaosPack = optimizeFamilyMaxPoints(chaosCores, params, inventory.chaos || [], constraints, 700, role, invMap);
+
 
   const answer: Record<string, OptimizeItem> = {};
   for (const c of orderCores) answer[c.key] = orderPack.answer[c.key] || emptyCandidateForCore(c, params);
@@ -554,7 +563,6 @@ export type ScoredPlan = {
   sumRemain: number;
 };
 
-// ---------- [추가] 스탯 기준 상위 K개 나열 ----------
 // optimizer.tsx (기존 함수 대체)
 export function enumerateTopPlansByStats(
   cores: CoreDef[],
@@ -562,7 +570,7 @@ export function enumerateTopPlansByStats(
   inventory: { order: Gem[]; chaos: Gem[] },
   constraints: Record<string, { minPts: number; maxPts: number }>,
   role: "dealer" | "supporter",
-  topK = 10,
+  topK = 3,
   onlyAtTotalPts: number | null = null,   // 총 포인트 '정확히' 고정
   capPerCore = 2000                        // 👈 추가: 후보 cap 주입
 ): ScoredPlan[] {
@@ -580,7 +588,6 @@ export function enumerateTopPlansByStats(
 
   for (const c of enabled) {
     const cons = constraints[c.key] || { minPts: 0, maxPts: 999 };
-    // 🔽 capPerCore 반영
     const raw = enumerateCandidatesForCorePoints(
       c, params, (inventory as any)[c.family] || [], cons.minPts, cons.maxPts, capPerCore
     );
@@ -764,7 +771,7 @@ export function enumerateTopPlansAtBestPoints(
   inventory: { order: Gem[]; chaos: Gem[] },
   constraints: Record<string, { minPts: number; maxPts: number }>,
   role: "dealer" | "supporter",
-  topK = 10,
+  topK = 3,
   capPerCore = 2000
 ) {
   const bestPts = bestTotalPoints(cores, params, inventory, constraints);
@@ -777,8 +784,8 @@ export function enumerateTopPlansAtBestPoints(
 // 정확 포인트 분포로 코어별 min=max 고정
 export function exactPointConstraints(
   pointsByKey: Record<string, number>
-): Record<string, {minPts:number; maxPts:number}> {
-  const out: Record<string, {minPts:number; maxPts:number}> = {};
+): Record<string, { minPts: number; maxPts: number }> {
+  const out: Record<string, { minPts: number; maxPts: number }> = {};
   for (const k of Object.keys(pointsByKey)) {
     const v = pointsByKey[k];
     out[k] = { minPts: v, maxPts: v };
@@ -793,11 +800,11 @@ export function enumerateTopPlansAtExactPoints(
   inventory: { order: Gem[]; chaos: Gem[] },
   pointsByKey: Record<string, number>,   // 예: { order_sun:17, order_moon:17, order_star:14 }
   role: "dealer" | "supporter",
-  topK = 10,
+  topK = 3,
   capPerCore = 2000
 ) {
   const cons = exactPointConstraints(pointsByKey);
-  const totalPts = Object.values(pointsByKey).reduce((a,b)=>a+b,0);
+  const totalPts = Object.values(pointsByKey).reduce((a, b) => a + b, 0);
   return enumerateTopPlansByStats(
     cores, params, inventory, cons, role,
     topK, /*onlyAtTotalPts*/ totalPts, capPerCore
@@ -815,4 +822,6 @@ export type ProgressInfo = {
 
 // 렌더 양보용
 const microYield = () => new Promise((r) => setTimeout(r, 0));
+
+
 

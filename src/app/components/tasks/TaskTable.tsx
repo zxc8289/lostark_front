@@ -5,6 +5,7 @@ import { raidInformation } from "@/server/data/raids";
 import { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
 import { RosterCharacter } from "../AddAccount";
 import { ChevronLeft, ChevronRight, SquarePen } from "lucide-react";
+import { getRaidColumnSortKeyForRoster } from "@/app/lib/tasks/raid-utils";
 
 type Props = {
     roster: RosterCharacter[];
@@ -22,7 +23,6 @@ type Props = {
 const GATE_BTN_BASE =
     "w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border transition-all duration-150";
 
-
 const DIFF_STYLES = {
     하드: {
         check: "bg-[#FF5252] text-white border-[#FF5252] shadow-[0_0_12px_rgba(255,82,82,0.55)]",
@@ -34,24 +34,17 @@ const DIFF_STYLES = {
         idle: "bg-[#5B69FF]/8 text-[#C0C6FF]/85 border-[#5B69FF]/40",
         hover: "hover:bg-[#5B69FF] hover:text-white",
     },
+    나메: {
+        check: "bg-[#6D28D9] text-white border-[#6D28D9] shadow-[0_0_12px_rgba(109,40,217,0.55)]",
+        idle: "bg-[#6D28D9]/8 text-[#D6BCFA]/85 border-[#6D28D9]/75",
+        hover: "hover:bg-[#6D28D9] hover:text-white",
+    },
+
 } as const;
 
 const DESKTOP_MAX_VISIBLE = 5;
 const MOBILE_MAX_VISIBLE = 2;
-const SLIDE_PX = 32;
-const CHAR_COL_WIDTH = "w-[120px] sm:w-[170px]"
-
-function getRaidBaseLevel(raidId: string): number {
-    const info = raidInformation[raidId];
-    if (!info) return Number.MAX_SAFE_INTEGER;
-
-    const levels = Object.values(info.difficulty).map(
-        (d) => d?.level ?? Number.MAX_SAFE_INTEGER
-    );
-    if (!levels.length) return Number.MAX_SAFE_INTEGER;
-
-    return Math.min(...levels);
-}
+const CHAR_COL_WIDTH = "w-[120px] sm:w-[170px]";
 
 function formatHeaderTitle(kind: string, name: string) {
     if (!name) return "";
@@ -69,6 +62,7 @@ export default function TaskTable({
     onEdit,
 }: Props) {
     const [maxVisible, setMaxVisible] = useState(DESKTOP_MAX_VISIBLE);
+
     const sortedRoster = useMemo(
         () => [...roster].sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)),
         [roster]
@@ -88,7 +82,20 @@ export default function TaskTable({
             orderedRaidNames.forEach((raidName) => raidSet.add(raidName));
         });
 
-        return Array.from(raidSet).sort((a, b) => getRaidBaseLevel(a) - getRaidBaseLevel(b));
+        const collator = new Intl.Collator("ko");
+
+        // ✅ (왼쪽 낮음 → 오른쪽 높음) 유지
+        // ✅ base(min) 대신 "선택된 난이도 level(그리고 동률이면 gold)"로 정렬
+        return Array.from(raidSet).sort((a, b) => {
+            const ka = getRaidColumnSortKeyForRoster(a, sortedRoster, prefsByChar);
+            const kb = getRaidColumnSortKeyForRoster(b, sortedRoster, prefsByChar);
+
+            if (ka.level !== kb.level) return ka.level - kb.level;
+            if (ka.gold !== kb.gold) return ka.gold - kb.gold;
+
+            // 마지막 고정 타이브레이커(삽입순서 영향 제거)
+            return collator.compare(a, b);
+        });
     }, [sortedRoster, prefsByChar]);
 
     const [startIndex, setStartIndex] = useState(0);
@@ -219,9 +226,7 @@ export default function TaskTable({
 
                                 {visibleRaidColumns.map((raidId) => {
                                     const info = raidInformation[raidId];
-                                    const displayName = info
-                                        ? formatHeaderTitle(info.kind, raidId)
-                                        : raidId;
+                                    const displayName = info ? formatHeaderTitle(info.kind, raidId) : raidId;
 
                                     return (
                                         <th
@@ -243,7 +248,6 @@ export default function TaskTable({
                                         "
                                     >
                                         <span>레이드</span>
-
                                     </th>
                                 )}
                             </tr>
@@ -274,8 +278,8 @@ export default function TaskTable({
                                                 <div className="flex items-center gap-1.5 mb-0.5">
                                                     <span
                                                         className="
-                                                                block                   
-                                                                max-w-[80px] sm:max-w-[110px] 
+                                                                block
+                                                                max-w-[80px] sm:max-w-[110px]
                                                                 truncate
                                                                 text-white font-medium text-[10px] sm:text-sm
                                                             "
@@ -378,7 +382,6 @@ export default function TaskTable({
                                                                         ) : (
                                                                             g
                                                                         )}
-
                                                                     </button>
                                                                 );
                                                             })}

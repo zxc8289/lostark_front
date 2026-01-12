@@ -21,7 +21,7 @@ import {
 } from "../lib/tasks/raid-utils";
 import AnimatedNumber from "../components/tasks/AnimatedNumber";
 import EmptyCharacterState from "../components/tasks/EmptyCharacterState";
-import { Check, ChevronDown, ChevronUp, Plus, UserCircle2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Plus, UserCircle2, UsersRound } from "lucide-react";
 
 type SavedFilters = {
   onlyRemain?: boolean;
@@ -910,6 +910,7 @@ export default function MyTasksPage() {
       <div className="mx-auto max-w-7xl space-y-5">
         {/* 상단 헤더 + 계정 탭 */}
         <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-1 sm:py-2">
+
           <div className="flex flex-col gap-1 flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight truncate break-keep">
               내 숙제
@@ -1174,11 +1175,11 @@ export default function MyTasksPage() {
             <div className="bg-[#16181D] rounded-md px-4 sm:px-5 py-3 sm:py-4">
               <div
                 className="
-        flex flex-wrap
-        gap-3 sm:gap-4
-        sm:flex-row sm:items-center sm:justify-between
-        max-[1246px]:flex-col max-[1246px]:items-start max-[1246px]:justify-start
-      "
+                  flex flex-wrap
+                  gap-3 sm:gap-4
+                  sm:flex-row sm:items-center sm:justify-between
+                  max-[1246px]:flex-col max-[1246px]:items-start max-[1246px]:justify-start
+                "
               >
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 text-sm sm:text-base">
                   <div className="flex items-baseline gap-1.5">
@@ -1383,23 +1384,51 @@ export default function MyTasksPage() {
 
             {/* 초기 부팅/로딩 중 + 아직 roster 없음 */}
             {showInitialLoading && (
-              <div className="w-full py-16 sm:py-24 flex flex-col items-center justify-center animate-in fade-in duration-300">
-                <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-5 sm:mb-6">
-                  <div className="absolute inset-0 border-4 border-[#5B69FF]/20 rounded-full" />
-                  <div className="absolute inset-0 border-4 border-[#5B69FF] rounded-full border-t-transparent animate-spin" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs sm:text-sm font-semibold text-[#5B69FF]">
-                      LOA
-                    </span>
+              <div className="w-full space-y-4 animate-in fade-in duration-300">
+                {/* 상단 요약바 자리도 스켈레톤처럼 */}
+                <div className="bg-[#16181D] rounded-md px-4 sm:px-5 py-3 sm:py-4 border border-white/5 animate-pulse">
+                  <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="h-5 w-36 rounded bg-white/5" />
+                      <div className="h-5 w-28 rounded bg-white/5" />
+                      <div className="h-5 w-32 rounded bg-white/5" />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 sm:gap-3">
+                      <div className="h-9 w-24 rounded-lg bg-white/5" />
+                      <div className="h-9 w-24 rounded-lg bg-white/5" />
+                      <div className="h-9 w-28 rounded-lg bg-white/5" />
+                    </div>
                   </div>
                 </div>
 
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-1 sm:mb-2 animate-pulse">
-                  원정대 정보를 불러오는 중입니다
-                </h3>
-                <p className="text-xs sm:text-sm text-gray-400">잠시만 기다려주세요...</p>
+                {/* 카드 영역 스켈레톤 */}
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div
+                      key={i}
+                      className="h-[180px] rounded-xl border border-white/5 bg-[#16181D] p-5 animate-pulse"
+                    >
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="h-10 w-10 rounded-full bg-white/5" />
+                        <div className="space-y-2 flex-1">
+                          <div className="h-4 w-1/2 rounded bg-white/5" />
+                          <div className="h-3 w-1/3 rounded bg-white/5" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-8 w-full rounded bg-white/5" />
+                        <div className="h-3 w-1/4 rounded bg-white/5" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 접근성 텍스트 */}
+                <span className="sr-only">원정대 정보를 불러오는 중입니다...</span>
               </div>
             )}
+
 
             {/* 실제 데이터가 있을 때: 카드 뷰 / 테이블 뷰 스위치 */}
             {tableView && hasRoster ? (

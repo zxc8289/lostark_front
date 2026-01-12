@@ -1,7 +1,7 @@
 // raidInformation.ts
 
-export type RaidKind = "군단장" | "카제로스" | "어비스" | "에픽";
-export type DifficultyKey = "노말" | "하드";
+export type RaidKind = "군단장" | "카제로스" | "어비스" | "에픽" | "그림자";
+export type DifficultyKey = "노말" | "하드" | "나메";
 
 type Gate = { index: number; name: string; gold: number };
 type Difficulty = { level: number; gold: number; gates: Gate[] };
@@ -14,7 +14,6 @@ export const raidInformation: Record<
         difficulty: Partial<Record<DifficultyKey, Difficulty>>;
     }
 > = {
-    // ─────────────────── 군단장 ───────────────────
     "발탄": {
         kind: "군단장",
         gates: 2,
@@ -352,6 +351,37 @@ export const raidInformation: Record<
                     { index: 1, name: "1관문", gold: 700 },
                     { index: 2, name: "2관문", gold: 1000 },
                     { index: 3, name: "3관문", gold: 1900 },
+                ],
+            },
+        },
+    },
+
+    "세르카": {
+        kind: "그림자",
+        gates: 2,
+        difficulty: {
+            "노말": {
+                level: 1710,
+                gold: 35000,
+                gates: [
+                    { index: 1, name: "1관문", gold: 14000 },
+                    { index: 2, name: "2관문", gold: 21000 },
+                ],
+            },
+            "하드": {
+                level: 1730,
+                gold: 44000,
+                gates: [
+                    { index: 1, name: "1관문", gold: 17500 },
+                    { index: 2, name: "2관문", gold: 26500 },
+                ],
+            },
+            "나메": {
+                level: 1740,
+                gold: 54000,
+                gates: [
+                    { index: 1, name: "1관문", gold: 21000 },
+                    { index: 2, name: "2관문", gold: 33000 },
                 ],
             },
         },

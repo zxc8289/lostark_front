@@ -22,7 +22,7 @@ wss.on("connection", (ws, req) => {
     console.log("[WS] client connected to party", roomKey);
 
     ws.on("message", (data) => {
-        console.log("[WS] raw message:", data.toString());
+        // console.log("[WS] raw message:", data.toString());
         let msg;
         try {
             msg = JSON.parse(data.toString());
@@ -71,7 +71,7 @@ function handleGateUpdate(roomKey, msg) {
         roomKey,
         partyId,
         userId,
-    }); // ✅ 추가
+    });
 
     const payload = JSON.stringify({
         type: "memberUpdated",

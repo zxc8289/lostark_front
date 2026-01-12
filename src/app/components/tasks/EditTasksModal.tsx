@@ -19,21 +19,23 @@ function makeDefaultPref(
     info: (typeof raidInformation)[string],
     ilvl: number
 ): { enabled: boolean; difficulty: DifficultyKey; gates: number[] } {
+    const nightmare = info.difficulty["나메"];
     const hard = info.difficulty["하드"];
     const normal = info.difficulty["노말"];
 
+    const nightmareOk = !!(nightmare && ilvl >= nightmare.level);
     const hardOk = !!(hard && ilvl >= hard.level);
     const normalOk = !!(normal && ilvl >= normal.level);
 
-    const picked: DifficultyKey = hardOk ? "하드" : "노말";
-    const pickedInfo = info.difficulty[picked];
+    const picked: DifficultyKey = nightmareOk ? "나메" : hardOk ? "하드" : "노말";
 
-    const enabled = false;  // 항상 비활성으로 시작
+    const enabled = false;     // 항상 비활성으로 시작
     const gates: number[] = []; // 기본은 관문도 안 켜기
-
-
     return { enabled, difficulty: picked, gates };
 }
+
+
+
 
 export default function EditTasksModal({ open, onClose, character, initial, onSave }: Props) {
     const ilvl = character.itemLevelNum ?? 0;
@@ -84,24 +86,23 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                 }[] = [];
 
                 for (const [raidName, info] of raidEntries) {
+                    const nightmare = info.difficulty["나메"];
                     const hard = info.difficulty["하드"];
                     const normal = info.difficulty["노말"];
 
                     let pickedDiff: DifficultyKey | null = null;
                     let levelReq = 0;
 
-                    // 🔹 하드 가능하면 하드만 후보 (노말은 아예 고려 안 함)
-                    if (hard && ilvl >= hard.level) {
+                    if (nightmare && ilvl >= nightmare.level) {
+                        pickedDiff = "나메";
+                        levelReq = nightmare.level;
+                    } else if (hard && ilvl >= hard.level) {
                         pickedDiff = "하드";
                         levelReq = hard.level;
-                    }
-                    // 🔹 하드는 못 가고, 노말은 가능하면 노말 후보
-                    else if (normal && ilvl >= normal.level) {
+                    } else if (normal && ilvl >= normal.level) {
                         pickedDiff = "노말";
                         levelReq = normal.level;
-                    }
-                    // 🔹 둘 다 못 가면 스킵
-                    else {
+                    } else {
                         continue;
                     }
 
@@ -202,7 +203,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                     </div>
 
 
-                    {(["군단장", "카제로스", "어비스", "에픽"] as const).map((kind) => {
+                    {(["군단장", "카제로스", "어비스", "에픽", "그림자"] as const).map((kind) => {
                         const entries = Object.entries(raidInformation).filter(
                             ([, v]) => v.kind === kind
                         );
@@ -221,10 +222,25 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                     {entries.map(([raidName, info]) => {
                                         const pref = state.raids[raidName] ?? makeDefaultPref(info, ilvl);
+                                        const nightmare = info.difficulty["나메"];
                                         const hard = info.difficulty["하드"];
                                         const normal = info.difficulty["노말"];
+
+                                        const nightmareOk = !!(nightmare && ilvl >= nightmare.level);
                                         const hardOk = !!(hard && ilvl >= hard.level);
-                                        const normalOk = !!(normal && ilvl >= normal.level);
+                                        const normalOk = !!(normal && ilvl >= normal.level)
+
+                                        const curInfo =
+                                            pref.difficulty === "나메" ? nightmare :
+                                                pref.difficulty === "하드" ? hard :
+                                                    normal;
+
+                                        const curText =
+                                            pref.difficulty === "나메"
+                                                ? (nightmare ? `나메 ${nightmare.level}` : "나메")
+                                                : pref.difficulty === "하드"
+                                                    ? (hard ? `하드 ${hard.level}` : "하드")
+                                                    : (normal ? `노말 ${normal.level}` : "노말");
 
                                         return (
                                             <div
@@ -252,13 +268,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                                 {raidName}
                                                             </div>
                                                             <div className="text-xs text-gray-500">
-                                                                {pref.difficulty === "하드"
-                                                                    ? hard
-                                                                        ? `하드 ${hard.level}`
-                                                                        : "하드"
-                                                                    : normal
-                                                                        ? `노말 ${normal.level}`
-                                                                        : "노말"}
+                                                                {curText}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -295,47 +305,48 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                 </div>
 
                                                 {/* 난이도 선택 (Segmented Control) */}
-                                                <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-2 gap-1 ">
+                                                <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-3 gap-1">
                                                     {[
                                                         { key: "노말", info: normal, ok: normalOk },
                                                         { key: "하드", info: hard, ok: hardOk },
+                                                        { key: "나메", info: nightmare, ok: nightmareOk },
                                                     ].map(({ key, info: dInfo, ok }) => (
                                                         <button
                                                             key={key}
                                                             disabled={!ok || !pref.enabled}
                                                             onClick={() =>
-                                                                setState((s) => ({
-                                                                    raids: {
-                                                                        ...s.raids,
-                                                                        [raidName]: {
-                                                                            ...pref,
-                                                                            difficulty: key as DifficultyKey,
-                                                                            gates: (dInfo?.gates ?? []).map((g) => g.index),
+                                                                setState((s) => {
+                                                                    const prev = s.raids[raidName] ?? makeDefaultPref(info, ilvl);
+                                                                    return {
+                                                                        raids: {
+                                                                            ...s.raids,
+                                                                            [raidName]: {
+                                                                                ...prev,
+                                                                                difficulty: key as DifficultyKey,
+                                                                                // ✅ 난이도 변경은 "클리어"가 아니라 "설정"이므로 gates는 비움
+                                                                                gates: [],
+                                                                            },
                                                                         },
-                                                                    },
-                                                                }))
+                                                                    };
+                                                                })
                                                             }
+
+
                                                             className={`
-                                                                relative flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-all
-                                                                ${pref.difficulty === key
+                                                                    relative flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-all
+                                                                    ${pref.difficulty === key
                                                                     ? "bg-[#2A2E39] text-white shadow-sm border border-white/10"
                                                                     : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
                                                                 }
-                                                                ${!ok && "opacity-40 cursor-not-allowed"}
-                                                            `}
+                                                                    ${!ok && "opacity-40 cursor-not-allowed"}
+                                                                `}
                                                         >
                                                             {!ok && <Lock size={10} />}
                                                             {key}
-                                                            {dInfo && (
-                                                                <span className="opacity-60 text-[10px]">
-                                                                    {dInfo.level}
-                                                                </span>
-                                                            )}
+                                                            {dInfo && <span className="opacity-60 text-[10px]">{dInfo.level}</span>}
                                                         </button>
                                                     ))}
                                                 </div>
-
-
                                             </div>
                                         );
                                     })}

@@ -7,7 +7,7 @@ import type { RosterCharacter } from "@/app/components/AddAccount";
  * 공통 유틸: 레벨 / 관문 / 요약
  * ───────────────────────────── */
 
-/** 레이드 기본 입장 레벨(노말/하드 중 최소 레벨) */
+/** 레이드 기본 입장 레벨(노말/하드/나메 중 최소 레벨) */
 export function getRaidBaseLevel(raidId: string): number {
     const info = raidInformation[raidId];
     if (!info) return Number.MAX_SAFE_INTEGER;
@@ -18,6 +18,65 @@ export function getRaidBaseLevel(raidId: string): number {
     if (!levels.length) return Number.MAX_SAFE_INTEGER;
 
     return Math.min(...levels);
+}
+
+/**
+ * ✅ 표/카드 공통으로 “레이드 컬럼 정렬”에 쓰기 좋은 키
+ * - roster 내에서 해당 raidId가 enabled인 캐릭들의 선택 난이도(level) 중 최대값을 사용
+ * - 동률이면 gold(난이도 gold)로 다시 비교 (세르카 하드 1730/44000 vs 종막 하드 1730/52000 같은 케이스 안정화)
+ * - 아무도 enabled 아니면 base(level)로 fallback
+ */
+export type RaidColumnSortKey = {
+    level: number;
+    gold: number;
+};
+
+function getDifficultyTotalGold(raidId: string, diff: DifficultyKey): number {
+    const info = raidInformation[raidId];
+    const d = info?.difficulty?.[diff];
+    if (!d) return 0;
+
+    // gold 필드가 있으면 그걸 쓰고, 없으면 gates 합으로 계산
+    if (typeof d.gold === "number") return d.gold;
+    return (d.gates ?? []).reduce((sum, g) => sum + (g.gold ?? 0), 0);
+}
+
+export function getRaidColumnSortKeyForRoster(
+    raidId: string,
+    roster: RosterCharacter[],
+    prefsByChar: Record<string, CharacterTaskPrefs>
+): RaidColumnSortKey {
+    const info = raidInformation[raidId];
+    if (!info) return { level: Number.MAX_SAFE_INTEGER, gold: 0 };
+
+    let bestLevel = -1;
+    let bestGold = 0;
+
+    for (const c of roster) {
+        const p = prefsByChar[c.name]?.raids?.[raidId];
+        if (!p?.enabled) continue;
+
+        const diffInfo = info.difficulty?.[p.difficulty];
+        const lv = diffInfo?.level;
+
+        if (typeof lv !== "number") continue;
+
+        const gold = getDifficultyTotalGold(raidId, p.difficulty);
+
+        if (lv > bestLevel) {
+            bestLevel = lv;
+            bestGold = gold;
+        } else if (lv === bestLevel && gold > bestGold) {
+            bestGold = gold;
+        }
+    }
+
+    if (bestLevel >= 0) {
+        return { level: bestLevel, gold: bestGold };
+    }
+
+    // enabled가 하나도 없는 경우(이론상 드물지만 방어)
+    return { level: getRaidBaseLevel(raidId), gold: 0 };
 }
 
 /** 관문 토글 규칙 (my-tasks / party 공통)
@@ -175,13 +234,17 @@ export function autoSelectTop3Raids(
     }[] = [];
 
     for (const [raidName, info] of raidEntries) {
+        const nightmare = info.difficulty["나메"];
         const hard = info.difficulty["하드"];
         const normal = info.difficulty["노말"];
 
         let pickedDiff: DifficultyKey | null = null;
         let levelReq = 0;
 
-        if (hard && ilvl >= hard.level) {
+        if (nightmare && ilvl >= nightmare.level) {
+            pickedDiff = "나메";
+            levelReq = nightmare.level;
+        } else if (hard && ilvl >= hard.level) {
             pickedDiff = "하드";
             levelReq = hard.level;
         } else if (normal && ilvl >= normal.level) {
