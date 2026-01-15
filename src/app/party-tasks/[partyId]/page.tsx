@@ -285,7 +285,7 @@ export default function PartyDetailPage() {
 
     const [charSettingOpen, setCharSettingOpen] = useState(false);
     const [charSettingTarget, setCharSettingTarget] =
-        useState<{ memberUserId: string; roster: RosterCharacter[] } | null>(null);
+        useState<{ memberUserId: string } | null>(null);
 
     // 파티 코드 모달 상태
     const [inviteOpen, setInviteOpen] = useState(false);
@@ -587,17 +587,11 @@ export default function PartyDetailPage() {
     };
 
     // 두 번째 인자는 옵션으로 변경 (카드뷰에서는 baseSummary, 테이블에서는 member.summary 사용)
-    const openMemberCharSetting = (
-        member: PartyMemberTasks,
-        baseSummary?: CharacterSummary | null
-    ) => {
-        const roster = baseSummary?.roster ?? member.summary?.roster ?? [];
-        setCharSettingTarget({
-            memberUserId: member.userId,
-            roster,
-        });
+    const openMemberCharSetting = (member: PartyMemberTasks) => {
+        setCharSettingTarget({ memberUserId: member.userId });
         setCharSettingOpen(true);
     };
+
 
     async function fetchInvite() {
         if (!party) return;
@@ -907,6 +901,39 @@ export default function PartyDetailPage() {
         // 이미 위에서 정의된 handleCharacterSearch 재사용
         await handleCharacterSearch(currentAccount.nickname);
     };
+
+
+    /** 다른 파티원의 계정(현재 active nickname) 정보 새로고침 */
+    const handleMemberRefreshAccount = async (memberUserId: string) => {
+        if (!partyTasks) {
+            await reloadPartyTasks(true);
+            return;
+        }
+
+        const target = partyTasks.find((m) => m.userId === memberUserId);
+        const nickname = (target?.nickname ?? "").trim();
+        if (!nickname) return;
+
+        const r = await fetch(
+            `/api/lostark/character/${encodeURIComponent(nickname)}`,
+            { cache: "no-store" }
+        );
+
+        if (!r.ok) {
+            throw new Error("캐릭터 정보를 불러오지 못했습니다.");
+        }
+
+        const json = (await r.json()) as CharacterSummary;
+
+        // ✅ 해당 멤버의 summary만 교체 (prefs/visible 유지)
+        setPartyTasks((prev) => {
+            if (!prev) return prev;
+            return prev.map((m) =>
+                m.userId === memberUserId ? { ...m, summary: json } : m
+            );
+        });
+    };
+
 
     const handleSaveEdit = (nextPrefs: CharacterTaskPrefs) => {
         if (!party || !editTarget || !partyTasks) return;
@@ -2116,7 +2143,7 @@ export default function PartyDetailPage() {
                                                             handleMemberGateAllClear(m.userId)
                                                         }
                                                         onOpenCharSetting={() =>
-                                                            openMemberCharSetting(m, baseSummary)
+                                                            openMemberCharSetting(m)
                                                         }
                                                     />
                                                 </PartyMemberSummaryBar>
@@ -2279,7 +2306,7 @@ export default function PartyDetailPage() {
                                                             handleMemberGateAllClear(m.userId)
                                                         }
                                                         onOpenCharSetting={() =>
-                                                            openMemberCharSetting(m, baseSummary)
+                                                            openMemberCharSetting(m)
                                                         }
                                                     />
                                                 </PartyMemberSummaryBar>
@@ -2333,35 +2360,50 @@ export default function PartyDetailPage() {
                             />
                         )}
 
-                        {charSettingOpen && charSettingTarget && (
-                            <CharacterSettingModal
-                                open
-                                onClose={() => setCharSettingOpen(false)}
-                                roster={charSettingTarget.roster}
-                                visibleByChar={
-                                    partyTasks?.find(
-                                        (m) => m.userId === charSettingTarget.memberUserId
-                                    )?.visibleByChar ?? {}
-                                }
-                                onChangeVisible={(next) => {
-                                    handleMemberChangeVisible(
-                                        charSettingTarget.memberUserId,
-                                        next
-                                    );
-                                }}
-                                // 🔹 내 줄일 때만 계정 삭제/새로고침 동작
-                                onDeleteAccount={
-                                    myUserId && charSettingTarget.memberUserId === myUserId
-                                        ? handleMyDeleteAccount
-                                        : undefined
-                                }
-                                onRefreshAccount={
-                                    myUserId && charSettingTarget.memberUserId === myUserId
-                                        ? handleMyRefreshAccount
-                                        : undefined
-                                }
-                            />
-                        )}
+                        {charSettingOpen && charSettingTarget && (() => {
+                            const targetMember = partyTasks?.find(
+                                (m) => m.userId === charSettingTarget.memberUserId
+                            );
+
+                            const isMeTarget =
+                                !!myUserId && charSettingTarget.memberUserId === myUserId;
+
+                            // ✅ 내 줄이면: currentAccount.summary (최신) 우선
+                            const baseSummary =
+                                (isMeTarget ? (currentAccount?.summary ?? null) : null) ??
+                                targetMember?.summary ??
+                                null;
+
+                            const roster = baseSummary?.roster ?? [];
+
+                            // ✅ roster에 없는 애들 토글 문제 방지: 없는 키는 true로 보이게 보정
+                            const rawVisible = targetMember?.visibleByChar ?? {};
+                            const modalVisibleByChar: Record<string, boolean> = {};
+                            for (const c of roster) {
+                                modalVisibleByChar[c.name] = rawVisible[c.name] ?? true;
+                            }
+
+                            return (
+                                <CharacterSettingModal
+                                    open
+                                    onClose={() => setCharSettingOpen(false)}
+                                    roster={roster}
+                                    visibleByChar={modalVisibleByChar}
+                                    onChangeVisible={(next) => {
+                                        handleMemberChangeVisible(charSettingTarget.memberUserId, next);
+                                    }}
+                                    onDeleteAccount={
+                                        isMeTarget ? handleMyDeleteAccount : undefined
+                                    }
+                                    onRefreshAccount={
+                                        isMeTarget
+                                            ? handleMyRefreshAccount
+                                            : () => handleMemberRefreshAccount(charSettingTarget.memberUserId)
+                                    }
+                                />
+                            );
+                        })()}
+
                     </div>
                 </div>
             </div>

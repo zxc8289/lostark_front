@@ -4,7 +4,7 @@ export default function ActionBar({ coreCount, invCount, onRun }: { coreCount: n
             <div className="text-sm ">선택 코어 <b className="ml-1 ">{coreCount}</b></div>
             <div className="text-sm ">보유 젬 <b className="ml-1 ">{invCount}</b></div>
             <div className="grow" />
-            <button className="px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold" onClick={onRun}>최적화</button>
+            <button className="px-4 py-2 rounded-xl bg-[#5B69FF] text-white hover:bg-[#4A57E6] hover:shadow-lg hover:shadow-[#5B69FF]/25 hover:-translate-y-0.5 transition-all duration-200 text-sm font-semibold gap-2" onClick={onRun}>최적화</button>
         </footer>
     )
 } 

@@ -604,7 +604,7 @@ export default function ArcGridPage() {
             </button>
             <button
               onClick={runStatsAny}
-              className="px-3 py-1.5 rounded-lg bg-[#5B69FF]/20 border border-[#5B69FF]/30 text-[#5B69FF] text-xs font-bold hover:bg-[#5B69FF]/30 transition-all"
+              className="px-3 py-1.5 rounded-lg bg-[#2d333b] border border-[#444c56] text-white text-xs hover:bg-[#383f47] transition-all"
             >
               {state.params.role === "supporter" ? "서포터 스탯 우선" : "딜러 스탯 우선"}
             </button>
@@ -749,12 +749,14 @@ export default function ArcGridPage() {
         />
       )}
 
-      {/* Toast */}
       {toast && (
-        <div className="fixed bottom-24 right-6 z-[100] animate-in fade-in slide-in-from-bottom-2">
-          <div className="px-4 py-2 rounded-xl bg-[#5B69FF] text-white text-sm font-bold shadow-2xl">{toast}</div>
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-2">
+          <div className="px-4 py-2 rounded-xl bg-[#5B69FF] text-white text-sm font-bold shadow-2xl">
+            {toast}
+          </div>
         </div>
       )}
+
 
       {busy && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center">

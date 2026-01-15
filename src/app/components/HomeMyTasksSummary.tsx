@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Coins, CalendarDays, CheckCircle2, ExternalLink, UserCheck, Check, ChevronDown } from "lucide-react";
+import { Coins, CalendarDays, CheckCircle2, ExternalLink, UserCheck, Check, ChevronDown, ChevronUp } from "lucide-react";
 
 import type { CharacterSummary } from "./AddAccount";
 import type { CharacterTaskPrefs } from "../lib/tasks/raid-prefs";
@@ -412,110 +412,137 @@ export function HomeMyTasksHeader() {
     const canSwitch = (accounts?.length ?? 0) > 1;
 
     return (
-        <div className="space-y-4">
-            {/* 상단: 현재 계정 + Weekly */}
-            <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                    <div className="text-[11px] text-gray-500">현재 계정</div>
-
-                    {!canSwitch ? (
-                        <div className="text-sm font-semibold text-gray-100 truncate">
+        <div className="space-y-5">
+            {/* [상단] 계정 선택 드롭다운 섹션 (DpsShare 스타일 적용) */}
+            <section className="relative rounded-xl bg-[#16181D] border border-white/5 shadow-xl overflow-hidden" ref={popRef}>
+                <button
+                    type="button"
+                    disabled={!canSwitch}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setAccountOpen((v) => !v);
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 transition-colors ${canSwitch ? 'hover:bg-white/5 cursor-pointer' : 'cursor-default'
+                        } ${accountOpen ? 'bg-white/5' : ''}`}
+                >
+                    <div className="flex flex-col items-start min-w-0 text-left">
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">현재 계정</span>
+                        <span className="text-sm font-bold text-white truncate w-full">
                             {activeAccount.nickname}
-                        </div>
-                    ) : (
-                        <div className="relative" ref={popRef}>
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    // ✅ summary(카드 접기/펼치기) 토글 방지
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setAccountOpen((v) => !v);
-                                }}
-                                className="inline-flex items-center gap-1.5 max-w-[240px] -mx-2 px-2 py-1 rounded-lg hover:bg-white/[0.04] transition-colors"
-                            >
-                                <span className="text-sm font-semibold text-gray-100 truncate">
-                                    {activeAccount.nickname}
-                                </span>
-                                <ChevronDown
-                                    size={14}
-                                    className={`text-gray-500 transition-transform ${accountOpen ? "rotate-180" : ""}`}
-                                />
-                            </button>
-
-                            {accountOpen && (
-                                <div
-                                    onClick={(e) => {
-                                        // ✅ summary(카드 접기/펼치기) 토글 방지
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }}
-                                    className="absolute z-20 mt-2 w-[260px] rounded-xl border border-white/10 bg-[#0f1114]/95 backdrop-blur p-1 shadow-2xl"
-                                >
-                                    {accounts.map((a) => {
-                                        const active = a.id === activeAccountId;
-                                        return (
-                                            <button
-                                                key={a.id}
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    selectAccount(a.id);
-                                                }}
-                                                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-colors
-                          ${active ? "bg-white/[0.06] text-gray-100" : "text-gray-300 hover:bg-white/[0.04] hover:text-gray-100"}`}
-                                            >
-                                                <span className="truncate">{a.nickname}</span>
-                                                {active ? <Check size={14} className="text-emerald-400" /> : null}
-                                            </button>
-                                        );
-                                    })}
-
-                                    <a
-                                        href="/my-tasks"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="mt-1 w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-[11px] font-black text-gray-400 hover:text-gray-100 hover:bg-white/[0.04]"
-                                    >
-                                        계정 관리/추가 <ExternalLink size={12} />
-                                    </a>
-                                </div>
-                            )}
+                        </span>
+                    </div>
+                    {canSwitch && (
+                        <div className="text-gray-400 ml-2">
+                            {accountOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                         </div>
                     )}
+                </button>
+
+                {/* 드롭다운 메뉴 리스트 */}
+                {accountOpen && (
+                    <div className="px-3 pb-3 pt-1 bg-[#16181D] border-t border-white/5 animate-in slide-in-from-top-2 duration-200">
+                        <div className="flex flex-col gap-1 mt-2">
+                            {accounts.map((a) => {
+                                const isActive = a.id === activeAccountId;
+                                return (
+                                    <button
+                                        key={a.id}
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            selectAccount(a.id);
+                                        }}
+                                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${isActive
+                                            ? "bg-[#5B69FF]/10 text-white shadow-[inset_0_0_12px_rgba(91,105,255,0.05)]"
+                                            : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                                            }`}
+                                    >
+                                        <div className={`flex items-center justify-center w-4 h-4 ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
+                                            <Check className="h-4 w-4" strokeWidth={3} />
+                                        </div>
+                                        <span className="text-sm font-bold">{a.nickname}</span>
+                                    </button>
+                                );
+                            })}
+
+                            {/* 계정 관리 링크 */}
+                            <div className="mt-1 pt-1 border-t border-white/5">
+                                <a
+                                    href="/my-tasks"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[11px] font-black text-gray-500 hover:bg-white/5 hover:text-gray-300 transition-all"
+                                >
+                                    <div className="w-4 flex justify-center text-gray-600">
+                                        <ExternalLink size={12} />
+                                    </div>
+                                    <span>계정 관리 및 추가</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </section>
+
+            {/* [중간] 프로그레스 바 및 Weekly 정보 */}
+            <div className="space-y-5 px-1">
+                <div className="flex items-end justify-between">
+                    <div className="space-y-0.5">
+                        <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Weekly Progress</div>
+                        <div className="text-sm font-medium text-gray-400">이번 주 진행도</div>
+                    </div>
+                    <div className="text-right">
+                        <div className="text-2xl font-black text-[#5B69FF] leading-none tracking-tighter">
+                            {progress}%
+                        </div>
+                    </div>
                 </div>
 
-                <div className="text-right">
-                    <div className="text-[10px] font-bold text-gray-500 uppercase">Weekly</div>
-                    <div className="text-lg font-black text-blue-400 leading-none">{progress}%</div>
+                <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                    <div
+                        className="h-full bg-gradient-to-r from-[#5B69FF] to-[#7C88FF] shadow-[0_0_12px_rgba(91,105,255,0.4)] transition-all duration-1000 ease-out"
+                        style={{ width: `${progress}%` }}
+                    />
                 </div>
             </div>
 
-            <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                <div
-                    className="h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] transition-all duration-700"
-                    style={{ width: `${progress}%` }}
-                />
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 남은 골드 카드 */}
+                <div className="p-4 rounded-xl border border-white/5 bg-[#16181D] shadow-lg transition-all hover:border-white/10 group">
+                    <div className="flex items-center justify-between w-full">
+                        {/* 왼쪽: 아이콘 + 제목 */}
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500">
+                                <Coins size={14} />
+                            </div>
+                            <span className="text-[11px] text-gray-500 font-bold uppercase tracking-tight">남은 골드</span>
+                        </div>
 
-            <div className="grid grid-cols-2 gap-2">
-                <div className="p-3 rounded-xl border border-white/5 bg-white/[0.02] flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 opacity-70">
-                        <Coins size={14} className="text-amber-500" />
-                        <span className="text-[11px] text-gray-400">남은 획득 골드</span>
-                    </div>
-                    <div className="text-sm font-bold text-gray-100 tabular-nums">
-                        {Number(totalRemainingGold ?? 0).toLocaleString()}G
+                        {/* 오른쪽 끝: 숫자 */}
+                        <div className="text-base font-bold text-gray-100 tabular-nums">
+                            {Number(totalRemainingGold ?? 0).toLocaleString()}
+                            <span className="ml-1 text-[10px] text-gray-500 font-medium">G</span>
+                        </div>
                     </div>
                 </div>
 
-                <div className="p-3 rounded-xl border border-white/5 bg-white/[0.02] flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 opacity-70">
-                        <CalendarDays size={14} className="text-emerald-500" />
-                        <span className="text-[11px] text-gray-400">잔여 숙제</span>
-                    </div>
-                    <div className="text-sm font-bold text-gray-100 tabular-nums">
-                        {Number(totalRemainingTasks ?? 0)}개
+                {/* 남은 숙제 카드 */}
+                <div className="p-4 rounded-xl border border-white/5 bg-[#16181D] shadow-lg transition-all hover:border-white/10 group">
+                    <div className="flex items-center justify-between w-full">
+                        {/* 왼쪽: 아이콘 + 제목 */}
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500">
+                                <CalendarDays size={14} />
+                            </div>
+                            <span className="text-[11px] text-gray-500 font-bold uppercase tracking-tight">남은 숙제</span>
+                        </div>
+
+                        {/* 오른쪽 끝: 숫자 */}
+                        <div className="text-base font-bold text-gray-100 tabular-nums">
+                            {Number(totalRemainingTasks ?? 0)}
+                            <span className="ml-1 text-[10px] text-gray-500 font-medium">개</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -556,7 +583,7 @@ export function HomeMyTasksDetails() {
                     {remainingRaids.map((r) => (
                         <div
                             key={r.raidName}
-                            className="p-3.5 -white/[0.03bg] rounded-xl border border-white/5 hover:bg-white/[0.06] transition-all"
+                            className="p-3.5 -white/[0.03bg] rounded-xl border border-white/5 transition-all"
                         >
                             <div className="flex items-center justify-between mb-2.5">
                                 <span className="text-[11px] font-bold text-gray-200 tracking-wide">
