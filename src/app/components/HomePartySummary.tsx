@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { UsersRound, ChevronRight, User, Users, Clock } from "lucide-react";
 
@@ -52,21 +52,26 @@ export default function HomePartySummaryProvider({ children }: { children: React
 
 export function HomePartyGuard({ children }: { children: React.ReactNode }) {
     const { loading, parties } = useHomeParty();
+
+    // 🔹 [수정] 로딩 상태도 꽉 채움
     if (loading) return <HomePartySkeleton />;
+
+    // 🔹 [수정] 데이터 없을 때: flex-1을 줘서 남은 공간을 모두 차지하게 함
     if (parties.length === 0) return (
-        <div className="py-10 text-center rounded-xl border border-dashed border-white/10 bg-white/[0.02]">
+        <div className="flex-1 w-full flex flex-col items-center justify-center text-center rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-6">
             <UsersRound size={32} className="mx-auto mb-2 text-gray-600" />
             <p className="text-sm font-medium text-gray-400">참여 중인 파티가 없습니다.</p>
             <Link href="/party-tasks" className="text-[11px] text-[#5B69FF] hover:underline mt-2 inline-block">파티 찾으러 가기 ›</Link>
         </div>
     );
+
     return <>{children}</>;
 }
 
 /* ───────── [상단 요약] ───────── */
 export function HomePartyHeader() {
     const { parties } = useHomeParty();
-    const head = parties.slice(0, 1); // 첫 번째 파티만 요약에 노출
+    const head = parties.slice(0, 1);
     return (
         <div className="space-y-4">
             {head.map((party) => <HomePartyRow key={party.id} party={party} />)}
@@ -78,19 +83,23 @@ export function HomePartyHeader() {
 export function HomePartyDetails() {
     const { parties } = useHomeParty();
     const rest = parties.slice(1);
+
+    // 🔹 [수정] 추가 파티 없을 때도 꽉 채움
     if (rest.length === 0) return (
-        <div className="py-8 text-center text-[11px] text-gray-600 border border-dashed border-white/5 rounded-xl bg-white/[0.01]">
+        <div className="h-full flex items-center justify-center py-8 text-center text-[11px] text-gray-600 border border-dashed border-white/5 rounded-xl bg-white/[0.01]">
             추가 참여 파티가 없습니다.
         </div>
     );
+
+    // 🔹 [수정] 목록이 있을 때도 부모 높이에 맞게 스크롤 처리
     return (
-        <div className="space-y-4 max-h-[450px] overflow-y-auto custom-scrollbar pr-1">
+        <div className="h-full min-h-0 overflow-y-auto custom-scrollbar pr-1 space-y-4">
             {rest.map((party) => <HomePartyRow key={party.id} party={party} />)}
         </div>
     );
 }
 
-/* ───────── 개별 파티 카드 (중간 사이즈 밸런스) ───────── */
+/* ───────── 개별 파티 카드 ───────── */
 function HomePartyRow({ party }: { party: PartySummaryItem }) {
     const [showNames, setShowNames] = useState(false);
     const members = party.members ?? [];
@@ -98,8 +107,7 @@ function HomePartyRow({ party }: { party: PartySummaryItem }) {
     const remainingCount = Math.max(0, party.memberCount - displayMembers.length);
 
     return (
-        <Link href={`/party-tasks/${party.id}`} className="group relative flex flex-col justify-between rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 min-h-[230px] hover:border-[#5B69FF]/50 hover:shadow-[0_0_30px_-10px_rgba(91,105,255,0.15)] hover:-translate-y-1 overflow-visible">
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-[#5B69FF]/0 via-[#5B69FF]/0 to-[#5B69FF]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+        <Link href={`/party-tasks/${party.id}`} className="group relative flex flex-col justify-between rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 min-h-[230px] hover:border-[#5B69FF]/50 overflow-visible">
             <div className="relative z-10 flex-1 flex flex-col">
                 <div className="mb-4 flex items-start justify-between">
                     <div className="flex-1 min-w-0">
@@ -162,7 +170,7 @@ function HomePartyRow({ party }: { party: PartySummaryItem }) {
 function MemberAvatar({ member, className, style }: { member: PartyMember; className?: string; style?: React.CSSProperties; }) {
     return (
         <div className={`group/avatar relative flex items-center justify-center cursor-help overflow-hidden ${className ?? ""}`} style={style}>
-            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900/95 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm opacity-0 transition-all duration-200 group-hover/avatar:opacity-100 group-hover/avatar:-translate-y-1 z-50 border border-white/10">
+            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900/95 px-2.5 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm opacity-0 transition-all duration-200 group-hover/avatar:opacity-100 group-hover/avatar:-translate-y-1 z-50 border border-white/10">
                 {member.name || "이름 없음"}
                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900/95" />
             </div>
@@ -173,9 +181,10 @@ function MemberAvatar({ member, className, style }: { member: PartyMember; class
 
 function HomePartySkeleton() {
     return (
-        <div className="animate-pulse space-y-4">
+        // 🔹 [수정] 스켈레톤도 flex-1 적용
+        <div className="flex-1 w-full animate-pulse flex flex-col gap-4">
             {[0].map((i) => (
-                <div key={i} className="rounded-xl border border-white/10 bg-[#16181D] p-5 min-h-[200px]">
+                <div key={i} className="flex-1 rounded-xl border border-white/10 bg-[#16181D] p-5 min-h-[200px]">
                     <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3"><div className="h-10 w-10 rounded-full bg-white/5" /><div className="space-y-2"><div className="h-3 w-36 bg-white/5 rounded" /><div className="h-2 w-20 bg-white/5 rounded" /></div></div>
                     </div>

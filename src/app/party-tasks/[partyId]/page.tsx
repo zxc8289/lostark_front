@@ -52,6 +52,7 @@ import {
 import AnimatedNumber from "@/app/components/tasks/AnimatedNumber";
 import EmptyCharacterState from "@/app/components/tasks/EmptyCharacterState";
 import PartySettingsModal from "@/app/components/tasks/PartySettingsModal";
+import GoogleAd from "@/app/components/GoogleAd";
 
 /* ─────────────────────────────
  * 타입 정의
@@ -100,7 +101,9 @@ type PartyInvite = {
 
 type SavedFilters = {
     onlyRemain?: boolean;
+    isCardView?: boolean;
     tableView?: boolean;
+    columnOrder?: string[];
 };
 
 type SavedAccount = {
@@ -265,10 +268,13 @@ export default function PartyDetailPage() {
     const [partyTasks, setPartyTasks] = useState<PartyMemberTasks[] | null>(null);
     const [tasksLoading, setTasksLoading] = useState(false);
     const [tasksErr, setTasksErr] = useState<string | null>(null);
+    const [refreshErr, setRefreshErr] = useState<string | null>(null);
 
     // 필터 (파티별 localStorage)
     const [onlyRemain, setOnlyRemain] = useState(false);
-    const [tableView, setTableView] = useState(false);
+    const [isCardView, setIsCardView] = useState(false);
+
+
 
     const wsRef = useRef<WebSocket | null>(null);
     const [wsReady, setWsReady] = useState(false);
@@ -294,6 +300,7 @@ export default function PartyDetailPage() {
     const [invite, setInvite] = useState<PartyInvite | null>(null);
     const [inviteCopied, setInviteCopied] = useState(false);
     const [partySettingOpen, setPartySettingOpen] = useState(false);
+    const [shareModalOpen, setShareModalOpen] = useState(false);
 
     /* ──────────────────────────
      *  계정 드롭다운 (MyTasks와 동일 기능)
@@ -303,6 +310,11 @@ export default function PartyDetailPage() {
     const [accounts, setAccounts] = useState<SavedAccount[]>([]);
     const [isAccountListOpen, setIsAccountListOpen] = useState(false);
     const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+    const [inlineSearchInput, setInlineSearchInput] = useState("");
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+    const AD_SLOT_SIDEBAR = "4444902536";
+    const AD_SLOT_BOTTOM_BANNER = "7577482274"
 
     const currentAccount =
         accounts.find((a) => a.isSelected) ??
@@ -446,9 +458,10 @@ export default function PartyDetailPage() {
         }
     }
 
-    const handleCharacterSearch = async (name: string): Promise<void> => {
+    // 반환 타입을 Promise<boolean>으로 변경하여 성공 여부를 알림
+    const handleCharacterSearch = async (name: string): Promise<boolean> => {
         const trimmed = name.trim();
-        if (!trimmed) return;
+        if (!trimmed) return false;
 
         setAccountSearchLoading(true);
         setAccountSearchErr(null);
@@ -460,12 +473,18 @@ export default function PartyDetailPage() {
             );
 
             if (!r.ok) {
-                throw new Error("캐릭터 정보를 불러오지 못했습니다.");
+                throw new Error("캐릭터 정보를 불러오지 못했습니다. 닉네임을 확인해주세요.");
             }
 
             const json = (await r.json()) as CharacterSummary;
 
-            // 🔹 파티 화면이 아닌 경우(이 페이지에서는 거의 없겠지만) - 그냥 로컬 계정만 갱신
+            // 🔥 [중요] 데이터 유효성 검사 추가
+            // API가 200을 줬더라도, 실제 캐릭터 정보가 비어있으면 저장하지 않고 에러 처리
+            if (!json || !json.roster || json.roster.length === 0) {
+                throw new Error("캐릭터 정보를 찾을 수 없습니다. (원정대 정보 없음)");
+            }
+
+            // 🔹 파티 화면이 아닌 경우
             if (!party) {
                 setAccounts((prev) => {
                     let next = [...prev];
@@ -480,10 +499,9 @@ export default function PartyDetailPage() {
                                 : { ...a, isSelected: false }
                         );
                     } else {
-                        const id =
-                            typeof crypto !== "undefined" && "randomUUID" in crypto
-                                ? crypto.randomUUID()
-                                : `${trimmed}-${Date.now()}`;
+                        const id = typeof crypto !== "undefined" && "randomUUID" in crypto
+                            ? crypto.randomUUID()
+                            : `${trimmed}-${Date.now()}`;
 
                         const acc: SavedAccount = {
                             id,
@@ -496,20 +514,13 @@ export default function PartyDetailPage() {
                         next = prev.map((a) => ({ ...a, isSelected: false }));
                         next.push(acc);
                     }
-
                     return next;
                 });
-
-                return;
+                return true; // 로컬 성공
             }
 
-            // 🔹 파티 화면인 경우: applyActiveAccount를 통해
-            //     1) raid_task_state 저장
-            //     2) 파티 activeAccount 저장
-            //     3) WS 브로드캐스트
-            //   순서대로 처리하게 만든다.
+            // 🔹 파티 화면인 경우: DB 저장 로직 (applyActiveAccount)
             const baseAccounts = accounts ?? [];
-
             const existingIdx = baseAccounts.findIndex(
                 (a) => a.nickname.toLowerCase() === trimmed.toLowerCase()
             );
@@ -518,17 +529,14 @@ export default function PartyDetailPage() {
             let nextAccountsBase: SavedAccount[];
 
             if (existingIdx >= 0) {
-                // 이미 있는 계정이면 summary만 갱신하고, 선택은 applyActiveAccount가 처리
                 nextAccountsBase = baseAccounts.map((a, i) =>
                     i === existingIdx ? { ...a, summary: json } : a
                 );
                 newAcc = nextAccountsBase[existingIdx];
             } else {
-                // 새 계정 생성
-                const id =
-                    typeof crypto !== "undefined" && "randomUUID" in crypto
-                        ? crypto.randomUUID()
-                        : `${trimmed}-${Date.now()}`;
+                const id = typeof crypto !== "undefined" && "randomUUID" in crypto
+                    ? crypto.randomUUID()
+                    : `${trimmed}-${Date.now()}`;
 
                 newAcc = {
                     id,
@@ -545,12 +553,8 @@ export default function PartyDetailPage() {
                 nextAccountsBase.push(newAcc);
             }
 
-            // 🔸 여기서부터가 핵심:
-            //    applyActiveAccount 내부에서
-            //      - await saveRaidState(...)
-            //      - await saveActiveAccountToServer(...)
-            //      - WS.send("activeAccountUpdate")
-            //    순서로 실행됨
+            // 🔥 여기가 DB 저장하는 핵심 로직입니다.
+            // 위에서 에러가 났다면 여기까지 오지 않으므로 이상한 데이터가 저장될 일은 없습니다.
             const nextAccounts = await applyActiveAccount(
                 newAcc,
                 nextAccountsBase,
@@ -561,16 +565,28 @@ export default function PartyDetailPage() {
                 wsRef.current
             );
 
-            // 최종적으로 프론트 상태 갱신
             setAccounts(nextAccounts);
-
-            // 내 화면은 바로 갱신하고,
-            // 다른 파티원들은 WS를 통해 activeAccountUpdated 이벤트 받고 reloadPartyTasks 함
             void reloadPartyTasks(false);
+
+            return true; // ✅ 성공 반환
+
         } catch (e: any) {
-            setAccountSearchErr(e?.message ?? String(e));
+            // 실패 시 에러 메시지 세팅 및 false 반환
+            const errMsg = e?.message ?? String(e);
+            console.error("캐릭터 검색 실패:", errMsg);
+            setAccountSearchErr(errMsg);
+            return false; // ❌ 실패 반환
         } finally {
             setAccountSearchLoading(false);
+        }
+    };
+
+
+    const handleInlineSearch = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const success = await handleCharacterSearch(inlineSearchInput);
+        if (success) {
+            setInlineSearchInput(""); // 성공 시 입력창 초기화
         }
     };
 
@@ -670,6 +686,45 @@ export default function PartyDetailPage() {
         }
     };
 
+    const handleSmartShare = async () => {
+        if (!invite) return;
+
+        const shareData = {
+            title: '로스트아크 파티 초대',
+            text: `[LoaCheck] 파티에 초대되었습니다!\n참여 코드: ${invite.code}`,
+            url: invite.url || window.location.href,
+        };
+
+        // (Android, iPhone, iPad 등이 포함된 경우에만 모바일로 간주)
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        // 1. 모바일 기기이면서 + 공유 기능을 지원할 때만 -> 네이티브 공유창 띄우기
+        if (isMobile && typeof navigator !== "undefined" && navigator.share && navigator.canShare(shareData)) {
+            try {
+                await navigator.share(shareData);
+            } catch (err: any) {
+                if (err.name !== 'AbortError') console.error('공유 실패:', err);
+            }
+        }
+        // 2. PC 환경이거나 공유 미지원 -> 우리가 만든 커스텀 모달 실행
+        else {
+            // 복사는 동기적으로 바로 수행
+            handleCopyInvite();
+            // 예쁜 모달 열기
+            setShareModalOpen(true);
+        }
+    };
+
+    const launchDiscordApp = () => {
+        window.location.href = "discord://channels/@me";
+        setShareModalOpen(false);
+    };
+
+    const launchDiscordWeb = () => {
+        window.open("https://discord.com/channels/@me", "_blank");
+        setShareModalOpen(false);
+    };
+
     const handleMemberChangeVisible = (
         memberUserId: string,
         partialVisibleByChar: Record<string, boolean>
@@ -764,73 +819,29 @@ export default function PartyDetailPage() {
     }
 
 
-    const handleMyDeleteAccount = () => {
+    // src/app/party-tasks/[partyId]/page.tsx
+
+    const handleMyDeleteAccount = async () => {
+        // 1. 데이터 검증
         if (!party || !partyTasks || !myUserId || !currentAccount) return;
+
+        // 🔥 [수정 포인트] 모달을 가장 먼저 닫습니다.
+        // 계정 목록(accounts)이 변경되어 리렌더링되기 전에 모달을 닫아야
+        // 다른 계정 정보가 모달에 잠깐 뜨는 현상을 막을 수 있습니다.
+        setCharSettingOpen(false);
+        setCharSettingTarget(null);
 
         const partyIdNum = party.id;
         const targetAccountId = currentAccount.id;
 
-        // 현재 계정에 속한 캐릭터 이름들
-        const namesToRemove = new Set(
-            currentAccount.summary?.roster?.map((c) => c.name) ?? []
-        );
-
-        // 1) 파티 숙제 상태에서 "내 계정의 캐릭터들"만 정리 (기존 로직 그대로)
-        const nextTasks: PartyMemberTasks[] = partyTasks.map((m) => {
-            if (m.userId !== myUserId) return m;
-
-            const prevPrefsByChar = m.prefsByChar ?? {};
-            const prevVisibleByChar = m.visibleByChar ?? {};
-
-            const nextPrefsByChar: Record<string, CharacterTaskPrefs> = {};
-            for (const [charName, prefs] of Object.entries(prevPrefsByChar)) {
-                // 현재 삭제하려는 계정에 속한 캐릭터면 제거
-                if (!namesToRemove.has(charName)) {
-                    nextPrefsByChar[charName] = prefs;
-                }
-            }
-
-            const nextVisibleByChar: Record<string, boolean> = { ...prevVisibleByChar };
-            for (const name of namesToRemove) {
-                delete nextVisibleByChar[name];
-            }
-
-            return {
-                ...m,
-                prefsByChar: nextPrefsByChar,
-                visibleByChar: nextVisibleByChar,
-            };
-        });
-
-        setPartyTasks(nextTasks);
-
-        // 정리된 내 row 찾아서 WS 브로드캐스트 + 파티용 DB 저장
-        const me = nextTasks.find((m) => m.userId === myUserId);
-        if (me) {
-            sendMemberUpdateWS(
-                partyIdNum,
-                me.userId,
-                me.prefsByChar,
-                me.visibleByChar
-            );
-
-            void saveMemberPrefsToServer(
-                partyIdNum,
-                me.userId,
-                me.prefsByChar,
-                me.visibleByChar
-            );
-        }
+        // ... (이전 코드 생략)
 
         // 2) 전역 계정 목록에서도 현재 계정 제거 + active 계정 재지정
         if (accounts && accounts.length > 0) {
-            // 지금 삭제되는 계정을 빼고 나머지만 남기기
             const filtered = accounts.filter((a) => a.id !== targetAccountId);
 
-            // 새로 active로 사용할 계정 선택
             let nextActive: SavedAccount | null = null;
             if (filtered.length > 0) {
-                // 남아 있는 계정 중에서 현재 선택된 계정이 있으면 유지
                 nextActive =
                     filtered.find((a) => a.isSelected) ||
                     filtered.find((a) => a.isPrimary) ||
@@ -842,7 +853,6 @@ export default function PartyDetailPage() {
             const nextAccounts: SavedAccount[] = filtered.map((a) => ({
                 ...a,
                 isSelected: nextActive ? a.id === nextActive.id : false,
-                // 남은 계정 중에 primary가 없으면 nextActive를 primary로 승격
                 isPrimary: hasPrimaryAfter
                     ? a.isPrimary
                     : nextActive
@@ -850,28 +860,30 @@ export default function PartyDetailPage() {
                         : false,
             }));
 
+            // UI 먼저 반영 (낙관적 업데이트) -> 이제 모달이 닫힌 상태라 안전합니다.
             setAccounts(nextAccounts);
 
-            // MyTasks에서 쓰고 있는 구조 그대로라면 이 패치로 계정이 완전히 삭제됨
-            void saveRaidState({
-                accounts: nextAccounts,
-                activeAccountId: nextActive?.id ?? null,
-                deleteAccountId: targetAccountId,
-            });
+            try {
+                // 1. 계정 삭제 요청
+                await saveRaidState({
+                    accounts: nextAccounts,
+                    activeAccountId: nextActive?.id ?? null,
+                    deleteAccountId: targetAccountId,
+                });
 
-            // 이 파티의 activeAccount도 갱신
-            void saveActiveAccountToServer(
-                partyIdNum,
-                nextActive ? nextActive.id : null
-            );
+                if (nextAccounts.length > 0) {
+                    await saveActiveAccountToServer(
+                        partyIdNum,
+                        nextActive ? nextActive.id : null
+                    );
+                }
 
-            // 다른 탭/창(같은 유저)에게도 WS로 알려주기
-            if (
-                wsRef.current &&
-                wsRef.current.readyState === WebSocket.OPEN &&
-                myUserId
-            ) {
-                try {
+                // WS 전송
+                if (
+                    wsRef.current &&
+                    wsRef.current.readyState === WebSocket.OPEN &&
+                    myUserId
+                ) {
                     wsRef.current.send(
                         JSON.stringify({
                             type: "activeAccountUpdate",
@@ -880,18 +892,15 @@ export default function PartyDetailPage() {
                             activeAccountId: nextActive?.id ?? null,
                         })
                     );
-                } catch (e) {
-                    console.error("[WS] send activeAccountUpdate (delete) failed:", e);
                 }
+            } catch (e) {
+                console.error("계정 삭제 중 오류 발생:", e);
             }
         }
 
-        // 캐릭터 설정 모달 닫기
-        setCharSettingOpen(false);
 
-        // 🔹 계정 삭제 후, 서버 기준 숙제/요약 재로딩
         if (party) {
-            void reloadPartyTasks(false);
+            await reloadPartyTasks(false);
         }
     };
 
@@ -903,37 +912,107 @@ export default function PartyDetailPage() {
     };
 
 
-    /** 다른 파티원의 계정(현재 active nickname) 정보 새로고침 */
+    //** 다른 파티원의 계정 정보 새로고침 및 DB 저장 */
     const handleMemberRefreshAccount = async (memberUserId: string) => {
-        if (!partyTasks) {
-            await reloadPartyTasks(true);
+        // 1. 시작할 때 에러 메시지 초기화
+        setRefreshErr(null);
+
+        if (!party || !partyTasks) return;
+
+        // 2. 대상 파티원 찾기
+        const target = partyTasks.find((m) => m.userId === memberUserId);
+        if (!target) {
+            console.error("대상 파티원을 찾을 수 없습니다.");
             return;
         }
 
-        const target = partyTasks.find((m) => m.userId === memberUserId);
-        const nickname = (target?.nickname ?? "").trim();
-        if (!nickname) return;
+        // 3. 검색 후보군 생성 (1순위: 현재 닉네임, 2순위: 저장된 배럭들)
+        const originalNick = (target.nickname ?? "").trim();
+        const rosterNames = target.summary?.roster?.map((c) => c.name) ?? [];
 
-        const r = await fetch(
-            `/api/lostark/character/${encodeURIComponent(nickname)}`,
-            { cache: "no-store" }
-        );
+        // 중복 제거 및 빈 값 제거
+        const searchCandidates = Array.from(new Set([originalNick, ...rosterNames])).filter(Boolean);
 
-        if (!r.ok) {
-            throw new Error("캐릭터 정보를 불러오지 못했습니다.");
+        if (searchCandidates.length === 0) {
+            setRefreshErr("검색할 닉네임 정보가 없습니다.");
+            return;
         }
 
-        const json = (await r.json()) as CharacterSummary;
+        try {
+            let json: CharacterSummary | null = null;
+            let successNickname: string | null = null;
 
-        // ✅ 해당 멤버의 summary만 교체 (prefs/visible 유지)
-        setPartyTasks((prev) => {
-            if (!prev) return prev;
-            return prev.map((m) =>
-                m.userId === memberUserId ? { ...m, summary: json } : m
+            // 4. 후보군 순회하며 검색 시도 (하나라도 성공하면 중단)
+            for (const name of searchCandidates) {
+                try {
+                    const r = await fetch(
+                        `/api/lostark/character/${encodeURIComponent(name)}`,
+                        { cache: "no-store" }
+                    );
+
+                    if (r.ok) {
+                        json = (await r.json()) as CharacterSummary;
+                        successNickname = name; // 성공한 닉네임 기록
+                        break; // 찾았으니 루프 종료
+                    }
+                } catch (innerErr) {
+                    // 개별 검색 실패는 무시하고 다음 후보로 계속 진행
+                    continue;
+                }
+            }
+
+            // 5. [핵심] 모든 후보군이 실패했을 경우 -> 에러 상태 업데이트!
+            if (!json) {
+                const errMsg = `'${originalNick}' 및 원정대 캐릭터를 찾을 수 없습니다. (닉네임 변경 확인)`;
+
+                // 기존 prompt 로직 대신 에러 메시지를 셋팅합니다.
+                setRefreshErr(errMsg);
+                return;
+            }
+
+            // 6. 성공했으면 에러 끄기
+            setRefreshErr(null);
+
+            // 7. 프론트엔드 상태 업데이트
+            setPartyTasks((prev) => {
+                if (!prev) return prev;
+                return prev.map((m) =>
+                    m.userId === memberUserId
+                        ? {
+                            ...m,
+                            summary: json,
+                            nickname: successNickname || m.nickname
+                        }
+                        : m
+                );
+            });
+
+            // 8. DB에 영구 저장
+            await fetch(`/api/party-tasks/${party.id}/raid-tasks`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: memberUserId,
+                    summary: json,
+                    prefsByChar: target.prefsByChar,
+                    visibleByChar: target.visibleByChar,
+                    nickname: successNickname
+                }),
+            });
+
+            // 9. WebSocket 실시간 반영
+            sendMemberUpdateWS(
+                party.id,
+                memberUserId,
+                target.prefsByChar,
+                target.visibleByChar
             );
-        });
-    };
 
+        } catch (e: any) {
+            console.error("파티원 정보 새로고침 실패:", e);
+            setRefreshErr("서버 통신 중 오류가 발생했습니다.");
+        }
+    };
 
     const handleSaveEdit = (nextPrefs: CharacterTaskPrefs) => {
         if (!party || !editTarget || !partyTasks) return;
@@ -980,7 +1059,7 @@ export default function PartyDetailPage() {
 
     const resetFilters = () => {
         setOnlyRemain(false);
-        setTableView(false);
+        setIsCardView(false);
     };
 
     async function saveMemberPrefsToServer(
@@ -1295,13 +1374,17 @@ export default function PartyDetailPage() {
             const raw = localStorage.getItem(PARTY_FILTER_KEY(party.id));
             if (!raw) return;
 
-            const saved = JSON.parse(raw) as SavedFilters;
+            const saved = JSON.parse(raw) as SavedFilters & { isCardView?: boolean }; // 타입 확장
 
             if (typeof saved.onlyRemain === "boolean") {
                 setOnlyRemain(saved.onlyRemain);
             }
-            if (typeof saved.tableView === "boolean") {
-                setTableView(saved.tableView);
+            // 저장된 설정이 있으면 불러옴
+            if (typeof saved.isCardView === "boolean") {
+                setIsCardView(saved.isCardView);
+            } else if (typeof saved.tableView === "boolean") {
+                // 구버전(tableView) 호환성 유지: tableView가 true였으면 카드보기는 false
+                setIsCardView(!saved.tableView);
             }
         } catch (e) {
             console.error("파티 필터 불러오기 실패:", e);
@@ -1315,7 +1398,7 @@ export default function PartyDetailPage() {
         try {
             const toSave: SavedFilters = {
                 onlyRemain,
-                tableView,
+                isCardView,
             };
             localStorage.setItem(
                 PARTY_FILTER_KEY(party.id),
@@ -1324,7 +1407,7 @@ export default function PartyDetailPage() {
         } catch (e) {
             console.error("파티 필터 저장 실패:", e);
         }
-    }, [onlyRemain, tableView, party]);
+    }, [onlyRemain, isCardView, party]);
 
     /* ─────────────────────────────
      * 1차: 파티 기본 정보 불러오기
@@ -1658,16 +1741,31 @@ export default function PartyDetailPage() {
     // 3) 에러
     if (partyErr && !party) {
         return (
-            <div className="w-full min-h-[60vh] flex flex-col items-center justify-center text-gray-300 px-4">
-                <div className="max-w-md w-full space-y-4 text-center">
-                    <div className="flex justify-center">
-                        <AlertTriangle className="h-8 w-8 text-red-400" />
-                    </div>
-                    <p className="text-sm text-red-200 whitespace-pre-line">{partyErr}</p>
-                    <div className="flex flex-col sm:flex-row gap-2 justify-center mt-2">
+            <div className="relative w-full min-h-[70vh] flex items-center justify-center overflow-hidden px-4">
+                {/* 배경 은은한 효과 */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-500/10 blur-[120px] rounded-full pointer-events-none opacity-50" />
+
+                <div className="relative z-10 w-full max-w-sm bg-[#16181D]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 text-center animate-in fade-in zoom-in-95 duration-300">
+                    <div className="flex flex-col items-center gap-6">
+                        {/* 아이콘 */}
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 text-red-500 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.15)]">
+                            <AlertTriangle className="h-8 w-8" />
+                        </div>
+
+                        {/* 텍스트 */}
+                        <div className="space-y-2">
+                            <h2 className="text-xl font-bold text-white">
+                                접근할 수 없습니다
+                            </h2>
+                            <p className="text-sm text-gray-400 leading-relaxed whitespace-pre-line break-keep">
+                                {partyErr}
+                            </p>
+                        </div>
+
+                        {/* 버튼 */}
                         <button
                             onClick={() => router.push("/party-tasks")}
-                            className="inline-flex items-center justify-center gap-2 rounded-md bg.white/10 px-4 py-2 text-xs sm:text-sm text-gray-200 hover:bg-white/15"
+                            className="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-white/5 py-3.5 text-sm font-bold text-white hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all"
                         >
                             <ArrowLeft className="h-4 w-4" />
                             파티 목록으로 돌아가기
@@ -1999,8 +2097,8 @@ export default function PartyDetailPage() {
                                             <input
                                                 type="checkbox"
                                                 className="sr-only peer"
-                                                checked={tableView}
-                                                onChange={(e) => setTableView(e.target.checked)}
+                                                checked={isCardView} // [수정] 상태 연결
+                                                onChange={(e) => setIsCardView(e.target.checked)} // [수정] 핸들러 연결
                                             />
                                             <span
                                                 className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition
@@ -2022,12 +2120,22 @@ export default function PartyDetailPage() {
                                                     />
                                                 </svg>
                                             </span>
-                                            테이블로 보기
+                                            {/* [수정] 텍스트 변경 */}
+                                            카드로 보기
                                         </label>
                                     </div>
                                 </div>
                             </div>
                         </section>
+                        <div className="hidden lg:block w-full">
+                            <div
+                                className="w-full bg-[#1e2128]/30 border border-white/5 rounded-lg overflow-hidden flex flex-col"
+                                style={{ height: '600px' }}
+                            >
+                                <GoogleAd slot={AD_SLOT_SIDEBAR} className="!my-0 w-full h-full flex-1" />
+                            </div>
+                        </div>
+
                     </div>
 
                     {/* 오른쪽 메인 영역 */}
@@ -2073,7 +2181,7 @@ export default function PartyDetailPage() {
                             !tasksErr &&
                             sortedPartyTasks &&
                             sortedPartyTasks.length > 0 &&
-                            !tableView && (
+                            isCardView && (
                                 <div className="flex flex-col gap-10">
                                     {sortedPartyTasks.map((m) => {
                                         const isMe = myUserId && m.userId === myUserId;
@@ -2093,9 +2201,10 @@ export default function PartyDetailPage() {
                                             return (
                                                 <div
                                                     key={m.userId}
-                                                    className="grid grid-cols-1 gap-4 sm:gap-1 rounded-lg border border-white/10 px-3 sm:px-4 py-3 sm:py-4"
+                                                    className="rounded-xl border border-white/10 bg-[#16181D] overflow-hidden"
                                                 >
-                                                    <div className="flex items-center gap-2">
+                                                    {/* 1. 상단 헤더 (프로필) */}
+                                                    <div className="flex items-center gap-3 px-4 py-5 ">
                                                         <MemberAvatar
                                                             member={{
                                                                 id: m.userId,
@@ -2103,19 +2212,105 @@ export default function PartyDetailPage() {
                                                                 image: m.image,
                                                                 role: "member",
                                                             }}
-                                                            className="h-7 w-7 rounded-full border border-black/60"
+                                                            className="h-8 w-8 rounded-full border border-black/50"
                                                         />
+                                                        <span className="font-semibold text-xl text-gray-200">
+                                                            {m.name || "이름 없음"}
+                                                        </span>
                                                     </div>
-                                                    <span className="font-medium text-gray-200">
-                                                        {m.name || "이름 없음"}
-                                                    </span>
-                                                    <span className="text-[11px] text-gray-400">
-                                                        표시 중인 캐릭터가 없습니다
-                                                    </span>
+
+                                                    {/* 2. 본문 영역 */}
+                                                    <div className="px-4 pb-4">
+                                                        {isMe ? (
+                                                            /* 🟦 본인인 경우: 요청하신 디자인 적용 */
+                                                            <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl animate-in fade-in zoom-in-95 duration-500">
+                                                                <div className="relative mb-6">
+                                                                    <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
+                                                                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
+                                                                        <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">
+                                                                            LOA
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2 py-0.5 rounded-full border border-white/10">
+                                                                        <span className="text-[10px] text-gray-400">검색</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">
+                                                                    원정대 캐릭터를 불러오세요
+                                                                </h2>
+                                                                <p className="text-gray-400 max-w-md mb-6 sm:mb-8 leading-relaxed text-[12px] sm:text-base">
+                                                                    아직 등록된 캐릭터 데이터가 없습니다.
+                                                                    <br />
+                                                                    <span className="text-gray-400">
+                                                                        대표 캐릭터 닉네임을 입력하면 전투정보실에서 정보를 가져옵니다.
+                                                                    </span>
+                                                                </p>
+
+                                                                <form
+                                                                    onSubmit={handleInlineSearch}
+                                                                    className="relative flex items-center w-full max-w-md"
+                                                                >
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="캐릭터 닉네임 입력"
+                                                                        value={inlineSearchInput}
+                                                                        onChange={(e) => setInlineSearchInput(e.target.value)}
+                                                                        disabled={accountSearchLoading}
+                                                                        className="w-full h-11 sm:h-12 pl-4 pr-11 sm:pr-12 rounded-lg bg-[#0F1115] border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
+                                                                    />
+                                                                    <button
+                                                                        type="submit"
+                                                                        disabled={accountSearchLoading || !inlineSearchInput.trim()}
+                                                                        className="absolute right-1.5 px-3 py-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-400 transition-colors text-xs sm:text-sm"
+                                                                    >
+                                                                        {accountSearchLoading ? (
+                                                                            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                                        ) : (
+                                                                            "검색"
+                                                                        )}
+                                                                    </button>
+                                                                </form>
+
+                                                                {accountSearchErr && (
+                                                                    <p className="mt-3 text-sm text-red-400">
+                                                                        {accountSearchErr}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            /* ⬜ 타인인 경우: 기존 유지 */
+                                                            <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl">
+                                                                <div className="relative mb-6">
+                                                                    {/* 은은한 배경 광원 (내 것보다는 조금 연하게 opacity 조절) */}
+                                                                    <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-10 rounded-full" />
+
+                                                                    {/* 아이콘 원형 배경 */}
+                                                                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
+                                                                        <UsersRound className="w-8 h-8 sm:w-9 sm:h-9 text-[#5B69FF]" strokeWidth={1.5} />
+                                                                    </div>
+
+                                                                    {/* 우측 하단 뱃지 */}
+                                                                    <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2.5 py-1 rounded-full border border-white/10">
+                                                                        <span className="text-[10px] font-medium text-gray-400">미등록</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <h2 className="text-xl sm:text-2xl font-bold text-white/90 mb-2 sm:mb-3">
+                                                                    캐릭터 정보가 없습니다
+                                                                </h2>
+
+                                                                <p className="text-gray-500 max-w-md leading-relaxed text-[12px] sm:text-base">
+                                                                    아직 이 파티원이 계정을 등록하지 않았습니다.
+                                                                    <br className="hidden sm:block" />
+                                                                    등록을 완료하면 이곳에 숙제 현황이 표시됩니다.
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             );
                                         }
-
                                         const sortedRoster = [...visibleRoster].sort(
                                             (a, b) =>
                                                 (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)
@@ -2231,7 +2426,7 @@ export default function PartyDetailPage() {
                             !tasksErr &&
                             sortedPartyTasks &&
                             sortedPartyTasks.length > 0 &&
-                            tableView && (
+                            !isCardView && (
                                 <div className="flex flex-col gap-10">
                                     {sortedPartyTasks.map((m) => {
                                         const isMe = myUserId && m.userId === myUserId;
@@ -2246,16 +2441,15 @@ export default function PartyDetailPage() {
                                                 (c) => m.visibleByChar?.[c.name] ?? true
                                             ) ?? [];
 
+
                                         if (visibleRoster.length === 0) {
                                             return (
                                                 <div
                                                     key={m.userId}
-                                                    className="
-                                        grid grid-cols-1 gap-4 sm:gap-1
-                                        rounded-lg border border-white/10
-                                        px-3 sm:px-4 py-3 sm:py-4"
+                                                    className="rounded-xl border border-white/10 bg-[#16181D] overflow-hidden"
                                                 >
-                                                    <div className="flex items-center gap-2">
+                                                    {/* 1. 상단 헤더 (프로필) */}
+                                                    <div className="flex items-center gap-3 px-4 py-5 ">
                                                         <MemberAvatar
                                                             member={{
                                                                 id: m.userId,
@@ -2263,19 +2457,104 @@ export default function PartyDetailPage() {
                                                                 image: m.image,
                                                                 role: "member",
                                                             }}
-                                                            className="h-7 w-7 rounded-full border border-black/60"
+                                                            className="h-8 w-8 rounded-full border border-black/50"
                                                         />
+                                                        <span className="font-semibold text-xl text-gray-200">
+                                                            {m.name || "이름 없음"}
+                                                        </span>
                                                     </div>
-                                                    <span className="font-medium text-gray-200">
-                                                        {m.name || "이름 없음"}
-                                                    </span>
-                                                    <span className="text-[11px] text-gray-400">
-                                                        표시 중인 캐릭터가 없습니다
-                                                    </span>
+
+                                                    {/* 2. 본문 영역 */}
+                                                    <div className="px-4 pb-4">
+                                                        {isMe ? (
+                                                            /* 🟦 본인인 경우: 요청하신 디자인 적용 */
+                                                            <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl animate-in fade-in zoom-in-95 duration-500">
+                                                                <div className="relative mb-6">
+                                                                    <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
+                                                                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
+                                                                        <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">
+                                                                            LOA
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2 py-0.5 rounded-full border border-white/10">
+                                                                        <span className="text-[10px] text-gray-400">검색</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">
+                                                                    원정대 캐릭터를 불러오세요
+                                                                </h2>
+                                                                <p className="text-gray-400 max-w-md mb-6 sm:mb-8 leading-relaxed text-[12px] sm:text-base">
+                                                                    아직 등록된 캐릭터 데이터가 없습니다.
+                                                                    <br />
+                                                                    <span className="text-gray-400">
+                                                                        대표 캐릭터 닉네임을 입력하면 전투정보실에서 정보를 가져옵니다.
+                                                                    </span>
+                                                                </p>
+
+                                                                <form
+                                                                    onSubmit={handleInlineSearch}
+                                                                    className="relative flex items-center w-full max-w-md"
+                                                                >
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="캐릭터 닉네임 입력"
+                                                                        value={inlineSearchInput}
+                                                                        onChange={(e) => setInlineSearchInput(e.target.value)}
+                                                                        disabled={accountSearchLoading}
+                                                                        className="w-full h-11 sm:h-12 pl-4 pr-11 sm:pr-12 rounded-lg bg-[#0F1115] border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
+                                                                    />
+                                                                    <button
+                                                                        type="submit"
+                                                                        disabled={accountSearchLoading || !inlineSearchInput.trim()}
+                                                                        className="absolute right-1.5 px-3 py-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-400 transition-colors text-xs sm:text-sm"
+                                                                    >
+                                                                        {accountSearchLoading ? (
+                                                                            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                                        ) : (
+                                                                            "검색"
+                                                                        )}
+                                                                    </button>
+                                                                </form>
+
+                                                                {accountSearchErr && (
+                                                                    <p className="mt-3 text-sm text-red-400">
+                                                                        {accountSearchErr}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl">
+                                                                <div className="relative mb-6">
+                                                                    {/* 은은한 배경 광원 (내 것보다는 조금 연하게 opacity 조절) */}
+                                                                    <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-10 rounded-full" />
+
+                                                                    {/* 아이콘 원형 배경 */}
+                                                                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
+                                                                        <UsersRound className="w-8 h-8 sm:w-9 sm:h-9 text-[#5B69FF]" strokeWidth={1.5} />
+                                                                    </div>
+
+                                                                    {/* 우측 하단 뱃지 */}
+                                                                    <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2.5 py-1 rounded-full border border-white/10">
+                                                                        <span className="text-[10px] font-medium text-gray-400">미등록</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <h2 className="text-xl sm:text-2xl font-bold text-white/90 mb-2 sm:mb-3">
+                                                                    캐릭터 정보가 없습니다
+                                                                </h2>
+
+                                                                <p className="text-gray-500 max-w-md leading-relaxed text-[12px] sm:text-base">
+                                                                    아직 이 파티원이 계정을 등록하지 않았습니다.
+                                                                    <br className="hidden sm:block" />
+                                                                    등록을 완료하면 이곳에 숙제 현황이 표시됩니다.
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             );
                                         }
-
                                         const sortedRoster = [...visibleRoster].sort(
                                             (a, b) =>
                                                 (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)
@@ -2290,9 +2569,9 @@ export default function PartyDetailPage() {
                                             <div
                                                 key={m.userId}
                                                 className="
-                          grid grid-cols-1 gap-4 sm:gap-1
-                          rounded-lg border border-white/10
-                          px-3 sm:px-4 py-3 sm:py-4"
+                                                    grid grid-cols-1 gap-4 sm:gap-1
+                                                    rounded-lg border border-white/10
+                                                    px-3 sm:px-4 py-3 sm:py-4"
                                             >
                                                 <PartyMemberSummaryBar
                                                     member={m}
@@ -2334,22 +2613,71 @@ export default function PartyDetailPage() {
                                                         onEdit={(c) => openEditModal(m, c)}
                                                     />
                                                 </div>
+
+
                                             </div>
+
                                         );
+
                                     })}
+
                                 </div>
                             )}
+                        <div className="block lg:hidden w-full">
+                            <div
+                                className="w-full bg-[#1e2128]/30 border border-white/5 rounded-lg overflow-hidden flex items-center justify-center"
+                                style={{ height: '100px', minHeight: '100px', maxHeight: '100px' }}
+                            >
+                                <GoogleAd slot={AD_SLOT_BOTTOM_BANNER} className="!my-0 w-full h-full" responsive={false} />
+                            </div>
+                        </div>
 
                         {/* 아무도 상태를 저장 안 한 경우 */}
-                        {!tasksLoading &&
-                            !tasksErr &&
-                            partyTasks &&
-                            partyTasks.length === 0 && (
-                                <p className="text-xs text-gray-500">
-                                    아직 숙제 데이터를 등록한 파티원이 없습니다.
-                                </p>
-                            )}
+                        {!tasksLoading && !tasksErr && partyTasks && partyTasks.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-2xl border-2 border-dashed border-white/10 bg-white/[0.02]">
+                                {/* 아이콘 원형 배경 */}
+                                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 mb-4">
+                                    <UsersRound className="h-8 w-8 text-gray-500" strokeWidth={1.5} />
+                                </div>
 
+                                {/* 메인 텍스트 */}
+                                <h3 className="text-lg font-bold text-gray-200">
+                                    아직 캐릭터를 등록한 파티원이 없습니다.
+                                </h3>
+
+                                {/* 서브 텍스트 */}
+                                <p className="mt-2 text-sm text-gray-500 leading-relaxed max-w-sm">
+                                    파티원들이 캐릭터를 설정하고 숙제를 등록하면<br className="hidden sm:block" />
+                                    이곳에서 실시간 진행 상황을 한눈에 볼 수 있어요.
+                                </p>
+
+                                {/* 버튼 그룹 (가로 배치) */}
+                                {myUserId === party.ownerId && (
+                                    <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                                        {/* 1. 캐릭터 등록 버튼 (기능에 맞게 텍스트/아이콘 수정) */}
+                                        <button
+                                            onClick={() => {
+                                                setIsAddAccountOpen(true);
+                                                setIsAccountListOpen(false);
+                                            }}
+                                            className="inline-flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-4 py-2.5 text-sm font-medium text-gray-200 hover:bg-white/10 hover:text-white transition-colors"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                            캐릭터 등록하기
+                                        </button>
+
+                                        {/* 2. 파티원 초대 버튼 */}
+                                        <button
+                                            onClick={openInviteModal}
+                                            className="inline-flex items-center gap-2 rounded-lg bg-[#5B69FF]/10 border border-[#5B69FF]/20 px-4 py-2.5 text-sm font-medium text-[#5B69FF] hover:bg-[#5B69FF]/20 transition-colors"
+                                        >
+                                            <Link2 className="h-4 w-4" />
+                                            파티원 초대하기
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         {editTarget && (
                             <EditTasksModal
                                 open={editOpen}
@@ -2368,7 +2696,6 @@ export default function PartyDetailPage() {
                             const isMeTarget =
                                 !!myUserId && charSettingTarget.memberUserId === myUserId;
 
-                            // ✅ 내 줄이면: currentAccount.summary (최신) 우선
                             const baseSummary =
                                 (isMeTarget ? (currentAccount?.summary ?? null) : null) ??
                                 targetMember?.summary ??
@@ -2376,7 +2703,6 @@ export default function PartyDetailPage() {
 
                             const roster = baseSummary?.roster ?? [];
 
-                            // ✅ roster에 없는 애들 토글 문제 방지: 없는 키는 true로 보이게 보정
                             const rawVisible = targetMember?.visibleByChar ?? {};
                             const modalVisibleByChar: Record<string, boolean> = {};
                             for (const c of roster) {
@@ -2386,19 +2712,26 @@ export default function PartyDetailPage() {
                             return (
                                 <CharacterSettingModal
                                     open
-                                    onClose={() => setCharSettingOpen(false)}
+                                    onClose={() => {
+                                        setCharSettingOpen(false);
+                                        setRefreshErr(null);       // 파티원 에러 초기화
+                                        setAccountSearchErr(null); // 내 계정 에러 초기화
+                                    }}
+
+                                    refreshError={isMeTarget ? accountSearchErr : refreshErr}
+
                                     roster={roster}
                                     visibleByChar={modalVisibleByChar}
                                     onChangeVisible={(next) => {
                                         handleMemberChangeVisible(charSettingTarget.memberUserId, next);
                                     }}
                                     onDeleteAccount={
-                                        isMeTarget ? handleMyDeleteAccount : undefined
+                                        isMeTarget ? () => setDeleteConfirmOpen(true) : undefined
                                     }
                                     onRefreshAccount={
                                         isMeTarget
-                                            ? handleMyRefreshAccount
-                                            : () => handleMemberRefreshAccount(charSettingTarget.memberUserId)
+                                            ? handleMyRefreshAccount // 내 거면 이거 실행 (accountSearchErr 업데이트)
+                                            : () => handleMemberRefreshAccount(charSettingTarget.memberUserId) // 남의 거면 이거 (refreshErr 업데이트)
                                     }
                                 />
                             );
@@ -2503,6 +2836,20 @@ export default function PartyDetailPage() {
                                             </div>
                                         </div>
                                     )}
+                                    <button
+                                        type="button"
+                                        onClick={handleSmartShare}
+                                        className="w-full mt-3 flex items-center justify-center gap-2 rounded-xl bg-[#5865F2] p-3 text-white hover:bg-[#4752C4] transition-colors shadow-lg shadow-[#5865F2]/20"
+                                    >
+                                        {/* 디스코드 로고 SVG (Lucide에 Discord 아이콘이 없으므로 직접 SVG 사용 권장) */}
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0 fill-current">
+                                            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.086 2.157 2.419 0 1.334-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.086 2.157 2.419 0 1.334-.946 2.419-2.157 2.419z" />
+                                        </svg>
+                                        <span className="text-sm font-bold">Discord로 보내기</span>
+                                    </button>
+                                    <p className="mt-2 text-[10px] text-gray-500 text-center">
+                                        버튼을 누르면 링크가 복사되고 디스코드가 열립니다.
+                                    </p>
 
                                     <div className="flex items-center justify-between text-xs text-gray-400 bg-white/5 px-3 py-2 rounded-lg">
                                         <span className="flex items-center gap-1.5">
@@ -2522,14 +2869,120 @@ export default function PartyDetailPage() {
                 </div>
             )}
 
-            {/* 계정 추가 모달 (EmptyCharacterState) */}
+            {/* ✨ [추가] 스마트 공유 안내 모달 */}
+            {shareModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+
+                        {/* 닫기 버튼 */}
+                        <button
+                            onClick={() => setShareModalOpen(false)}
+                            className="absolute top-3 right-3 p-2 text-gray-400 hover:text-white rounded-full hover:bg-white/5 transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="p-6 pt-8 text-center">
+                            {/* 성공 아이콘 */}
+                            <div className="mx-auto w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mb-5 ring-1 ring-emerald-500/20 shadow-[0_0_20px_rgba(52,211,153,0.15)]">
+                                <Check className="w-8 h-8" strokeWidth={3} />
+                            </div>
+
+                            <h3 className="text-xl font-bold text-white mb-2">링크 복사 완료!</h3>
+
+                            <div className="text-sm text-gray-300 leading-relaxed space-y-1 mb-8">
+                                <p>초대 링크가 클립보드에 복사되었습니다.</p>
+                                <p className="text-gray-400 text-xs">
+                                    이제 디스코드를 열고 <span className="text-[#5B69FF] font-bold bg-[#5B69FF]/10 px-1 rounded">Ctrl + V</span> 로 붙여넣으세요.
+                                </p>
+                            </div>
+
+                            {/* 액션 버튼들 */}
+                            <div className="space-y-3">
+                                <button
+                                    onClick={launchDiscordApp}
+                                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold transition-all shadow-lg shadow-[#5865F2]/25 active:scale-[0.98]"
+                                >
+                                    {/* Discord SVG Logo */}
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="fill-white shrink-0">
+                                        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.086 2.157 2.419 0 1.334-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.086 2.157 2.419 0 1.334-.946 2.419-2.157 2.419z" />
+                                    </svg>
+                                    디스코드 앱 열기
+                                </button>
+
+                                <button
+                                    onClick={launchDiscordWeb}
+                                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium transition-colors text-sm"
+                                >
+                                    웹 브라우저로 열기
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {deleteConfirmOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            {/* 경고 아이콘 */}
+                            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+                                <AlertTriangle className="h-7 w-7" />
+                            </div>
+
+                            <h3 className="text-lg font-bold text-white mb-2">
+                                계정을 삭제하시겠습니까?
+                            </h3>
+
+                            <p className="text-sm text-gray-400 leading-relaxed mb-6">
+                                현재 선택된 계정의 모든 캐릭터와<br />
+                                숙제 설정 데이터가 삭제됩니다.<br />
+                                <span className="text-red-400/80 text-xs mt-1 block">
+                                    (이 작업은 되돌릴 수 없습니다)
+                                </span>
+                            </p>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setDeleteConfirmOpen(false)}
+                                    className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium transition-colors text-sm"
+                                >
+                                    취소
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        // 1. 확인 모달 닫기
+                                        setDeleteConfirmOpen(false);
+                                        // 2. 실제 삭제 로직 실행
+                                        handleMyDeleteAccount();
+                                    }}
+                                    className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold transition-colors text-sm shadow-lg shadow-red-500/20"
+                                >
+                                    삭제하기
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
             <EmptyCharacterState
                 open={isAddAccountOpen}
-                onClose={() => setIsAddAccountOpen(false)}
-                loading={accountSearchLoading}
-                onSearch={async (nickname) => {
-                    await handleCharacterSearch(nickname);
+                onClose={() => {
                     setIsAddAccountOpen(false);
+                    setAccountSearchErr(null);
+                }}
+                loading={accountSearchLoading}
+
+                error={accountSearchErr}
+
+                onSearch={async (nickname) => {
+                    const success = await handleCharacterSearch(nickname);
+                    if (success) {
+                        setIsAddAccountOpen(false);
+                    }
                 }}
             />
         </div>
@@ -2549,12 +3002,27 @@ function PartyMemberSummaryBar({
     summary,
     children,
 }: PartyMemberSummaryBarProps) {
+    // 모바일에서 펼치기/접기 상태 관리
+    const [isExpanded, setIsExpanded] = useState(false);
+
     const memberAllCleared =
         summary.totalRemainingGold === 0 && summary.totalGold > 0;
 
     return (
-        <div className="rounded-md py-2 sm:py-2 flex flex-wrap sm:flex-row sm:items-center gap-3 sm:gap-4  max-[1247px]:flex-col max-[1247px]:items-start">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 text-sm sm:text-base">
+        // [수정] 모바일 위아래 패딩(py)을 1로 줄임 (PC는 py-2 유지)
+        <div className="relative rounded-md py-1 sm:py-2 flex flex-wrap sm:flex-row sm:items-center gap-3 sm:gap-4 max-[1247px]:flex-col max-[1247px]:items-start">
+
+            <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="sm:hidden absolute right-2 top-2 p-1 text-gray-400 hover:text-white active:scale-95 transition-transform"
+            >
+                {isExpanded ? <ChevronUp className="h-6 w-6" /> : <ChevronDown className="h-6 w-6" />}
+            </button>
+
+            {/* [수정] gap-y-1 (모바일 세로 간격 좁힘) / sm:gap-y-2 (PC 유지) */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:gap-y-2 min-w-0 text-sm sm:text-base w-full sm:w-auto">
+
+                {/* 1. 디스코드 아이콘 + 닉네임 */}
                 <div className="flex items-center gap-3">
                     <MemberAvatar
                         member={{
@@ -2563,73 +3031,86 @@ function PartyMemberSummaryBar({
                             image: member.image,
                             role: "member",
                         }}
-                        className="h-8 w-8 rounded-full b"
+                        // 모바일에서는 아바타도 조금 키움 (h-10 w-10), PC는 기존 유지 (sm:h-8 sm:w-8)
+                        className="h-9 w-9 sm:h-8 sm:w-8 rounded-full b"
                     />
 
                     <div className="flex flex-col">
-                        <span className="text-sm sm:text-base md:text-xl font-semibold text-white truncate">
+                        <span className="text-lg sm:text-base md:text-xl font-bold sm:font-semibold text-white truncate max-w-[200px] sm:max-w-none md:max-w-[140px]">
                             {member.name || "이름 없음"}
                         </span>
                     </div>
                 </div>
-                <span className="hidden sm:inline h-4 w-px bg-white/10 " />
 
-                <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-base pr-1">
-                        남은 숙제
-                    </span>
-                    <AnimatedNumber
-                        value={summary.totalRemainingTasks}
-                        className="text-gray-400 text-xs sm:text-sm font-semibold"
-                    />
-                </div>
+                {/* 2. 수치 정보 (숙제/캐릭터/골드)
+                   [수정] mt-1 (모바일 상단 여백 좁힘), gap-y-1 (줄바꿈 간격 좁힘), pt-2 (구분선 위 여백 좁힘)
+                */}
+                <div className={`${isExpanded ? "flex flex-wrap gap-x-4 gap-y-1 mt-1 w-full border-t border-white/10 pt-2" : "hidden"} sm:contents`}>
 
-                <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                    <span className="hidden sm:inline h-4 w-px bg-white/10 " />
 
-                <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-base pr-1">
-                        숙제 남은 캐릭터
-                    </span>
-                    <AnimatedNumber
-                        value={summary.remainingCharacters}
-                        className="text-gray-400 text-xs sm:text-sm font-semibold"
-                    />
-                </div>
-
-                <span className="hidden sm:inline h-4 w-px bg-white/10" />
-
-                <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-base pr-1">
-                        남은 골드
-                    </span>
-
-                    <div
-                        className={[
-                            "inline-flex items-baseline justify-end",
-                            "min-w-[50px]",
-                            "text-xs sm:text-sm font-semibold",
-                            "font-mono tabular-nums",
-                            memberAllCleared
-                                ? "line-through decoration-gray-300 decoration-1 text-gray-400"
-                                : "text-gray-400",
-                        ].join(" ")}
-                    >
+                    <div className="flex items-baseline gap-1.5">
+                        <span className="font-semibold text-sm sm:text-base pr-1">
+                            남은 숙제
+                        </span>
                         <AnimatedNumber
-                            value={
-                                memberAllCleared
-                                    ? summary.totalGold
-                                    : summary.totalRemainingGold
-                            }
+                            value={summary.totalRemainingTasks}
+                            className="text-gray-400 text-xs sm:text-sm font-semibold"
                         />
-                        <span className="ml-0.5 text-[0.75em]">g</span>
+                    </div>
+
+                    <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+
+                    <div className="flex items-baseline gap-1.5">
+                        <span className="font-semibold text-sm sm:text-base pr-1">
+                            숙제 남은 캐릭터
+                        </span>
+                        <AnimatedNumber
+                            value={summary.remainingCharacters}
+                            className="text-gray-400 text-xs sm:text-sm font-semibold"
+                        />
+                    </div>
+
+                    <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+
+                    <div className="flex items-baseline gap-1.5">
+                        <span className="font-semibold text-sm sm:text-base pr-1">
+                            남은 골드
+                        </span>
+
+                        <div
+                            className={[
+                                "inline-flex items-baseline justify-end",
+                                "min-w-[50px]",
+                                "text-xs sm:text-sm font-semibold",
+                                "font-mono tabular-nums",
+                                memberAllCleared
+                                    ? "line-through decoration-gray-300 decoration-1 text-gray-400"
+                                    : "text-gray-400",
+                            ].join(" ")}
+                        >
+                            <AnimatedNumber
+                                value={
+                                    memberAllCleared
+                                        ? summary.totalGold
+                                        : summary.totalRemainingGold
+                                }
+                            />
+                            <span className="ml-0.5 text-[0.75em]">g</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            {/* 3. 버튼들 
+               [수정] gap-2 (버튼 사이 간격)는 유지하되, 컨테이너 자체 여백은 위쪽 div margin으로 조절됨
+            */}
             <div
-                className="
-        flex flex-row flex-wrap gap-2 sm:gap-3 sm:ml-auto justify-end
-        max-[1247px]:w-full max-[1247px]:justify-start"
+                className={`
+                    flex flex-row flex-wrap gap-2 sm:gap-3 sm:ml-auto justify-end
+                    max-[1247px]:w-full max-[1247px]:justify-start
+                    ${isExpanded ? "flex" : "hidden"} sm:flex
+                `}
             >
                 {children}
             </div>

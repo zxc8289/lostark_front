@@ -12,16 +12,16 @@ import {
     User,
     Sparkles,
     ArrowRight,
-    Swords,     // 변경: 파티 생성 아이콘
-    Ticket,     // 변경: 참여 아이콘
-    X,          // 추가: 닫기 버튼
-    Crown,      // 추가: 생성 모달 헤더 아이콘
-    PenLine,    // 추가: 입력 필드 아이콘
-    FileText,   // 추가: 메모 아이콘
-    Hash,       // 추가: 코드 아이콘
-    Gamepad2,   // 추가: 게임 느낌 아이콘
+    Swords,
+    Ticket,
+    X,
+    Crown,
+    PenLine,
+    FileText,
+    Gamepad2,
 } from "lucide-react";
 import { signIn, useSession } from "next-auth/react";
+import GoogleAd from "../components/GoogleAd";
 
 /* ───────── 타입 ───────── */
 type PartyMember = {
@@ -55,17 +55,17 @@ export default function PartyTasksPage() {
 
     const [createName, setCreateName] = useState("");
     const [createMemo, setCreateMemo] = useState("");
-    const [joinCode, setJoinCode] = useState<string[]>(Array(8).fill("")); // 8자리 코드
-    const inputRefs = useRef<(HTMLInputElement | null)[]>([]); // 각 입력창 ref
-
+    const [joinCode, setJoinCode] = useState<string[]>(Array(8).fill(""));
+    const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
     const [joining, setJoining] = useState(false);
     const [creating, setCreating] = useState(false);
 
-
     // 모달 상태
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [joinModalOpen, setJoinModalOpen] = useState(false);
+
+    const AD_SLOT_MAIN_BANNER = "9374629732";
 
     // 한 글자 정규화: 영문/숫자만, 대문자로
     const normalizeChar = (v: string) =>
@@ -81,7 +81,6 @@ export default function PartyTasksPage() {
             return next;
         });
 
-        // 글자 입력되면 다음 칸으로 포커스 이동
         if (ch && index < 7) {
             const nextInput = inputRefs.current[index + 1];
             if (nextInput) {
@@ -100,12 +99,9 @@ export default function PartyTasksPage() {
             e.preventDefault();
             setJoinCode((prev) => {
                 const next = [...prev];
-
                 if (next[index]) {
-                    // 현재 칸에 글자 있으면 그거만 지우기
                     next[index] = "";
                 } else if (index > 0) {
-                    // 현재 칸이 비어있고, 이전 칸으로 돌아가서 지우기
                     next[index - 1] = "";
                     const prevInput = inputRefs.current[index - 1];
                     if (prevInput) {
@@ -113,7 +109,6 @@ export default function PartyTasksPage() {
                         prevInput.select();
                     }
                 }
-
                 return next;
             });
         }
@@ -153,7 +148,6 @@ export default function PartyTasksPage() {
             return next;
         });
 
-        // 마지막 글자 칸에 포커스 이동
         const lastIndex = Math.min(chars.length - 1, 7);
         const target = inputRefs.current[lastIndex >= 0 ? lastIndex : 0];
 
@@ -164,7 +158,6 @@ export default function PartyTasksPage() {
             });
         }
     };
-
 
     /* 내 파티 목록 불러오기 */
     useEffect(() => {
@@ -239,7 +232,6 @@ export default function PartyTasksPage() {
             const partyId: string = data.id;
 
             setCreateModalOpen(false);
-            // 입력값 초기화
             setCreateName("");
             setCreateMemo("");
             router.push(`/party-tasks/${partyId}`);
@@ -250,15 +242,10 @@ export default function PartyTasksPage() {
         }
     };
 
-
-
-
     /* 초대 코드로 참가 */
     const handleJoinParty = async (e: React.FormEvent) => {
         e.preventDefault();
-
         const code = joinCode.join("");
-
         if (code.length < 8) return;
 
         try {
@@ -268,7 +255,7 @@ export default function PartyTasksPage() {
             const res = await fetch("/api/party-tasks/join", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ code }),   // ← joinCode.trim() 대신
+                body: JSON.stringify({ code }),
             });
 
             if (!res.ok) {
@@ -281,7 +268,6 @@ export default function PartyTasksPage() {
             setJoinModalOpen(false);
             setJoinCode(Array(8).fill(""));
             router.push(`/party-tasks/${partyId}`);
-
         } catch (e: any) {
             setErr(e?.message ?? "파티 참가 중 오류가 발생했습니다.");
         } finally {
@@ -289,14 +275,11 @@ export default function PartyTasksPage() {
         }
     };
 
-    /* ───────── 렌더링 ───────── */
-
     if (status === "unauthenticated") {
         return (
             <div className="relative w-full min-h-[60vh] flex flex-col items-center justify-center text-gray-300 py-12 px-4 overflow-hidden">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#5B69FF]/10 blur-[100px] rounded-full pointer-events-none" />
-
-                <div className="relative z-10 mx-auto max-w-lg w-full space-y-8 text-center">
+                <div className="absolute top-4/7 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#5B69FF]/10 blur-[100px] rounded-full pointer-events-none" />
+                <div className="relative z-10 mx-auto max-w-lg w-full space-y-8 text-center mt-32">
                     <div className="space-y-3">
                         <div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-1.5 text-xs font-medium text-[#5B69FF] border border-[#5B69FF]/20">
                             <UsersRound className="h-3.5 w-3.5" />
@@ -331,7 +314,7 @@ export default function PartyTasksPage() {
 
     return (
         <div className="w-full text-white py-8 sm:py-12">
-            <div className="mx-auto max-w-7xl space-y-4  sm:px-0">
+            <div className="mx-auto max-w-7xl space-y-4 ">
                 {/* 헤더 */}
                 <div className="relative pb-7">
                     <div className="absolute -top-10 -left-10 w-64 h-64 rounded-full pointer-events-none" />
@@ -378,17 +361,9 @@ export default function PartyTasksPage() {
                                     </span>
                                 )}
                             </div>
-                            {/* <p className="mt-0.5 text-[11px] sm:text-xs text-gray-400">
-                                {loading
-                                    ? "파티 목록을 불러오는 중입니다..."
-                                    : hasParties
-                                        ? "아래에서 파티를 선택해 상세 숙제를 확인하세요."
-                                        : "아직 참여 중인 파티가 없습니다. 새 파티를 만들어 시작해보세요."}
-                            </p> */}
                         </div>
                     </div>
 
-                    {/* 오른쪽 액션 버튼들 (디자인 수정됨) */}
                     <div className="sm:ml-auto flex flex-wrap items-center gap-3">
                         <button
                             onClick={() => setCreateModalOpen(true)}
@@ -410,30 +385,13 @@ export default function PartyTasksPage() {
                 {/* 메인 컨텐츠: 파티 카드들 */}
                 <div className="space-y-6">
                     {loading ? (
-                        // 로딩 스켈레톤
-                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 sm:px-0">
                             {[1, 2, 3, 4, 5, 6].map((i) => (
-                                <div
-                                    key={i}
-                                    className="h-[180px] rounded-xl border border-white/5 bg-[#16181D] p-5 animate-pulse"
-                                >
-                                    <div className="flex items-center gap-3 mb-6">
-                                        <div className="h-10 w-10 rounded-full bg-white/5" />
-                                        <div className="space-y-2 flex-1">
-                                            <div className="h-4 w-1/2 rounded bg-white/5" />
-                                            <div className="h-3 w-1/3 rounded bg-white/5" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <div className="h-8 w-full rounded bg-white/5" />
-                                        <div className="h-3 w-1/4 rounded bg-white/5" />
-                                    </div>
-                                </div>
+                                <div key={i} className="h-[240px] rounded-xl border border-white/5 bg-[#16181D] p-5 animate-pulse" />
                             ))}
                         </div>
                     ) : hasParties ? (
-                        // 파티 카드 리스트 (한 줄에 최대 3개)
-                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch sm:px-0">
                             {parties.map((p) => (
                                 <PartyCard
                                     key={p.id}
@@ -442,12 +400,17 @@ export default function PartyTasksPage() {
                                 />
                             ))}
 
-                            {parties.length < 4 && (
-                                <AddPartyPromoCard onCreateClick={() => setCreateModalOpen(true)} />
-                            )}
+                            <AddPartyPromoCard onCreateClick={() => setCreateModalOpen(true)} />
+
+                            <div className="w-full h-[240px] rounded-xl border border-white/10 bg-[#16181D] overflow-hidden flex items-center justify-center relative">
+                                <GoogleAd
+                                    slot={AD_SLOT_MAIN_BANNER}
+                                    className="!my-0 w-full h-full"
+                                    responsive={true}
+                                />
+                            </div>
                         </div>
                     ) : (
-                        // 파티 없음
                         <div className="rounded-2xl border border-dashed border-white/10 bg-[#16181D]/50 p-10 text-center">
                             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
                                 <Users className="h-8 w-8 text-gray-600" />
@@ -463,11 +426,10 @@ export default function PartyTasksPage() {
                     )}
                 </div>
 
-                {/* ───────── 모달: 새 파티 만들기 (디자인 개선됨) ───────── */}
+                {/* ───────── 모달들 (생성, 참가) ───────── */}
                 {createModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 animate-in fade-in duration-200">
                         <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-                            {/* 모달 헤더 */}
                             <div className="relative bg-[#252832] px-6 py-6 border-b border-white/5">
                                 <button
                                     onClick={() => setCreateModalOpen(false)}
@@ -488,11 +450,9 @@ export default function PartyTasksPage() {
                                 </div>
                             </div>
 
-                            {/* 모달 바디 */}
                             <div className="p-6">
                                 <form onSubmit={handleCreateParty} className="space-y-4">
                                     <div className="space-y-3">
-                                        {/* 파티 이름 입력 */}
                                         <div className="relative group">
                                             <div className="pointer-events-none absolute left-3 top-3 text-gray-500 group-focus-within:text-[#5B69FF] transition-colors">
                                                 <PenLine className="h-5 w-5" />
@@ -505,8 +465,6 @@ export default function PartyTasksPage() {
                                                 className="w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-4 py-3 text-sm text-white placeholder:text-gray-600 focus:border-[#5B69FF] focus:outline-none focus:ring-1 focus:ring-[#5B69FF] transition-all"
                                             />
                                         </div>
-
-                                        {/* 메모 입력 */}
                                         <div className="relative group">
                                             <div className="pointer-events-none absolute left-3 top-3 text-gray-500 group-focus-within:text-[#5B69FF] transition-colors">
                                                 <FileText className="h-5 w-5" />
@@ -520,7 +478,6 @@ export default function PartyTasksPage() {
                                             />
                                         </div>
                                     </div>
-
                                     <div className="pt-2 flex gap-3">
                                         <button
                                             type="button"
@@ -552,7 +509,6 @@ export default function PartyTasksPage() {
                 {joinModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 animate-in fade-in duration-200">
                         <div className="w-full max-w-[600px] overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-                            {/* 모달 헤더 */}
                             <div className="relative bg-[#252832] px-6 py-6 border-b border-white/5">
                                 <button
                                     onClick={() => setJoinModalOpen(false)}
@@ -572,60 +528,28 @@ export default function PartyTasksPage() {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* 모달 바디 */}
                             <div className="p-8">
                                 <form onSubmit={handleJoinParty} className="space-y-8">
-                                    {/* 2. 8자리 사각형 입력 UI */}
-                                    <div className="flex justify-center gap-2 sm:gap-3">
+                                    <div className="flex justify-center gap-1 sm:gap-3">
                                         {[...Array(8)].map((_, index) => (
                                             <input
                                                 key={index}
-                                                ref={(el) => {
-                                                    inputRefs.current[index] = el;
-                                                }}
+                                                ref={(el) => { inputRefs.current[index] = el; }}
                                                 type="text"
                                                 maxLength={1}
                                                 value={joinCode[index] || ""}
                                                 onChange={(e) => handleInputChange(index, e.target.value)}
                                                 onKeyDown={(e) => handleKeyDown(index, e)}
                                                 onPaste={index === 0 ? handlePaste : undefined}
-                                                /* 3. 정사각형 스타일 적용 */
-                                                className={`
-                                                w-10 h-10 sm:w-14 sm:h-14 
-                                                text-center text-xl sm:text-2xl font-bold 
-                                                rounded-lg border bg-black/20 text-white transition-all caret-[#10B981]
-                                                ${joinCode[index]
-                                                        ? 'border-[#10B981] shadow-[0_0_15px_rgba(16,185,129,0.25)]'
-                                                        : 'border-white/10 hover:border-white/30'}
-                                                focus:border-[#10B981] focus:outline-none focus:ring-1 focus:ring-[#10B981]
-                                `}
+                                                className={`w-9.5 h-9.5 sm:w-14 sm:h-14 text-center text-xl sm:text-2xl font-bold rounded-lg border bg-black/20 text-white transition-all caret-[#10B981] ${joinCode[index] ? 'border-[#10B981] shadow-[0_0_15px_rgba(16,185,129,0.25)]' : 'border-white/10 hover:border-white/30'} focus:border-[#10B981] focus:outline-none focus:ring-1 focus:ring-[#10B981]`}
                                             />
                                         ))}
                                     </div>
-
                                     <div className="flex gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => setJoinModalOpen(false)}
-                                            className="flex-1 rounded-xl bg-white/5 py-3.5 text-sm font-semibold text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
-                                        >
-                                            취소
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            /* 변경됨: flex-[2] -> flex-1 (1:1 비율) */
-                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[#10B981] py-3.5 text-sm font-semibold text-white hover:bg-[#059669] hover:shadow-lg hover:shadow-[#10B981]/20 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:shadow-none disabled:text-gray-400 transition-all"
-                                            disabled={joinCode.join("").length < 8 || joining}
-                                        >
-                                            {joining ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <>
-                                                    <span>입장하기</span>
-                                                    <ArrowRight className="h-4 w-4" />
-                                                </>
-                                            )}
+                                        <button type="button" onClick={() => setJoinModalOpen(false)} className="flex-1 rounded-xl bg-white/5 py-3 text-sm font-semibold text-gray-400 hover:bg-white/10 hover:text-white transition-colors">취소</button>
+                                        <button type="submit" className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-[#5B69FF] py-3 text-sm font-semibold text-white hover:bg-[#4A57E6] hover:shadow-lg hover:shadow-[#5B69FF]/20 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:shadow-none disabled:text-gray-400 transition-all"
+                                            disabled={joinCode.join("").length < 8 || joining}>
+                                            {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>입장하기</span><ArrowRight className="h-4 w-4" /></>}
                                         </button>
                                     </div>
                                 </form>
@@ -638,7 +562,7 @@ export default function PartyTasksPage() {
     );
 }
 
-/* ───────── 서브 컴포넌트: 파티 카드 & 아바타 ───────── */
+/* ───────── 수정된 PartyCard 컴포넌트 ───────── */
 
 function PartyCard({
     party,
@@ -648,14 +572,14 @@ function PartyCard({
     onClick: () => void;
 }) {
     const [showNames, setShowNames] = useState(false);
+
+    // API에서 받은 전체 멤버 리스트 사용 (자르는 로직 없음)
     const members = party.members || [];
-    const displayMembers = showNames ? members : members.slice(0, 6);
-    const remainingCount = Math.max(0, party.memberCount - displayMembers.length);
 
     return (
         <div
             onClick={onClick}
-            className="group relative flex flex-col justify-between rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 hover:border-[#5B69FF]/50 hover:shadow-[0_0_30px_-10px_rgba(91,105,255,0.15)] hover:-translate-y-1 cursor-pointer overflow-hidden"
+            className="group relative flex flex-col min-h-[230px] justify-between rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 hover:border-[#5B69FF]/50 hover:shadow-[0_0_30px_-10px_rgba(91,105,255,0.15)] hover:-translate-y-1 cursor-pointer overflow-hidden"
         >
             <div className="absolute inset-0 bg-gradient-to-br from-[#5B69FF]/0 via-[#5B69FF]/0 to-[#5B69FF]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
@@ -697,53 +621,43 @@ function PartyCard({
                             className="group/toggle flex items-center gap-2 focus:outline-none"
                         >
                             <span
-                                className={`text-[10px] font-medium transition-colors ${showNames ? "text-[#5B69FF]" : "text-gray-500"
-                                    }`}
+                                className={`text-[10px] font-medium transition-colors ${showNames ? "text-[#5B69FF]" : "text-gray-500"}`}
                             >
                                 닉네임 {showNames ? "숨기기" : "보기"}
                             </span>
-
                         </button>
                     </div>
 
-                    <div className="min-h-[36px]">
+                    <div className="min-h-[40px]">
                         {showNames ? (
-                            // 펼침 상태
+                            // 펼침 상태 (이름 보이기)
                             <div className="flex flex-wrap gap-2 animate-in fade-in zoom-in-95 duration-200">
                                 {members.map((m) => (
                                     <div
                                         key={m.id}
-                                        className="flex items-center gap-2 rounded-full border border-white/10 bg-black/20 pl-1 pr-3 py-1 hover:bg-white/5 transition-colors"
+                                        className="flex items-center gap-2 rounded-full border border-white/10 bg-black/20 pl-1 pr-3 py-1.5 hover:bg-white/5 transition-colors"
                                     >
-                                        <MemberAvatar member={m} className="h-6 w-6 rounded-full" />
+                                        <MemberAvatar member={m} className="h-8 w-8 rounded-full" />
                                         <span className="text-xs text-gray-300 max-w-[80px] truncate">
                                             {m.name || "이름없음"}
                                         </span>
                                     </div>
                                 ))}
-                                {remainingCount > 0 && (
-                                    <span className="flex items-center text-xs text-gray-500 px-1">
-                                        +{remainingCount}명
-                                    </span>
-                                )}
                             </div>
                         ) : (
-                            // 닫힘 상태
+                            // 닫힘 상태 (아바타만 겹쳐 보이기)
                             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
-                                <div className="flex -space-x-2.5 hover:space-x-1 transition-all duration-300">
-                                    {displayMembers.map((m) => (
+                                {/* [변경] gap-y-2 추가: 줄바꿈 시 윗줄과 아랫줄 간격 확보 */}
+                                {/* [변경] flex-wrap: 인원이 많으면 다음 줄로 넘김 */}
+                                <div className="flex flex-wrap -space-x-3 gap-y-2 hover:space-x-1 transition-all duration-300">
+                                    {members.map((m) => (
                                         <MemberAvatar
                                             key={m.id}
                                             member={m}
-                                            className="relative h-8 w-8 rounded-full ring-2 ring-[#16181D] transition-transform hover:scale-110 hover:z-10 bg-[#16181D]"
+                                            className="relative h-10 w-10 rounded-full ring-2 ring-[#16181D] transition-transform hover:scale-110 hover:z-10 bg-[#16181D]"
                                         />
                                     ))}
                                 </div>
-                                {remainingCount > 0 && (
-                                    <span className="text-xs font-medium text-gray-500">
-                                        +{remainingCount}
-                                    </span>
-                                )}
                             </div>
                         )}
                     </div>
@@ -762,7 +676,6 @@ function PartyCard({
     );
 }
 
-// 툴팁이 포함된 아바타
 function MemberAvatar({
     member,
     className,
@@ -798,7 +711,7 @@ function AddPartyPromoCard({ onCreateClick }: { onCreateClick: () => void }) {
     return (
         <button
             onClick={onCreateClick}
-            className="group relative flex h-full min-h-[180px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-center transition-all duration-300 hover:border-[#5B69FF]/40 hover:bg-white/[0.04] hover:scale-[1.01]"
+            className="group relative flex h-full min-h-[240px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.02]  text-center transition-all duration-300 hover:border-[#5B69FF]/40 hover:bg-white/[0.04] hover:scale-[1.01]"
         >
             <div className="relative mb-1">
                 <div className="absolute -inset-2 bg-[#5B69FF]/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />

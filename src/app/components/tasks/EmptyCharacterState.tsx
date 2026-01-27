@@ -1,19 +1,25 @@
 "use client";
 
-import { Search, Sparkles, X } from "lucide-react";
-import { useState } from "react";
+import { Search, Sparkles, X, AlertCircle } from "lucide-react"; // AlertCircle 추가
+import { useState, useEffect } from "react";
 
 type Props = {
     onSearch: (nickname: string) => void;
     loading?: boolean;
     open: boolean;
     onClose: () => void;
+    error?: string | null; // 👈 에러 메시지 받기 위해 추가
     visibleByChar?: Record<string, boolean>;
     onChangeVisible?: (next: Record<string, boolean>) => void;
 };
 
-export default function EmptyCharacterState({ open, onSearch, loading, onClose }: Props) {
+export default function EmptyCharacterState({ open, onSearch, loading, onClose, error }: Props) {
     const [input, setInput] = useState("");
+
+    // 모달이 열리거나 닫힐 때 인풋 초기화 (선택 사항)
+    useEffect(() => {
+        if (!open) setInput("");
+    }, [open]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -26,13 +32,13 @@ export default function EmptyCharacterState({ open, onSearch, loading, onClose }
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
-            {/* 🔹 배경 오버레이: 캐릭터 설정 모달과 동일하게 */}
+            {/* 🔹 배경 오버레이 */}
             <div
                 className="absolute inset-0 bg-black/70 backdrop-blur-sm"
                 onClick={onClose}
             />
 
-            {/* 🔹 실제 모달 카드 (이 안에서 클릭해도 배경 onClick 안 타게 막기) */}
+            {/* 🔹 실제 모달 카드 */}
             <div
                 className="relative w-full max-w-md p-8 rounded-2xl bg-[#16181D] border border-white/5 text-center shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
@@ -52,8 +58,11 @@ export default function EmptyCharacterState({ open, onSearch, loading, onClose }
 
                 {/* 메인 아이콘 */}
                 <div className="relative mx-auto mb-6 w-20 h-20 flex items-center justify-center rounded-full bg-[#5B69FF]/10 text-[#5B69FF] ring-1 ring-[#5B69FF]/30">
-                    <Sparkles size={36} strokeWidth={1.5} />
-                    <div className="absolute -right-1 -bottom-1 bg-[#16181D] rounded-full p-1.5 border border-white/10">
+                    <div className="relative z-10">
+                        <Sparkles size={36} strokeWidth={1.5} />
+                    </div>
+                    {/* 장식 아이콘 */}
+                    <div className="absolute -right-1 -bottom-1 bg-[#16181D] rounded-full p-1.5 border border-white/10 z-20">
                         <Search size={16} className="text-gray-400" />
                     </div>
                 </div>
@@ -73,7 +82,15 @@ export default function EmptyCharacterState({ open, onSearch, loading, onClose }
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         disabled={loading}
-                        className="w-full h-12 pl-4 pr-12 rounded-lg bg-[#0F1115] border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
+                        className={`
+                            w-full h-12 pl-4 pr-12 rounded-lg bg-[#0F1115] border 
+                            text-white placeholder-gray-500 text-sm transition-all disabled:opacity-50
+                            focus:outline-none focus:ring-1
+                            ${error
+                                ? "border-red-500/50 focus:border-red-500 focus:ring-red-500"
+                                : "border-white/10 focus:border-[#5B69FF] focus:ring-[#5B69FF]"
+                            }
+                        `}
                     />
                     <button
                         type="submit"
@@ -87,6 +104,13 @@ export default function EmptyCharacterState({ open, onSearch, loading, onClose }
                         )}
                     </button>
                 </form>
+
+                {error && (
+                    <div className="mt-3 flex items-center justify-center gap-2 text-red-400 text-xs font-medium animate-in slide-in-from-top-1 fade-in">
+                        <AlertCircle size={14} />
+                        <span>{error}</span>
+                    </div>
+                )}
 
                 <div className="mt-6 flex flex-col gap-2 text-xs text-gray-500">
                     <p>※ 로스트아크 공식 전투정보실 데이터를 기반으로 합니다.</p>

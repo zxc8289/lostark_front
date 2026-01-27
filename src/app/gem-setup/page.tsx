@@ -16,7 +16,8 @@ import Select from "../components/arcgrid/ui/Select";
 import Input from "../components/arcgrid/ui/Input";
 
 // Icons
-import { LayoutGrid, Save, FolderOpen, Trash2, Cpu, Clock, Plus } from "lucide-react";
+import { LayoutGrid, Save, FolderOpen, Trash2, ArrowUpDown } from "lucide-react";
+import GoogleAd from "../components/GoogleAd";
 
 type Constraints = Record<string, { minPts: number; maxPts: number }>;
 type Inventory = { order: Gem[]; chaos: Gem[] };
@@ -54,6 +55,9 @@ type WorkerReq = WorkerPayload & { id: string };
 type WorkerRes =
   | { id: string; ok: true; action: WorkerPayload["action"]; result: any }
   | { id: string; ok: false; action: WorkerPayload["action"]; error: string };
+
+type SortMode = "default" | "newest" | "will_desc" | "pts_desc";
+
 // Hook: Responsive
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(false);
@@ -89,6 +93,9 @@ export default function ArcGridPage() {
   const [state, setState] = useState(() => makeInitialState());
   const [loaded, setLoaded] = useState(false);
 
+  // 정렬 상태 추가 (기본값: 최신순 - 사용자의 요청 반영)
+  const [sortMode, setSortMode] = useState<SortMode>("newest");
+
   const [resultPack, setResultPack] = useState<{ plan: PlanPack; focusKey: string | null } | null>(null);
   const [altPlans, setAltPlans] = useState<ScoredPlan[] | null>(null);
   const [showAltList, setShowAltList] = useState(true);
@@ -98,6 +105,8 @@ export default function ArcGridPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [prog, setProg] = useState<{ v: number | null; msg: string }>({ v: null, msg: "" });
+
+  const AD_SLOT_BOTTOM_BANNER = "7577482274";
 
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -120,6 +129,24 @@ export default function ArcGridPage() {
     for (const g of state.inventory.chaos) m.set(g.id, g);
     return m;
   }, [state.inventory.order, state.inventory.chaos]);
+
+  // --- Sort Helper ---
+  // 화면에 보여줄 때만 정렬하고, 실제 데이터(state) 순서는 유지합니다.
+  const getSortedList = (list: Gem[]) => {
+    const temp = [...list];
+    switch (sortMode) {
+      case "newest":
+        return temp.reverse(); // 최신순 (역순)
+      case "will_desc":
+        return temp.sort((a, b) => (b.baseWill ?? 0) - (a.baseWill ?? 0)); // 의지력 높은순
+      case "pts_desc":
+        // 보통 options[1]이 코어 포인트라고 가정
+        return temp.sort((a, b) => ((b.options[1]?.lv ?? 0) - (a.options[1]?.lv ?? 0))); // 포인트 높은순
+      case "default":
+      default:
+        return temp; // 등록순 (오래된순)
+    }
+  };
 
   // --- toast/progress helpers ---
   const showToast = (m: string) => {
@@ -163,9 +190,7 @@ export default function ArcGridPage() {
   );
 
   useEffect(() => {
-    // Next/Webpack/Turbopack 기준
     const w = new Worker(new URL("../lib/arcgrid/arcgrid.worker.tsx", import.meta.url), { type: "module" });
-
     workerRef.current = w;
 
     w.onmessage = (ev: MessageEvent<WorkerRes>) => {
@@ -179,7 +204,6 @@ export default function ArcGridPage() {
     };
 
     w.onerror = () => {
-      // 워커가 죽으면 대기 중인 promise 전부 실패 처리
       for (const [, p] of pendingRef.current) p.reject(new Error("worker crashed"));
       pendingRef.current.clear();
     };
@@ -198,15 +222,12 @@ export default function ArcGridPage() {
     if (!w) return Promise.reject(new Error("worker not ready"));
 
     const id = safeUUID();
-
     return new Promise<T>((resolve, reject) => {
       pendingRef.current.set(id, { resolve, reject });
-
       const msg: WorkerReq = { id, ...payload };
       w.postMessage(msg);
     });
   }
-
 
   // --- inventory update helpers ---
   const updateGem = (family: keyof Inventory, id: string, patch: Partial<Gem>) => {
@@ -412,7 +433,6 @@ export default function ArcGridPage() {
     }
   }
 
-  // --- alt list expand ---
   const [expandedSet, setExpandedSet] = useState<Set<number>>(() => new Set());
   const toggleRow = (i: number) => {
     setExpandedSet((prev) => {
@@ -555,13 +575,28 @@ export default function ArcGridPage() {
             2. 보유 젬 입력
           </h2>
 
+          {/* 정렬 컨트롤 추가 */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="w-full sm:w-48">
+              <Select
+                value={sortMode}
+                onChange={(v) => setSortMode(v as SortMode)}
+                options={[
+                  { value: "newest", label: "등록순 (최신 순)" },
+                  { value: "default", label: "등록순 (오래된 순)" },
+                  { value: "will_desc", label: "의지력 높은 순" },
+                  { value: "pts_desc", label: "포인트 높은 순" },
+                ]}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
           <InventoryPanel
             title="질서 인벤토리"
             family="order"
-            list={state.inventory.order}
+            list={getSortedList(state.inventory.order)}
             params={state.params as any}
             onUpdate={(f, id, p) => updateGem(f as any, id, p)}
             onUpdateOption={(f, id, i, p) => updateGemOption(f as any, id, i, p)}
@@ -572,7 +607,7 @@ export default function ArcGridPage() {
           <InventoryPanel
             title="혼돈 인벤토리"
             family="chaos"
-            list={state.inventory.chaos}
+            list={getSortedList(state.inventory.chaos)}
             params={state.params as any}
             onUpdate={(f, id, p) => updateGem(f as any, id, p)}
             onUpdateOption={(f, id, i, p) => updateGemOption(f as any, id, i, p)}
@@ -735,7 +770,7 @@ export default function ArcGridPage() {
         )}
       </div>
 
-      {/* 기존 하단 액션바 유지 (네 프로젝트에 이미 붙어있던 구성이라면 그대로) */}
+      {/* 기존 하단 액션바 유지 */}
       <ActionBar coreCount={selectedCoreCount} invCount={invCount} onRun={runPoints} />
 
       {/* Quick Add Modal */}
@@ -749,6 +784,20 @@ export default function ArcGridPage() {
         />
       )}
 
+      <div className="w-full">
+        <div
+          className="w-full bg-[#1e2128]/30 border border-white/5 rounded-lg overflow-hidden flex items-center justify-center"
+          style={{ height: '130px', minHeight: '130px', maxHeight: '130px' }}
+        >
+          <GoogleAd
+            slot={AD_SLOT_BOTTOM_BANNER}
+            className="!my-0 w-full h-full"
+            responsive={false}
+            height="90px"
+          />
+        </div>
+      </div>
+
       {toast && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-2">
           <div className="px-4 py-2 rounded-xl bg-[#5B69FF] text-white text-sm font-bold shadow-2xl">
@@ -756,7 +805,6 @@ export default function ArcGridPage() {
           </div>
         </div>
       )}
-
 
       {busy && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center">

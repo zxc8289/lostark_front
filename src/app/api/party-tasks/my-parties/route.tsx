@@ -142,7 +142,7 @@ export async function GET() {
                 return 0;
             });
 
-            const previewMembers = richMembers.slice(0, 5);
+            const previewMembers = richMembers;
 
             return {
                 id: String(row.id),

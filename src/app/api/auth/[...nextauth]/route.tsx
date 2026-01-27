@@ -4,7 +4,6 @@ import NextAuth, { NextAuthOptions } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
 import type { Account, Profile, User, Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
-
 import { getDb } from "@/db/client";
 
 // Mongo driver는 Edge에서 안 돌아가서 nodejs 런타임 고정하는 게 안전함

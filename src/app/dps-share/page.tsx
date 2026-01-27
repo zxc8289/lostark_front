@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Check } from "lucide-react";
+import GoogleAd from "../components/GoogleAd";
 
 type RaidCategory = "카제로스" | "그림자";
 type DiffKey = "노말" | "하드" | "나메";
@@ -74,6 +75,8 @@ export default function DpsSharePage() {
     const [dmgInput, setDmgInput] = useState<Record<string, string>>({});
     const [isCatOpen, setIsCatOpen] = useState(false);
 
+    const AD_SLOT_BOTTOM_BANNER = "7577482274";
+
     const handleCategoryChange = (cat: RaidCategory) => {
         setCategory(cat);
         const firstAct = Object.keys(RAID_DATA[cat])[0];
@@ -120,7 +123,7 @@ export default function DpsSharePage() {
             `}</style>
 
             <div className="w-full text-white py-8 sm:py-12">
-                <div className="mx-auto max-w-7xl space-y-4 sm:px-0 px-4">
+                <div className="mx-auto max-w-7xl space-y-4 ">
                     <div className="relative pb-7">
                         <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                             <div className="space-y-2">
@@ -313,6 +316,20 @@ export default function DpsSharePage() {
                             )}
                         </div>
                     </div>
+
+                </div>
+
+            </div>
+            <div className="w-full">
+                <div
+                    className="w-full bg-[#1e2128]/30 border border-white/5 rounded-lg overflow-hidden flex items-center justify-center"
+                    style={{ height: '130px', minHeight: '130px', maxHeight: '130px' }}
+                >
+                    <GoogleAd
+                        slot={AD_SLOT_BOTTOM_BANNER}
+                        className="!my-0 w-full h-full"
+                        responsive={false}
+                    />
                 </div>
             </div>
         </>

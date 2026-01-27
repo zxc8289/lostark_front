@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { RosterCharacter } from "../AddAccount";
-import { RefreshCcw, X, Trash2, Check } from "lucide-react";
+import { RefreshCcw, X, Trash2, Check, AlertCircle } from "lucide-react";
 
 type ModalCharacter = {
     name: string;
@@ -32,6 +32,7 @@ type Props = {
     onRefreshAccount?: () => Promise<void> | void;
     visibleByChar?: Record<string, boolean>;
     onChangeVisible?: (next: Record<string, boolean>) => void;
+    refreshError?: string | null; // 🆕 추가
 };
 
 export default function CharacterSettingModal({
@@ -42,6 +43,7 @@ export default function CharacterSettingModal({
     roster,
     visibleByChar,
     onChangeVisible,
+    refreshError
 }: Props) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [characters, setCharacters] = useState<ModalCharacter[]>([]);
@@ -273,38 +275,53 @@ export default function CharacterSettingModal({
                 </div>
 
                 {/* Footer */}
-                <footer className="px-5 py-4 sm:px-8 bg-[#16181D] border-t border-white/10 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
-                    <div className="flex gap-2 w-full sm:w-auto">
+                <footer className="px-5 py-4 sm:px-8 bg-[#16181D] border-t border-white/10 flex flex-col gap-3">
+
+                    {/* 🚨 [추가됨] 에러 메시지 표시 영역 */}
+                    {refreshError && (
+                        <div className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-200 text-xs sm:text-sm animate-in slide-in-from-bottom-1 fade-in">
+                            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                            <span>{refreshError}</span>
+                        </div>
+                    )}
+
+                    {/* 기존 버튼 그룹 (flex-row로 감싸서 배치) */}
+                    <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 w-full">
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            <button
+                                onClick={onClose}
+                                className="flex-1 sm:flex-none px-4 h-10 rounded-lg border border-white/10 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                            >
+                                취소
+                            </button>
+
+                            {/* 삭제 버튼 (onDeleteAccount가 있을 때만 렌더링) */}
+                            {onDeleteAccount && (
+                                <button
+                                    className="flex-none px-4 h-10 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-medium hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
+                                    title="계정 삭제"
+                                    onClick={() => {
+                                        onDeleteAccount();
+                                    }}
+                                >
+                                    <Trash2 size={16} />
+                                    <span className="hidden sm:inline">계정 삭제</span>
+                                    <span className="sm:hidden">삭제</span>
+                                </button>
+                            )}
+                        </div>
+
                         <button
-                            onClick={onClose}
-                            className="flex-1 sm:flex-none px-4 h-10 rounded-lg border border-white/10 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-                        >
-                            취소
-                        </button>
-                        <button
-                            className="flex-none px-4 h-10 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-medium hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
-                            title="계정 삭제"
                             onClick={() => {
-                                onDeleteAccount?.();
+                                commitVisible();
+                                onClose();
                             }}
+                            className="w-full sm:w-auto px-6 h-10 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-white text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center"
                         >
-                            <Trash2 size={16} />
-                            계정 삭제
-                            <span className="sm:hidden">삭제</span>
+                            <span className="sm:hidden">완료 ({visibleCount})</span>
+                            <span className="hidden sm:inline">설정 완료 ({visibleCount})</span>
                         </button>
                     </div>
-
-                    <button
-                        onClick={() => {
-                            commitVisible();
-                            onClose();
-                        }}
-                        className="w-full sm:w-auto px-6 h-10 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-white text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center"
-                    >
-                        {/* 모바일: "완료 (N)" / PC: "설정 완료 (N)" */}
-                        <span className="sm:hidden">완료 ({visibleCount})</span>
-                        <span className="hidden sm:inline">설정 완료 ({visibleCount})</span>
-                    </button>
                 </footer>
             </div>
 

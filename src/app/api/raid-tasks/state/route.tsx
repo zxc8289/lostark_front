@@ -184,26 +184,31 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        const stateJson = JSON.stringify(next);
-        const now = new Date().toISOString();
+        const finalAccounts = Array.isArray(next.accounts) ? next.accounts : [];
+        if (finalAccounts.length === 0) {
+            await raidTaskStateCol.deleteOne({ user_id: userId });
+            return NextResponse.json({ ok: true, status: "deleted" });
+        } else {
+            const stateJson = JSON.stringify(next);
+            const now = new Date().toISOString();
 
-        // 4) upsert
-        await raidTaskStateCol.updateOne(
-            { user_id: userId },
-            {
-                $set: {
-                    user_id: userId,
-                    state_json: stateJson,
-                    updated_at: now,
+            await raidTaskStateCol.updateOne(
+                { user_id: userId },
+                {
+                    $set: {
+                        user_id: userId,
+                        state_json: stateJson,
+                        updated_at: now,
+                    },
+                    $setOnInsert: {
+                        created_at: now,
+                    },
                 },
-                $setOnInsert: {
-                    created_at: now,
-                },
-            },
-            { upsert: true }
-        );
+                { upsert: true }
+            );
+            return NextResponse.json({ ok: true, status: "updated" });
+        }
 
-        return NextResponse.json({ ok: true });
     } catch (e) {
         console.error("raid_task_state insert/update failed", e);
         return new NextResponse("DB error", { status: 500 });

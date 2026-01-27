@@ -231,34 +231,68 @@ export function autoSelectTop3Raids(
         raidName: string;
         difficulty: DifficultyKey;
         levelReq: number;
+        gold: number; // 💰 골드 정보 추가
     }[] = [];
 
     for (const [raidName, info] of raidEntries) {
+
         const nightmare = info.difficulty["나메"];
         const hard = info.difficulty["하드"];
         const normal = info.difficulty["노말"];
 
         let pickedDiff: DifficultyKey | null = null;
         let levelReq = 0;
+        let diffInfo = null;
 
+        // 입장 가능한 가장 높은 난이도 선택
         if (nightmare && ilvl >= nightmare.level) {
             pickedDiff = "나메";
             levelReq = nightmare.level;
+            diffInfo = nightmare;
         } else if (hard && ilvl >= hard.level) {
             pickedDiff = "하드";
             levelReq = hard.level;
+            diffInfo = hard;
         } else if (normal && ilvl >= normal.level) {
             pickedDiff = "노말";
             levelReq = normal.level;
+            diffInfo = normal;
         } else {
             continue;
         }
 
-        candidates.push({ raidName, difficulty: pickedDiff, levelReq });
+        // 💰 해당 난이도의 총 골드 계산
+        const totalGold = (diffInfo.gates ?? []).reduce((sum, g) => sum + (g.gold || 0), 0);
+
+        candidates.push({
+            raidName,
+            difficulty: pickedDiff,
+            levelReq,
+            gold: totalGold
+        });
     }
 
-    const top3 = candidates.sort((a, b) => b.levelReq - a.levelReq).slice(0, 3);
+    const top3 = candidates.sort((a, b) => {
+        const infoA = raidInformation[a.raidName];
+        const infoB = raidInformation[b.raidName];
 
+        // 1. 출시일 데이터 가져오기 (없으면 아주 옛날로 취급)
+        const dateA = infoA?.releaseDate || "2000-01-01";
+        const dateB = infoB?.releaseDate || "2000-01-01";
+
+        if (dateA !== dateB) {
+            return dateB.localeCompare(dateA);
+        }
+
+
+        // [2순위] 골드 비교 (돈 많이 주는 순)
+        if (b.gold !== a.gold) {
+            return b.gold - a.gold;
+        }
+
+        // [3순위] 그래도 같으면 레벨 높은 순
+        return b.levelReq - a.levelReq;
+    }).slice(0, 3);
     // 기존 설정은 다 disable + gates 초기화
     for (const [raidName, pref] of Object.entries(updatedRaids)) {
         updatedRaids[raidName] = {

@@ -5,7 +5,24 @@ import { useEffect, useMemo, useState } from "react";
 import { raidInformation, type DifficultyKey } from "@/server/data/raids";
 import type { RosterCharacter } from "../AddAccount";
 import { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
-import { X, Lock, Swords, Check } from "lucide-react";
+import { Lock, Swords } from "lucide-react";
+
+// 🎨 난이도별 색상 스타일 정의
+const DIFF_STYLES = {
+    하드: {
+        check: "bg-[#FF5252] text-white border-[#FF5252] shadow-[0_0_12px_rgba(255,82,82,0.55)]",
+        // idle 상태는 아래에서 공통으로 처리하므로 hover만 정의해도 됨 (필요시 사용)
+        hover: "hover:text-[#FF5252] hover:bg-[#FF5252]/10 hover:border-[#FF5252]/30",
+    },
+    노말: {
+        check: "bg-[#5B69FF] text-white border-[#5B69FF] shadow-[0_0_12px_rgba(91,105,255,0.55)]",
+        hover: "hover:text-[#5B69FF] hover:bg-[#5B69FF]/10 hover:border-[#5B69FF]/30",
+    },
+    나메: {
+        check: "bg-[#6D28D9] text-white border-[#6D28D9] shadow-[0_0_12px_rgba(109,40,217,0.55)]",
+        hover: "hover:text-[#6D28D9] hover:bg-[#6D28D9]/10 hover:border-[#6D28D9]/30",
+    },
+} as const;
 
 type Props = {
     open: boolean;
@@ -29,13 +46,10 @@ function makeDefaultPref(
 
     const picked: DifficultyKey = nightmareOk ? "나메" : hardOk ? "하드" : "노말";
 
-    const enabled = false;     // 항상 비활성으로 시작
-    const gates: number[] = []; // 기본은 관문도 안 켜기
+    const enabled = false;
+    const gates: number[] = [];
     return { enabled, difficulty: picked, gates };
 }
-
-
-
 
 export default function EditTasksModal({ open, onClose, character, initial, onSave }: Props) {
     const ilvl = character.itemLevelNum ?? 0;
@@ -43,10 +57,8 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
 
     useEffect(() => {
         if (!open) return;
-
         const originalStyle = window.getComputedStyle(document.body).overflow;
         document.body.style.overflow = "hidden";
-
         return () => {
             document.body.style.overflow = originalStyle;
         };
@@ -72,17 +84,17 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
         [state.raids]
     );
 
-
     const handleAutoSelect = (mode: "top3" | "all" | "none") => {
         setState((s) => {
             const updatedRaids = { ...s.raids };
             const raidEntries = Object.entries(raidInformation);
+
             if (mode === "top3") {
-                // 1) 캐릭터 템렙(ilvl) 기준으로 실제 갈 수 있는 난이도만 후보로 뽑기
                 const candidates: {
                     raidName: string;
                     difficulty: DifficultyKey;
                     levelReq: number;
+                    gold: number;
                 }[] = [];
 
                 for (const [raidName, info] of raidEntries) {
@@ -92,27 +104,52 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
 
                     let pickedDiff: DifficultyKey | null = null;
                     let levelReq = 0;
+                    let diffInfo = null;
 
                     if (nightmare && ilvl >= nightmare.level) {
                         pickedDiff = "나메";
                         levelReq = nightmare.level;
+                        diffInfo = nightmare;
                     } else if (hard && ilvl >= hard.level) {
                         pickedDiff = "하드";
                         levelReq = hard.level;
+                        diffInfo = hard;
                     } else if (normal && ilvl >= normal.level) {
                         pickedDiff = "노말";
                         levelReq = normal.level;
+                        diffInfo = normal;
                     } else {
                         continue;
                     }
 
-                    candidates.push({ raidName, difficulty: pickedDiff, levelReq });
+                    const totalGold = (diffInfo.gates ?? []).reduce(
+                        (sum, g) => sum + (g.gold || 0),
+                        0
+                    );
+
+                    candidates.push({
+                        raidName,
+                        difficulty: pickedDiff,
+                        levelReq,
+                        gold: totalGold
+                    });
                 }
 
-                // 2) 요구 레벨 높은 순으로 정렬해서 상위 3개만
-                const top3 = candidates.sort((a, b) => b.levelReq - a.levelReq).slice(0, 3);
+                const top3 = candidates.sort((a, b) => {
+                    const infoA = raidInformation[a.raidName];
+                    const infoB = raidInformation[b.raidName];
+                    const dateA = infoA?.releaseDate || "2000-01-01";
+                    const dateB = infoB?.releaseDate || "2000-01-01";
 
-                // 3) 일단 전 레이드 OFF
+                    if (dateA !== dateB) {
+                        return dateB.localeCompare(dateA);
+                    }
+                    if (b.gold !== a.gold) {
+                        return b.gold - a.gold;
+                    }
+                    return b.levelReq - a.levelReq;
+                }).slice(0, 3);
+
                 for (const [raidName, pref] of Object.entries(updatedRaids)) {
                     updatedRaids[raidName] = {
                         ...pref,
@@ -121,30 +158,22 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                     };
                 }
 
-                // 4) 상위 3개만 "내가 갈 수 있는 최고 난이도"로 ON + 관문 전부 켜기
                 for (const { raidName, difficulty } of top3) {
-                    const info = raidInformation[raidName];
-                    const diffInfo = info.difficulty[difficulty];
-
                     updatedRaids[raidName] = {
-                        ...(updatedRaids[raidName] ?? {}),
+                        ...(updatedRaids[raidName] ?? { gates: [] }),
                         enabled: true,
                         difficulty,
                     };
                 }
-            }
-
-            else if (mode === "all" || mode === "none") {
+            } else if (mode === "all" || mode === "none") {
                 const visible = mode === "all";
-                for (const [raidName, info] of raidEntries) {
+                for (const [raidName] of raidEntries) {
                     updatedRaids[raidName] = {
                         ...updatedRaids[raidName],
                         enabled: visible,
                     };
                 }
             }
-
-
             return { raids: updatedRaids };
         });
     };
@@ -153,16 +182,12 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
-            {/* 배경 오버레이 */}
             <div
                 className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
                 onClick={onClose}
             />
 
-            {/* 모달 컨테이너 - CharacterSettingModal 이랑 동일한 프레임 */}
             <div className="relative w-full max-w-[min(800px,92vw)] flex flex-col rounded-xl bg-[#16181D] shadow-2xl border border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                {/* Header */}
-
                 <header className="px-5 py-5 sm:px-8 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#16181D]">
                     <div>
                         <div className="flex items-center gap-3 mb-1">
@@ -179,29 +204,18 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                     </div>
                 </header>
 
-                {/* Scrollable Content – CharacterSettingModal과 같은 배경/스크롤 스타일 */}
                 <div className="flex-1 overflow-y-auto max-h-[55vh] p-4 sm:max-h-[65vh] sm:p-5 bg-[#121418] custom-scrollbar">
                     <div className="flex gap-2 mb-4 ">
-                        <button
-                            onClick={() => handleAutoSelect("top3")}
-                            className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
-                        >
+                        <button onClick={() => handleAutoSelect("top3")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
                             상위 3개 레이드
                         </button>
-                        <button
-                            onClick={() => handleAutoSelect("all")}
-                            className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
-                        >
+                        <button onClick={() => handleAutoSelect("all")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
                             전체 선택
                         </button>
-                        <button
-                            onClick={() => handleAutoSelect("none")}
-                            className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
-                        >
+                        <button onClick={() => handleAutoSelect("none")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
                             전체 해제
                         </button>
                     </div>
-
 
                     {(["군단장", "카제로스", "어비스", "에픽", "그림자"] as const).map((kind) => {
                         const entries = Object.entries(raidInformation).filter(
@@ -210,8 +224,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                         if (!entries.length) return null;
 
                         return (
-                            <section key={kind} className="space-y-4">
-                                {/* 섹션 타이틀 (살짝 sticky 느낌) */}
+                            <section key={kind} className="space-y-4 pb-8">
                                 <div className="top-0 z-10 py-2 -mx-2 px-2 bg-[#121418]/95 backdrop-blur border-b border-white/5">
                                     <h4 className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-[0.18em]">
                                         <Swords size={14} className="text-[#5B69FF]" />
@@ -230,17 +243,12 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                         const hardOk = !!(hard && ilvl >= hard.level);
                                         const normalOk = !!(normal && ilvl >= normal.level)
 
-                                        const curInfo =
-                                            pref.difficulty === "나메" ? nightmare :
-                                                pref.difficulty === "하드" ? hard :
-                                                    normal;
-
-                                        const curText =
-                                            pref.difficulty === "나메"
-                                                ? (nightmare ? `나메 ${nightmare.level}` : "나메")
-                                                : pref.difficulty === "하드"
-                                                    ? (hard ? `하드 ${hard.level}` : "하드")
-                                                    : (normal ? `노말 ${normal.level}` : "노말");
+                                        const curInfo = pref.difficulty === "나메" ? nightmare : pref.difficulty === "하드" ? hard : normal;
+                                        const curText = pref.difficulty === "나메"
+                                            ? (nightmare ? `나메 ${nightmare.level}` : "나메")
+                                            : pref.difficulty === "하드"
+                                                ? (hard ? `하드 ${hard.level}` : "하드")
+                                                : (normal ? `노말 ${normal.level}` : "노말");
 
                                         return (
                                             <div
@@ -251,20 +259,13 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                         ? "bg-[#1E222B] border-white/10 shadow-lg shadow-black/20"
                                                         : "bg-[#16181D] border-white/5 opacity-80 grayscale-[0.3]"
                                                     }
-                                                    `}
+                                                `}
                                             >
-                                                {/* Card Header: 이름 + 토글 */}
                                                 <div className="flex items-center justify-between mb-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div
-                                                            className={`w-1 h-8 rounded-full ${pref.enabled ? "bg-[#5B69FF]" : "bg-gray-700"
-                                                                }`}
-                                                        />
+                                                        <div className={`w-1 h-8 rounded-full ${pref.enabled ? "bg-[#5B69FF]" : "bg-gray-700"}`} />
                                                         <div>
-                                                            <div
-                                                                className={`font-bold ${pref.enabled ? "text-white" : "text-gray-400"
-                                                                    }`}
-                                                            >
+                                                            <div className={`font-bold ${pref.enabled ? "text-white" : "text-gray-400"}`}>
                                                                 {raidName}
                                                             </div>
                                                             <div className="text-xs text-gray-500">
@@ -273,7 +274,6 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                         </div>
                                                     </div>
 
-                                                    {/* 커스텀 토글 스위치 */}
                                                     <label className="relative inline-flex items-center cursor-pointer">
                                                         <input
                                                             type="checkbox"
@@ -283,14 +283,12 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                                 setState((s) => {
                                                                     const prev = s.raids[raidName] ?? makeDefaultPref(info, ilvl);
                                                                     const enabled = e.target.checked;
-
                                                                     return {
                                                                         raids: {
                                                                             ...s.raids,
                                                                             [raidName]: {
                                                                                 ...prev,
                                                                                 enabled,
-                                                                                // 🔹 토글을 ON 할 때는 관문을 전부 비우기
                                                                                 gates: enabled ? [] : prev.gates,
                                                                             },
                                                                         },
@@ -300,8 +298,6 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                         />
                                                         <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#5B69FF] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#5B69FF]" />
                                                     </label>
-
-
                                                 </div>
 
                                                 {/* 난이도 선택 (Segmented Control) */}
@@ -310,42 +306,49 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                         { key: "노말", info: normal, ok: normalOk },
                                                         { key: "하드", info: hard, ok: hardOk },
                                                         { key: "나메", info: nightmare, ok: nightmareOk },
-                                                    ].map(({ key, info: dInfo, ok }) => (
-                                                        <button
-                                                            key={key}
-                                                            disabled={!ok || !pref.enabled}
-                                                            onClick={() =>
-                                                                setState((s) => {
-                                                                    const prev = s.raids[raidName] ?? makeDefaultPref(info, ilvl);
-                                                                    return {
-                                                                        raids: {
-                                                                            ...s.raids,
-                                                                            [raidName]: {
-                                                                                ...prev,
-                                                                                difficulty: key as DifficultyKey,
-                                                                                // ✅ 난이도 변경은 "클리어"가 아니라 "설정"이므로 gates는 비움
-                                                                                gates: [],
+                                                    ].map(({ key, info: dInfo, ok }) => {
+                                                        const diffKey = key as DifficultyKey;
+                                                        const style = DIFF_STYLES[diffKey] || DIFF_STYLES["노말"];
+
+                                                        const isSelected = pref.enabled && pref.difficulty === key;
+
+                                                        // (참고) 레이드가 꺼져있어도 내부적으로 어떤 난이도인지 알 수 있게 하려면 아래처럼 옅게 표시할 수도 있습니다.
+                                                        // 하지만 "선택 안 한 것처럼" 보이려면 위 조건이 맞습니다.
+
+                                                        return (
+                                                            <button
+                                                                key={key}
+                                                                disabled={!ok || !pref.enabled}
+                                                                onClick={() =>
+                                                                    setState((s) => {
+                                                                        const prev = s.raids[raidName] ?? makeDefaultPref(info, ilvl);
+                                                                        return {
+                                                                            raids: {
+                                                                                ...s.raids,
+                                                                                [raidName]: {
+                                                                                    ...prev,
+                                                                                    difficulty: key as DifficultyKey,
+                                                                                    gates: [],
+                                                                                },
                                                                             },
-                                                                        },
-                                                                    };
-                                                                })
-                                                            }
-
-
-                                                            className={`
-                                                                    relative flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-all
-                                                                    ${pref.difficulty === key
-                                                                    ? "bg-[#2A2E39] text-white shadow-sm border border-white/10"
-                                                                    : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+                                                                        };
+                                                                    })
                                                                 }
+                                                                className={`
+                                                                    relative flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-all
+                                                                    ${isSelected
+                                                                        ? style.check // 켜져있고 선택됨: 화려한 색상
+                                                                        : `bg-[#2A2E39]/50 text-gray-500 hover:text-gray-300 hover:bg-white/5` // 꺼져있거나 선택안됨: 회색
+                                                                    }
                                                                     ${!ok && "opacity-40 cursor-not-allowed"}
                                                                 `}
-                                                        >
-                                                            {!ok && <Lock size={10} />}
-                                                            {key}
-                                                            {dInfo && <span className="opacity-60 text-[10px]">{dInfo.level}</span>}
-                                                        </button>
-                                                    ))}
+                                                            >
+                                                                {!ok && <Lock size={10} />}
+                                                                {key}
+                                                                {dInfo && <span className={`opacity-60 text-[10px] ${isSelected ? 'text-white/80' : ''}`}>{dInfo.level}</span>}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         );
@@ -356,7 +359,6 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                     })}
                 </div>
 
-                {/* Footer – CharacterSettingModal과 동일한 느낌 */}
                 <footer className="px-5 py-4 sm:px-8 bg-[#16181D] border-t border-white/10 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
                     <div className="flex gap-2 w-full sm:w-auto">
                         <button
@@ -375,7 +377,6 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                     </button>
                 </footer>
 
-                {/* 스크롤바 스타일 – CharacterSettingModal과 동일 */}
                 <style jsx global>{`
           .custom-scrollbar::-webkit-scrollbar {
             width: 6px;

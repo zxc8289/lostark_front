@@ -78,7 +78,7 @@ export async function POST(
         );
     }
 
-    const origin = req.nextUrl.origin;
+    const origin = "https://loacheck.com";
     // 예: http://localhost:3000/party-tasks/join?code=ABCDEFG
     const url = `${origin}/party-tasks/join?code=${encodeURIComponent(
         party.invite_code

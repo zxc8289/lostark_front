@@ -63,7 +63,6 @@ type PartyRaidTasksResponse = {
     members: PartyMemberTasks[];
 };
 
-// ✅ Next 15 스타일: params 는 Promise 여서 await 해줘야 함
 type RouteParams = Promise<{ partyId: string }>;
 
 // ─────────────────────────────
@@ -300,10 +299,7 @@ export async function GET(
     );
 }
 
-// ─────────────────────────────
-// POST: raid_task_state (전역) 업데이트
-//  - 파티원이라면, 같은 파티의 다른 멤버 상태도 수정 가능하게 유지
-// ─────────────────────────────
+// app/api/party-tasks/[partyId]/raid-tasks/route.ts 중 POST 함수 부분
 export async function POST(
     req: NextRequest,
     { params }: { params: RouteParams }
@@ -315,148 +311,90 @@ export async function POST(
 
     const { partyId } = await params;
     const partyIdNum = Number(partyId);
-    if (!partyIdNum || Number.isNaN(partyIdNum)) {
-        return NextResponse.json({ message: "Invalid party id" }, { status: 400 });
-    }
-
     const me = (session.user as any).id as string;
 
-    let body: {
-        userId?: string;
-        nickname?: string;
-        summary?: any;
-        prefsByChar?: any;
-        visibleByChar?: Record<string, boolean>;
-
-        accounts?: RaidStateJson["accounts"];
-        activeAccountId?: string | null;
-        activeAccountByParty?: Record<string, string | null>;
-    };
-
+    let body: any;
     try {
         body = await req.json();
     } catch {
-        return NextResponse.json(
-            { message: "Invalid JSON body" },
-            { status: 400 }
-        );
+        return NextResponse.json({ message: "Invalid JSON" }, { status: 400 });
     }
 
-    const targetUserId = body.userId;
-    const prefsByChar = body.prefsByChar;
-    const visibleByChar = body.visibleByChar;
-    const nickname = body.nickname;
-    const summary = body.summary;
+    const { userId: targetUserId, prefsByChar, visibleByChar, nickname, summary, accounts, activeAccountId, activeAccountByParty } = body;
 
-    const accounts = body.accounts;
-    const activeAccountId = body.activeAccountId;
-    const activeAccountByParty = body.activeAccountByParty;
-
-    if (!targetUserId || typeof prefsByChar !== "object") {
-        return NextResponse.json(
-            { message: "userId, prefsByChar required" },
-            { status: 400 }
-        );
+    if (!targetUserId) {
+        return NextResponse.json({ message: "userId required" }, { status: 400 });
     }
 
     const db = await getDb();
-    const partyMembersCol = db.collection("party_members");
     const raidTaskStateCol = db.collection("raid_task_state");
+    const partyMembersCol = db.collection("party_members");
 
-    // 1) 내가 이 파티의 멤버인지 확인
-    const meRow = await partyMembersCol.findOne({
-        party_id: partyIdNum,
-        user_id: me,
-    });
+    // 권한 체크 (내가 파티원인지, 대상이 파티원인지)
+    const [meRow, targetRow] = await Promise.all([
+        partyMembersCol.findOne({ party_id: partyIdNum, user_id: me }),
+        partyMembersCol.findOne({ party_id: partyIdNum, user_id: targetUserId })
+    ]);
 
-    if (!meRow) {
-        return NextResponse.json(
-            { message: "Forbidden: not a party member" },
-            { status: 403 }
-        );
+    if (!meRow || !targetRow) {
+        return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    // 2) 수정 대상도 이 파티 멤버인지 확인
-    const targetRow = await partyMembersCol.findOne({
-        party_id: partyIdNum,
-        user_id: targetUserId,
-    });
+    // 기존 데이터 가져오기
+    const existing = await raidTaskStateCol.findOne({ user_id: targetUserId });
+    let nextState: any = existing?.state_json ? JSON.parse(existing.state_json) : {};
 
-    if (!targetRow) {
-        return NextResponse.json(
-            { message: "Target user is not in this party" },
-            { status: 400 }
-        );
-    }
+    // 1. 기본 필드 업데이트
+    if (prefsByChar) nextState.prefsByChar = prefsByChar;
+    if (visibleByChar) nextState.visibleByChar = visibleByChar;
+    if (typeof nickname === "string") nextState.nickname = nickname;
 
-    // 3) 기존 raid_task_state 가져와서 필드만 부분 업데이트
-    const existing = (await raidTaskStateCol.findOne<{
-        state_json?: string;
-    }>({
-        user_id: targetUserId,
-    })) as { state_json?: string } | null;
-
-    let nextState: any;
-    if (existing?.state_json) {
-        try {
-            nextState = JSON.parse(existing.state_json);
-        } catch {
-            nextState = {};
-        }
-    } else {
-        nextState = {};
-    }
-
-    // ⬇️ 여기서 필요한 필드만 갈아끼우기
-    nextState.prefsByChar = prefsByChar;
-
-    if (visibleByChar && typeof visibleByChar === "object") {
-        nextState.visibleByChar = visibleByChar;
-    }
-
-    // nickname / summary는 body에 들어온 경우에만 덮어씀
-    if (typeof nickname === "string") {
-        nextState.nickname = nickname;
-    }
+    // 2. 🔥 핵심: summary(캐릭터 목록) 업데이트 로직 개선
     if (summary !== undefined) {
+        // (1) 루트 레벨의 summary 업데이트 (하위 호환성)
         nextState.summary = summary;
+
+        // (2) 멀티 계정(accounts) 배열이 있다면, 해당 계정의 summary도 함께 업데이트
+        if (Array.isArray(nextState.accounts)) {
+            // 전달된 nickname이 있으면 그것으로 찾고, 없으면 현재 root nickname으로 찾음
+            const targetNickname = nickname || nextState.nickname;
+
+            const accIdx = nextState.accounts.findIndex(
+                (a: any) => a.nickname.toLowerCase() === targetNickname?.toLowerCase()
+            );
+
+            if (accIdx >= 0) {
+                // 찾았다면 해당 계정의 summary를 교체
+                nextState.accounts[accIdx].summary = summary;
+            } else if (nextState.accounts.length > 0) {
+                // 닉네임 매칭이 안 될 경우, 현재 선택된(isSelected) 계정이라도 업데이트
+                const selectedIdx = nextState.accounts.findIndex((a: any) => a.isSelected);
+                const finalIdx = selectedIdx >= 0 ? selectedIdx : 0;
+                nextState.accounts[finalIdx].summary = summary;
+            }
+        }
     }
 
-    // 멀티 계정 관련 필드도 body에 들어온 경우만 갱신
-    if (Array.isArray(accounts)) {
-        nextState.accounts = accounts;
-    }
-    if (activeAccountId !== undefined) {
-        nextState.activeAccountId = activeAccountId;
-    }
-    if (activeAccountByParty && typeof activeAccountByParty === "object") {
-        nextState.activeAccountByParty = activeAccountByParty;
-    }
-
-    const stateJson = JSON.stringify(nextState);
+    // 3. 멀티 계정 관련 필드가 통째로 들어온 경우 처리
+    if (Array.isArray(accounts)) nextState.accounts = accounts;
+    if (activeAccountId !== undefined) nextState.activeAccountId = activeAccountId;
+    if (activeAccountByParty) nextState.activeAccountByParty = activeAccountByParty;
 
     try {
         await raidTaskStateCol.updateOne(
-            { user_id: targetUserId }, // 조건
+            { user_id: targetUserId },
             {
                 $set: {
-                    user_id: targetUserId,
-                    state_json: stateJson,
+                    state_json: JSON.stringify(nextState),
                     updated_at: new Date().toISOString(),
                 },
-                $setOnInsert: {
-                    created_at: new Date().toISOString(),
-                },
+                $setOnInsert: { created_at: new Date().toISOString() }
             },
             { upsert: true }
         );
-
         return NextResponse.json({ ok: true });
-    } catch (e: any) {
-        console.error("[raid_task_state] Unexpected error:", e);
-        return NextResponse.json(
-            { ok: false, message: "internal error" },
-            { status: 500 }
-        );
+    } catch (e) {
+        console.error(e);
+        return NextResponse.json({ ok: false }, { status: 500 });
     }
 }

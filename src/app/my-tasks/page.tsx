@@ -21,11 +21,12 @@ import {
 } from "../lib/tasks/raid-utils";
 import AnimatedNumber from "../components/tasks/AnimatedNumber";
 import EmptyCharacterState from "../components/tasks/EmptyCharacterState";
-import { Check, ChevronDown, ChevronUp, Plus, UserCircle2, UsersRound } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronUp, Plus, UserCircle2, UsersRound } from "lucide-react";
+import GoogleAd from "../components/GoogleAd";
 
 type SavedFilters = {
   onlyRemain?: boolean;
-  tableView?: boolean;
+  isCardView?: boolean;
 };
 
 type SavedAccount = {
@@ -41,9 +42,10 @@ const FILTER_KEY = "raidTaskFilters";
 const LOCAL_KEY = "raidTaskLastAccount"; // 예전 단일 구조용 (마이그레이션용)
 const VISIBLE_KEY = "raidTaskVisibleByChar";
 
-// 🔹 새로 추가된 키들
 const ACCOUNTS_KEY = "raidTaskAccounts"; // 여러 계정 저장
 const ACTIVE_ACCOUNT_KEY = "raidTaskActiveAccount"; // 현재 선택 계정 ID
+const AD_SLOT_SIDEBAR = "4444902536";
+const AD_SLOT_BOTTOM_BANNER = "7577482274"
 
 /** 좌측 필터 영역에서 쓸 필터 값 localStorage에서 복원 */
 function loadSavedFilters(): SavedFilters | null {
@@ -51,7 +53,12 @@ function loadSavedFilters(): SavedFilters | null {
   try {
     const raw = localStorage.getItem(FILTER_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as SavedFilters;
+    const saved = JSON.parse(raw);
+
+    if (typeof saved.tableView === 'boolean' && saved.isCardView === undefined) {
+      saved.isCardView = !saved.tableView;
+    }
+    return saved as SavedFilters;
   } catch {
     return null;
   }
@@ -68,15 +75,15 @@ export default function MyTasksPage() {
     return typeof saved?.onlyRemain === "boolean" ? saved.onlyRemain : false;
   });
 
-  const [tableView, setTableView] = useState<boolean>(() => {
+  const [isCardView, setIsCardView] = useState<boolean>(() => {
     const saved = loadSavedFilters();
-    return typeof saved?.tableView === "boolean" ? saved.tableView : false;
+    return typeof saved?.isCardView === "boolean" ? saved.isCardView : false;
   });
 
   /** 필터 초기화 버튼 */
   const resetFilters = () => {
     setOnlyRemain(false);
-    setTableView(false);
+    setIsCardView(false);
   };
 
   const clearClientStorage = () => {
@@ -114,12 +121,13 @@ export default function MyTasksPage() {
 
 
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
-
   const [searchInput, setSearchInput] = useState(""); // 빈 상태 카드에서 쓰는 검색어
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [booting, setBooting] = useState(true); // 첫 로딩 중인지 여부
   const [err, setErr] = useState<string | null>(null);
+  const [accountSearchErr, setAccountSearchErr] = useState<string | null>(null);
 
 
 
@@ -279,13 +287,13 @@ export default function MyTasksPage() {
     try {
       const payload: SavedFilters = {
         onlyRemain,
-        tableView,
+        isCardView,
       };
       localStorage.setItem(FILTER_KEY, JSON.stringify(payload));
     } catch {
       // 로컬스토리지 에러는 무시
     }
-  }, [onlyRemain, tableView, isAuthed]);
+  }, [onlyRemain, isCardView, isAuthed]);
 
   function setCharPrefs(
     name: string,
@@ -404,7 +412,7 @@ export default function MyTasksPage() {
     prefsByChar,
     visibleByChar,
     onlyRemain,
-    tableView,
+    isCardView,
   ]);
 
   /* ──────────────────────────
@@ -482,7 +490,7 @@ export default function MyTasksPage() {
     prefsByChar,
     visibleByChar,
     onlyRemain,
-    tableView,
+    isCardView,
   ]);
 
   /* ──────────────────────────
@@ -580,11 +588,16 @@ export default function MyTasksPage() {
   const handleDeleteAccount = () => {
     if (!activeAccount) return;
 
+    // 🔥 [수정] 모달들을 가장 먼저 닫아 화면 깜빡임 방지
+    setDeleteConfirmOpen(false);
+    setIsCharSettingOpen(false);
+
     try {
       const namesToRemove = new Set(
         activeAccount.summary?.roster?.map((c) => c.name) ?? []
       );
 
+      // ... (이하 기존 로직 그대로 유지) ...
       if (!isAuthed) {
         for (const name of namesToRemove) {
           clearCharPrefs(name);
@@ -658,25 +671,34 @@ export default function MyTasksPage() {
     }
     setActiveAccountId(nextActiveId);
 
-    setIsCharSettingOpen(false);
   };
 
-  const handleCharacterSearch = async (name: string): Promise<void> => {
+  // 반환 타입을 Promise<boolean>으로 변경하여 성공 여부를 알림
+  const handleCharacterSearch = async (name: string): Promise<boolean> => {
     const trimmed = name.trim();
-    if (!trimmed) return;
+    if (!trimmed) return false;
 
     setLoading(true);
+
+    // 두 에러 상태 모두 초기화 (인라인용 / 모달용)
     setErr(null);
+    setAccountSearchErr(null);
 
     try {
       const r = await fetch(
         `/api/lostark/character/${encodeURIComponent(trimmed)}`,
-        {
-          cache: "no-store",
-        }
+        { cache: "no-store" }
       );
 
+      if (!r.ok) {
+        throw new Error("캐릭터 정보를 불러오지 못했습니다. 닉네임을 확인해주세요.");
+      }
+
       const json = (await r.json()) as CharacterSummary;
+
+      if (!json || !json.roster || json.roster.length === 0) {
+        throw new Error("캐릭터 정보를 찾을 수 없습니다. (원정대 정보 없음)");
+      }
 
       let newActiveId: string | null = null;
 
@@ -731,8 +753,19 @@ export default function MyTasksPage() {
           // 무시
         }
       }
-    } catch (e) {
-      setErr(String(e));
+
+      return true; // ✅ 성공 시 true 반환
+
+    } catch (e: any) {
+      // 실패 시 에러 메시지 세팅하고 중단
+      const errMsg = e?.message ?? String(e);
+      console.error("캐릭터 검색 실패:", errMsg);
+
+      // 화면에 에러 표시 (인라인, 모달 양쪽 다 설정)
+      setErr(errMsg);
+      setAccountSearchErr(errMsg);
+
+      return false; // ❌ 실패 시 false 반환
     } finally {
       setLoading(false);
     }
@@ -781,7 +814,7 @@ export default function MyTasksPage() {
     isAuthLoading || (isAuthAuthed && !syncedWithServer);
 
   const showInitialLoading =
-    !hasRoster && (waitingInitialData || loading || booting || syncingServer);
+    !hasRoster && (waitingInitialData || booting || syncingServer);
 
   const showEmptyState =
     !showInitialLoading &&
@@ -1137,8 +1170,8 @@ export default function MyTasksPage() {
                       <input
                         type="checkbox"
                         className="sr-only peer"
-                        checked={tableView}
-                        onChange={(e) => setTableView(e.target.checked)}
+                        checked={isCardView} // [수정] 상태 연결
+                        onChange={(e) => setIsCardView(e.target.checked)} // [수정] 핸들러 연결
                       />
                       <span
                         className="grid place-items-center h-5 w-5 rounded-md border border.white/30 transition
@@ -1161,12 +1194,21 @@ export default function MyTasksPage() {
                           />
                         </svg>
                       </span>
-                      테이블로 보기
+                      카드로 보기
                     </label>
                   </div>
                 </div>
               </div>
             </section>
+            <div className="hidden lg:block w-full">
+              <div
+                className="w-full bg-[#1e2128]/30 border border-white/5 rounded-lg overflow-hidden flex flex-col"
+                style={{ height: '600px' }}
+              >
+                <GoogleAd slot={AD_SLOT_SIDEBAR} className="!my-0 w-full h-full flex-1" />
+              </div>
+            </div>
+
           </div>
 
           {/* 오른쪽 메인 영역 */}
@@ -1376,11 +1418,15 @@ export default function MyTasksPage() {
                     )}
                   </button>
                 </form>
+                {accountSearchErr && (
+                  <p className="mt-3 text-sm text-red-400">
+                    {accountSearchErr}
+                  </p>
+                )}
               </div>
             )}
 
-            {/* 에러 메시지 */}
-            {err && <div className="text-sm text-red-400">에러: {err}</div>}
+
 
             {/* 초기 부팅/로딩 중 + 아직 roster 없음 */}
             {showInitialLoading && (
@@ -1431,7 +1477,7 @@ export default function MyTasksPage() {
 
 
             {/* 실제 데이터가 있을 때: 카드 뷰 / 테이블 뷰 스위치 */}
-            {tableView && hasRoster ? (
+            {!isCardView && hasRoster ? (
               <TaskTable
                 roster={visibleRoster}
                 prefsByChar={prefsByChar}
@@ -1466,9 +1512,57 @@ export default function MyTasksPage() {
                   })}
               </div>
             )}
+            <div className="block lg:hidden w-full">
+              <div
+                className="w-full bg-[#1e2128]/30 border border-white/5 rounded-lg overflow-hidden flex items-center justify-center"
+                style={{ height: '100px', minHeight: '100px', maxHeight: '100px' }}
+              >
+                <GoogleAd slot={AD_SLOT_BOTTOM_BANNER} className="!my-0 w-full h-full" responsive={false} />
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {deleteConfirmOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              {/* 경고 아이콘 */}
+              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+                <AlertTriangle className="h-7 w-7" />
+              </div>
+
+              <h3 className="text-lg font-bold text-white mb-2">
+                계정을 삭제하시겠습니까?
+              </h3>
+
+              <p className="text-sm text-gray-400 leading-relaxed mb-6">
+                현재 선택된 계정의 모든 캐릭터와<br />
+                숙제 설정 데이터가 삭제됩니다.<br />
+                <span className="text-red-400/80 text-xs mt-1 block">
+                  (이 작업은 되돌릴 수 없습니다)
+                </span>
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirmOpen(false)}
+                  className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium transition-colors text-sm"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold transition-colors text-sm shadow-lg shadow-red-500/20"
+                >
+                  삭제하기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 레이드 편집 모달 */}
       {editingChar && (
@@ -1488,11 +1582,18 @@ export default function MyTasksPage() {
       {isCharSettingOpen && (
         <CharacterSettingModal
           open
-          onClose={() => setIsCharSettingOpen(false)}
+          onClose={() => {
+            setIsCharSettingOpen(false);
+            setAccountSearchErr(null); // 🔥 [추가] 모달 닫을 때 에러 메시지도 초기화
+          }}
           roster={activeAccount?.summary?.roster ?? []}
-          onDeleteAccount={handleDeleteAccount}
+          onDeleteAccount={() => setDeleteConfirmOpen(true)}
           onRefreshAccount={handleRefreshAccount}
           visibleByChar={visibleByChar}
+
+          // 🔥 [수정] MyTasks는 항상 내 계정이므로 accountSearchErr를 직접 전달
+          refreshError={accountSearchErr}
+
           onChangeVisible={(partial) => {
             setVisibleByChar((prev) => {
               const merged = { ...prev, ...partial };
@@ -1504,19 +1605,24 @@ export default function MyTasksPage() {
               return merged;
             });
           }}
-
-
         />
       )}
 
       {/* 계정 추가 모달 (EmptyCharacterState 단독 사용) */}
       <EmptyCharacterState
         open={isAddAccountOpen}
-        onClose={() => setIsAddAccountOpen(false)}
-        loading={loading}
-        onSearch={async (nickname) => {
-          await handleCharacterSearch(nickname);
+        onClose={() => {
           setIsAddAccountOpen(false);
+          setAccountSearchErr(null);
+        }}
+        loading={loading}
+        error={accountSearchErr} // 에러 상태 전달
+        onSearch={async (nickname) => {
+          // 🔥 성공(true)했을 때만 모달을 닫음
+          const success = await handleCharacterSearch(nickname);
+          if (success) {
+            setIsAddAccountOpen(false);
+          }
         }}
       />
 

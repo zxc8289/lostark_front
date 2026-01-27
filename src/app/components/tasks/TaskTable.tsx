@@ -39,12 +39,16 @@ const DIFF_STYLES = {
         idle: "bg-[#6D28D9]/8 text-[#D6BCFA]/85 border-[#6D28D9]/75",
         hover: "hover:bg-[#6D28D9] hover:text-white",
     },
-
 } as const;
 
+// 기본값 (로딩 전)
 const DESKTOP_MAX_VISIBLE = 5;
-const MOBILE_MAX_VISIBLE = 2;
-const CHAR_COL_WIDTH = "w-[120px] sm:w-[170px]";
+
+// 🔹 [캐릭터 컬럼] 너비 고정 (나머지 공간을 레이드가 나눠가짐)
+const CHAR_COL_WIDTH = "w-[120px] sm:w-[180px] min-w-[120px] sm:min-w-[180px]";
+
+// 🔹 [레이드 컬럼] 픽셀 고정을 풀어서 table-fixed가 N등분 하도록 설정
+const RAID_COL_CLASS = "px-2 py-3 sm:py-4 whitespace-nowrap text-center";
 
 function formatHeaderTitle(kind: string, name: string) {
     if (!name) return "";
@@ -61,7 +65,11 @@ export default function TaskTable({
     onToggleGate,
     onEdit,
 }: Props) {
+
     const [maxVisible, setMaxVisible] = useState(DESKTOP_MAX_VISIBLE);
+    const [startIndex, setStartIndex] = useState(0);
+    const [slide, setSlide] = useState(0);
+
 
     const sortedRoster = useMemo(
         () => [...roster].sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)),
@@ -71,42 +79,54 @@ export default function TaskTable({
     const activeRaidColumns = useMemo(() => {
         const raidSet = new Set<string>();
 
+        // (기존과 동일) 활성화된 레이드만 수집
         sortedRoster.forEach((char) => {
             const prefs = prefsByChar[char.name];
             if (!prefs) return;
-
             const orderedRaidNames =
                 prefs.order?.filter((r) => prefs.raids[r]?.enabled) ??
                 Object.keys(prefs.raids).filter((r) => prefs.raids[r].enabled);
-
             orderedRaidNames.forEach((raidName) => raidSet.add(raidName));
         });
 
-        const collator = new Intl.Collator("ko");
-
-        // ✅ (왼쪽 낮음 → 오른쪽 높음) 유지
-        // ✅ base(min) 대신 "선택된 난이도 level(그리고 동률이면 gold)"로 정렬
+        // ✅ 정렬 로직 수정: 출시일 오름차순 (옛날 -> 최신)
         return Array.from(raidSet).sort((a, b) => {
+            const infoA = raidInformation[a];
+            const infoB = raidInformation[b];
+
+            // 1. 출시일 가져오기 (없으면 '9999-99-99'로 취급하여 맨 뒤로)
+            const dateA = infoA?.releaseDate || "9999-99-99";
+            const dateB = infoB?.releaseDate || "9999-99-99";
+
+            // 1순위: 출시일 오름차순 (Valtan < Echidna)
+            // 문자열 비교: "2021" < "2024" 이므로 음수가 나와서 a가 왼쪽으로 감
+            if (dateA !== dateB) {
+                return dateA.localeCompare(dateB);
+            }
+
+            // 2순위: 출시일이 같다면 레벨 낮은 순 (쉬운 게 왼쪽)
             const ka = getRaidColumnSortKeyForRoster(a, sortedRoster, prefsByChar);
             const kb = getRaidColumnSortKeyForRoster(b, sortedRoster, prefsByChar);
-
-            if (ka.level !== kb.level) return ka.level - kb.level;
-            if (ka.gold !== kb.gold) return ka.gold - kb.gold;
-
-            // 마지막 고정 타이브레이커(삽입순서 영향 제거)
-            return collator.compare(a, b);
+            return ka.level - kb.level;
         });
     }, [sortedRoster, prefsByChar]);
 
-    const [startIndex, setStartIndex] = useState(0);
-    const [slide, setSlide] = useState(0);
 
+    // 🔹 [수정] 화면 크기에 따라 보여줄 개수를 세분화 (태블릿 대응)
     useEffect(() => {
         if (typeof window === "undefined") return;
 
         const updateMaxVisible = () => {
-            const isMobile = window.matchMedia("(max-width: 640px)").matches;
-            setMaxVisible(isMobile ? MOBILE_MAX_VISIBLE : DESKTOP_MAX_VISIBLE);
+            const width = window.innerWidth;
+            if (width < 640) {
+                setMaxVisible(2); // 모바일
+            } else if (width < 1024) {
+                setMaxVisible(3); // 태블릿 (세로)
+            } else if (width < 1280) {
+                setMaxVisible(4); // 태블릿 (가로) / 작은 노트북
+            } else {
+                setMaxVisible(5); // 데스크탑 (기본)
+            }
         };
 
         updateMaxVisible();
@@ -115,11 +135,10 @@ export default function TaskTable({
     }, []);
 
     useEffect(() => {
-        const maxStart = Math.max(0, activeRaidColumns.length - maxVisible);
-        if (startIndex > maxStart) {
-            setStartIndex(maxStart);
+        if (activeRaidColumns.length > 0 && startIndex >= activeRaidColumns.length) {
+            setStartIndex(0);
         }
-    }, [activeRaidColumns.length, maxVisible, startIndex]);
+    }, [activeRaidColumns.length, startIndex]);
 
     useEffect(() => {
         if (slide === 0) return;
@@ -132,6 +151,9 @@ export default function TaskTable({
         [activeRaidColumns, startIndex, maxVisible]
     );
 
+    // 빈 공간 계산
+    const emptyCount = Math.max(0, maxVisible - visibleRaidColumns.length);
+
     const canScrollLeft = startIndex > 0;
     const canScrollRight = startIndex + maxVisible < activeRaidColumns.length;
 
@@ -142,7 +164,7 @@ export default function TaskTable({
     return (
         <div className="bg-[#16181D] rounded-md space-y-3">
             {/* 헤더 */}
-            <div className="flex items-center px-5  py-[0.8px]">
+            <div className="flex items-center px-5 py-[0.8px]">
                 <div className="min-w-0 pb-1 pt-4">
                     <div className="flex items-center gap-2">
                         <span
@@ -176,7 +198,7 @@ export default function TaskTable({
                             onClick={() => {
                                 if (!canScrollLeft) return;
                                 setSlide(-1);
-                                setStartIndex((v) => Math.max(0, v - 1));
+                                setStartIndex((v) => Math.max(0, v - maxVisible));
                             }}
                             className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-white/15
                                 text-gray-300/90 hover:text-white hover:border-white/30
@@ -191,9 +213,7 @@ export default function TaskTable({
                             onClick={() => {
                                 if (!canScrollRight) return;
                                 setSlide(1);
-                                setStartIndex((v) =>
-                                    Math.min(v + 1, Math.max(0, activeRaidColumns.length - maxVisible))
-                                );
+                                setStartIndex((v) => v + maxVisible);
                             }}
                             className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-white/15
                                 text-gray-300/90 hover:text-white hover:border-white/30
@@ -209,16 +229,16 @@ export default function TaskTable({
             {/* 테이블 */}
             <div className="w-full overflow-hidden rounded-b-md border border-t-0 border-white/10 bg-[#111217]">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-center text-[11px] sm:text-sm text-gray-400 border-collapse">
+                    <table className="w-full text-center text-[11px] sm:text-sm text-gray-400 border-collapse table-fixed">
                         <thead className="bg-[#1E222B] text-gray-200 uppercase text-[10px] sm:text-xs font-semibold">
                             <tr>
                                 <th
                                     className={`
-                                        px-3 py-3 sm:py-4 text-center
-                                        sticky left-0 z-20
-                                        bg-[#1E222B] border-r border-white/5
-                                        shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]
-                                        ${CHAR_COL_WIDTH}
+                                    px-3 py-3 sm:py-4 text-center
+                                    sticky left-0 z-20
+                                    bg-[#1E222B] border-r border-white/5
+                                    shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]
+                                    ${CHAR_COL_WIDTH}
                                     `}
                                 >
                                     <span className="pl-1">캐릭터</span>
@@ -231,25 +251,22 @@ export default function TaskTable({
                                     return (
                                         <th
                                             key={raidId}
-                                            className="px-3 py-3 sm:py-4 min-w-[90px] sm:min-w-[100px] whitespace-nowrap"
+                                            className={RAID_COL_CLASS}
                                         >
                                             {displayName}
                                         </th>
                                     );
                                 })}
 
-                                {visibleRaidColumns.length === 0 && (
+                                {Array.from({ length: emptyCount }).map((_, i) => (
                                     <th
-                                        className="
-                                            px-3 py-3 sm:py-4 min-w-[100px] sm:min-w-[110px] text-center
-                                            sticky left-0 z-20
-                                            bg-[#1E222B] border-r border-white/5
-                                            shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]
-                                        "
-                                    >
-                                        <span>레이드</span>
-                                    </th>
-                                )}
+                                        key={`empty-head-${i}`}
+                                        className={RAID_COL_CLASS}
+                                    ></th>
+                                ))}
+
+                                {/* 여백 채우기용 마지막 셀 (옵션) */}
+                                {/* <th className="w-auto bg-[#1E222B] p-0 m-0 border-0"></th> */}
                             </tr>
                         </thead>
 
@@ -264,15 +281,16 @@ export default function TaskTable({
                                         key={char.name}
                                         className="hover:bg-white/[0.02] transition-colors group"
                                     >
-                                        {/* 캐릭터 셀 */}
                                         <td
-                                            className="
+                                            className={`
                                                 px-3 sm:px-0 py-2 sm:py-3
                                                 text-center align-middle
                                                 sticky left-0 z-10
                                                 border-r border-white/5
                                                 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]
-                                            "
+                                                bg-[#111217] group-hover:bg-[#16181D]
+                                                ${CHAR_COL_WIDTH}
+                                            `}
                                         >
                                             <div className="flex flex-col items-center justify-center h-full">
                                                 <div className="flex items-center gap-1.5 mb-0.5">
@@ -305,94 +323,100 @@ export default function TaskTable({
                                             </div>
                                         </td>
 
-                                        {/* 레이드 설정 있는 경우 */}
                                         {hasAnyRaid ? (
-                                            visibleRaidColumns.map((raidId) => {
-                                                const p = prefs?.raids?.[raidId];
-                                                const info = raidInformation[raidId];
+                                            <>
+                                                {visibleRaidColumns.map((raidId) => {
+                                                    const p = prefs?.raids?.[raidId];
+                                                    const info = raidInformation[raidId];
 
-                                                if (!p?.enabled || !info) {
-                                                    return <td key={raidId} className="px-2 py-2 sm:py-3" />;
-                                                }
+                                                    if (!p?.enabled || !info) {
+                                                        return <td key={raidId} className={RAID_COL_CLASS} />;
+                                                    }
 
-                                                const diffKey = p.difficulty;
-                                                const diffInfo = info.difficulty[diffKey];
-                                                if (!diffInfo) return <td key={raidId} />;
+                                                    const diffKey = p.difficulty;
+                                                    const diffInfo = info.difficulty[diffKey];
+                                                    if (!diffInfo) return <td key={raidId} className={RAID_COL_CLASS} />;
 
-                                                const checkedSet = new Set(p.gates ?? []);
-                                                const allGates = diffInfo.gates.map((g) => g.index);
+                                                    const checkedSet = new Set(p.gates ?? []);
+                                                    const allGates = diffInfo.gates.map((g) => g.index);
 
-                                                const diffStyle =
-                                                    DIFF_STYLES[diffKey as keyof typeof DIFF_STYLES] ??
-                                                    DIFF_STYLES["노말"];
+                                                    const diffStyle =
+                                                        DIFF_STYLES[diffKey as keyof typeof DIFF_STYLES] ??
+                                                        DIFF_STYLES["노말"];
 
-                                                const disabled = false;
+                                                    const disabled = false;
 
-                                                return (
-                                                    <td key={raidId} className="px-2 py-2 sm:py-3 align-middle">
-                                                        <div className="flex items-center justify-center gap-[4px] sm:gap-[5px]">
-                                                            {allGates.map((g) => {
-                                                                const isChecked = checkedSet.has(g);
+                                                    return (
+                                                        <td key={raidId} className={`${RAID_COL_CLASS} align-middle`}>
+                                                            <div className="flex items-center justify-center gap-[4px] sm:gap-[5px]">
+                                                                {allGates.map((g) => {
+                                                                    const isChecked = checkedSet.has(g);
 
-                                                                return (
-                                                                    <button
-                                                                        key={g}
-                                                                        type="button"
-                                                                        title={`관문 ${g}`}
-                                                                        aria-pressed={isChecked}
-                                                                        disabled={disabled}
-                                                                        onClick={() =>
-                                                                            onToggleGate(
-                                                                                char.name,
-                                                                                raidId,
-                                                                                g,
-                                                                                Array.from(checkedSet),
-                                                                                allGates
-                                                                            )
-                                                                        }
-                                                                        className={[
-                                                                            GATE_BTN_BASE,
-                                                                            disabled
-                                                                                ? "opacity-50 cursor-default"
-                                                                                : "hover:scale-[1.1]",
-                                                                            isChecked
-                                                                                ? `${diffStyle.check} border-transparent`
-                                                                                : [
-                                                                                    diffStyle.idle,
-                                                                                    "hover:border-white/30",
-                                                                                    diffStyle.hover,
-                                                                                ].join(" "),
-                                                                            "scale-[1.0]",
-                                                                        ].join(" ")}
-                                                                    >
-                                                                        {isChecked ? (
-                                                                            <svg
-                                                                                viewBox="0 0 20 20"
-                                                                                className="h-3 w-3 sm:h-4 sm:w-4"
-                                                                                fill="none"
-                                                                                stroke="currentColor"
-                                                                                strokeWidth={2}
-                                                                            >
-                                                                                <path
-                                                                                    d="M5 10l3 3 7-7"
-                                                                                    strokeLinecap="round"
-                                                                                    strokeLinejoin="round"
-                                                                                />
-                                                                            </svg>
-                                                                        ) : (
-                                                                            g
-                                                                        )}
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </td>
-                                                );
-                                            })
+                                                                    return (
+                                                                        <button
+                                                                            key={g}
+                                                                            type="button"
+                                                                            title={`관문 ${g}`}
+                                                                            aria-pressed={isChecked}
+                                                                            disabled={disabled}
+                                                                            onClick={() =>
+                                                                                onToggleGate(
+                                                                                    char.name,
+                                                                                    raidId,
+                                                                                    g,
+                                                                                    Array.from(checkedSet),
+                                                                                    allGates
+                                                                                )
+                                                                            }
+                                                                            className={[
+                                                                                GATE_BTN_BASE,
+                                                                                disabled
+                                                                                    ? "opacity-50 cursor-default"
+                                                                                    : "hover:scale-[1.1]",
+                                                                                isChecked
+                                                                                    ? `${diffStyle.check} border-transparent`
+                                                                                    : [
+                                                                                        diffStyle.idle,
+                                                                                        "hover:border-white/30",
+                                                                                        diffStyle.hover,
+                                                                                    ].join(" "),
+                                                                                "scale-[1.0]",
+                                                                            ].join(" ")}
+                                                                        >
+                                                                            {isChecked ? (
+                                                                                <svg
+                                                                                    viewBox="0 0 20 20"
+                                                                                    className="h-3 w-3 sm:h-4 sm:w-4"
+                                                                                    fill="none"
+                                                                                    stroke="currentColor"
+                                                                                    strokeWidth={2}
+                                                                                >
+                                                                                    <path
+                                                                                        d="M5 10l3 3 7-7"
+                                                                                        strokeLinecap="round"
+                                                                                        strokeLinejoin="round"
+                                                                                    />
+                                                                                </svg>
+                                                                            ) : (
+                                                                                g
+                                                                            )}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </td>
+                                                    );
+                                                })}
+
+                                                {Array.from({ length: emptyCount }).map((_, i) => (
+                                                    <td key={`empty-cell-${i}`} className={RAID_COL_CLASS} />
+                                                ))}
+
+                                                {/* <td className="w-auto p-0 m-0 border-0"></td> */}
+                                            </>
                                         ) : (
-                                            // 레이드 설정이 하나도 없는 캐릭터 안내
                                             <td
-                                                colSpan={Math.max(1, visibleRaidColumns.length)}
+                                                colSpan={maxVisible}
                                                 className="px-3 py-3 align-middle"
                                             >
                                                 <div className="px-3 py-2 text-[10px] sm:text-[11px] md:text-sm text-gray-500 text-center">
