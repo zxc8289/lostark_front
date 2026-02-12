@@ -19,7 +19,7 @@ wss.on("connection", (ws, req) => {
     }
     partyRooms.get(roomKey).add(ws);
 
-    console.log("[WS] client connected to party", roomKey);
+    // console.log("[WS] client connected to party", roomKey);
 
     ws.on("message", (data) => {
         // console.log("[WS] raw message:", data.toString());
@@ -27,7 +27,7 @@ wss.on("connection", (ws, req) => {
         try {
             msg = JSON.parse(data.toString());
         } catch (e) {
-            console.error("[WS] invalid JSON:", e);
+            // console.error("[WS] invalid JSON:", e);
             return;
         }
 
@@ -49,7 +49,7 @@ wss.on("connection", (ws, req) => {
                 partyRooms.delete(roomKey);
             }
         }
-        console.log("[WS] client disconnected from party", roomKey);
+        // console.log("[WS] client disconnected from party", roomKey);
     });
 });
 
@@ -63,15 +63,15 @@ function handleGateUpdate(roomKey, msg) {
     const { partyId, userId, prefsByChar, visibleByChar } = msg;
 
     if (!userId || !prefsByChar) {
-        console.warn("[WS] gateUpdate: missing userId or prefsByChar");
+        // console.warn("[WS] gateUpdate: missing userId or prefsByChar");
         return;
     }
 
-    console.log("[WS] broadcasting memberUpdated:", {
-        roomKey,
-        partyId,
-        userId,
-    });
+    // console.log("[WS] broadcasting memberUpdated:", {
+    //     roomKey,
+    //     partyId,
+    //     userId,
+    // });
 
     const payload = JSON.stringify({
         type: "memberUpdated",
@@ -113,4 +113,4 @@ function handleActiveAccountUpdate(roomKey, msg) {
 
 
 
-console.log(`[WS] listening on ws://localhost:${PORT}`);
+// console.log(`[WS] listening on ws://localhost:${PORT}`);

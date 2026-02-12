@@ -4,7 +4,8 @@ import Nav from "./components/Nav";
 import AuthSessionProvider from "./components/AuthSessionProvider";
 import { pretendard } from "./fonts";
 import Footer from "./components/Footer";
-import Script from "next/script"; // [필수] Script 컴포넌트 불러오기
+import Script from "next/script";
+import { GoogleTagManager } from '@next/third-parties/google'; // 👈 1. 임포트 추가
 
 // 1. 메타데이터 설정
 export const metadata: Metadata = {
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
     icon: "/favicon.ico",
   },
   openGraph: {
-    title: "로아체크 - 로스트아크의 모든 계산",
+    title: "로아체크 - 로스트아크 레이드 체크",
     description: "오늘의 숙제와 레이드 수익을 확인해보세요.",
     url: "https://loacheck.com",
     siteName: "로아체크",
@@ -47,6 +48,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
+      <GoogleTagManager gtmId="GTM-PF49FQBN" />
+
       <body className={`${pretendard.variable} font-pretendard min-h-screen flex flex-col bg-[#1B1D22] text-gray-300`}>
 
         {/* Next.js 최적화를 위해 next/script를 사용합니다 */}
@@ -65,6 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               "@context": "https://schema.org",
               "@type": "WebSite",
               "name": "로아체크",
+              "alternateName": ["LOACHECK", "loacheck"],
               "url": "https://loacheck.com",
               "description": "로스트아크 숙제 및 딜 지분 계산 도구",
             }),

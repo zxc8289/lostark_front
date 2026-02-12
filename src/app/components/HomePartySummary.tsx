@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
-import { UsersRound, ChevronRight, User, Users, Clock } from "lucide-react";
+import { UsersRound, ChevronRight, User, Users, Clock, UserCheck } from "lucide-react";
 
 /* ───────── 타입 및 컨텍스트 ───────── */
 type PartyMember = { id: string; name: string | null; image: string | null; };
@@ -53,53 +53,57 @@ export default function HomePartySummaryProvider({ children }: { children: React
 export function HomePartyGuard({ children }: { children: React.ReactNode }) {
     const { loading, parties } = useHomeParty();
 
-    // 🔹 [수정] 로딩 상태도 꽉 채움
     if (loading) return <HomePartySkeleton />;
 
-    // 🔹 [수정] 데이터 없을 때: flex-1을 줘서 남은 공간을 모두 차지하게 함
     if (parties.length === 0) return (
         <div className="flex-1 w-full flex flex-col items-center justify-center text-center rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-6">
-            <UsersRound size={32} className="mx-auto mb-2 text-gray-600" />
+            <UserCheck size={32} className="mx-auto mb-2 text-gray-600" />
             <p className="text-sm font-medium text-gray-400">참여 중인 파티가 없습니다.</p>
-            <Link href="/party-tasks" className="text-[11px] text-[#5B69FF] hover:underline mt-2 inline-block">파티 찾으러 가기 ›</Link>
+            <a
+                href="/party-tasks"
+                className="text-[11px] text-[#5B69FF] hover:underline mt-2 inline-block"
+            >
+                파티 숙제에서 등록하기 ›
+            </a>
         </div>
     );
 
     return <>{children}</>;
 }
 
-/* ───────── [상단 요약] ───────── */
+/* ───────── [상단 요약] (🔥 수정됨: 최상단 1개만 표시) ───────── */
 export function HomePartyHeader() {
     const { parties } = useHomeParty();
+    // 🔹 [변경] slice(0, 2) -> slice(0, 1) : 맨 위 1개만 노출
     const head = parties.slice(0, 1);
+
     return (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4 w-full">
             {head.map((party) => <HomePartyRow key={party.id} party={party} />)}
         </div>
     );
 }
 
-/* ───────── [상세 내용] ───────── */
+/* ───────── [상세 내용] (🔥 수정됨: 2번째부터 나머지 표시) ───────── */
 export function HomePartyDetails() {
     const { parties } = useHomeParty();
+    // 🔹 [변경] slice(2) -> slice(1) : 2번째 데이터부터 끝까지 노출
     const rest = parties.slice(1);
 
-    // 🔹 [수정] 추가 파티 없을 때도 꽉 채움
     if (rest.length === 0) return (
         <div className="h-full flex items-center justify-center py-8 text-center text-[11px] text-gray-600 border border-dashed border-white/5 rounded-xl bg-white/[0.01]">
             추가 참여 파티가 없습니다.
         </div>
     );
 
-    // 🔹 [수정] 목록이 있을 때도 부모 높이에 맞게 스크롤 처리
     return (
-        <div className="h-full min-h-0 overflow-y-auto custom-scrollbar pr-1 space-y-4">
+        <div className="h-full min-h-0 overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-4">
             {rest.map((party) => <HomePartyRow key={party.id} party={party} />)}
         </div>
     );
 }
 
-/* ───────── 개별 파티 카드 ───────── */
+/* ───────── 개별 파티 카드 (기존 디자인 유지) ───────── */
 function HomePartyRow({ party }: { party: PartySummaryItem }) {
     const [showNames, setShowNames] = useState(false);
     const members = party.members ?? [];
@@ -107,9 +111,9 @@ function HomePartyRow({ party }: { party: PartySummaryItem }) {
     const remainingCount = Math.max(0, party.memberCount - displayMembers.length);
 
     return (
-        <Link href={`/party-tasks/${party.id}`} className="group relative flex flex-col justify-between rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 min-h-[230px] hover:border-[#5B69FF]/50 overflow-visible">
+        <Link href={`/party-tasks/${party.id}`} className="group relative flex flex-col justify-between rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 min-h-[200px] hover:border-[#5B69FF]/50 overflow-visible h-full w-full">
             <div className="relative z-10 flex-1 flex flex-col">
-                <div className="mb-4 flex items-start justify-between">
+                <div className="mb-2 flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3.5">
                             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1F222B] border border-white/5 text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors">
@@ -179,10 +183,11 @@ function MemberAvatar({ member, className, style }: { member: PartyMember; class
     );
 }
 
+/* ───────── [스켈레톤] (🔥 수정됨: 1개만 표시) ───────── */
 function HomePartySkeleton() {
     return (
-        // 🔹 [수정] 스켈레톤도 flex-1 적용
         <div className="flex-1 w-full animate-pulse flex flex-col gap-4">
+            {/* 기본 1개만 로딩 보여줌 (헤더에 1개니까) */}
             {[0].map((i) => (
                 <div key={i} className="flex-1 rounded-xl border border-white/10 bg-[#16181D] p-5 min-h-[200px]">
                     <div className="flex items-start justify-between">

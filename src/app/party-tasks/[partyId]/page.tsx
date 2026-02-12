@@ -27,6 +27,9 @@ import {
     Plus,
     Settings,
     ChevronLeft,
+    MoreVertical,
+    Wand2,
+    RefreshCcw,
 } from "lucide-react";
 
 import CharacterTaskStrip, {
@@ -53,6 +56,7 @@ import AnimatedNumber from "@/app/components/tasks/AnimatedNumber";
 import EmptyCharacterState from "@/app/components/tasks/EmptyCharacterState";
 import PartySettingsModal from "@/app/components/tasks/PartySettingsModal";
 import GoogleAd from "@/app/components/GoogleAd";
+import TaskSidebar from "@/app/components/tasks/TaskSidebar";
 
 /* ─────────────────────────────
  * 타입 정의
@@ -274,6 +278,8 @@ export default function PartyDetailPage() {
     const [onlyRemain, setOnlyRemain] = useState(false);
     const [isCardView, setIsCardView] = useState(false);
 
+    const [orderTick, setOrderTick] = useState(0);
+
 
 
     const wsRef = useRef<WebSocket | null>(null);
@@ -402,7 +408,7 @@ export default function PartyDetailPage() {
                     payload
                 );
             } else {
-                console.log("[raid_task_state 저장 성공]", partial);
+                // console.log("[raid_task_state 저장 성공]", partial);
             }
         } catch (e) {
             console.error("raid_task_state 저장 실패 (네트워크 에러):", e);
@@ -427,7 +433,7 @@ export default function PartyDetailPage() {
                     await res.text()
                 );
             } else {
-                console.log("[파티 activeAccount 저장 성공]", partyId, activeAccountId);
+                // console.log("[파티 activeAccount 저장 성공]", partyId, activeAccountId);
             }
         } catch (e) {
             console.error("파티 activeAccount 저장 실패 (네트워크 에러):", e);
@@ -457,6 +463,25 @@ export default function PartyDetailPage() {
             console.error("[WS] send memberUpdate failed:", e);
         }
     }
+
+    const handleSelectAccount = (accountId: string) => {
+        if (!party) return;
+        const targetAcc = accounts.find((a) => a.id === accountId);
+        if (!targetAcc) return;
+
+        void (async () => {
+            const nextAccounts = await applyActiveAccount(
+                targetAcc,
+                accounts,
+                party.id,
+                myUserId,
+                saveRaidState,
+                saveActiveAccountToServer,
+                wsRef.current
+            );
+            setAccounts(nextAccounts);
+        })();
+    };
 
     // 반환 타입을 Promise<boolean>으로 변경하여 성공 여부를 알림
     const handleCharacterSearch = async (name: string): Promise<boolean> => {
@@ -1095,7 +1120,7 @@ export default function PartyDetailPage() {
                     payload
                 );
             } else {
-                console.log("[파티 숙제 저장 성공]", partyId, userId, payload);
+                // console.log("[파티 숙제 저장 성공]", partyId, userId, payload);
             }
         } catch (e) {
             console.error("파티원 숙제 저장 실패 (네트워크 에러):", e);
@@ -1538,11 +1563,11 @@ export default function PartyDetailPage() {
 
         ws.onopen = () => {
             setWsReady(true);
-            console.log("[WS] connected:", url);
+            // console.log("[WS] connected:", url);
         };
 
         ws.onclose = (ev) => {
-            console.log("[WS] closed", { code: ev.code, reason: ev.reason, wasClean: ev.wasClean });
+            // console.log("[WS] closed", { code: ev.code, reason: ev.reason, wasClean: ev.wasClean });
             setWsReady(false);
             if (wsRef.current === ws) wsRef.current = null;
         };
@@ -1554,7 +1579,7 @@ export default function PartyDetailPage() {
         ws.onmessage = (event) => {
             try {
                 const msg = JSON.parse(event.data as string);
-                console.log("[WS] message from server:", msg);
+                // console.log("[WS] message from server:", msg);
 
                 if (msg.type === "memberUpdated" && msg.partyId === party.id) {
                     setPartyTasks((prev) => {
@@ -1778,14 +1803,35 @@ export default function PartyDetailPage() {
 
     if (!party) return null;
 
-    const sortedPartyTasks =
-        partyTasks && myUserId
-            ? [...partyTasks].sort((a, b) => {
-                if (a.userId === myUserId && b.userId !== myUserId) return -1; // a가 나면 위로
-                if (b.userId === myUserId && a.userId !== myUserId) return 1; // b가 나면 위로
-                return 0;
-            })
-            : partyTasks;
+    // ✨ 정렬 로직 수정 (localStorage 순서 반영)
+    const sortedPartyTasks = partyTasks && myUserId
+        ? [...partyTasks].sort((a, b) => {
+            // 1순위: 나는 무조건 맨 위
+            if (a.userId === myUserId && b.userId !== myUserId) return -1;
+            if (b.userId === myUserId && a.userId !== myUserId) return 1;
+
+            // 2순위: 로컬 스토리지에 저장된 순서
+            if (typeof window !== "undefined") {
+                const savedOrderRaw = localStorage.getItem(PARTY_FILTER_KEY(party?.id ?? "") + ":memberOrder");
+                // 키 이름을 모달과 통일해야 합니다. 모달에서는 `partyMemberOrder:${party.id}`로 저장했습니다.
+                const savedOrderRaw2 = localStorage.getItem(`partyMemberOrder:${party?.id}`);
+
+                if (savedOrderRaw2) {
+                    const orderIds = JSON.parse(savedOrderRaw2) as string[];
+                    const indexA = orderIds.indexOf(a.userId);
+                    const indexB = orderIds.indexOf(b.userId);
+
+                    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                    // 목록에 있는 사람이 위로
+                    if (indexA !== -1) return -1;
+                    if (indexB !== -1) return 1;
+                }
+            }
+
+            // 3순위: 기본 (가입일 또는 이름 순 등, 여기선 0 반환하여 기존 순서 유지)
+            return 0;
+        })
+        : partyTasks;
 
     let myRemainingRaids: number | undefined = undefined;
     if (sortedPartyTasks && myUserId) {
@@ -1867,762 +1913,82 @@ export default function PartyDetailPage() {
                 >
                     {/* 왼쪽 필터 영역 */}
                     <div className="space-y-4">
-                        {/* 🔹 MyTasks의 계정 선택 섹션 이식 */}
-                        <section className="rounded-sm bg-[#16181D] shadow-sm">
-                            {/* 헤더: 현재 선택된 계정 표시 (클릭 시 펼치기/접기) */}
-                            <button
-                                onClick={() => setIsAccountListOpen(!isAccountListOpen)}
-                                className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-white/5 transition-colors ${isAccountListOpen ? "bg-white/5" : ""
-                                    }`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="flex flex-col items-start">
-                                        <span className="text-[10px] text-gray-400 font-medium">
-                                            현재 계정
-                                        </span>
-                                        <span className="text-sm font-bold text-white">
-                                            {currentAccount
-                                                ? currentAccount.nickname
-                                                : "계정 선택"}
-                                        </span>
-                                    </div>
-                                </div>
+                        <TaskSidebar
+                            accounts={accounts}
+                            activeAccountId={currentAccount?.id ?? null}
+                            onSelectAccount={handleSelectAccount}
+                            onAddAccount={() => setIsAddAccountOpen(true)}
+                            onlyRemain={onlyRemain}
+                            setOnlyRemain={setOnlyRemain}
+                            isCardView={isCardView}
+                            setIsCardView={setIsCardView}
+                            adSlot={AD_SLOT_SIDEBAR}
+                        />
 
-                                {/* 화살표 아이콘 (열림/닫힘 상태에 따라 변경) */}
-                                <div className="text-gray-400">
-                                    {isAccountListOpen ? (
-                                        <ChevronUp className="h-5 w-5" />
-                                    ) : (
-                                        <ChevronDown className="h-5 w-5" />
-                                    )}
-                                </div>
-                            </button>
-
-                            {/* 펼쳐지는 목록 영역 */}
-                            {isAccountListOpen && (
-                                <div className="px-3 pb-3 pt-2 bg-[#16181D] animate-in slide-in-from-top-2 duration-200">
-                                    <div className="flex flex-col gap-1">
-                                        {accounts.map((acc) => {
-                                            const isActive = currentAccount?.id === acc.id;
-
-                                            return (
-                                                <button
-                                                    key={acc.id}
-                                                    onClick={() => {
-                                                        if (!party) return;
-
-                                                        void (async () => {
-                                                            // 1) nextAccounts 계산 + 서버에 순서대로 반영
-                                                            const nextAccounts = await applyActiveAccount(
-                                                                acc,
-                                                                accounts,                 // 현재 상태 기준
-                                                                party.id,
-                                                                myUserId,
-                                                                saveRaidState,
-                                                                saveActiveAccountToServer,
-                                                                wsRef.current
-                                                            );
-
-                                                            // 2) 최종적으로 프론트 상태 갱신
-                                                            setAccounts(nextAccounts);
-
-                                                            // 3) 드롭다운 닫기
-                                                            setIsAccountListOpen(false);
-                                                        })();
-                                                    }}
-                                                    className={[
-                                                        "relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all",
-                                                        isActive
-                                                            ? "bg-[#5B69FF]/10 text-white"
-                                                            : "text-gray-400 hover:bg-white/5 hover:text-gray-200",
-                                                    ].join(" ")}
-                                                >
-                                                    <div
-                                                        className={`flex items-center justify-center w-5 h-5 ${isActive ? "text-[#5B69FF]" : "text-transparent"
-                                                            }`}
-                                                    >
-                                                        <Check className="h-4 w-4" strokeWidth={3} />
-                                                    </div>
-
-                                                    <span className="text-sm font-medium">{acc.nickname}</span>
-                                                </button>
-                                            );
-                                        })}
-
-
-                                        {/* 구분선 */}
-                                        <div className="my-1 border-t border-white/5 mx-2" />
-
-                                        {/* 2. 계정 추가 버튼 (맨 아래 배치) */}
-                                        <button
-                                            onClick={() => {
-                                                setIsAddAccountOpen(true);
-                                                setIsAccountListOpen(false);
-                                            }}
-                                            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
-                                        >
-                                            <div className="flex items-center justify-center w-5 h-5">
-                                                <Plus className="h-4 w-4" />
-                                            </div>
-                                            <span className="text-sm font-medium">계정 추가</span>
-                                        </button>
-                                    </div>
-
-                                    {accountSearchErr && (
-                                        <p className="mt-2 text-[11px] text-red-400 px-1">
-                                            에러: {accountSearchErr}
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-                        </section>
-
-                        {/* 필터 카드 */}
-                        <section className="rounded-sm bg-[#16181D] shadow-sm">
-                            <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-                                <h3 className="text-base sm:text-lg font-semibold">필터</h3>
-                                <button
-                                    onClick={resetFilters}
-                                    className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-neutral-400 hover:text-neutral-200"
-                                >
-                                    초기화 <span className="text-[10px]">⟳</span>
-                                </button>
-                            </header>
-
-                            <div className="px-4 sm:px-5 py-5 sm:py-7">
-                                <div className="grid grid-cols-2 sm:grid-cols-1 gap-4 sm:gap-5 text-xs sm:text-sm">
-                                    <div className="space-y-3">
-                                        <div className="font-bold">숙제/보상</div>
-                                        <div className="space-y-3">
-                                            <label className="flex items-center gap-2 cursor-pointer select-none text-[#A2A3A5] relative group">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={onlyRemain}
-                                                    onChange={(e) => setOnlyRemain(e.target.checked)}
-                                                />
-                                                <span
-                                                    className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition
-                                                        peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
-                                                        peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
-                                                        peer-checked:[&_svg]:opacity-100"
-                                                >
-                                                    <svg
-                                                        className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
-                                                        viewBox="0 0 20 20"
-                                                        fill="none"
-                                                    >
-                                                        <path
-                                                            d="M5 10l3 3 7-7"
-                                                            stroke="currentColor"
-                                                            strokeWidth="2"
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                        />
-                                                    </svg>
-                                                </span>
-
-                                                <span className="text-xs sm:text-sm">
-                                                    남은 숙제만 보기
-                                                </span>
-
-                                                <span
-                                                    className="
-                                                        w-3 h-3
-                                                        rounded-full
-                                                        border border-white/20
-                                                        text-[9px] font-bold
-                                                        flex items-center justify-center
-                                                        text-gray-400
-                                                        bg-black/20
-                                                        group-hover:text-white group-hover:border-white/40
-                                                        transition-colors duration-200
-                                                        cursor-help"
-                                                >
-                                                    ?
-                                                </span>
-
-                                                {/* 설명 툴팁 그대로 유지 */}
-                                                <div
-                                                    className="
-                                                        pointer-events-none
-                                                        absolute left-6 top-full mt-2.5
-                                                        w-64 p-4
-                                                        rounded-2xl
-                                                        bg-gray-900/95 backdrop-blur-xl
-                                                        border border-white/[0.08]
-                                                        shadow-[0_8px_30px_rgb(0,0,0,0.4)]
-                                                        opacity-0 translate-y-1 scale-95
-                                                        group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
-                                                        transition-all duration-200 ease-out
-                                                        z-[200]"
-                                                >
-                                                    <div className="flex flex-col gap-2 text-xs leading-relaxed text-left">
-                                                        <p className="text-gray-200">
-                                                            <span className="font-bold text-sky-400">
-                                                                카드 보기
-                                                            </span>
-                                                            에서만 적용됩니다.
-                                                            <span className="block text-gray-400 font-normal mt-0.5">
-                                                                마지막 관문까지 완료되지 않은 레이드만 필터링하여
-                                                                보여줍니다.
-                                                            </span>
-                                                        </p>
-
-                                                        <div className="w-full h-px bg-white/5 my-0.5" />
-
-                                                        <p className="text-gray-400 font-medium">
-                                                            ※ 테이블 보기에서는 이 옵션이 적용되지 않습니다.
-                                                        </p>
-                                                    </div>
-
-                                                    <div
-                                                        className="
-                                                            absolute -top-[5px] left-6
-                                                            w-2.5 h-2.5
-                                                            bg-gray-900/95
-                                                            border-t border-l border-white/[0.08]
-                                                            rotate-45
-                                                            z-10"
-                                                    />
-                                                </div>
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    {/* 오른쪽: 보기 설정 */}
-                                    <div className="space-y-3">
-                                        <div className="font-semibold">보기 설정</div>
-                                        <label className="flex items-center gap-2 cursor-pointer select-none text-[#A2A3A5] text-xs sm:text-sm">
-                                            <input
-                                                type="checkbox"
-                                                className="sr-only peer"
-                                                checked={isCardView} // [수정] 상태 연결
-                                                onChange={(e) => setIsCardView(e.target.checked)} // [수정] 핸들러 연결
-                                            />
-                                            <span
-                                                className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition
-                                                    peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF]
-                                                    peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500
-                                                    peer-checked:[&_svg]:opacity-100"
-                                            >
-                                                <svg
-                                                    className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
-                                                    viewBox="0 0 20 20"
-                                                    fill="none"
-                                                >
-                                                    <path
-                                                        d="M5 10l3 3 7-7"
-                                                        stroke="currentColor"
-                                                        strokeWidth="2"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                    />
-                                                </svg>
-                                            </span>
-                                            {/* [수정] 텍스트 변경 */}
-                                            카드로 보기
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-                        <div className="hidden lg:block w-full">
-                            <div
-                                className="w-full bg-[#1e2128]/30 border border-white/5 rounded-lg overflow-hidden flex flex-col"
-                                style={{ height: '600px' }}
-                            >
-                                <GoogleAd slot={AD_SLOT_SIDEBAR} className="!my-0 w-full h-full flex-1" />
-                            </div>
-                        </div>
-
+                        {/* (선택사항) 계정 검색 에러가 있으면 사이드바 아래에 표시 */}
+                        {accountSearchErr && (
+                            <p className="mt-2 text-[11px] text-red-400 px-1">
+                                에러: {accountSearchErr}
+                            </p>
+                        )}
                     </div>
+
 
                     {/* 오른쪽 메인 영역 */}
                     <div className="grid grid-cols-1 gap-4 sm:gap-5">
+                        {/* 로딩 표시 */}
                         {tasksLoading && (
                             <div className="w-full py-6">
                                 <div className="animate-pulse space-y-3">
-                                    {/* 상단 안내 스켈레톤 */}
                                     <div className="h-4 w-40 rounded bg-white/5" />
-
-                                    {/* 리스트/테이블 대체 스켈레톤 */}
                                     <div className="space-y-2">
                                         {Array.from({ length: 6 }).map((_, i) => (
-                                            <div
-                                                key={i}
-                                                className="flex items-center gap-3 rounded-xl border border-white/5 bg-[#16181D] p-4"
-                                            >
+                                            <div key={i} className="flex items-center gap-3 rounded-xl border border-white/5 bg-[#16181D] p-4">
                                                 <div className="h-9 w-9 rounded-full bg-white/5" />
                                                 <div className="flex-1 space-y-2">
                                                     <div className="h-4 w-1/2 rounded bg-white/5" />
                                                     <div className="h-3 w-1/3 rounded bg-white/5" />
                                                 </div>
-                                                <div className="h-8 w-20 rounded bg-white/5" />
                                             </div>
                                         ))}
                                     </div>
-
-                                    {/* 접근성용 텍스트(보이지 않음) */}
-                                    <span className="sr-only">파티 숙제 데이터를 불러오는 중입니다...</span>
                                 </div>
                             </div>
                         )}
 
-
+                        {/* 에러 표시 */}
                         {tasksErr && (
                             <div className="w-full rounded-md border border-red-500/40 bg-red-900/20 px-4 py-3 text-xs text-red-200">
                                 {tasksErr}
                             </div>
                         )}
 
-                        {/* 카드 뷰 */}
-                        {!tasksLoading &&
-                            !tasksErr &&
-                            sortedPartyTasks &&
-                            sortedPartyTasks.length > 0 &&
-                            isCardView && (
-                                <div className="flex flex-col gap-10">
-                                    {sortedPartyTasks.map((m) => {
-                                        const isMe = myUserId && m.userId === myUserId;
+                        {!tasksLoading && !tasksErr && sortedPartyTasks && sortedPartyTasks.length > 0 && (
+                            <div className="flex flex-col gap-6 sm:gap-10">
+                                {sortedPartyTasks.map((m) => (
+                                    <PartyMemberBlock
+                                        key={m.userId}
+                                        partyId={party.id} // ✨ [추가됨] 저장을 위한 키값으로 사용
+                                        member={m}
+                                        isMe={myUserId === m.userId}
+                                        currentAccount={currentAccount}
+                                        onlyRemain={onlyRemain}
+                                        isCardView={isCardView}
+                                        onAutoSetup={(isMe) => handleMemberAutoSetup(m.userId, isMe)}
+                                        onGateAllClear={() => handleMemberGateAllClear(m.userId)}
+                                        onOpenCharSetting={() => openMemberCharSetting(m)}
+                                        onToggleGate={handleMemberToggleGate}
+                                        onEdit={openEditModal}
+                                        onReorder={handleMemberReorder}
+                                        onSearch={handleCharacterSearch}
+                                        searchLoading={accountSearchLoading}
+                                        searchError={accountSearchErr}
+                                    />
+                                ))}
+                            </div>
+                        )}
 
-                                        // 나인 경우, 현재 선택된 계정의 summary를 우선 사용
-                                        const baseSummary =
-                                            isMe && currentAccount?.summary
-                                                ? currentAccount.summary
-                                                : m.summary;
-
-                                        const visibleRoster =
-                                            baseSummary?.roster?.filter(
-                                                (c) => m.visibleByChar?.[c.name] ?? true
-                                            ) ?? [];
-
-                                        if (visibleRoster.length === 0) {
-                                            return (
-                                                <div
-                                                    key={m.userId}
-                                                    className="rounded-xl border border-white/10 bg-[#16181D] overflow-hidden"
-                                                >
-                                                    {/* 1. 상단 헤더 (프로필) */}
-                                                    <div className="flex items-center gap-3 px-4 py-5 ">
-                                                        <MemberAvatar
-                                                            member={{
-                                                                id: m.userId,
-                                                                name: m.name,
-                                                                image: m.image,
-                                                                role: "member",
-                                                            }}
-                                                            className="h-8 w-8 rounded-full border border-black/50"
-                                                        />
-                                                        <span className="font-semibold text-xl text-gray-200">
-                                                            {m.name || "이름 없음"}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* 2. 본문 영역 */}
-                                                    <div className="px-4 pb-4">
-                                                        {isMe ? (
-                                                            /* 🟦 본인인 경우: 요청하신 디자인 적용 */
-                                                            <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl animate-in fade-in zoom-in-95 duration-500">
-                                                                <div className="relative mb-6">
-                                                                    <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
-                                                                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
-                                                                        <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">
-                                                                            LOA
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2 py-0.5 rounded-full border border-white/10">
-                                                                        <span className="text-[10px] text-gray-400">검색</span>
-                                                                    </div>
-                                                                </div>
-
-                                                                <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">
-                                                                    원정대 캐릭터를 불러오세요
-                                                                </h2>
-                                                                <p className="text-gray-400 max-w-md mb-6 sm:mb-8 leading-relaxed text-[12px] sm:text-base">
-                                                                    아직 등록된 캐릭터 데이터가 없습니다.
-                                                                    <br />
-                                                                    <span className="text-gray-400">
-                                                                        대표 캐릭터 닉네임을 입력하면 전투정보실에서 정보를 가져옵니다.
-                                                                    </span>
-                                                                </p>
-
-                                                                <form
-                                                                    onSubmit={handleInlineSearch}
-                                                                    className="relative flex items-center w-full max-w-md"
-                                                                >
-                                                                    <input
-                                                                        type="text"
-                                                                        placeholder="캐릭터 닉네임 입력"
-                                                                        value={inlineSearchInput}
-                                                                        onChange={(e) => setInlineSearchInput(e.target.value)}
-                                                                        disabled={accountSearchLoading}
-                                                                        className="w-full h-11 sm:h-12 pl-4 pr-11 sm:pr-12 rounded-lg bg-[#0F1115] border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
-                                                                    />
-                                                                    <button
-                                                                        type="submit"
-                                                                        disabled={accountSearchLoading || !inlineSearchInput.trim()}
-                                                                        className="absolute right-1.5 px-3 py-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-400 transition-colors text-xs sm:text-sm"
-                                                                    >
-                                                                        {accountSearchLoading ? (
-                                                                            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                                        ) : (
-                                                                            "검색"
-                                                                        )}
-                                                                    </button>
-                                                                </form>
-
-                                                                {accountSearchErr && (
-                                                                    <p className="mt-3 text-sm text-red-400">
-                                                                        {accountSearchErr}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            /* ⬜ 타인인 경우: 기존 유지 */
-                                                            <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl">
-                                                                <div className="relative mb-6">
-                                                                    {/* 은은한 배경 광원 (내 것보다는 조금 연하게 opacity 조절) */}
-                                                                    <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-10 rounded-full" />
-
-                                                                    {/* 아이콘 원형 배경 */}
-                                                                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
-                                                                        <UsersRound className="w-8 h-8 sm:w-9 sm:h-9 text-[#5B69FF]" strokeWidth={1.5} />
-                                                                    </div>
-
-                                                                    {/* 우측 하단 뱃지 */}
-                                                                    <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2.5 py-1 rounded-full border border-white/10">
-                                                                        <span className="text-[10px] font-medium text-gray-400">미등록</span>
-                                                                    </div>
-                                                                </div>
-
-                                                                <h2 className="text-xl sm:text-2xl font-bold text-white/90 mb-2 sm:mb-3">
-                                                                    캐릭터 정보가 없습니다
-                                                                </h2>
-
-                                                                <p className="text-gray-500 max-w-md leading-relaxed text-[12px] sm:text-base">
-                                                                    아직 이 파티원이 계정을 등록하지 않았습니다.
-                                                                    <br className="hidden sm:block" />
-                                                                    등록을 완료하면 이곳에 숙제 현황이 표시됩니다.
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        }
-                                        const sortedRoster = [...visibleRoster].sort(
-                                            (a, b) =>
-                                                (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)
-                                        );
-
-                                        const memberSummary = computeMemberSummary({
-                                            ...m,
-                                            summary: baseSummary,
-                                        });
-
-                                        return (
-                                            <div
-                                                key={m.userId}
-                                                className="grid grid-cols-1 gap-4 sm:gap-1 rounded-lg border border-white/10 px-3 sm:px-4 py-3 sm:py-4"
-                                            >
-                                                <PartyMemberSummaryBar
-                                                    member={m}
-                                                    summary={memberSummary}
-                                                >
-                                                    <PartyMemberActions
-                                                        onAutoSetup={() =>
-                                                            handleMemberAutoSetup(m.userId, !!isMe)
-                                                        }
-                                                        onGateAllClear={() =>
-                                                            handleMemberGateAllClear(m.userId)
-                                                        }
-                                                        onOpenCharSetting={() =>
-                                                            openMemberCharSetting(m)
-                                                        }
-                                                    />
-                                                </PartyMemberSummaryBar>
-
-                                                {/* 🔹 MyTasks와 동일한 캐릭터별 카드 스트립 */}
-                                                {(() => {
-                                                    // 1) 캐릭터별 tasks 계산 (전체/표시)
-                                                    const strips = sortedRoster.map((c) => {
-                                                        const onToggleGate = (
-                                                            raidName: string,
-                                                            gate: number,
-                                                            currentGates: number[],
-                                                            allGates: number[]
-                                                        ) =>
-                                                            handleMemberToggleGate(
-                                                                m.userId,
-                                                                c.name,
-                                                                raidName,
-                                                                gate,
-                                                                currentGates,
-                                                                allGates
-                                                            );
-
-                                                        const tasksAll = buildTasksForCharacter(c, m.prefsByChar, {
-                                                            onlyRemain: false,
-                                                            onToggleGate,
-                                                        });
-
-                                                        const tasksShown = onlyRemain
-                                                            ? buildTasksForCharacter(c, m.prefsByChar, {
-                                                                onlyRemain: true,
-                                                                onToggleGate,
-                                                            })
-                                                            : tasksAll;
-
-                                                        return { c, tasksAllLen: tasksAll.length, tasks: tasksShown };
-                                                    });
-
-                                                    // 2) onlyRemain일 때는 남은 숙제 없는 캐릭터는 숨김(기존 동작 유지)
-                                                    const visibleStrips = onlyRemain
-                                                        ? strips.filter((s) => s.tasks.length > 0)
-                                                        : strips;
-
-                                                    const hasAnyTasksConfigured = strips.some((s) => s.tasksAllLen > 0);
-                                                    const showAllDone =
-                                                        onlyRemain && hasAnyTasksConfigured && visibleStrips.length === 0;
-
-                                                    return (
-                                                        <div className="mt-2 flex flex-col gap-4">
-                                                            {showAllDone ? (
-                                                                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-10 text-center">
-                                                                    <div className="mx-auto mb-2 grid h-9 w-9 place-items-center rounded-full bg-emerald-500/10 text-emerald-400">
-                                                                        <Check className="h-5 w-5" />
-                                                                    </div>
-                                                                    <div className="text-sm font-semibold text-gray-200">
-                                                                        모든 숙제를 완료했어요
-                                                                    </div>
-
-                                                                </div>
-                                                            ) : (
-                                                                visibleStrips.map(({ c, tasks }) => (
-                                                                    <CharacterTaskStrip
-                                                                        key={c.name}
-                                                                        character={c}
-                                                                        tasks={tasks}
-                                                                        onEdit={() => openEditModal(m, c)}
-                                                                        onReorder={(char, newOrderIds) =>
-                                                                            handleMemberReorder(m.userId, char.name, newOrderIds)
-                                                                        }
-                                                                    />
-                                                                ))
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })()}
-
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-
-                        {/* 테이블 뷰 */}
-                        {!tasksLoading &&
-                            !tasksErr &&
-                            sortedPartyTasks &&
-                            sortedPartyTasks.length > 0 &&
-                            !isCardView && (
-                                <div className="flex flex-col gap-10">
-                                    {sortedPartyTasks.map((m) => {
-                                        const isMe = myUserId && m.userId === myUserId;
-
-                                        const baseSummary =
-                                            isMe && currentAccount?.summary
-                                                ? currentAccount.summary
-                                                : m.summary;
-
-                                        const visibleRoster =
-                                            baseSummary?.roster?.filter(
-                                                (c) => m.visibleByChar?.[c.name] ?? true
-                                            ) ?? [];
-
-
-                                        if (visibleRoster.length === 0) {
-                                            return (
-                                                <div
-                                                    key={m.userId}
-                                                    className="rounded-xl border border-white/10 bg-[#16181D] overflow-hidden"
-                                                >
-                                                    {/* 1. 상단 헤더 (프로필) */}
-                                                    <div className="flex items-center gap-3 px-4 py-5 ">
-                                                        <MemberAvatar
-                                                            member={{
-                                                                id: m.userId,
-                                                                name: m.name,
-                                                                image: m.image,
-                                                                role: "member",
-                                                            }}
-                                                            className="h-8 w-8 rounded-full border border-black/50"
-                                                        />
-                                                        <span className="font-semibold text-xl text-gray-200">
-                                                            {m.name || "이름 없음"}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* 2. 본문 영역 */}
-                                                    <div className="px-4 pb-4">
-                                                        {isMe ? (
-                                                            /* 🟦 본인인 경우: 요청하신 디자인 적용 */
-                                                            <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl animate-in fade-in zoom-in-95 duration-500">
-                                                                <div className="relative mb-6">
-                                                                    <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
-                                                                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
-                                                                        <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">
-                                                                            LOA
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2 py-0.5 rounded-full border border-white/10">
-                                                                        <span className="text-[10px] text-gray-400">검색</span>
-                                                                    </div>
-                                                                </div>
-
-                                                                <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">
-                                                                    원정대 캐릭터를 불러오세요
-                                                                </h2>
-                                                                <p className="text-gray-400 max-w-md mb-6 sm:mb-8 leading-relaxed text-[12px] sm:text-base">
-                                                                    아직 등록된 캐릭터 데이터가 없습니다.
-                                                                    <br />
-                                                                    <span className="text-gray-400">
-                                                                        대표 캐릭터 닉네임을 입력하면 전투정보실에서 정보를 가져옵니다.
-                                                                    </span>
-                                                                </p>
-
-                                                                <form
-                                                                    onSubmit={handleInlineSearch}
-                                                                    className="relative flex items-center w-full max-w-md"
-                                                                >
-                                                                    <input
-                                                                        type="text"
-                                                                        placeholder="캐릭터 닉네임 입력"
-                                                                        value={inlineSearchInput}
-                                                                        onChange={(e) => setInlineSearchInput(e.target.value)}
-                                                                        disabled={accountSearchLoading}
-                                                                        className="w-full h-11 sm:h-12 pl-4 pr-11 sm:pr-12 rounded-lg bg-[#0F1115] border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
-                                                                    />
-                                                                    <button
-                                                                        type="submit"
-                                                                        disabled={accountSearchLoading || !inlineSearchInput.trim()}
-                                                                        className="absolute right-1.5 px-3 py-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-400 transition-colors text-xs sm:text-sm"
-                                                                    >
-                                                                        {accountSearchLoading ? (
-                                                                            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                                        ) : (
-                                                                            "검색"
-                                                                        )}
-                                                                    </button>
-                                                                </form>
-
-                                                                {accountSearchErr && (
-                                                                    <p className="mt-3 text-sm text-red-400">
-                                                                        {accountSearchErr}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl">
-                                                                <div className="relative mb-6">
-                                                                    {/* 은은한 배경 광원 (내 것보다는 조금 연하게 opacity 조절) */}
-                                                                    <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-10 rounded-full" />
-
-                                                                    {/* 아이콘 원형 배경 */}
-                                                                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
-                                                                        <UsersRound className="w-8 h-8 sm:w-9 sm:h-9 text-[#5B69FF]" strokeWidth={1.5} />
-                                                                    </div>
-
-                                                                    {/* 우측 하단 뱃지 */}
-                                                                    <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2.5 py-1 rounded-full border border-white/10">
-                                                                        <span className="text-[10px] font-medium text-gray-400">미등록</span>
-                                                                    </div>
-                                                                </div>
-
-                                                                <h2 className="text-xl sm:text-2xl font-bold text-white/90 mb-2 sm:mb-3">
-                                                                    캐릭터 정보가 없습니다
-                                                                </h2>
-
-                                                                <p className="text-gray-500 max-w-md leading-relaxed text-[12px] sm:text-base">
-                                                                    아직 이 파티원이 계정을 등록하지 않았습니다.
-                                                                    <br className="hidden sm:block" />
-                                                                    등록을 완료하면 이곳에 숙제 현황이 표시됩니다.
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        }
-                                        const sortedRoster = [...visibleRoster].sort(
-                                            (a, b) =>
-                                                (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)
-                                        );
-
-                                        const memberSummary = computeMemberSummary({
-                                            ...m,
-                                            summary: baseSummary,
-                                        });
-
-                                        return (
-                                            <div
-                                                key={m.userId}
-                                                className="
-                                                    grid grid-cols-1 gap-4 sm:gap-1
-                                                    rounded-lg border border-white/10
-                                                    px-3 sm:px-4 py-3 sm:py-4"
-                                            >
-                                                <PartyMemberSummaryBar
-                                                    member={m}
-                                                    summary={memberSummary}
-                                                >
-                                                    <PartyMemberActions
-                                                        onAutoSetup={() =>
-                                                            handleMemberAutoSetup(m.userId, !!isMe)
-                                                        }
-                                                        onGateAllClear={() =>
-                                                            handleMemberGateAllClear(m.userId)
-                                                        }
-                                                        onOpenCharSetting={() =>
-                                                            openMemberCharSetting(m)
-                                                        }
-                                                    />
-                                                </PartyMemberSummaryBar>
-
-                                                <div className="mt-2">
-                                                    <TaskTable
-                                                        roster={sortedRoster}
-                                                        prefsByChar={m.prefsByChar}
-                                                        onToggleGate={(
-                                                            charName,
-                                                            raidName,
-                                                            gate,
-                                                            currentGates,
-                                                            allGates
-                                                        ) =>
-                                                            handleMemberToggleGate(
-                                                                m.userId,
-                                                                charName,
-                                                                raidName,
-                                                                gate,
-                                                                currentGates,
-                                                                allGates
-                                                            )
-                                                        }
-                                                        onEdit={(c) => openEditModal(m, c)}
-                                                    />
-                                                </div>
-
-
-                                            </div>
-
-                                        );
-
-                                    })}
-
-                                </div>
-                            )}
+                        {/* 광고 영역 (모바일) */}
                         <div className="block lg:hidden w-full">
                             <div
                                 className="w-full bg-[#1e2128]/30 border border-white/5 rounded-lg overflow-hidden flex items-center justify-center"
@@ -2632,29 +1998,21 @@ export default function PartyDetailPage() {
                             </div>
                         </div>
 
-                        {/* 아무도 상태를 저장 안 한 경우 */}
+                        {/* 데이터 없음 (Empty State) */}
                         {!tasksLoading && !tasksErr && partyTasks && partyTasks.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-2xl border-2 border-dashed border-white/10 bg-white/[0.02]">
-                                {/* 아이콘 원형 배경 */}
                                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 mb-4">
                                     <UsersRound className="h-8 w-8 text-gray-500" strokeWidth={1.5} />
                                 </div>
-
-                                {/* 메인 텍스트 */}
                                 <h3 className="text-lg font-bold text-gray-200">
                                     아직 캐릭터를 등록한 파티원이 없습니다.
                                 </h3>
-
-                                {/* 서브 텍스트 */}
                                 <p className="mt-2 text-sm text-gray-500 leading-relaxed max-w-sm">
                                     파티원들이 캐릭터를 설정하고 숙제를 등록하면<br className="hidden sm:block" />
                                     이곳에서 실시간 진행 상황을 한눈에 볼 수 있어요.
                                 </p>
-
-                                {/* 버튼 그룹 (가로 배치) */}
                                 {myUserId === party.ownerId && (
                                     <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                                        {/* 1. 캐릭터 등록 버튼 (기능에 맞게 텍스트/아이콘 수정) */}
                                         <button
                                             onClick={() => {
                                                 setIsAddAccountOpen(true);
@@ -2665,8 +2023,6 @@ export default function PartyDetailPage() {
                                             <Plus className="h-4 w-4" />
                                             캐릭터 등록하기
                                         </button>
-
-                                        {/* 2. 파티원 초대 버튼 */}
                                         <button
                                             onClick={openInviteModal}
                                             className="inline-flex items-center gap-2 rounded-lg bg-[#5B69FF]/10 border border-[#5B69FF]/20 px-4 py-2.5 text-sm font-medium text-[#5B69FF] hover:bg-[#5B69FF]/20 transition-colors"
@@ -2678,6 +2034,8 @@ export default function PartyDetailPage() {
                                 )}
                             </div>
                         )}
+
+                        {/* 모달들 (기존 코드 유지) */}
                         {editTarget && (
                             <EditTasksModal
                                 open={editOpen}
@@ -2692,17 +2050,13 @@ export default function PartyDetailPage() {
                             const targetMember = partyTasks?.find(
                                 (m) => m.userId === charSettingTarget.memberUserId
                             );
-
                             const isMeTarget =
                                 !!myUserId && charSettingTarget.memberUserId === myUserId;
-
                             const baseSummary =
                                 (isMeTarget ? (currentAccount?.summary ?? null) : null) ??
                                 targetMember?.summary ??
                                 null;
-
                             const roster = baseSummary?.roster ?? [];
-
                             const rawVisible = targetMember?.visibleByChar ?? {};
                             const modalVisibleByChar: Record<string, boolean> = {};
                             for (const c of roster) {
@@ -2714,12 +2068,10 @@ export default function PartyDetailPage() {
                                     open
                                     onClose={() => {
                                         setCharSettingOpen(false);
-                                        setRefreshErr(null);       // 파티원 에러 초기화
-                                        setAccountSearchErr(null); // 내 계정 에러 초기화
+                                        setRefreshErr(null);
+                                        setAccountSearchErr(null);
                                     }}
-
                                     refreshError={isMeTarget ? accountSearchErr : refreshErr}
-
                                     roster={roster}
                                     visibleByChar={modalVisibleByChar}
                                     onChangeVisible={(next) => {
@@ -2730,14 +2082,14 @@ export default function PartyDetailPage() {
                                     }
                                     onRefreshAccount={
                                         isMeTarget
-                                            ? handleMyRefreshAccount // 내 거면 이거 실행 (accountSearchErr 업데이트)
-                                            : () => handleMemberRefreshAccount(charSettingTarget.memberUserId) // 남의 거면 이거 (refreshErr 업데이트)
+                                            ? handleMyRefreshAccount
+                                            : () => handleMemberRefreshAccount(charSettingTarget.memberUserId)
                                     }
                                 />
                             );
                         })()}
-
                     </div>
+
                 </div>
             </div>
 
@@ -2750,6 +2102,7 @@ export default function PartyDetailPage() {
                     myRemainingRaids={myRemainingRaids}
                     onPartyUpdated={handlePartyUpdated}
                     onMemberKicked={handlePartyMemberKicked}
+                    onLocalOrderChange={() => setOrderTick(t => t + 1)}
                 />
             )}
 
@@ -2869,7 +2222,6 @@ export default function PartyDetailPage() {
                 </div>
             )}
 
-            {/* ✨ [추가] 스마트 공유 안내 모달 */}
             {shareModalOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
@@ -2989,7 +2341,235 @@ export default function PartyDetailPage() {
     );
 }
 
-/* ── 공통 UI 컴포넌트 ── */
+function PartyMemberBlock({
+    partyId,
+    member,
+    isMe,
+    currentAccount,
+    onlyRemain,
+    isCardView,
+    onAutoSetup,
+    onGateAllClear,
+    onOpenCharSetting,
+    onToggleGate,
+    onEdit,
+    onReorder,
+    onSearch,
+    searchLoading,
+    searchError,
+}: {
+    partyId: number;
+    member: PartyMemberTasks;
+    isMe: boolean;
+    currentAccount: SavedAccount | null;
+    onlyRemain: boolean;
+    isCardView: boolean;
+    onAutoSetup: (isMe: boolean) => void;
+    onGateAllClear: () => void;
+    onOpenCharSetting: () => void;
+    onToggleGate: (userId: string, charName: string, raidName: string, gate: number, currentGates: number[], allGates: number[]) => void;
+    onEdit: (m: PartyMemberTasks, c: RosterCharacter) => void;
+    onReorder: (userId: string, charName: string, newOrder: string[]) => void;
+    onSearch?: (name: string) => Promise<boolean>;
+    searchLoading?: boolean;
+    searchError?: string | null;
+}) {
+    const [isExpanded, setIsExpanded] = useState(true);
+    const [searchInput, setSearchInput] = useState("");
+
+    const storageKey = `party_expand_state_v1:${partyId}:${member.userId}`;
+
+    useEffect(() => {
+        const saved = localStorage.getItem(storageKey);
+        if (saved !== null) {
+            setIsExpanded(saved === 'true');
+        }
+    }, [storageKey]);
+
+    const handleToggleExpand = () => {
+        const nextState = !isExpanded;
+        setIsExpanded(nextState);
+        localStorage.setItem(storageKey, String(nextState));
+    };
+
+    const handleLocalSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (onSearch && searchInput.trim()) {
+            onSearch(searchInput);
+        }
+    };
+
+    const baseSummary = isMe && currentAccount?.summary ? currentAccount.summary : member.summary;
+    const visibleRoster = baseSummary?.roster?.filter((c) => member.visibleByChar?.[c.name] ?? true) ?? [];
+    const sortedRoster = [...visibleRoster].sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0));
+    const memberSummary = computeMemberSummary({ ...member, summary: baseSummary });
+
+    // 🟥 [수정됨] 캐릭터 없을 때 표시 (Empty State + 검색 폼)
+    if (visibleRoster.length === 0) {
+        return (
+            <div className="rounded-xl border border-white/10 bg-[#16181D] overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-5 ">
+                    <MemberAvatar member={{ id: member.userId, name: member.name, image: member.image, role: "member" }} className="h-8 w-8 rounded-full border border-black/50" />
+                    <span className="font-semibold text-xl text-gray-200">{member.name || "이름 없음"}</span>
+                </div>
+                <div className="px-4 pb-4">
+                    {isMe ? (
+                        /* 🟦 [내 계정] 검색 폼이 있는 Empty State */
+                        <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl animate-in fade-in zoom-in-95 duration-500">
+                            <div className="relative mb-6">
+                                <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
+                                <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
+                                    <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">LOA</span>
+                                </div>
+                                <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2 py-0.5 rounded-full border border-white/10">
+                                    <span className="text-[10px] text-gray-400">검색</span>
+                                </div>
+                            </div>
+                            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">
+                                원정대 캐릭터를 불러오세요
+                            </h2>
+                            <p className="text-gray-400 max-w-md mb-6 sm:mb-8 leading-relaxed text-[12px] sm:text-base">
+                                아직 등록된 캐릭터 데이터가 없습니다.<br />
+                                <span className="text-gray-400">대표 캐릭터 닉네임을 입력하면 전투정보실에서 정보를 가져옵니다.</span>
+                            </p>
+
+                            {/* ✨✨ [복구됨] 검색 폼 영역 시작 ✨✨ */}
+                            <form onSubmit={handleLocalSearch} className="relative flex items-center w-full max-w-md">
+                                <input
+                                    type="text"
+                                    placeholder="캐릭터 닉네임 입력"
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value)}
+                                    disabled={searchLoading}
+                                    className="w-full h-11 sm:h-12 pl-4 pr-11 sm:pr-12 rounded-lg bg-[#0F1115] border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={searchLoading || !searchInput.trim()}
+                                    className="absolute right-1.5 px-3 py-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-400 transition-colors text-xs sm:text-sm"
+                                >
+                                    {searchLoading ? (
+                                        <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        "검색"
+                                    )}
+                                </button>
+                            </form>
+
+                            {searchError && (
+                                <p className="mt-3 text-sm text-red-400">
+                                    {searchError}
+                                </p>
+                            )}
+                            {/* ✨✨ [복구됨] 검색 폼 영역 끝 ✨✨ */}
+
+                        </div>
+                    ) : (
+                        /* ⬜ [타인 계정] 기존 유지 */
+                        <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl">
+                            <div className="relative mb-6">
+                                <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-10 rounded-full" />
+                                <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
+                                    <UsersRound className="w-8 h-8 sm:w-9 sm:h-9 text-[#5B69FF]" strokeWidth={1.5} />
+                                </div>
+                                <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2.5 py-1 rounded-full border border-white/10">
+                                    <span className="text-[10px] font-medium text-gray-400">미등록</span>
+                                </div>
+                            </div>
+                            <h2 className="text-xl sm:text-2xl font-bold text-white/90 mb-2 sm:mb-3">
+                                캐릭터 정보가 없습니다
+                            </h2>
+                            <p className="text-gray-500 max-w-md leading-relaxed text-[12px] sm:text-base">
+                                아직 이 파티원이 계정을 등록하지 않았습니다.
+                                <br className="hidden sm:block" />
+                                등록을 완료하면 이곳에 숙제 현황이 표시됩니다.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="grid grid-cols-1 gap-4 sm:gap-1 rounded-lg border border-white/10 px-3 sm:px-4 py-3 sm:py-4">
+            {/* 상단 바 */}
+            <PartyMemberSummaryBar member={member} summary={memberSummary}>
+                <PartyMemberActions
+                    onAutoSetup={() => onAutoSetup(isMe)}
+                    onGateAllClear={onGateAllClear}
+                    onOpenCharSetting={onOpenCharSetting}
+                    isExpanded={isExpanded}
+                    onToggleExpand={handleToggleExpand}
+                />
+            </PartyMemberSummaryBar>
+
+            {/* 본문 (접기/펼치기 적용) */}
+            {isExpanded && (
+                <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                    {isCardView ? (
+                        /* 카드 뷰 로직 */
+                        <div className="flex flex-col gap-4">
+                            {(() => {
+                                const strips = sortedRoster.map((c) => {
+                                    const toggleWrapper = (rName: string, gate: number, curG: number[], allG: number[]) =>
+                                        onToggleGate(member.userId, c.name, rName, gate, curG, allG);
+
+                                    const tasksAll = buildTasksForCharacter(c, member.prefsByChar, { onlyRemain: false, onToggleGate: toggleWrapper });
+                                    const tasksShown = onlyRemain
+                                        ? buildTasksForCharacter(c, member.prefsByChar, { onlyRemain: true, onToggleGate: toggleWrapper })
+                                        : tasksAll;
+
+                                    return { c, tasksAllLen: tasksAll.length, tasks: tasksShown };
+                                });
+
+                                const visibleStrips = onlyRemain ? strips.filter((s) => s.tasks.length > 0) : strips;
+                                const showAllDone = onlyRemain && strips.some(s => s.tasksAllLen > 0) && visibleStrips.length === 0;
+
+                                if (showAllDone) {
+                                    return (
+                                        <div className="flex flex-col items-center justify-center py-14 rounded-xl border border-white/5 bg-white/[0.02] animate-in fade-in zoom-in-95 duration-300">
+                                            <div className="relative mb-4">
+                                                {/* 뒤쪽 은은한 초록빛 후광 */}
+                                                <div className="absolute inset-0 bg-emerald-500 blur-[24px] opacity-20 rounded-full" />
+
+                                                {/* 아이콘 원형 컨테이너 */}
+                                                <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#16181D] border border-emerald-500/30 shadow-lg shadow-emerald-900/20">
+                                                    <Check className="h-7 w-7 text-emerald-400" strokeWidth={3} />
+                                                </div>
+
+                                            </div>
+
+                                            <h3 className="text-gray-200 font-bold text-base">모든 숙제 완료!</h3>
+                                            <p className="text-gray-500 text-xs mt-1.5 font-medium">이번 주 숙제를 모두 끝내셨습니다</p>
+                                        </div>
+                                    );
+                                }
+                                return visibleStrips.map(({ c, tasks }) => (
+                                    <CharacterTaskStrip
+                                        key={c.name}
+                                        character={c}
+                                        tasks={tasks}
+                                        onEdit={() => onEdit(member, c)}
+                                        onReorder={(char, newOrder) => onReorder(member.userId, char.name, newOrder)}
+                                    />
+                                ));
+                            })()}
+                        </div>
+                    ) : (
+                        /* 테이블 뷰 로직 */
+                        <TaskTable
+                            roster={sortedRoster}
+                            prefsByChar={member.prefsByChar}
+                            onToggleGate={(char, raid, gate, cur, all) => onToggleGate(member.userId, char, raid, gate, cur, all)}
+                            onEdit={(c) => onEdit(member, c)}
+                        />
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
 
 type PartyMemberSummaryBarProps = {
     member: PartyMemberTasks;
@@ -3002,27 +2582,16 @@ function PartyMemberSummaryBar({
     summary,
     children,
 }: PartyMemberSummaryBarProps) {
-    // 모바일에서 펼치기/접기 상태 관리
-    const [isExpanded, setIsExpanded] = useState(false);
-
     const memberAllCleared =
         summary.totalRemainingGold === 0 && summary.totalGold > 0;
 
     return (
-        // [수정] 모바일 위아래 패딩(py)을 1로 줄임 (PC는 py-2 유지)
-        <div className="relative rounded-md py-1 sm:py-2 flex flex-wrap sm:flex-row sm:items-center gap-3 sm:gap-4 max-[1247px]:flex-col max-[1247px]:items-start">
+        // 전체 컨테이너: 모바일(세로), PC(가로)
+        <div className="relative rounded-md py-2 flex flex-col sm:flex-row sm:items-center w-full">
 
-            <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="sm:hidden absolute right-2 top-2 p-1 text-gray-400 hover:text-white active:scale-95 transition-transform"
-            >
-                {isExpanded ? <ChevronUp className="h-6 w-6" /> : <ChevronDown className="h-6 w-6" />}
-            </button>
-
-            {/* [수정] gap-y-1 (모바일 세로 간격 좁힘) / sm:gap-y-2 (PC 유지) */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:gap-y-2 min-w-0 text-sm sm:text-base w-full sm:w-auto">
-
-                {/* 1. 디스코드 아이콘 + 닉네임 */}
+            {/* 1. 상단 영역: [닉네임] + [버튼(모바일)] */}
+            <div className="flex items-center justify-between w-full sm:w-auto">
+                {/* 좌측: 아바타 + 닉네임 */}
                 <div className="flex items-center gap-3">
                     <MemberAvatar
                         member={{
@@ -3031,89 +2600,76 @@ function PartyMemberSummaryBar({
                             image: member.image,
                             role: "member",
                         }}
-                        // 모바일에서는 아바타도 조금 키움 (h-10 w-10), PC는 기존 유지 (sm:h-8 sm:w-8)
-                        className="h-9 w-9 sm:h-8 sm:w-8 rounded-full b"
+                        className="h-8 w-8 sm:h-8 sm:w-8 rounded-full "
                     />
-
                     <div className="flex flex-col">
-                        <span className="text-lg sm:text-base md:text-xl font-bold sm:font-semibold text-white truncate max-w-[200px] sm:max-w-none md:max-w-[140px]">
+                        <span className="text-lg sm:text-base md:text-xl font-bold sm:font-semibold text-white truncate max-w-[150px] sm:max-w-none">
                             {member.name || "이름 없음"}
                         </span>
                     </div>
                 </div>
 
-                {/* 2. 수치 정보 (숙제/캐릭터/골드)
-                   [수정] mt-1 (모바일 상단 여백 좁힘), gap-y-1 (줄바꿈 간격 좁힘), pt-2 (구분선 위 여백 좁힘)
-                */}
-                <div className={`${isExpanded ? "flex flex-wrap gap-x-4 gap-y-1 mt-1 w-full border-t border-white/10 pt-2" : "hidden"} sm:contents`}>
+                {/* 우측: 버튼들 (모바일에서만 보임 ✨) */}
+                <div className="flex sm:hidden items-center gap-1">
+                    {children}
+                </div>
+            </div>
 
-                    <span className="hidden sm:inline h-4 w-px bg-white/10 " />
-
-                    <div className="flex items-baseline gap-1.5">
-                        <span className="font-semibold text-sm sm:text-base pr-1">
-                            남은 숙제
-                        </span>
+            {/* 2. 통계 정보 (모바일: 다음 줄, PC: 닉네임 옆) */}
+            <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-4 text-sm sm:text-base min-w-0">
+                <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                <div className="flex items-baseline gap-1.5">
+                    <span className="font-semibold text-sm sm:text-base pr-1">
+                        남은 숙제
+                    </span>
+                    <AnimatedNumber
+                        value={summary.totalRemainingTasks}
+                        className="text-gray-400 text-xs sm:text-sm font-semibold"
+                    />
+                </div>
+                <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                <div className="flex items-baseline gap-1.5">
+                    <span className="font-semibold text-sm sm:text-base pr-1">
+                        숙제 남은 캐릭터
+                    </span>
+                    <AnimatedNumber
+                        value={summary.remainingCharacters}
+                        className="text-gray-400 text-xs sm:text-sm font-semibold"
+                    />
+                </div>
+                <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                <div className="flex items-baseline gap-1.5">
+                    <span className="font-semibold text-sm sm:text-base pr-1">
+                        남은 골드
+                    </span>
+                    <div
+                        className={[
+                            "inline-flex items-baseline justify-end",
+                            "min-w-[50px]",
+                            "text-xs sm:text-sm font-semibold",
+                            "font-mono tabular-nums",
+                            memberAllCleared
+                                ? "line-through decoration-gray-300 decoration-1 text-gray-400"
+                                : "text-gray-400",
+                        ].join(" ")}
+                    >
                         <AnimatedNumber
-                            value={summary.totalRemainingTasks}
-                            className="text-gray-400 text-xs sm:text-sm font-semibold"
-                        />
-                    </div>
-
-                    <span className="hidden sm:inline h-4 w-px bg-white/10 " />
-
-                    <div className="flex items-baseline gap-1.5">
-                        <span className="font-semibold text-sm sm:text-base pr-1">
-                            숙제 남은 캐릭터
-                        </span>
-                        <AnimatedNumber
-                            value={summary.remainingCharacters}
-                            className="text-gray-400 text-xs sm:text-sm font-semibold"
-                        />
-                    </div>
-
-                    <span className="hidden sm:inline h-4 w-px bg-white/10 " />
-
-                    <div className="flex items-baseline gap-1.5">
-                        <span className="font-semibold text-sm sm:text-base pr-1">
-                            남은 골드
-                        </span>
-
-                        <div
-                            className={[
-                                "inline-flex items-baseline justify-end",
-                                "min-w-[50px]",
-                                "text-xs sm:text-sm font-semibold",
-                                "font-mono tabular-nums",
+                            value={
                                 memberAllCleared
-                                    ? "line-through decoration-gray-300 decoration-1 text-gray-400"
-                                    : "text-gray-400",
-                            ].join(" ")}
-                        >
-                            <AnimatedNumber
-                                value={
-                                    memberAllCleared
-                                        ? summary.totalGold
-                                        : summary.totalRemainingGold
-                                }
-                            />
-                            <span className="ml-0.5 text-[0.75em]">g</span>
-                        </div>
+                                    ? summary.totalGold
+                                    : summary.totalRemainingGold
+                            }
+                        />
+                        <span className="ml-0.5 text-[0.75em]">g</span>
                     </div>
                 </div>
             </div>
 
-            {/* 3. 버튼들 
-               [수정] gap-2 (버튼 사이 간격)는 유지하되, 컨테이너 자체 여백은 위쪽 div margin으로 조절됨
-            */}
-            <div
-                className={`
-                    flex flex-row flex-wrap gap-2 sm:gap-3 sm:ml-auto justify-end
-                    max-[1247px]:w-full max-[1247px]:justify-start
-                    ${isExpanded ? "flex" : "hidden"} sm:flex
-                `}
-            >
+            {/* 3. 우측: 버튼들 (PC에서만 보임 ✨) */}
+            <div className="hidden sm:flex ml-auto items-center gap-2">
                 {children}
             </div>
+
         </div>
     );
 }
@@ -3122,98 +2678,118 @@ type PartyMemberActionsProps = {
     onAutoSetup: () => void;
     onGateAllClear: () => void;
     onOpenCharSetting: () => void;
+    isExpanded: boolean;
+    onToggleExpand: () => void;
 };
 
 function PartyMemberActions({
     onAutoSetup,
     onGateAllClear,
     onOpenCharSetting,
+    isExpanded,
+    onToggleExpand,
 }: PartyMemberActionsProps) {
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    // 메뉴 외부 클릭 시 닫기
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsMenuOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
     return (
-        <>
-            {/* 자동 세팅 */}
-            <button
-                onClick={onAutoSetup}
-                className="
-          relative group
-          flex items-center justify-center
-          py-2 px-6 rounded-md
-          bg-white/[.04] border border-white/10
-          hover:bg-white/5 hover:border-white/20
-          text-xs sm:text-sm font-medium text-white
-          transition-all duration-200
-          disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                <span>자동 세팅</span>
-
-                <span
-                    className="
-            absolute top-1 right-1
-            w-3 h-3
-            rounded-full
-            border border-white/20
-            text-[9px] font-bold
-            flex items-center justify-center
-            text-gray-400
-            bg-black/20
-            group-hover:text-white group-hover:border-white/40
-            transition-colors duration-200
-            cursor-help"
+        <div className="flex items-center gap-1 sm:gap-2" ref={menuRef}>
+            {/* 1. 점 3개 메뉴 버튼 (드롭다운 트리거) */}
+            <div className="relative">
+                <button
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className={`
+                        p-2 rounded-lg transition-colors
+                        ${isMenuOpen ? "bg-white/10 text-white" : "text-gray-400 hover:text-white hover:bg-white/5"}
+                    `}
+                    title="메뉴 열기"
                 >
-                    ?
-                </span>
+                    <MoreVertical className="w-5 h-5" />
+                </button>
 
-                <div
-                    className="
-            pointer-events-none
-            absolute bottom-full left-15 mb-3
-            w-64 p-3
-            rounded-xl
-            bg-gray-900/95 backdrop-blur-md
-            border border-white/10
-            text-xs text-gray-300 leading-relaxed
-            text-center
-            shadow-2xl shadow-black/50
-            opacity-0 translate-y-2 scale-95
-            group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100
-            transition-all duration-200 ease-out
-            z-20"
-                >
-                    <p>
-                        <span className="text-white font-semibold">
-                            아이템 레벨 상위 6개 캐릭터
-                        </span>
-                        와 해당 캐릭터의{" "}
-                        <span className="text-indigo-400">Top 3 레이드</span>를 자동으로
-                        세팅합니다.
-                    </p>
+                {/* 드롭다운 메뉴 본문 */}
+                {isMenuOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-52 z-50 origin-top-right rounded-xl bg-[#1E2028] border border-white/10 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                        <div>
+                            {/* 자동 세팅 */}
+                            <button
+                                onClick={() => {
+                                    onAutoSetup();
+                                    setIsMenuOpen(false);
+                                }}
+                                // ✨ h-14 추가하여 높이 고정
+                                className="w-full h-14 text-left px-4 hover:bg-white/5 flex items-center gap-3 transition-colors group"
+                            >
+                                <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20 group-hover:text-indigo-300 shrink-0">
+                                    <Wand2 className="w-4 h-4" />
+                                </div>
+                                <div className="flex flex-col justify-center">
+                                    <span className="block text-sm font-medium text-gray-200 leading-tight">자동 세팅</span>
+                                    <span className="block text-[10px] text-gray-500 mt-0.5 leading-tight">상위 6캐릭 Top 3 레이드</span>
+                                </div>
+                            </button>
 
-                    <div
-                        className="
-              absolute -bottom-1.5 left-4
-              w-3 h-3 
-              bg-gray-900/95 border-b border-r border-white/10 
-              rotate-45"
-                    />
-                </div>
-            </button>
+                            {/* 관문 초기화 */}
+                            <button
+                                onClick={() => {
+                                    onGateAllClear();
+                                    setIsMenuOpen(false);
+                                }}
+                                // ✨ h-14 추가
+                                className="w-full h-14 text-left px-4 hover:bg-white/5 flex items-center gap-3 transition-colors group"
+                            >
+                                <div className="p-1.5 rounded-lg bg-red-500/10 text-red-400 group-hover:bg-red-500/20 group-hover:text-red-300 shrink-0">
+                                    <RefreshCcw className="w-4 h-4" />
+                                </div>
+                                <div className="flex flex-col justify-center">
+                                    <span className="block text-sm font-medium text-gray-200 leading-tight">관문 초기화</span>
+                                    <span className="block text-[10px] text-gray-500 mt-0.5 leading-tight">모든 체크 해제</span>
+                                </div>
+                            </button>
 
-            {/* 관문 전체 초기화 */}
+                            {/* 캐릭터 설정 */}
+                            <button
+                                onClick={() => {
+                                    onOpenCharSetting();
+                                    setIsMenuOpen(false);
+                                }}
+                                // ✨ h-14 추가
+                                className="w-full h-14 text-left px-4 hover:bg-white/5 flex items-center gap-3 transition-colors group"
+                            >
+                                <div className="p-1.5 rounded-lg bg-gray-700/50 text-gray-400 group-hover:text-gray-200 shrink-0">
+                                    <Settings className="w-4 h-4" />
+                                </div>
+                                <span className="text-sm font-medium text-gray-300 group-hover:text-white">캐릭터 설정</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* 2. 접기/펼치기 화살표 버튼 */}
             <button
-                onClick={onGateAllClear}
-                className="hover:bg-white/5 hover:border-white/20 inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 hover:bg.white/5 text-xs sm:text-sm"
+                onClick={onToggleExpand}
+                className="hover:bg-white/5 hover:border-white/20 inline-flex items-center justify-center p-2 rounded-md bg-white/[.04] border border-white/10 text-gray-400 hover:text-white transition-colors"
+                title={isExpanded ? "접기" : "펼치기"}
             >
-                <span>관문 초기화</span>
+                {isExpanded ? (
+                    <ChevronUp className="h-5 w-5" />
+                ) : (
+                    <ChevronDown className="h-5 w-5" />
+                )}
             </button>
-
-            {/* 캐릭터 설정 모달 열기 */}
-            <button
-                onClick={onOpenCharSetting}
-                className="hover:bg-white/5 hover:border-white/20 inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium"
-            >
-                캐릭터 설정
-            </button>
-        </>
+        </div>
     );
 }
 

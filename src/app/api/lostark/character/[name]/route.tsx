@@ -1,286 +1,211 @@
-// src/app/api/lostark/character/[name]/route.ts
 import { NextResponse } from "next/server";
-import * as cheerio from "cheerio";
+import { getDb } from "@/db/client";
+import { headers } from "next/headers"; // 👈 [필수] IP 확인용
 
-/** ─────────────────────────────────────────────────────────────────
- *  타입 (백엔드 모듈과 동일/유사 구조)
- *  ───────────────────────────────────────────────────────────────── */
+// ─────────────────────────────────────────────────────────────────
+// [설정]
+// 1. 캐시 시간 (기본 10분)
+// 2. 도배 방지 (IP당 1분에 30회 제한 - 2초에 1번 꼴)
+// ─────────────────────────────────────────────────────────────────
+const CACHE_MINUTES = 0;
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1분
+const MAX_REQUESTS_PER_IP = 30;      // 1분에 30회까지만 허용
+
+// 🛡️ [메모리 캐시] 서버가 켜져있는 동안 접속 기록을 저장 (DB 안 씀)
+const rateLimitMap = new Map<string, { count: number; lastTime: number }>();
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+// ... (타입 정의는 그대로) ...
+interface ApiSibling {
+    ServerName: string;
+    CharacterName: string;
+    CharacterLevel: number;
+    CharacterClassName: string;
+    ItemAvgLevel: string;
+    ItemMaxLevel: string;
+}
+
 type RosterCharacter = {
     name: string;
-    server: string;            // 예: 카마인
-    level?: number;            // 전투 레벨 (Lv.70)
-    className?: string;        // 직업 (img alt)
-    image?: string;            // 직업 아이콘 URL
-    profileUrl?: string;       // 절대 URL
-    // ─ 상세
-    itemLevel?: string;        // "1,730.00"
-    itemLevelNum?: number;     // 1730
-    combatPower?: string;      // "2,624.41"
-    error?: string;
+    server: string;
+    level: number;
+    className: string;
+    itemLevel: string;
+    itemLevelNum: number;
+    image?: string;
+    profileUrl?: string;
 };
 
 type CharacterSummary = {
-    name: string;              // 대표 캐릭터(검색한 캐릭터)
-    server?: string;
-    itemLevel?: string;
-    itemLevelNum?: number;
-    combatPower?: string;
-    roster: RosterCharacter[]; // 전체 보유 캐릭터(상세 포함)
-    source: string;
-
-    // 추가로 원하면 쓰는 필드들(옵션)
-    className?: string;
+    name: string;
+    server: string;
+    itemLevel: string;
+    itemLevelNum: number;
+    combatPower: string;
+    className: string;
     guild?: string;
     img?: string;
+    roster: RosterCharacter[];
+    source: string;
 };
-
-/** ─────────────────────────────────────────────────────────────────
- *  유틸: httpGet (fetch 래핑)
- *  ───────────────────────────────────────────────────────────────── */
-async function httpGet(url: string, init?: RequestInit): Promise<string> {
-    const res = await fetch(url, {
-        cache: "no-store",
-        headers: {
-            "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-            Referer: "https://lostark.game.onstove.com/",
-            ...(init?.headers || {}),
-        },
-        ...init,
-    });
-    if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(`HTTP ${res.status} ${res.statusText} | ${url} | ${txt.slice(0, 200)}`);
-    }
-    return res.text();
-}
-
-/** ─────────────────────────────────────────────────────────────────
- *  파서: 프로필 HTML → 기본 요약
- *  ───────────────────────────────────────────────────────────────── */
-function parseProfileBasic(html: string) {
-    const $ = cheerio.load(html);
-
-    const name =
-        $('[class*="profile-character-info__name"]').first().text().trim() ||
-        $('[class*="profile-character-info"]').find("h3,.name").first().text().trim();
-
-    const serverRaw =
-        $('[class*="profile-character-info__server"]').first().text().trim() ||
-        $('[class*="profile-character-info"]').find('[class*="server"]').first().text().trim();
-    const server = serverRaw || undefined;
-
-    // 아이템 레벨
-    let itemLevelText = "";
-    const expLabel = $('.level-info2__expedition span:contains("장착 아이템 레벨")').first();
-    if (expLabel.length) itemLevelText = expLabel.next("span").text().trim();
-    if (!itemLevelText) {
-        const bodyText = $("body").text().replace(/\s+/g, " ");
-        const m = bodyText.match(/아이템\s*레벨\s*([0-9][0-9,\.]*)/);
-        if (m) itemLevelText = m[1];
-    }
-    itemLevelText = itemLevelText.replace(/\s+/g, "").replace(/^Lv\./i, "");
-    const itemLevelNum = itemLevelText ? Number(itemLevelText.replace(/,/g, "")) : undefined;
-
-    // 전투력(있으면)
-    const combatPower =
-        $('.level-info2__item span').eq(1).text().trim().replace(/\s+/g, "") || undefined;
-
-    // 클래스/이미지/길드(있으면)
-    const className =
-        $(".profile-character-info__img img").attr("alt") ||
-        $(".profile-character-info__img").attr("title") ||
-        undefined;
-
-    const imgRaw =
-        $(".profile-character-info__img img").attr("src") ||
-        $(".profile-character-info__img").css("background-image") ||
-        "";
-    const img = imgRaw ? imgRaw.replace(/^url\(["']?/, "").replace(/["']?\)$/, "") : undefined;
-
-    const bodyText = $("body").text().replace(/\s+/g, " ");
-    const guild = bodyText.match(/길드\s*([^\s]+)/)?.[1];
-
-    // 각인/기본/전투 특성(옵션)
-    const engravings: string[] = [];
-    $(".profile-ability-engrave li, .profile-ability__engrave li").each((_i, li) => {
-        const t = $(li).text().replace(/\s+/g, " ").trim();
-        if (t) engravings.push(t);
-    });
-
-    const basicStats: Record<string, string> = {};
-    $(".profile-ability-basic .profile-ability-item, .profile-ability__basic .profile-ability__item").each((_i, el) => {
-        const key = $(el).find("span,em,strong,b").first().text().trim();
-        const val = $(el).find("strong,b").last().text().trim();
-        if (key && val) basicStats[key] = val;
-    });
-
-    const battleStats: Record<string, string> = {};
-    $(".profile-ability-battle .profile-ability-item, .profile-ability__battle .profile-ability__item").each((_i, el) => {
-        const key = $(el).find("span,em,strong,b").first().text().trim();
-        const val = $(el).find("strong,b").last().text().trim();
-        if (key && val) battleStats[key] = val;
-    });
-
-    return {
-        name,
-        server,
-        itemLevel: itemLevelText || undefined,
-        itemLevelNum,
-        combatPower,
-        className,
-        img,
-        guild,
-        engravings,
-        basicStats,
-        battleStats,
-    };
-}
-
-/** ─────────────────────────────────────────────────────────────────
- *  보유 캐릭터 목록(서버별) 파싱
- *  ───────────────────────────────────────────────────────────────── */
-function parseRosterBase($: cheerio.CheerioAPI) {
-    const rosterBase: Omit<RosterCharacter, "itemLevel" | "itemLevelNum" | "combatPower" | "error">[] = [];
-    const base = "https://lostark.game.onstove.com";
-
-    $('#expand-character-list .profile-character-list__server').each((_, srvEl) => {
-        const serverName = $(srvEl).text().trim();
-        const $list = $(srvEl).next('ul.profile-character-list__char');
-
-        $list.find('li > span > button').each((__, btn) => {
-            const $btn = $(btn);
-            const img = $btn.find("img").attr("src") || undefined;
-            const className = $btn.find("img").attr("alt")?.trim() || undefined;
-            const charName = $btn.find("span").last().text().trim();
-
-            const fullText = $btn.text().trim(); // "Lv.70이름"
-            const levelMatch = fullText.replace(charName, "").match(/Lv\.?\s*([0-9]+)/i);
-            const level = levelMatch ? parseInt(levelMatch[1], 10) : undefined;
-
-            const onclick = $btn.attr("onclick") || "";
-            const pathMatch = onclick.match(/location\.href='([^']+)'/);
-            const profilePath = pathMatch?.[1] || "";
-            const profileUrl = profilePath ? new URL(profilePath, base).toString() : undefined;
-
-            rosterBase.push({ name: charName, server: serverName, level, className, image: img, profileUrl });
-        });
-    });
-
-    return rosterBase;
-}
-
-/** ─────────────────────────────────────────────────────────────────
- *  개별 캐릭터 상세 fetch
- *  ───────────────────────────────────────────────────────────────── */
-async function fetchProfileByName(nickname: string) {
-    const url = `https://lostark.game.onstove.com/Profile/Character/${encodeURIComponent(nickname)}`;
-    const html = await httpGet(url);
-    return { url, ...parseProfileBasic(html) };
-}
-
-/** 간단 동시성 제한 */
-async function mapWithConcurrency<T, R>(
-    items: T[],
-    limit: number,
-    fn: (x: T, i: number) => Promise<R>
-): Promise<R[]> {
-    const out: R[] = new Array(items.length) as R[];
-    let i = 0;
-    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-        while (true) {
-            const idx = i++;
-            if (idx >= items.length) break;
-            try {
-                out[idx] = await fn(items[idx], idx);
-            } catch (e: any) {
-                out[idx] = (null as unknown) as R;
-            }
-            // 과도한 요청 방지용 살짝 쉬기
-            await new Promise((r) => setTimeout(r, 150));
-        }
-    });
-    await Promise.all(workers);
-    return out;
-}
-
-/** 메인 수집 함수 (예전 백엔드 모듈 스타일) */
-async function fetchCharacterAll(nickname: string): Promise<CharacterSummary> {
-    const source = `https://lostark.game.onstove.com/Profile/Character/${encodeURIComponent(nickname)}`;
-    const html = await httpGet(source);
-    const $ = cheerio.load(html);
-
-    // 대표 캐릭터(검색 대상)
-    const primary = parseProfileBasic(html);
-    const name = primary.name || nickname;
-
-    // 보유 캐릭터 목록 베이스
-    const rosterBase = parseRosterBase($);
-
-    // 이름 기준 중복 제거
-    const uniqueNames = Array.from(new Set(rosterBase.map((r) => r.name)));
-
-    // 상세 동시 크롤링(동시 3개)
-    const detailed = await mapWithConcurrency(uniqueNames, 3, async (charName) => {
-        try {
-            const prof = await fetchProfileByName(charName);
-            return {
-                name: charName,
-                itemLevel: prof.itemLevel,
-                itemLevelNum: prof.itemLevelNum,
-                combatPower: prof.combatPower,
-                server: prof.server || rosterBase.find((r) => r.name === charName)?.server || "",
-            };
-        } catch (e: any) {
-            return { name: charName, error: e?.message || "FETCH_FAILED" };
-        }
-    });
-
-    const detailedMap = new Map(detailed.map((d) => [d.name, d]));
-    const roster: RosterCharacter[] = rosterBase.map((baseEntry) => {
-        const extra = detailedMap.get(baseEntry.name) || {};
-        return { ...baseEntry, ...extra } as RosterCharacter;
-    });
-
-    return {
-        name,
-        server: primary.server,
-        itemLevel: primary.itemLevel,
-        itemLevelNum: primary.itemLevelNum,
-        combatPower: primary.combatPower,
-        roster,
-        source,
-        // 선택: 원하면 프론트에서 쓰세요
-        className: primary.className,
-        guild: primary.guild,
-        img: primary.img,
-    };
-}
-
-/** ─────────────────────────────────────────────────────────────────
- *  Next.js 15 Route Handler
- *  ───────────────────────────────────────────────────────────────── */
-export const runtime = "nodejs";          // 크롤링은 Node 런타임 권장
-export const dynamic = "force-dynamic";   // 매번 새로
 
 export async function GET(
     _req: Request,
-    ctx: { params: Promise<{ name: string }> } // Next.js 15: params는 Promise
+    ctx: { params: Promise<{ name: string }> }
 ) {
-    const { name } = await ctx.params; // 반드시 await
-    const nickname = decodeURIComponent(name || "").trim();
-    if (!nickname) {
-        return NextResponse.json({ error: "닉네임이 필요합니다." }, { status: 400 });
-    }
-
     try {
-        const data = await fetchCharacterAll(nickname);
-        return NextResponse.json(data, { status: 200 });
-    } catch (err: any) {
-        return NextResponse.json(
-            { error: "FETCH_FAILED", detail: err?.message ?? String(err) },
-            { status: 500 }
+        // ─────────────────────────────────────────────────────────────────
+        // 🛡️ [1. 도배 방지 로직] - DB 가기 전에 여기서 막음!
+        // ─────────────────────────────────────────────────────────────────
+        const headerList = await headers();
+        // 실제 유저 IP 가져오기 (x-forwarded-for는 프록시 거칠 때 진짜 IP)
+        const ip = headerList.get("x-forwarded-for") || "unknown";
+        const nowTime = Date.now();
+
+        // 이 IP의 기록 가져오기
+        const userHistory = rateLimitMap.get(ip) || { count: 0, lastTime: nowTime };
+
+        // 1분이 지났으면 카운트 초기화
+        if (nowTime - userHistory.lastTime > RATE_LIMIT_WINDOW) {
+            userHistory.count = 0;
+            userHistory.lastTime = nowTime;
+        }
+
+        userHistory.count++;
+        rateLimitMap.set(ip, userHistory);
+
+        // 🚨 제한 횟수 넘으면 바로 429 에러 리턴 (DB 접근 X, API 접근 X)
+        if (userHistory.count > MAX_REQUESTS_PER_IP) {
+            console.warn(`🚨 [Rate Limit] IP(${ip}) 차단됨. (요청: ${userHistory.count}/${MAX_REQUESTS_PER_IP})`);
+            return NextResponse.json(
+                { error: "TOO_MANY_REQUESTS", message: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
+                { status: 429 }
+            );
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // 🔍 [2. 정상 로직 시작]
+        // ─────────────────────────────────────────────────────────────────
+
+        const { name } = await ctx.params;
+        const nickname = decodeURIComponent(name || "").trim();
+
+        console.log(`\n──────────────────────────────────────────────`);
+        console.log(`🔍 [System] 캐릭터 검색 요청: "${nickname}" (IP: ${ip})`);
+
+        // 1. DB 연결
+        const db = await getDb();
+        const collection = db.collection("characters");
+
+        // 2. DB 검색
+        const dbCharacter = await collection.findOne({ name: nickname });
+        const now = new Date();
+
+        // 3. 캐시 유효성 검사
+        if (dbCharacter) {
+            const lastUpdate = new Date(dbCharacter.updatedAt);
+            const diffMs = now.getTime() - lastUpdate.getTime();
+            const diffMinutes = diffMs / (1000 * 60);
+
+            console.log(`⏱️ [Time Check] 경과: ${diffMinutes.toFixed(2)}분 (기준: ${CACHE_MINUTES}분)`);
+
+            if (diffMinutes < CACHE_MINUTES) {
+                console.log(`✅ [Cache Hit] DB 데이터 반환`);
+                const cachedData = { ...dbCharacter.data, source: `Database Cache (${diffMinutes.toFixed(0)}분 전)` };
+                return NextResponse.json(cachedData, { status: 200 });
+            } else {
+                console.log(`⌛ [Cache Expired] 갱신 필요`);
+            }
+        } else {
+            console.log(`🆕 [Cache Miss] DB 없음 -> API 호출`);
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // [API 호출 로직]
+        // ─────────────────────────────────────────────────────────────────
+
+        const rawKeys = process.env.LOSTARK_OPENAPI_JWT || "";
+        if (!rawKeys) {
+            console.error("❌ [Error] .env.local API Key 누락");
+            return NextResponse.json({ error: "API_KEY_MISSING" }, { status: 500 });
+        }
+
+        const API_KEYS = rawKeys.split(",").map(k => k.trim().replace(/^Bearer\s+/i, "")).filter(k => k);
+        const randomKey = API_KEYS[Math.floor(Math.random() * API_KEYS.length)];
+
+        console.log(`📡 [API Call] 로스트아크 서버 요청...`);
+        const url = `https://developer-lostark.game.onstove.com/characters/${encodeURIComponent(nickname)}/siblings`;
+
+        const res = await fetch(url, {
+            method: "GET",
+            headers: { Authorization: `bearer ${randomKey}`, Accept: "application/json" },
+            cache: "no-store",
+        });
+
+        if (!res.ok) {
+            if (res.status === 404) return NextResponse.json({ error: "CHARACTER_NOT_FOUND" }, { status: 404 });
+            return NextResponse.json({ error: `API_ERROR_${res.status}` }, { status: res.status });
+        }
+
+        const siblingsData: ApiSibling[] = await res.json();
+
+        if (!siblingsData || siblingsData.length === 0) {
+            return NextResponse.json({ error: "CHARACTER_NOT_FOUND" }, { status: 404 });
+        }
+
+        const mainChar = siblingsData.find(c => c.CharacterName === nickname) || siblingsData[0];
+        const safeItemLevel = mainChar.ItemMaxLevel || mainChar.ItemAvgLevel || "0.00";
+        const mainItemLevelNum = parseFloat(safeItemLevel.replace(/,/g, ""));
+
+        const roster: RosterCharacter[] = siblingsData.map((c) => {
+            const subSafeLevel = c.ItemMaxLevel || c.ItemAvgLevel || "0.00";
+            return {
+                name: c.CharacterName,
+                server: c.ServerName,
+                level: c.CharacterLevel,
+                className: c.CharacterClassName,
+                itemLevel: subSafeLevel,
+                itemLevelNum: parseFloat(subSafeLevel.replace(/,/g, "")),
+                image: undefined,
+                profileUrl: `https://lostark.game.onstove.com/Profile/Character/${encodeURIComponent(c.CharacterName)}`
+            };
+        });
+
+        roster.sort((a, b) => b.itemLevelNum - a.itemLevelNum);
+
+        const resultData: CharacterSummary = {
+            name: mainChar.CharacterName,
+            server: mainChar.ServerName,
+            itemLevel: safeItemLevel,
+            itemLevelNum: mainItemLevelNum,
+            className: mainChar.CharacterClassName,
+            combatPower: "0",
+            guild: undefined,
+            img: undefined,
+            roster: roster,
+            source: "Official API (Fresh)"
+        };
+
+        // DB 저장
+        console.log(`💾 [DB Save] 데이터 저장`);
+        await collection.updateOne(
+            { name: nickname },
+            {
+                $set: {
+                    name: nickname,
+                    data: resultData,
+                    updatedAt: new Date()
+                }
+            },
+            { upsert: true }
         );
+
+        return NextResponse.json(resultData, { status: 200 });
+
+    } catch (err: any) {
+        console.error("🔥 [Server Error]", err);
+        return NextResponse.json({ error: "SERVER_INTERNAL_ERROR", msg: err.message }, { status: 500 });
     }
 }

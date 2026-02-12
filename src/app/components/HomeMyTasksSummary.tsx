@@ -338,8 +338,7 @@ export function HomeMyTasksHeader() {
                 <div className="p-4 rounded-xl border border-white/5 bg-[#16181D] transition-all hover:border-white/10 group">
                     <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2.5">
-                            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500"><Coins size={14} /></div>
-                            <span className="text-[11px] text-gray-500 font-bold uppercase tracking-tight">남은 골드</span>
+                            <span className="text-[12px] text-gray-500 font-bold uppercase tracking-tight">남은 골드</span>
                         </div>
                         <div className="text-base font-bold text-gray-100 tabular-nums">
                             {Number(totalRemainingGold ?? 0).toLocaleString()}<span className="ml-1 text-[10px] text-gray-500 font-medium">G</span>
@@ -349,8 +348,7 @@ export function HomeMyTasksHeader() {
                 <div className="p-4 rounded-xl border border-white/5 bg-[#16181D] transition-all hover:border-white/10 group">
                     <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2.5">
-                            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500"><CalendarDays size={14} /></div>
-                            <span className="text-[11px] text-gray-500 font-bold uppercase tracking-tight">남은 숙제</span>
+                            <span className="text-[12px] text-gray-500 font-bold uppercase tracking-tight">남은 숙제</span>
                         </div>
                         <div className="text-base font-bold text-gray-100 tabular-nums">
                             {Number(totalRemainingTasks ?? 0)}<span className="ml-1 text-[10px] text-gray-500 font-medium">개</span>

@@ -23,8 +23,6 @@ export async function GET() {
         );
     }
 
-    // ✅ 중요: 프론트가 flattenCategories(json) 형태로 파싱하므로
-    //        wrapper {cached, updatedAt, data}로 감싸지 말고 “원본 options JSON”을 그대로 내려줌
     const payload =
         doc.data && typeof doc.data === "object"
             ? { ...doc.data, __meta: { cached: true, updatedAt: doc.updatedAt } }

@@ -411,7 +411,7 @@ export default function PartyTasksPage() {
                             </div>
                         </div>
                     ) : (
-                        <div className="rounded-2xl border border-dashed border-white/10 bg-[#16181D]/50 p-10 text-center">
+                        <div className="rounded-2xl border border-dashed border-white/10 bg-[#16181D]/50 p-16 text-center">
                             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
                                 <Users className="h-8 w-8 text-gray-600" />
                             </div>

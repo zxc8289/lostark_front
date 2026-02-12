@@ -793,7 +793,6 @@ export default function ArcGridPage() {
             slot={AD_SLOT_BOTTOM_BANNER}
             className="!my-0 w-full h-full"
             responsive={false}
-            height="90px"
           />
         </div>
       </div>
