@@ -367,7 +367,7 @@ export default function SupportPage() {
                 <div className="relative pb-3">
                     <div className="absolute -top-10 -left-10 w-64 h-64 rounded-full pointer-events-none" />
                     <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                        <div className="space-y-2">
+                        <div className="space-y-2 px-4 sm:px-0">
                             <div className="inline-flex items-center gap-2 text-xs font-medium text-[#5B69FF]">
                                 <svg
                                     className="h-4 w-4"
@@ -396,7 +396,7 @@ export default function SupportPage() {
                             </p>
                         </div>
 
-                        <div className="flex items-center bg-gray-800 rounded-lg p-1 border border-gray-700">
+                        <div className="flex items-center bg-gray-800  rounded-none sm:rounded-lg p-1 border border-gray-700">
                             <button
                                 onClick={() => setViewMode("card")}
                                 className={`w-9 h-9 rounded-md transition-all flex items-center justify-center focus:outline-none ${viewMode === "card"
@@ -422,7 +422,7 @@ export default function SupportPage() {
                 </div>
 
                 {/* 작성 폼 */}
-                <div className="bg-[#16181D] border border-white/5 rounded-xl p-5 shadow-sm">
+                <div className="bg-[#16181D] border border-white/5 rounded-none sm:rounded-xl p-5 shadow-sm">
                     <div className="space-y-3">
                         <div className="flex justify-between items-center">
                             <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
@@ -484,7 +484,7 @@ export default function SupportPage() {
                                         <button
                                             key={post.id}
                                             onClick={() => openDetail(post.id)}
-                                            className="text-left bg-[#16181D] border border-white/5 rounded-xl p-5 hover:border-gray-600 transition-colors flex flex-col gap-3 group"
+                                            className="text-left bg-[#16181D] border border-white/5 rounded-none sm:rounded-xl p-5 hover:border-gray-600 transition-colors flex flex-col gap-3 group"
                                         >
                                             <div className="flex justify-between items-start">
                                                 <span className={`text-xs px-2 py-0.5 rounded border ${statusBadgeClass(post.status)}`}>

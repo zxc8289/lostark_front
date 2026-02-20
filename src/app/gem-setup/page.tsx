@@ -447,7 +447,7 @@ export default function ArcGridPage() {
   return (
     <div className="space-y-8 py-8 sm:py-12 text-gray-300 w-full">
       {/* 1) Header */}
-      <div className="space-y-2">
+      <div className="space-y-2 px-4 sm:px-0">
         <div className="inline-flex items-center gap-2 text-xs font-medium text-[#5B69FF]">
           <LayoutGrid className="h-4 w-4" />
           <span>아크 그리드 최적화</span>
@@ -460,7 +460,7 @@ export default function ArcGridPage() {
       </div>
 
       {/* 2) Save/Load */}
-      <div className="bg-[#16181D] border border-white/5 rounded-2xl p-5 shadow-sm">
+      <div className="bg-[#16181D] border border-white/5 rounded-none sm:rounded-2xl p-5 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-6 text-xs sm:text-sm text-gray-400">
             <div className="flex items-center gap-2">
@@ -503,7 +503,7 @@ export default function ArcGridPage() {
       </div>
 
       {/* 3) Core Settings */}
-      <div className="bg-[#16181D] border border-white/5 rounded-2xl p-6 shadow-sm">
+      <div className="bg-[#16181D] border border-white/5 rounded-none sm:rounded-2xl p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-white">1. 코어 설정</h2>
@@ -569,7 +569,7 @@ export default function ArcGridPage() {
       </div>
 
       {/* 4) Inventory */}
-      <div className="bg-[#16181D] border border-white/5 rounded-2xl p-6 shadow-sm">
+      <div className="bg-[#16181D] border border-white/5 rounded-none sm:rounded-2xl p-6 shadow-sm">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             2. 보유 젬 입력
@@ -618,7 +618,7 @@ export default function ArcGridPage() {
       </div>
 
       {/* 5) Results */}
-      <div className="bg-[#16181D] border border-white/5 rounded-2xl p-6 shadow-sm">
+      <div className="bg-[#16181D] border border-white/5 rounded-none sm:rounded-2xl p-6 shadow-sm">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             3. 결과 확인

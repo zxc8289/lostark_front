@@ -11,7 +11,8 @@ import {
     ExclamationCircleIcon,
     ArrowLeftStartOnRectangleIcon,
     PencilSquareIcon,
-    CheckIcon
+    CheckIcon,
+    Bars3Icon // 🔥 햄버거 아이콘 추가
 } from "@heroicons/react/24/solid";
 import { useState, useRef, useEffect } from "react";
 import { UPDATE_LOGS } from "@/data/updateLogs";
@@ -33,7 +34,7 @@ type RaidTaskState = {
     nickname?: string;
     summary?: any;
     prefsByChar?: any;
-    visibleByChar?: Record<string, boolean>; // 👈 [추가] 숨김 설정 정보
+    visibleByChar?: Record<string, boolean>;
 };
 
 const items = [
@@ -51,13 +52,13 @@ export default function Nav() {
 
     const [isNotiOpen, setIsNotiOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const [isNotiEnabled, setIsNotiEnabled] = useState(true);
+    // 🔥 모바일 메뉴 상태 추가
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+    const [isNotiEnabled, setIsNotiEnabled] = useState(true);
     const [isEditingNickname, setIsEditingNickname] = useState(false);
     const [editedNickname, setEditedNickname] = useState("");
     const [isSavingNickname, setIsSavingNickname] = useState(false);
-
-    // ✨ 상태 메시지 (성공/실패)
     const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     const [hasNewUpdates, setHasNewUpdates] = useState(false);
@@ -66,6 +67,7 @@ export default function Nav() {
 
     const notiRef = useRef<HTMLDivElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
+    const mobileMenuRef = useRef<HTMLDivElement>(null); // 🔥 모바일 메뉴 영역 Ref
 
     useEffect(() => {
         const savedSetting = localStorage.getItem("isNotiEnabled");
@@ -86,7 +88,7 @@ export default function Nav() {
         if (maxId > lastSeenId) setHasNewUpdates(true);
     }, []);
 
-    // 2️⃣ 숙제 알림 로직 (🔥 수정됨: 숨김 캐릭터 제외)
+    // 2️⃣ 숙제 알림 로직
     useEffect(() => {
         if (status !== "authenticated" || !isNotiEnabled) {
             setTaskAlerts([]);
@@ -96,7 +98,6 @@ export default function Nav() {
             const now = new Date();
             const day = now.getDay();
             const hour = now.getHours();
-            // 화요일 전체 or 수요일 새벽 6시 전까지만 알림 (숙제 마감 임박)
             const isWarningPeriod = (day === 2) || (day === 3 && hour < 6);
 
             if (!isWarningPeriod) {
@@ -117,17 +118,14 @@ export default function Nav() {
                 if (accounts.length === 0) return;
 
                 const dbPrefs = data.prefsByChar || {};
-                const visibleMap = data.visibleByChar || {}; // 👈 숨김 설정 가져오기
+                const visibleMap = data.visibleByChar || {};
                 const alerts: AlertItem[] = [];
 
                 accounts.forEach((acc) => {
                     const rawRoster = acc.summary?.roster ?? [];
                     if (rawRoster.length === 0) return;
 
-                    // 🔥 [필터링 로직 추가] visibleMap에서 false인 캐릭터는 제거
-                    // (undefined인 경우는 기본적으로 보이는 것으로 간주)
                     const roster = rawRoster.filter((c: any) => visibleMap[c.name] !== false);
-
                     if (roster.length === 0) return;
 
                     const currentPrefs: any = {};
@@ -135,7 +133,6 @@ export default function Nav() {
                         currentPrefs[c.name] = dbPrefs[c.name] ?? readPrefs(c.name) ?? { raids: {} };
                     });
 
-                    // 필터링된 roster로만 남은 숙제 계산
                     const { totalRemainingTasks } = computeRaidSummaryForRoster(roster, currentPrefs);
 
                     if (totalRemainingTasks > 0) {
@@ -169,6 +166,7 @@ export default function Nav() {
         }
         setIsNotiOpen(!isNotiOpen);
         setIsProfileOpen(false);
+        setIsMobileMenuOpen(false); // 🔥 다른 탭 열 때 모바일 메뉴 닫기
     };
 
     const handleProfileClick = () => {
@@ -176,6 +174,14 @@ export default function Nav() {
         setIsNotiOpen(false);
         setIsEditingNickname(false);
         setStatusMessage(null);
+        setIsMobileMenuOpen(false); // 🔥 다른 탭 열 때 모바일 메뉴 닫기
+    };
+
+    // 🔥 모바일 메뉴 토글 함수
+    const handleMobileMenuClick = () => {
+        setIsMobileMenuOpen(!isMobileMenuOpen);
+        setIsNotiOpen(false);
+        setIsProfileOpen(false);
     };
 
     const startEditing = () => {
@@ -222,10 +228,17 @@ export default function Nav() {
             const target = event.target as Node;
             if (notiRef.current && !notiRef.current.contains(target)) setIsNotiOpen(false);
             if (profileRef.current && !profileRef.current.contains(target)) setIsProfileOpen(false);
+            // 🔥 모바일 메뉴 외부 클릭 시 닫기
+            if (mobileMenuRef.current && !mobileMenuRef.current.contains(target)) setIsMobileMenuOpen(false);
         }
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    // 🔥 라우트(페이지)가 변경되면 모바일 메뉴 자동 닫기
+    useEffect(() => {
+        setIsMobileMenuOpen(false);
+    }, [pathname]);
 
     const sortedLogs = [...UPDATE_LOGS].sort((a, b) => b.id - a.id);
     const hasAnyAlert = hasNewUpdates || taskAlerts.length > 0;
@@ -235,7 +248,9 @@ export default function Nav() {
             <div className="mx-auto max-w-7xl h-full flex items-center justify-between px-4 sm:px-6">
 
                 <div className="flex items-center gap-6">
-                    <Link href="/" className="font-semibold tracking-wide text-gray-200 text-2xl whitespace-nowrap hover:text-white transition-colors">LOACHECK</Link>
+                    <Link href="/" className="font-semibold tracking-wide text-gray-200 text-xl md:text-2xl whitespace-nowrap hover:text-white transition-colors">LOACHECK</Link>
+
+                    {/* 데스크탑 메뉴 */}
                     <ul className="hidden md:flex items-center gap-1 lg:gap-3 ml-4">
                         {items.map((it) => {
                             const active = pathname === it.href || (it.href !== "/" && pathname.startsWith(it.href));
@@ -250,7 +265,7 @@ export default function Nav() {
                     </ul>
                 </div>
 
-                <div className="flex items-center gap-3 sm:gap-5">
+                <div className="flex items-center gap-2 sm:gap-5">
                     <div className="relative" ref={notiRef}>
                         <button onClick={handleBellClick} className="relative p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
                             <BellIcon className="w-6 h-6" />
@@ -314,7 +329,7 @@ export default function Nav() {
                     {/* 👤 유저 프로필 영역 */}
                     <div className="relative" ref={profileRef}>
                         {status === "loading" ? (
-                            <div className="w-32 h-8 bg-gray-800 rounded-full animate-pulse" />
+                            <div className="w-24 md:w-32 h-8 bg-gray-800 rounded-full animate-pulse" />
                         ) : session?.user ? (
                             <>
                                 <button onClick={handleProfileClick} className={`flex items-center gap-2 rounded-full p-1 transition-all group pr-3 ${isProfileOpen ? 'bg-white/10' : 'hover:bg-white/5'}`}>
@@ -392,11 +407,50 @@ export default function Nav() {
                                 )}
                             </>
                         ) : (
-                            <button onClick={() => signIn("discord")} className="bg-[#5865F2] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#4752C4] transition-all shadow-lg shadow-[#5865F2]/20 active:scale-95">Discord 로그인</button>
+                            <button onClick={() => signIn("discord")} className="bg-[#5865F2] text-white px-3 py-2 md:px-4 rounded-lg text-xs md:text-sm font-bold hover:bg-[#4752C4] transition-all shadow-lg shadow-[#5865F2]/20 active:scale-95">Discord 로그인</button>
                         )}
                     </div>
+
+                    {/* 🔥 햄버거 토글 버튼 (모바일에서만 보임) */}
+                    <button
+                        className="md:hidden p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"
+                        onClick={handleMobileMenuClick}
+                    >
+                        {isMobileMenuOpen ? (
+                            <XMarkIcon className="w-6 h-6" />
+                        ) : (
+                            <Bars3Icon className="w-6 h-6" />
+                        )}
+                    </button>
                 </div>
             </div>
+
+            {/* 🔥 모바일 드롭다운 메뉴 */}
+            {isMobileMenuOpen && (
+                <div
+                    ref={mobileMenuRef}
+                    className="md:hidden absolute top-20 left-0 w-full bg-[#1B1D22]/95 backdrop-blur-md border-b border-[#5C5C5C] shadow-2xl animate-in slide-in-from-top-2 duration-200 z-40"
+                >
+                    <ul className="flex flex-col px-4 py-4 space-y-1">
+                        {items.map((it) => {
+                            const active = pathname === it.href || (it.href !== "/" && pathname.startsWith(it.href));
+                            return (
+                                <li key={it.href}>
+                                    <Link
+                                        href={it.href}
+                                        className={`block px-4 py-3 rounded-xl text-base font-medium transition-all ${active
+                                            ? "text-white bg-[#5B69FF]/10 border border-[#5B69FF]/20"
+                                            : "text-gray-400 hover:text-white hover:bg-white/5"
+                                            }`}
+                                    >
+                                        {it.label}
+                                    </Link>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </div>
+            )}
         </nav>
     );
 }

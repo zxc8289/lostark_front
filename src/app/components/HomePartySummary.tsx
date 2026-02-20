@@ -111,7 +111,7 @@ function HomePartyRow({ party }: { party: PartySummaryItem }) {
     const remainingCount = Math.max(0, party.memberCount - displayMembers.length);
 
     return (
-        <Link href={`/party-tasks/${party.id}`} className="group relative flex flex-col justify-between rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 min-h-[200px] hover:border-[#5B69FF]/50 overflow-visible h-full w-full">
+        <Link href={`/party-tasks/${party.id}`} className="group relative flex flex-col justify-between rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 min-h-[225px] hover:border-[#5B69FF]/50 overflow-visible h-full w-full">
             <div className="relative z-10 flex-1 flex flex-col">
                 <div className="mb-2 flex items-start justify-between">
                     <div className="flex-1 min-w-0">
@@ -127,8 +127,8 @@ function HomePartyRow({ party }: { party: PartySummaryItem }) {
                     </div>
                     <ChevronRight size={20} className="text-gray-600 group-hover:text-[#5B69FF] transition-colors shrink-0 ml-2 mt-1" />
                 </div>
-                <div className="h-px w-full bg-white/5 my-1 mb-4" />
-                <div className="flex-1 flex flex-col justify-center">
+                <div className="h-px w-full bg-white/5 mt-1 mb-3" />
+                <div className="flex-1 flex flex-col">
                     <div className="flex items-center justify-between mb-3" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
                         <div className="flex items-center gap-1.5 text-gray-500">
                             <User size={14} /><span className="text-xs font-medium text-gray-400">참여 멤버</span>

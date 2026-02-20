@@ -7,7 +7,7 @@ import { headers } from "next/headers"; // 👈 [필수] IP 확인용
 // 1. 캐시 시간 (기본 10분)
 // 2. 도배 방지 (IP당 1분에 30회 제한 - 2초에 1번 꼴)
 // ─────────────────────────────────────────────────────────────────
-const CACHE_MINUTES = 0;
+const CACHE_MINUTES = 10;
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1분
 const MAX_REQUESTS_PER_IP = 30;      // 1분에 30회까지만 허용
 

@@ -54,7 +54,7 @@ export default function TaskSidebar({
     return (
         <div className="space-y-4">
             {/* 1. 계정 선택 섹션 */}
-            <section className="rounded-sm bg-[#16181D] shadow-sm">
+            <section className="rounded-none sm:rounded-sm bg-[#16181D]">
                 <button
                     onClick={() => setIsAccountListOpen(!isAccountListOpen)}
                     className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-white/5 transition-colors ${isAccountListOpen ? 'bg-white/5' : ''}`}
@@ -106,7 +106,7 @@ export default function TaskSidebar({
             </section>
 
             {/* 2. 필터 섹션 */}
-            <section className="rounded-sm bg-[#16181D] shadow-sm">
+            <section className="rounded-none sm:rounded-sm bg-[#16181D]">
                 <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                     <h3 className="text-base sm:text-lg font-semibold">필터</h3>
                     <button

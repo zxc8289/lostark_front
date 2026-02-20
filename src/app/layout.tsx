@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Nav from "./components/Nav";
 import AuthSessionProvider from "./components/AuthSessionProvider";
+// 🔥 [추가] WebSocketProvider 불러오기
+import WebSocketProvider from "./components/WebSocketProvider";
 import { pretendard } from "./fonts";
 import Footer from "./components/Footer";
 import Script from "next/script";
-import { GoogleTagManager } from '@next/third-parties/google'; // 👈 1. 임포트 추가
+import { GoogleTagManager } from '@next/third-parties/google';
 
 // 1. 메타데이터 설정
 export const metadata: Metadata = {
@@ -75,16 +77,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
 
+        {/* 세션 프로바이더 */}
         <AuthSessionProvider>
-          <header>
-            <Nav />
-          </header>
+          {/* 🔥 [추가] 웹소켓 프로바이더로 앱 감싸기 (세션 프로바이더 내부에 위치해야 함) */}
+          <WebSocketProvider>
+            <header>
+              <Nav />
+            </header>
 
-          <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-22 pb-8">
-            {children}
-          </main>
+            <main className="flex-1 w-full max-w-7xl mx-auto sm:px-6 pt-22 pb-8">
+              {children}
+            </main>
 
-          <Footer />
+            <Footer />
+          </WebSocketProvider>
         </AuthSessionProvider>
       </body>
     </html>

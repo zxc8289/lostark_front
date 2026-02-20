@@ -58,6 +58,9 @@ import PartySettingsModal from "@/app/components/tasks/PartySettingsModal";
 import GoogleAd from "@/app/components/GoogleAd";
 import TaskSidebar from "@/app/components/tasks/TaskSidebar";
 
+// 🔥 [추가] 전역 웹소켓 사용
+import { useGlobalWebSocket } from "@/app/components/WebSocketProvider";
+
 /* ─────────────────────────────
  * 타입 정의
  * ───────────────────────────── */
@@ -82,7 +85,6 @@ type PartyDetail = {
     raidState?: RaidStateFromServer;
 };
 
-/** 파티원 한 명의 "내 숙제 상태" */
 type PartyMemberTasks = {
     userId: string;
     name: string | null;
@@ -114,8 +116,8 @@ type SavedAccount = {
     id: string;
     nickname: string;
     summary: CharacterSummary;
-    isPrimary?: boolean; // 대표 계정
-    isSelected?: boolean; // 현재 선택된 계정 (MyTasks와 동일)
+    isPrimary?: boolean;
+    isSelected?: boolean;
 };
 
 type RaidStateFromServer = {
@@ -130,7 +132,6 @@ type RaidStateFromServer = {
 const PARTY_FILTER_KEY = (partyId: number | string) =>
     `partyTaskFilters:${partyId}`;
 
-// MyTasks와 동일한 계정 저장 키
 const ACCOUNTS_KEY = "raidTaskAccounts";
 const ACTIVE_ACCOUNT_KEY = "raidTaskActiveAccount";
 
@@ -138,7 +139,6 @@ const ACTIVE_ACCOUNT_KEY = "raidTaskActiveAccount";
  * 공통 함수
  * ───────────────────────────── */
 
-/** 카드 뷰에서 한 캐릭터에 대한 TaskCard 리스트 생성 (MyTasks의 buildTasksFor와 동일 스타일) */
 function buildTasksForCharacter(
     c: RosterCharacter,
     prefsByChar: Record<string, CharacterTaskPrefs>,
@@ -155,16 +155,10 @@ function buildTasksForCharacter(
     const prefs = prefsByChar[c.name];
     if (!prefs) return [];
 
-    // 1) 기본 순서 후보 만들기
-    const baseRaidNames =
-        prefs.order?.filter((r) => prefs.raids[r]) ?? Object.keys(prefs.raids);
-
-    // 2) order가 없는 경우에만 레벨 기준 정렬
+    const baseRaidNames = prefs.order?.filter((r) => prefs.raids[r]) ?? Object.keys(prefs.raids);
     const raidNames = prefs.order
         ? baseRaidNames
-        : [...baseRaidNames].sort(
-            (a, b) => getRaidBaseLevel(b) - getRaidBaseLevel(a)
-        );
+        : [...baseRaidNames].sort((a, b) => getRaidBaseLevel(b) - getRaidBaseLevel(a));
 
     const items: TaskItem[] = [];
 
@@ -181,7 +175,6 @@ function buildTasksForCharacter(
         const gatesDef = diff.gates ?? [];
         const allGateIdx = gatesDef.map((g) => g.index);
 
-        // 카드 뷰에서만 "남은 숙제만 보기" 필터 적용
         if (options?.onlyRemain) {
             if (gatesDef.length) {
                 const lastGateIndex = gatesDef.reduce(
@@ -191,14 +184,10 @@ function buildTasksForCharacter(
                 const gates = p.gates ?? [];
                 const isCompleted = gates.includes(lastGateIndex);
 
-                if (isCompleted) {
-                    // 마지막 관문까지 완료된 레이드는 카드에서 숨김
-                    continue;
-                }
+                if (isCompleted) continue;
             }
         }
 
-        // 현재 선택된 관문 기준 골드 합계
         const totalGold = (p.gates ?? []).reduce((sum, gi) => {
             const g = diff.gates.find((x) => x.index === gi);
             return sum + (g?.gold ?? 0);
@@ -233,7 +222,6 @@ function buildTasksForCharacter(
     return items;
 }
 
-/** 파티원 단위 레이드 요약 */
 function computeMemberSummary(
     member: PartyMemberTasks & { summary: CharacterSummary | null }
 ): RaidSummary {
@@ -252,9 +240,7 @@ export default function PartyDetailPage() {
     const router = useRouter();
     const params = useParams<{ partyId: string }>();
 
-    const partyId = Array.isArray(params.partyId)
-        ? params.partyId[0]
-        : params.partyId;
+    const partyId = Array.isArray(params.partyId) ? params.partyId[0] : params.partyId;
 
     const { data: session, status } = useSession();
 
@@ -268,38 +254,32 @@ export default function PartyDetailPage() {
     const [partyLoading, setPartyLoading] = useState(true);
     const [partyErr, setPartyErr] = useState<string | null>(null);
 
-    // 파티 숙제 상태
     const [partyTasks, setPartyTasks] = useState<PartyMemberTasks[] | null>(null);
     const [tasksLoading, setTasksLoading] = useState(false);
     const [tasksErr, setTasksErr] = useState<string | null>(null);
     const [refreshErr, setRefreshErr] = useState<string | null>(null);
 
-    // 필터 (파티별 localStorage)
     const [onlyRemain, setOnlyRemain] = useState(false);
     const [isCardView, setIsCardView] = useState(false);
-
     const [orderTick, setOrderTick] = useState(0);
 
+    const wsContext = useGlobalWebSocket();
+    const ws = wsContext?.ws;
+    const sendGlobalMessage = wsContext?.sendMessage;
+    const joinRoom = wsContext?.joinRoom;
+    const addPartyId = wsContext?.addPartyId;
 
-
-    const wsRef = useRef<WebSocket | null>(null);
-    const [wsReady, setWsReady] = useState(false);
-
-    // 레이드 설정(숙제 편집) 모달 상태
     const [editOpen, setEditOpen] = useState(false);
     const [editTarget, setEditTarget] = useState<{
         memberUserId: string;
         charName: string;
         character: RosterCharacter;
     } | null>(null);
-    const [editInitial, setEditInitial] =
-        useState<CharacterTaskPrefs | null>(null);
+    const [editInitial, setEditInitial] = useState<CharacterTaskPrefs | null>(null);
 
     const [charSettingOpen, setCharSettingOpen] = useState(false);
-    const [charSettingTarget, setCharSettingTarget] =
-        useState<{ memberUserId: string } | null>(null);
+    const [charSettingTarget, setCharSettingTarget] = useState<{ memberUserId: string } | null>(null);
 
-    // 파티 코드 모달 상태
     const [inviteOpen, setInviteOpen] = useState(false);
     const [inviteLoading, setInviteLoading] = useState(false);
     const [inviteErr, setInviteErr] = useState<string | null>(null);
@@ -308,9 +288,6 @@ export default function PartyDetailPage() {
     const [partySettingOpen, setPartySettingOpen] = useState(false);
     const [shareModalOpen, setShareModalOpen] = useState(false);
 
-    /* ──────────────────────────
-     *  계정 드롭다운 (MyTasks와 동일 기능)
-     * ────────────────────────── */
     const [accountSearchLoading, setAccountSearchLoading] = useState(false);
     const [accountSearchErr, setAccountSearchErr] = useState<string | null>(null);
     const [accounts, setAccounts] = useState<SavedAccount[]>([]);
@@ -328,13 +305,6 @@ export default function PartyDetailPage() {
         accounts[0] ??
         null;
 
-    /* ─────────────────────────────
-     * 파티 숙제 재로딩 공통 함수
-     *  - 초기 로딩
-     *  - activeAccount 변경
-     *  - 계정 삭제/추가 후
-     *  - WS(activeAccountUpdated) 수신 시
-     * ───────────────────────────── */
     const reloadPartyTasks = useCallback(
         async (showSpinner: boolean) => {
             if (!party || status !== "authenticated") return;
@@ -342,9 +312,7 @@ export default function PartyDetailPage() {
             const partyIdNum = party.id;
             if (!partyIdNum) return;
 
-            if (showSpinner) {
-                setTasksLoading(true);
-            }
+            if (showSpinner) setTasksLoading(true);
             setTasksErr(null);
 
             try {
@@ -370,15 +338,11 @@ export default function PartyDetailPage() {
             } catch (e: any) {
                 setTasksErr(e?.message ?? "알 수 없는 오류가 발생했습니다.");
             } finally {
-                if (showSpinner) {
-                    setTasksLoading(false);
-                }
+                if (showSpinner) setTasksLoading(false);
             }
         },
         [party, status]
     );
-
-
 
     type RaidStatePatch = Partial<RaidStateFromServer> & {
         deleteAccountId?: string;
@@ -386,30 +350,11 @@ export default function PartyDetailPage() {
 
     async function saveRaidState(partial: RaidStatePatch) {
         try {
-            const res = await fetch("/api/raid-tasks/state", {
+            await fetch("/api/raid-tasks/state", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(partial),
             });
-
-            let payload: any = null;
-            const text = await res.text();
-            try {
-                payload = text ? JSON.parse(text) : null;
-            } catch {
-                payload = text;
-            }
-
-            if (!res.ok) {
-                console.error(
-                    "[raid_task_state 저장 실패]",
-                    res.status,
-                    res.statusText,
-                    payload
-                );
-            } else {
-                // console.log("[raid_task_state 저장 성공]", partial);
-            }
         } catch (e) {
             console.error("raid_task_state 저장 실패 (네트워크 에러):", e);
         }
@@ -420,21 +365,11 @@ export default function PartyDetailPage() {
         activeAccountId: string | null
     ) {
         try {
-            const res = await fetch(`/api/party-tasks/${partyId}/active-account`, {
+            await fetch(`/api/party-tasks/${partyId}/active-account`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ activeAccountId }),
             });
-            if (!res.ok) {
-                console.error(
-                    "[파티 activeAccount 저장 실패]",
-                    res.status,
-                    res.statusText,
-                    await res.text()
-                );
-            } else {
-                // console.log("[파티 activeAccount 저장 성공]", partyId, activeAccountId);
-            }
         } catch (e) {
             console.error("파티 activeAccount 저장 실패 (네트워크 에러):", e);
         }
@@ -446,21 +381,14 @@ export default function PartyDetailPage() {
         prefsByChar: Record<string, CharacterTaskPrefs>,
         visibleByChar?: Record<string, boolean>
     ) {
-        const ws = wsRef.current;
-        if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-        const payload = {
-            type: "gateUpdate" as const,
-            partyId,
-            userId,
-            prefsByChar,
-            visibleByChar,
-        };
-
-        try {
-            ws.send(JSON.stringify(payload));
-        } catch (e) {
-            console.error("[WS] send memberUpdate failed:", e);
+        if (sendGlobalMessage) {
+            sendGlobalMessage({
+                type: "gateUpdate",
+                partyId,
+                userId,
+                prefsByChar,
+                visibleByChar,
+            });
         }
     }
 
@@ -477,13 +405,12 @@ export default function PartyDetailPage() {
                 myUserId,
                 saveRaidState,
                 saveActiveAccountToServer,
-                wsRef.current
+                sendGlobalMessage
             );
             setAccounts(nextAccounts);
         })();
     };
 
-    // 반환 타입을 Promise<boolean>으로 변경하여 성공 여부를 알림
     const handleCharacterSearch = async (name: string): Promise<boolean> => {
         const trimmed = name.trim();
         if (!trimmed) return false;
@@ -503,13 +430,10 @@ export default function PartyDetailPage() {
 
             const json = (await r.json()) as CharacterSummary;
 
-            // 🔥 [중요] 데이터 유효성 검사 추가
-            // API가 200을 줬더라도, 실제 캐릭터 정보가 비어있으면 저장하지 않고 에러 처리
             if (!json || !json.roster || json.roster.length === 0) {
                 throw new Error("캐릭터 정보를 찾을 수 없습니다. (원정대 정보 없음)");
             }
 
-            // 🔹 파티 화면이 아닌 경우
             if (!party) {
                 setAccounts((prev) => {
                     let next = [...prev];
@@ -541,10 +465,9 @@ export default function PartyDetailPage() {
                     }
                     return next;
                 });
-                return true; // 로컬 성공
+                return true;
             }
 
-            // 🔹 파티 화면인 경우: DB 저장 로직 (applyActiveAccount)
             const baseAccounts = accounts ?? [];
             const existingIdx = baseAccounts.findIndex(
                 (a) => a.nickname.toLowerCase() === trimmed.toLowerCase()
@@ -578,8 +501,6 @@ export default function PartyDetailPage() {
                 nextAccountsBase.push(newAcc);
             }
 
-            // 🔥 여기가 DB 저장하는 핵심 로직입니다.
-            // 위에서 에러가 났다면 여기까지 오지 않으므로 이상한 데이터가 저장될 일은 없습니다.
             const nextAccounts = await applyActiveAccount(
                 newAcc,
                 nextAccountsBase,
@@ -587,20 +508,19 @@ export default function PartyDetailPage() {
                 myUserId,
                 saveRaidState,
                 saveActiveAccountToServer,
-                wsRef.current
+                sendGlobalMessage
             );
 
             setAccounts(nextAccounts);
             void reloadPartyTasks(false);
 
-            return true; // ✅ 성공 반환
+            return true;
 
         } catch (e: any) {
-            // 실패 시 에러 메시지 세팅 및 false 반환
             const errMsg = e?.message ?? String(e);
             console.error("캐릭터 검색 실패:", errMsg);
             setAccountSearchErr(errMsg);
-            return false; // ❌ 실패 반환
+            return false;
         } finally {
             setAccountSearchLoading(false);
         }
@@ -611,7 +531,7 @@ export default function PartyDetailPage() {
         e.preventDefault();
         const success = await handleCharacterSearch(inlineSearchInput);
         if (success) {
-            setInlineSearchInput(""); // 성공 시 입력창 초기화
+            setInlineSearchInput("");
         }
     };
 
@@ -627,7 +547,6 @@ export default function PartyDetailPage() {
         setEditOpen(true);
     };
 
-    // 두 번째 인자는 옵션으로 변경 (카드뷰에서는 baseSummary, 테이블에서는 member.summary 사용)
     const openMemberCharSetting = (member: PartyMemberTasks) => {
         setCharSettingTarget({ memberUserId: member.userId });
         setCharSettingOpen(true);
@@ -674,7 +593,6 @@ export default function PartyDetailPage() {
         if (!text) return;
 
         try {
-            // https / localhost 환경
             if (
                 typeof navigator !== "undefined" &&
                 navigator.clipboard &&
@@ -684,7 +602,6 @@ export default function PartyDetailPage() {
             ) {
                 await navigator.clipboard.writeText(text);
             } else if (typeof document !== "undefined") {
-                // 폴백
                 const textarea = document.createElement("textarea");
                 textarea.value = text;
                 textarea.readOnly = true;
@@ -720,10 +637,8 @@ export default function PartyDetailPage() {
             url: invite.url || window.location.href,
         };
 
-        // (Android, iPhone, iPad 등이 포함된 경우에만 모바일로 간주)
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-        // 1. 모바일 기기이면서 + 공유 기능을 지원할 때만 -> 네이티브 공유창 띄우기
         if (isMobile && typeof navigator !== "undefined" && navigator.share && navigator.canShare(shareData)) {
             try {
                 await navigator.share(shareData);
@@ -731,11 +646,8 @@ export default function PartyDetailPage() {
                 if (err.name !== 'AbortError') console.error('공유 실패:', err);
             }
         }
-        // 2. PC 환경이거나 공유 미지원 -> 우리가 만든 커스텀 모달 실행
         else {
-            // 복사는 동기적으로 바로 수행
             handleCopyInvite();
-            // 예쁜 모달 열기
             setShareModalOpen(true);
         }
     };
@@ -791,7 +703,6 @@ export default function PartyDetailPage() {
         }
     };
 
-    // 파일 상단에 SavedAccount 타입 이미 있어야 함
     async function applyActiveAccount(
         acc: SavedAccount,
         accounts: SavedAccount[],
@@ -799,69 +710,49 @@ export default function PartyDetailPage() {
         myUserId: string | null,
         saveRaidState: (patch: RaidStatePatch) => Promise<void>,
         saveActiveAccountToServer: (partyId: number, activeAccountId: string) => Promise<void>,
-        ws: WebSocket | null
+        sendMessage: ((msg: any) => void) | undefined
     ) {
-        // 1) 프론트 로컬 상태용 next 계정 리스트
         const nextAccounts = accounts.map((a) =>
             a.id === acc.id
                 ? { ...a, isSelected: true }
                 : { ...a, isSelected: false }
         );
 
-        // 대표 계정 하나 골라두기 (혹시 모를 fallback)
         const active =
             nextAccounts.find((a) => a.id === acc.id) ??
             nextAccounts.find((a) => a.isPrimary) ??
             nextAccounts[0] ??
             null;
 
-        // 2) raid_task_state (전역) 먼저 저장
         await saveRaidState({
             accounts: nextAccounts,
             activeAccountId: active?.id ?? null,
         });
 
-        // 3) 파티별 대표 계정 저장
         await saveActiveAccountToServer(partyId, acc.id);
 
-        // 4) WebSocket 브로드캐스트 (DB 업데이트 끝난 뒤 보내기)
-        if (ws && ws.readyState === WebSocket.OPEN && myUserId) {
-            try {
-                ws.send(
-                    JSON.stringify({
-                        type: "activeAccountUpdate",
-                        partyId,
-                        userId: myUserId,
-                        activeAccountId: acc.id,
-                    })
-                );
-            } catch (e) {
-                console.error("[WS] send activeAccountUpdate failed:", e);
-            }
+        if (sendMessage && myUserId) {
+            sendMessage({
+                type: "activeAccountUpdate",
+                partyId,
+                userId: myUserId,
+                activeAccountId: acc.id,
+            });
         }
 
         return nextAccounts;
     }
 
 
-    // src/app/party-tasks/[partyId]/page.tsx
-
     const handleMyDeleteAccount = async () => {
-        // 1. 데이터 검증
         if (!party || !partyTasks || !myUserId || !currentAccount) return;
 
-        // 🔥 [수정 포인트] 모달을 가장 먼저 닫습니다.
-        // 계정 목록(accounts)이 변경되어 리렌더링되기 전에 모달을 닫아야
-        // 다른 계정 정보가 모달에 잠깐 뜨는 현상을 막을 수 있습니다.
         setCharSettingOpen(false);
         setCharSettingTarget(null);
 
         const partyIdNum = party.id;
         const targetAccountId = currentAccount.id;
 
-        // ... (이전 코드 생략)
-
-        // 2) 전역 계정 목록에서도 현재 계정 제거 + active 계정 재지정
         if (accounts && accounts.length > 0) {
             const filtered = accounts.filter((a) => a.id !== targetAccountId);
 
@@ -885,11 +776,9 @@ export default function PartyDetailPage() {
                         : false,
             }));
 
-            // UI 먼저 반영 (낙관적 업데이트) -> 이제 모달이 닫힌 상태라 안전합니다.
             setAccounts(nextAccounts);
 
             try {
-                // 1. 계정 삭제 요청
                 await saveRaidState({
                     accounts: nextAccounts,
                     activeAccountId: nextActive?.id ?? null,
@@ -903,59 +792,43 @@ export default function PartyDetailPage() {
                     );
                 }
 
-                // WS 전송
-                if (
-                    wsRef.current &&
-                    wsRef.current.readyState === WebSocket.OPEN &&
-                    myUserId
-                ) {
-                    wsRef.current.send(
-                        JSON.stringify({
-                            type: "activeAccountUpdate",
-                            partyId: partyIdNum,
-                            userId: myUserId,
-                            activeAccountId: nextActive?.id ?? null,
-                        })
-                    );
+                if (sendGlobalMessage && myUserId) {
+                    sendGlobalMessage({
+                        type: "activeAccountUpdate",
+                        partyId: partyIdNum,
+                        userId: myUserId,
+                        activeAccountId: nextActive?.id ?? null,
+                    });
                 }
             } catch (e) {
                 console.error("계정 삭제 중 오류 발생:", e);
             }
         }
 
-
         if (party) {
             await reloadPartyTasks(false);
         }
     };
 
-    /** 내 계정 새로고침 (파티 화면에서 호출) */
     const handleMyRefreshAccount = async () => {
         if (!currentAccount) return;
-        // 이미 위에서 정의된 handleCharacterSearch 재사용
         await handleCharacterSearch(currentAccount.nickname);
     };
 
-
-    //** 다른 파티원의 계정 정보 새로고침 및 DB 저장 */
     const handleMemberRefreshAccount = async (memberUserId: string) => {
-        // 1. 시작할 때 에러 메시지 초기화
         setRefreshErr(null);
 
         if (!party || !partyTasks) return;
 
-        // 2. 대상 파티원 찾기
         const target = partyTasks.find((m) => m.userId === memberUserId);
         if (!target) {
             console.error("대상 파티원을 찾을 수 없습니다.");
             return;
         }
 
-        // 3. 검색 후보군 생성 (1순위: 현재 닉네임, 2순위: 저장된 배럭들)
         const originalNick = (target.nickname ?? "").trim();
         const rosterNames = target.summary?.roster?.map((c) => c.name) ?? [];
 
-        // 중복 제거 및 빈 값 제거
         const searchCandidates = Array.from(new Set([originalNick, ...rosterNames])).filter(Boolean);
 
         if (searchCandidates.length === 0) {
@@ -967,7 +840,6 @@ export default function PartyDetailPage() {
             let json: CharacterSummary | null = null;
             let successNickname: string | null = null;
 
-            // 4. 후보군 순회하며 검색 시도 (하나라도 성공하면 중단)
             for (const name of searchCandidates) {
                 try {
                     const r = await fetch(
@@ -977,28 +849,22 @@ export default function PartyDetailPage() {
 
                     if (r.ok) {
                         json = (await r.json()) as CharacterSummary;
-                        successNickname = name; // 성공한 닉네임 기록
-                        break; // 찾았으니 루프 종료
+                        successNickname = name;
+                        break;
                     }
                 } catch (innerErr) {
-                    // 개별 검색 실패는 무시하고 다음 후보로 계속 진행
                     continue;
                 }
             }
 
-            // 5. [핵심] 모든 후보군이 실패했을 경우 -> 에러 상태 업데이트!
             if (!json) {
                 const errMsg = `'${originalNick}' 및 원정대 캐릭터를 찾을 수 없습니다. (닉네임 변경 확인)`;
-
-                // 기존 prompt 로직 대신 에러 메시지를 셋팅합니다.
                 setRefreshErr(errMsg);
                 return;
             }
 
-            // 6. 성공했으면 에러 끄기
             setRefreshErr(null);
 
-            // 7. 프론트엔드 상태 업데이트
             setPartyTasks((prev) => {
                 if (!prev) return prev;
                 return prev.map((m) =>
@@ -1012,7 +878,6 @@ export default function PartyDetailPage() {
                 );
             });
 
-            // 8. DB에 영구 저장
             await fetch(`/api/party-tasks/${party.id}/raid-tasks`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -1025,7 +890,6 @@ export default function PartyDetailPage() {
                 }),
             });
 
-            // 9. WebSocket 실시간 반영
             sendMemberUpdateWS(
                 party.id,
                 memberUserId,
@@ -1044,7 +908,6 @@ export default function PartyDetailPage() {
         const partyIdNum = party.id;
         const { memberUserId, charName } = editTarget;
 
-        // 1) next 상태 계산
         const next: PartyMemberTasks[] = partyTasks.map((m) => {
             if (m.userId !== memberUserId) return m;
 
@@ -1059,7 +922,6 @@ export default function PartyDetailPage() {
             };
         });
 
-        // 2) state 반영
         setPartyTasks(next);
 
         const updated = next.find((m) => m.userId === memberUserId);
@@ -1094,7 +956,7 @@ export default function PartyDetailPage() {
         visibleByChar?: Record<string, boolean>
     ) {
         try {
-            const res = await fetch(`/api/party-tasks/${partyId}/raid-tasks`, {
+            await fetch(`/api/party-tasks/${partyId}/raid-tasks`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(
@@ -1103,31 +965,11 @@ export default function PartyDetailPage() {
                         : { userId, prefsByChar }
                 ),
             });
-
-            let payload: any = null;
-            const text = await res.text();
-            try {
-                payload = text ? JSON.parse(text) : null;
-            } catch {
-                payload = text;
-            }
-
-            if (!res.ok) {
-                console.error(
-                    "[파티 숙제 저장 실패]",
-                    res.status,
-                    res.statusText,
-                    payload
-                );
-            } else {
-                // console.log("[파티 숙제 저장 성공]", partyId, userId, payload);
-            }
         } catch (e) {
             console.error("파티원 숙제 저장 실패 (네트워크 에러):", e);
         }
     }
 
-    /** 파티원 관문 토글 (카드/테이블 공통) */
     const handleMemberToggleGate = (
         memberUserId: string,
         charName: string,
@@ -1140,7 +982,6 @@ export default function PartyDetailPage() {
 
         const partyIdNum = party.id;
 
-        // 1) 현재 state를 기준으로 next 상태 먼저 계산 (기존 로직 그대로)
         const next: PartyMemberTasks[] = partyTasks.map((m) => {
             if (m.userId !== memberUserId) return m;
 
@@ -1180,21 +1021,17 @@ export default function PartyDetailPage() {
                 [charName]: updatedPrefsForChar,
             };
 
-            const newMember: PartyMemberTasks = {
+            return {
                 ...m,
                 prefsByChar: updatedPrefsByChar,
             };
-
-            return newMember;
         });
 
-        // 2) state 반영 (optimistic UI)
         setPartyTasks(next);
 
         const updated = next.find((m) => m.userId === memberUserId);
         if (!updated) return;
 
-        // 1) WebSocket으로 실시간 브로드캐스트
         sendMemberUpdateWS(
             partyIdNum,
             updated.userId,
@@ -1202,7 +1039,6 @@ export default function PartyDetailPage() {
             updated.visibleByChar
         );
 
-        // 2) 항상 DB 저장
         void saveMemberPrefsToServer(
             partyIdNum,
             updated.userId,
@@ -1219,10 +1055,8 @@ export default function PartyDetailPage() {
         const next: PartyMemberTasks[] = partyTasks.map((m) => {
             if (m.userId !== memberUserId) return m;
 
-            // 🔹 기본은 서버에서 온 summary
             let roster = m.summary?.roster ?? [];
 
-            // 🔹 내 줄 + currentAccount 선택되어 있으면 -> 그 계정의 roster 사용
             if (isMe && currentAccount?.summary?.roster) {
                 roster = currentAccount.summary.roster;
             }
@@ -1234,7 +1068,6 @@ export default function PartyDetailPage() {
                 m.prefsByChar ?? {}
             );
 
-            // 🔹 기존 prefs/visible에 "현재 계정 캐릭터들만" 덮어쓰기
             return {
                 ...m,
                 prefsByChar: {
@@ -1252,7 +1085,6 @@ export default function PartyDetailPage() {
 
         const updated = next.find((m) => m.userId === memberUserId);
         if (updated) {
-            // 1) WebSocket 브로드캐스트
             sendMemberUpdateWS(
                 partyIdNum,
                 updated.userId,
@@ -1260,7 +1092,6 @@ export default function PartyDetailPage() {
                 updated.visibleByChar
             );
 
-            // 2) DB 저장
             void saveMemberPrefsToServer(
                 partyIdNum,
                 updated.userId,
@@ -1270,7 +1101,6 @@ export default function PartyDetailPage() {
         }
     };
 
-    /** 파티원 레이드 순서 재정렬 */
     const handleMemberReorder = (
         memberUserId: string,
         charName: string,
@@ -1279,7 +1109,6 @@ export default function PartyDetailPage() {
         if (!party || !partyTasks) return;
         const partyIdNum = party.id;
 
-        // 1) next 상태 계산
         const next: PartyMemberTasks[] = partyTasks.map((m) => {
             if (m.userId !== memberUserId) return m;
 
@@ -1290,10 +1119,8 @@ export default function PartyDetailPage() {
             const curPrefsForChar: CharacterTaskPrefs =
                 memberPrefsByChar[charName] ?? { raids: {} };
 
-            // 기존에 있던 레이드 이름들
             const allRaidNames = Object.keys(curPrefsForChar.raids ?? {});
 
-            // 드래그 결과로 온 순서 + 나머지(탈락된 애들) 뒤에 붙이기
             const mergedOrder = [
                 ...newOrderIds,
                 ...allRaidNames.filter((name) => !newOrderIds.includes(name)),
@@ -1335,12 +1162,10 @@ export default function PartyDetailPage() {
         }
     };
 
-    /** 파티원 관문 전체 초기화 (해당 파티원의 모든 캐릭터에 대해 gates만 초기화) */
     const handleMemberGateAllClear = (memberUserId: string) => {
         if (!party || !partyTasks) return;
         const partyIdNum = party.id;
 
-        // 1) next 상태 계산
         const next: PartyMemberTasks[] = partyTasks.map((m) => {
             if (m.userId !== memberUserId) return m;
 
@@ -1370,7 +1195,6 @@ export default function PartyDetailPage() {
             };
         });
 
-        // 2) state 반영
         setPartyTasks(next);
 
         const updated = next.find((m) => m.userId === memberUserId);
@@ -1399,16 +1223,14 @@ export default function PartyDetailPage() {
             const raw = localStorage.getItem(PARTY_FILTER_KEY(party.id));
             if (!raw) return;
 
-            const saved = JSON.parse(raw) as SavedFilters & { isCardView?: boolean }; // 타입 확장
+            const saved = JSON.parse(raw) as SavedFilters & { isCardView?: boolean };
 
             if (typeof saved.onlyRemain === "boolean") {
                 setOnlyRemain(saved.onlyRemain);
             }
-            // 저장된 설정이 있으면 불러옴
             if (typeof saved.isCardView === "boolean") {
                 setIsCardView(saved.isCardView);
             } else if (typeof saved.tableView === "boolean") {
-                // 구버전(tableView) 호환성 유지: tableView가 true였으면 카드보기는 false
                 setIsCardView(!saved.tableView);
             }
         } catch (e) {
@@ -1475,13 +1297,24 @@ export default function PartyDetailPage() {
                 if (!cancelled) {
                     setParty(data);
 
+
+                    if (addPartyId) addPartyId(data.id);
+                    if (joinRoom) {
+                        joinRoom(`party:${data.id}`);
+
+                        if (data.members && Array.isArray(data.members)) {
+                            data.members.forEach((m) => {
+                                joinRoom(`user:${m.id}`);
+                            });
+                        }
+                    }
+
                     const raidState = data.raidState;
                     if (
                         raidState?.accounts &&
                         Array.isArray(raidState.accounts) &&
                         raidState.accounts.length > 0
                     ) {
-                        // 원본 훼손 방지용 복사
                         let accs = raidState.accounts.map((a) => ({ ...a })) as SavedAccount[];
 
                         const partyKey = String(data.id);
@@ -1502,7 +1335,6 @@ export default function PartyDetailPage() {
                             }
                         }
 
-                        // 3️⃣ 선택된 계정 플래그(isSelected) 세팅
                         if (initialActiveId) {
                             accs = accs.map((a) =>
                                 a.id === initialActiveId
@@ -1533,7 +1365,7 @@ export default function PartyDetailPage() {
         return () => {
             cancelled = true;
         };
-    }, [status, partyId]);
+    }, [status, partyId, joinRoom]);
 
     /* ─────────────────────────────
      * 2차: 파티원들의 "내 숙제 상태" 불러오기 (초기 1회 + party 변경 시)
@@ -1544,44 +1376,16 @@ export default function PartyDetailPage() {
     }, [party, status, reloadPartyTasks]);
 
     /* ─────────────────────────────
-     * WebSocket 연결
-     * ───────────────────────────── */
+         * 🔥 [수정] 전역 WebSocket 리스너 (글로벌 동기화 허용)
+         * ───────────────────────────── */
     useEffect(() => {
-        if (!party || status !== "authenticated") return;
-        if (typeof window === "undefined") return;
+        if (!ws || !party || status !== "authenticated") return;
 
-        const base =
-            process.env.NEXT_PUBLIC_WS_URL ||
-            (window.location.protocol === "https:"
-                ? `wss://${window.location.host}`
-                : `ws://${window.location.host}`);
-
-        const url = `${base}/ws/party-tasks?partyId=${party.id}`;
-        const ws = new WebSocket(url);
-
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-            setWsReady(true);
-            // console.log("[WS] connected:", url);
-        };
-
-        ws.onclose = (ev) => {
-            // console.log("[WS] closed", { code: ev.code, reason: ev.reason, wasClean: ev.wasClean });
-            setWsReady(false);
-            if (wsRef.current === ws) wsRef.current = null;
-        };
-
-        ws.onerror = (ev) => {
-            console.error("[WS] error event:", ev, "url:", url);
-        };
-
-        ws.onmessage = (event) => {
+        const handleMessage = (event: MessageEvent) => {
             try {
-                const msg = JSON.parse(event.data as string);
-                // console.log("[WS] message from server:", msg);
+                const msg = JSON.parse(event.data);
 
-                if (msg.type === "memberUpdated" && msg.partyId === party.id) {
+                if (msg.type === "memberUpdated") {
                     setPartyTasks((prev) => {
                         if (!prev) return prev;
                         const exists = prev.some((m) => m.userId === msg.userId);
@@ -1597,88 +1401,66 @@ export default function PartyDetailPage() {
                                 : m
                         );
                     });
-                } else if (
-                    msg.type === "activeAccountUpdated" &&
-                    msg.partyId === party.id
-                ) {
+                }
+                else if (msg.type === "activeAccountUpdated") {
                     setAccounts((prev) => {
                         if (!prev || prev.length === 0) return prev;
 
                         const exists = prev.some((a) => a.id === msg.activeAccountId);
-                        if (!exists) {
-                            // 다른 유저의 activeAccount 변경일 수도 있음
-                            return prev;
-                        }
+                        if (!exists) return prev;
 
-                        const next = prev.map((a) =>
+                        return prev.map((a) =>
                             a.id === msg.activeAccountId
                                 ? { ...a, isSelected: true }
                                 : { ...a, isSelected: false }
                         );
-
-                        return next;
                     });
 
-                    // 🔥 activeAccount 변경 이후에는 서버 기준 숙제 전체 재로딩
                     void reloadPartyTasks(false);
-                } else if (
-                    msg.type === "memberKicked" &&
-                    String(msg.partyId) === String(party.id)
-                ) {
+                }
+                else if (msg.type === "memberKicked" && String(msg.partyId) === String(party.id)) {
                     const kickedUserId = String(msg.userId);
 
-                    // 내가 킥당한 경우 → 바로 목록으로 튕겨내기
                     if (myUserId && String(myUserId) === kickedUserId) {
                         alert("파티에서 강퇴되어 파티 목록으로 이동합니다.");
                         router.push("/party-tasks");
                         return;
                     }
 
-                    // 다른 파티원이 킥당한 경우 → 파티 정보/숙제 목록에서 제거
                     setParty((prev) =>
-                        prev
-                            ? {
-                                ...prev,
-                                members: prev.members.filter(
-                                    (m) => String(m.id) !== kickedUserId
-                                ),
-                            }
-                            : prev
+                        prev ? {
+                            ...prev,
+                            members: prev.members.filter((m) => String(m.id) !== kickedUserId),
+                        } : prev
                     );
-
                     setPartyTasks((prev) =>
                         prev ? prev.filter((m) => String(m.userId) !== kickedUserId) : prev
                     );
                 }
             } catch (e) {
-                console.error("[WS] invalid message:", e);
+                console.error("[WS] Parse error:", e);
             }
         };
 
-        return () => {
-            ws.close();
-        };
-    }, [party?.id, status, myUserId, router, reloadPartyTasks]);
+        ws.addEventListener("message", handleMessage);
+        return () => ws.removeEventListener("message", handleMessage);
+    }, [ws, party?.id, status, myUserId, router, reloadPartyTasks]);
 
-    // 내가 더 이상 이 파티의 member가 아니면 강제 퇴장
     useEffect(() => {
         if (!party || !myUserId) return;
 
         const isStillMember = party.members.some((m) => m.id === myUserId);
 
-        // 파티원 목록에 내 userId가 없으면 → 킥당한 상태로 간주하고 튕겨내기
         if (!isStillMember) {
             alert("파티에서 강퇴되어 파티 목록으로 이동합니다.");
             router.push("/party-tasks");
         }
     }, [party, myUserId, router]);
 
-    // 파티 설정 모달에서 이름/파티장/파티원 목록이 변경됐을 때 반영
     const handlePartyUpdated = (patch: Partial<PartyDetail>) => {
         setParty((prev) => (prev ? { ...prev, ...patch } : prev));
     };
 
-    // 특정 파티원이 강퇴됐을 때 파티 정보 + 숙제 목록에서 제거
     const handlePartyMemberKicked = (userId: string) => {
         setParty((prev) =>
             prev
@@ -1698,7 +1480,6 @@ export default function PartyDetailPage() {
      * 상태별 렌더링
      * ───────────────────────────── */
 
-    // 1) 로그인 필요
     if (status === "unauthenticated") {
         return (
             <div className="w-full min-h-[60vh] flex flex-col items-center justify-center text-gray-300 px-4">
@@ -1724,19 +1505,16 @@ export default function PartyDetailPage() {
         );
     }
 
-    // 2) 파티 정보 로딩
     if (partyLoading) {
         return (
             <div className="w-full text-white py-8 sm:py-12">
                 <div className="mx-auto max-w-7xl space-y-6">
-                    {/* 헤더 스켈레톤 */}
                     <div className="space-y-3 animate-pulse">
                         <div className="h-4 w-28 rounded bg-white/5" />
                         <div className="h-8 w-56 rounded bg-white/5" />
                         <div className="h-4 w-72 rounded bg-white/5" />
                     </div>
 
-                    {/* 카드 스켈레톤 (두번째 파일 로딩과 동일 톤) */}
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {[1, 2, 3, 4, 5, 6].map((i) => (
                             <div
@@ -1763,21 +1541,17 @@ export default function PartyDetailPage() {
     }
 
 
-    // 3) 에러
     if (partyErr && !party) {
         return (
             <div className="relative w-full min-h-[70vh] flex items-center justify-center overflow-hidden px-4">
-                {/* 배경 은은한 효과 */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-500/10 blur-[120px] rounded-full pointer-events-none opacity-50" />
 
                 <div className="relative z-10 w-full max-w-sm bg-[#16181D]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 text-center animate-in fade-in zoom-in-95 duration-300">
                     <div className="flex flex-col items-center gap-6">
-                        {/* 아이콘 */}
                         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 text-red-500 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.15)]">
                             <AlertTriangle className="h-8 w-8" />
                         </div>
 
-                        {/* 텍스트 */}
                         <div className="space-y-2">
                             <h2 className="text-xl font-bold text-white">
                                 접근할 수 없습니다
@@ -1787,7 +1561,6 @@ export default function PartyDetailPage() {
                             </p>
                         </div>
 
-                        {/* 버튼 */}
                         <button
                             onClick={() => router.push("/party-tasks")}
                             className="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-white/5 py-3.5 text-sm font-bold text-white hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all"
@@ -1803,17 +1576,12 @@ export default function PartyDetailPage() {
 
     if (!party) return null;
 
-    // ✨ 정렬 로직 수정 (localStorage 순서 반영)
     const sortedPartyTasks = partyTasks && myUserId
         ? [...partyTasks].sort((a, b) => {
-            // 1순위: 나는 무조건 맨 위
             if (a.userId === myUserId && b.userId !== myUserId) return -1;
             if (b.userId === myUserId && a.userId !== myUserId) return 1;
 
-            // 2순위: 로컬 스토리지에 저장된 순서
             if (typeof window !== "undefined") {
-                const savedOrderRaw = localStorage.getItem(PARTY_FILTER_KEY(party?.id ?? "") + ":memberOrder");
-                // 키 이름을 모달과 통일해야 합니다. 모달에서는 `partyMemberOrder:${party.id}`로 저장했습니다.
                 const savedOrderRaw2 = localStorage.getItem(`partyMemberOrder:${party?.id}`);
 
                 if (savedOrderRaw2) {
@@ -1822,13 +1590,11 @@ export default function PartyDetailPage() {
                     const indexB = orderIds.indexOf(b.userId);
 
                     if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-                    // 목록에 있는 사람이 위로
                     if (indexA !== -1) return -1;
                     if (indexB !== -1) return 1;
                 }
             }
 
-            // 3순위: 기본 (가입일 또는 이름 순 등, 여기선 0 반환하여 기존 순서 유지)
             return 0;
         })
         : partyTasks;
@@ -1837,7 +1603,6 @@ export default function PartyDetailPage() {
     if (sortedPartyTasks && myUserId) {
         const me = sortedPartyTasks.find((m) => m.userId === myUserId);
         if (me) {
-            // 파티 화면에서처럼: 현재 선택된 계정 summary가 있으면 우선 사용
             const baseSummary =
                 currentAccount?.summary ? currentAccount.summary : me.summary;
 
@@ -1854,9 +1619,8 @@ export default function PartyDetailPage() {
     return (
         <div className="w-full text-white py-8 sm:py-12">
             <div className="mx-auto max-w-7xl space-y-5">
-                {/* 상단 헤더 */}
 
-                <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-1 sm:py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-1 sm:py-2 px-4 sm:px-0">
                     <div className="flex items-center gap-2 sm:gap-5 min-w-0">
                         <button
                             type="button"
@@ -1867,7 +1631,6 @@ export default function PartyDetailPage() {
                             <ChevronLeft className="h-5 w-5" />
                         </button>
 
-                        {/* 파티 제목 + 설정 버튼 묶음 */}
                         <div className="flex items-center gap-2 sm:gap-1 min-w-0">
                             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight truncate break-keep">
                                 {party.name}
@@ -1903,7 +1666,6 @@ export default function PartyDetailPage() {
                     </div>
                 </div>
 
-                {/* 바디 (좌 필터 / 우 메인) */}
                 <div
                     className="
                         grid grid-cols-1 
@@ -1911,7 +1673,6 @@ export default function PartyDetailPage() {
                         gap-5 lg:items-start
                     "
                 >
-                    {/* 왼쪽 필터 영역 */}
                     <div className="space-y-4">
                         <TaskSidebar
                             accounts={accounts}
@@ -1925,7 +1686,6 @@ export default function PartyDetailPage() {
                             adSlot={AD_SLOT_SIDEBAR}
                         />
 
-                        {/* (선택사항) 계정 검색 에러가 있으면 사이드바 아래에 표시 */}
                         {accountSearchErr && (
                             <p className="mt-2 text-[11px] text-red-400 px-1">
                                 에러: {accountSearchErr}
@@ -1934,16 +1694,14 @@ export default function PartyDetailPage() {
                     </div>
 
 
-                    {/* 오른쪽 메인 영역 */}
                     <div className="grid grid-cols-1 gap-4 sm:gap-5">
-                        {/* 로딩 표시 */}
                         {tasksLoading && (
                             <div className="w-full py-6">
                                 <div className="animate-pulse space-y-3">
                                     <div className="h-4 w-40 rounded bg-white/5" />
                                     <div className="space-y-2">
                                         {Array.from({ length: 6 }).map((_, i) => (
-                                            <div key={i} className="flex items-center gap-3 rounded-xl border border-white/5 bg-[#16181D] p-4">
+                                            <div key={i} className="flex items-center gap-3 rounded-none sm:rounded-xl border-x-0 sm:border border-white/5 bg-[#16181D] p-4">
                                                 <div className="h-9 w-9 rounded-full bg-white/5" />
                                                 <div className="flex-1 space-y-2">
                                                     <div className="h-4 w-1/2 rounded bg-white/5" />
@@ -1956,7 +1714,6 @@ export default function PartyDetailPage() {
                             </div>
                         )}
 
-                        {/* 에러 표시 */}
                         {tasksErr && (
                             <div className="w-full rounded-md border border-red-500/40 bg-red-900/20 px-4 py-3 text-xs text-red-200">
                                 {tasksErr}
@@ -1968,7 +1725,7 @@ export default function PartyDetailPage() {
                                 {sortedPartyTasks.map((m) => (
                                     <PartyMemberBlock
                                         key={m.userId}
-                                        partyId={party.id} // ✨ [추가됨] 저장을 위한 키값으로 사용
+                                        partyId={party.id}
                                         member={m}
                                         isMe={myUserId === m.userId}
                                         currentAccount={currentAccount}
@@ -1988,19 +1745,18 @@ export default function PartyDetailPage() {
                             </div>
                         )}
 
-                        {/* 광고 영역 (모바일) */}
                         <div className="block lg:hidden w-full">
+                            {/* 🔥 모바일 Edge-to-Edge 광고 */}
                             <div
-                                className="w-full bg-[#1e2128]/30 border border-white/5 rounded-lg overflow-hidden flex items-center justify-center"
+                                className="w-full bg-[#1e2128]/30 border-x-0 sm:border border-white/5 rounded-none sm:rounded-lg overflow-hidden flex items-center justify-center"
                                 style={{ height: '100px', minHeight: '100px', maxHeight: '100px' }}
                             >
                                 <GoogleAd slot={AD_SLOT_BOTTOM_BANNER} className="!my-0 w-full h-full" responsive={false} />
                             </div>
                         </div>
 
-                        {/* 데이터 없음 (Empty State) */}
                         {!tasksLoading && !tasksErr && partyTasks && partyTasks.length === 0 && (
-                            <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-2xl border-2 border-dashed border-white/10 bg-white/[0.02]">
+                            <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-none sm:rounded-2xl border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 bg-[#16181D]">
                                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 mb-4">
                                     <UsersRound className="h-8 w-8 text-gray-500" strokeWidth={1.5} />
                                 </div>
@@ -2035,7 +1791,6 @@ export default function PartyDetailPage() {
                             </div>
                         )}
 
-                        {/* 모달들 (기존 코드 유지) */}
                         {editTarget && (
                             <EditTasksModal
                                 open={editOpen}
@@ -2106,11 +1861,9 @@ export default function PartyDetailPage() {
                 />
             )}
 
-            {/* 파티 코드 모달 */}
             {inviteOpen && (
                 <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 animate-in fade-in duration-200">
                     <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-                        {/* 1. 모달 헤더 */}
                         <div className="relative flex items-center justify-between bg-[#252832] px-5 py-4 border-b border-white/5">
                             <div className="flex items-center gap-2">
                                 <Sparkles className="h-5 w-5 text-[#5B69FF]" />
@@ -2127,7 +1880,6 @@ export default function PartyDetailPage() {
                             </button>
                         </div>
 
-                        {/* 2. 모달 바디 */}
                         <div className="px-5 py-6 space-y-5 text-sm">
                             <p className="text-gray-300 leading-relaxed">
                                 아래 초대 링크를 파티원에게 공유하세요.
@@ -2194,7 +1946,6 @@ export default function PartyDetailPage() {
                                         onClick={handleSmartShare}
                                         className="w-full mt-3 flex items-center justify-center gap-2 rounded-xl bg-[#5865F2] p-3 text-white hover:bg-[#4752C4] transition-colors shadow-lg shadow-[#5865F2]/20"
                                     >
-                                        {/* 디스코드 로고 SVG (Lucide에 Discord 아이콘이 없으므로 직접 SVG 사용 권장) */}
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0 fill-current">
                                             <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.086 2.157 2.419 0 1.334-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.086 2.157 2.419 0 1.334-.946 2.419-2.157 2.419z" />
                                         </svg>
@@ -2226,7 +1977,6 @@ export default function PartyDetailPage() {
                 <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
 
-                        {/* 닫기 버튼 */}
                         <button
                             onClick={() => setShareModalOpen(false)}
                             className="absolute top-3 right-3 p-2 text-gray-400 hover:text-white rounded-full hover:bg-white/5 transition-colors"
@@ -2235,7 +1985,6 @@ export default function PartyDetailPage() {
                         </button>
 
                         <div className="p-6 pt-8 text-center">
-                            {/* 성공 아이콘 */}
                             <div className="mx-auto w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mb-5 ring-1 ring-emerald-500/20 shadow-[0_0_20px_rgba(52,211,153,0.15)]">
                                 <Check className="w-8 h-8" strokeWidth={3} />
                             </div>
@@ -2249,13 +1998,11 @@ export default function PartyDetailPage() {
                                 </p>
                             </div>
 
-                            {/* 액션 버튼들 */}
                             <div className="space-y-3">
                                 <button
                                     onClick={launchDiscordApp}
                                     className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold transition-all shadow-lg shadow-[#5865F2]/25 active:scale-[0.98]"
                                 >
-                                    {/* Discord SVG Logo */}
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="fill-white shrink-0">
                                         <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.086 2.157 2.419 0 1.334-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.086 2.157 2.419 0 1.334-.946 2.419-2.157 2.419z" />
                                     </svg>
@@ -2278,7 +2025,6 @@ export default function PartyDetailPage() {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
                     <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="p-6 text-center">
-                            {/* 경고 아이콘 */}
                             <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
                                 <AlertTriangle className="h-7 w-7" />
                             </div>
@@ -2304,9 +2050,7 @@ export default function PartyDetailPage() {
                                 </button>
                                 <button
                                     onClick={() => {
-                                        // 1. 확인 모달 닫기
                                         setDeleteConfirmOpen(false);
-                                        // 2. 실제 삭제 로직 실행
                                         handleMyDeleteAccount();
                                     }}
                                     className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold transition-colors text-sm shadow-lg shadow-red-500/20"
@@ -2404,18 +2148,17 @@ function PartyMemberBlock({
     const sortedRoster = [...visibleRoster].sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0));
     const memberSummary = computeMemberSummary({ ...member, summary: baseSummary });
 
-    // 🟥 [수정됨] 캐릭터 없을 때 표시 (Empty State + 검색 폼)
     if (visibleRoster.length === 0) {
         return (
-            <div className="rounded-xl border border-white/10 bg-[#16181D] overflow-hidden">
+            // 🔥 빈 회원 블록 (모바일 Edge-to-Edge)
+            <div className="rounded-none sm:rounded-xl border-x-0 sm:border border-white/10 bg-[#16181D] overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-5 ">
                     <MemberAvatar member={{ id: member.userId, name: member.name, image: member.image, role: "member" }} className="h-8 w-8 rounded-full border border-black/50" />
                     <span className="font-semibold text-xl text-gray-200">{member.name || "이름 없음"}</span>
                 </div>
                 <div className="px-4 pb-4">
                     {isMe ? (
-                        /* 🟦 [내 계정] 검색 폼이 있는 Empty State */
-                        <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl animate-in fade-in zoom-in-95 duration-500">
+                        <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 rounded-none sm:rounded-xl animate-in fade-in zoom-in-95 duration-500">
                             <div className="relative mb-6">
                                 <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
                                 <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
@@ -2433,7 +2176,6 @@ function PartyMemberBlock({
                                 <span className="text-gray-400">대표 캐릭터 닉네임을 입력하면 전투정보실에서 정보를 가져옵니다.</span>
                             </p>
 
-                            {/* ✨✨ [복구됨] 검색 폼 영역 시작 ✨✨ */}
                             <form onSubmit={handleLocalSearch} className="relative flex items-center w-full max-w-md">
                                 <input
                                     type="text"
@@ -2461,12 +2203,10 @@ function PartyMemberBlock({
                                     {searchError}
                                 </p>
                             )}
-                            {/* ✨✨ [복구됨] 검색 폼 영역 끝 ✨✨ */}
 
                         </div>
                     ) : (
-                        /* ⬜ [타인 계정] 기존 유지 */
-                        <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-2 border-dashed border-white/10 rounded-xl">
+                        <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 rounded-none sm:rounded-xl">
                             <div className="relative mb-6">
                                 <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-10 rounded-full" />
                                 <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
@@ -2492,8 +2232,8 @@ function PartyMemberBlock({
     }
 
     return (
-        <div className="grid grid-cols-1 gap-4 sm:gap-1 rounded-lg border border-white/10 px-3 sm:px-4 py-3 sm:py-4">
-            {/* 상단 바 */}
+        // 🔥 파티원 블록 (모바일 Edge-to-Edge)
+        <div className="grid grid-cols-1 gap-4 sm:gap-1 rounded-none sm:rounded-lg border-x-0 sm:border border-y sm:border-y border-white/10 px-3 sm:px-4 py-3 sm:py-4">
             <PartyMemberSummaryBar member={member} summary={memberSummary}>
                 <PartyMemberActions
                     onAutoSetup={() => onAutoSetup(isMe)}
@@ -2504,11 +2244,9 @@ function PartyMemberBlock({
                 />
             </PartyMemberSummaryBar>
 
-            {/* 본문 (접기/펼치기 적용) */}
             {isExpanded && (
                 <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
                     {isCardView ? (
-                        /* 카드 뷰 로직 */
                         <div className="flex flex-col gap-4">
                             {(() => {
                                 const strips = sortedRoster.map((c) => {
@@ -2528,12 +2266,10 @@ function PartyMemberBlock({
 
                                 if (showAllDone) {
                                     return (
-                                        <div className="flex flex-col items-center justify-center py-14 rounded-xl border border-white/5 bg-white/[0.02] animate-in fade-in zoom-in-95 duration-300">
+                                        <div className="flex flex-col items-center justify-center py-14 rounded-none sm:rounded-xl border-x-0 sm:border border-white/5 bg-white/[0.02] animate-in fade-in zoom-in-95 duration-300">
                                             <div className="relative mb-4">
-                                                {/* 뒤쪽 은은한 초록빛 후광 */}
                                                 <div className="absolute inset-0 bg-emerald-500 blur-[24px] opacity-20 rounded-full" />
 
-                                                {/* 아이콘 원형 컨테이너 */}
                                                 <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#16181D] border border-emerald-500/30 shadow-lg shadow-emerald-900/20">
                                                     <Check className="h-7 w-7 text-emerald-400" strokeWidth={3} />
                                                 </div>
@@ -2557,7 +2293,6 @@ function PartyMemberBlock({
                             })()}
                         </div>
                     ) : (
-                        /* 테이블 뷰 로직 */
                         <TaskTable
                             roster={sortedRoster}
                             prefsByChar={member.prefsByChar}
@@ -2586,12 +2321,9 @@ function PartyMemberSummaryBar({
         summary.totalRemainingGold === 0 && summary.totalGold > 0;
 
     return (
-        // 전체 컨테이너: 모바일(세로), PC(가로)
         <div className="relative rounded-md py-2 flex flex-col sm:flex-row sm:items-center w-full">
 
-            {/* 1. 상단 영역: [닉네임] + [버튼(모바일)] */}
             <div className="flex items-center justify-between w-full sm:w-auto">
-                {/* 좌측: 아바타 + 닉네임 */}
                 <div className="flex items-center gap-3">
                     <MemberAvatar
                         member={{
@@ -2609,13 +2341,11 @@ function PartyMemberSummaryBar({
                     </div>
                 </div>
 
-                {/* 우측: 버튼들 (모바일에서만 보임 ✨) */}
                 <div className="flex sm:hidden items-center gap-1">
                     {children}
                 </div>
             </div>
 
-            {/* 2. 통계 정보 (모바일: 다음 줄, PC: 닉네임 옆) */}
             <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-4 text-sm sm:text-base min-w-0">
                 <span className="hidden sm:inline h-4 w-px bg-white/10 " />
                 <div className="flex items-baseline gap-1.5">
@@ -2665,7 +2395,6 @@ function PartyMemberSummaryBar({
                 </div>
             </div>
 
-            {/* 3. 우측: 버튼들 (PC에서만 보임 ✨) */}
             <div className="hidden sm:flex ml-auto items-center gap-2">
                 {children}
             </div>
@@ -2692,7 +2421,6 @@ function PartyMemberActions({
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
-    // 메뉴 외부 클릭 시 닫기
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -2705,7 +2433,6 @@ function PartyMemberActions({
 
     return (
         <div className="flex items-center gap-1 sm:gap-2" ref={menuRef}>
-            {/* 1. 점 3개 메뉴 버튼 (드롭다운 트리거) */}
             <div className="relative">
                 <button
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -2718,17 +2445,14 @@ function PartyMemberActions({
                     <MoreVertical className="w-5 h-5" />
                 </button>
 
-                {/* 드롭다운 메뉴 본문 */}
                 {isMenuOpen && (
                     <div className="absolute right-0 top-full mt-2 w-52 z-50 origin-top-right rounded-xl bg-[#1E2028] border border-white/10 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                         <div>
-                            {/* 자동 세팅 */}
                             <button
                                 onClick={() => {
                                     onAutoSetup();
                                     setIsMenuOpen(false);
                                 }}
-                                // ✨ h-14 추가하여 높이 고정
                                 className="w-full h-14 text-left px-4 hover:bg-white/5 flex items-center gap-3 transition-colors group"
                             >
                                 <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20 group-hover:text-indigo-300 shrink-0">
@@ -2740,13 +2464,11 @@ function PartyMemberActions({
                                 </div>
                             </button>
 
-                            {/* 관문 초기화 */}
                             <button
                                 onClick={() => {
                                     onGateAllClear();
                                     setIsMenuOpen(false);
                                 }}
-                                // ✨ h-14 추가
                                 className="w-full h-14 text-left px-4 hover:bg-white/5 flex items-center gap-3 transition-colors group"
                             >
                                 <div className="p-1.5 rounded-lg bg-red-500/10 text-red-400 group-hover:bg-red-500/20 group-hover:text-red-300 shrink-0">
@@ -2758,13 +2480,11 @@ function PartyMemberActions({
                                 </div>
                             </button>
 
-                            {/* 캐릭터 설정 */}
                             <button
                                 onClick={() => {
                                     onOpenCharSetting();
                                     setIsMenuOpen(false);
                                 }}
-                                // ✨ h-14 추가
                                 className="w-full h-14 text-left px-4 hover:bg-white/5 flex items-center gap-3 transition-colors group"
                             >
                                 <div className="p-1.5 rounded-lg bg-gray-700/50 text-gray-400 group-hover:text-gray-200 shrink-0">
@@ -2777,7 +2497,6 @@ function PartyMemberActions({
                 )}
             </div>
 
-            {/* 2. 접기/펼치기 화살표 버튼 */}
             <button
                 onClick={onToggleExpand}
                 className="hover:bg-white/5 hover:border-white/20 inline-flex items-center justify-center p-2 rounded-md bg-white/[.04] border border-white/10 text-gray-400 hover:text-white transition-colors"

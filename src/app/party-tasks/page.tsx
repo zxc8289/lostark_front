@@ -318,7 +318,7 @@ export default function PartyTasksPage() {
                 {/* 헤더 */}
                 <div className="relative pb-7">
                     <div className="absolute -top-10 -left-10 w-64 h-64 rounded-full pointer-events-none" />
-                    <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div className="relative px-4 sm:px-0 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                         <div className="space-y-2">
                             <div className="inline-flex items-center gap-2 text-xs font-medium text-[#5B69FF]">
                                 <UsersRound className="h-4 w-4" />
@@ -348,7 +348,7 @@ export default function PartyTasksPage() {
                 )}
 
                 {/* 참여 중인 파티 요약 카드 & 액션 버튼 */}
-                <div className="bg-[#16181D] rounded-md px-4 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 border border-white/5">
+                <div className="bg-[#16181D] rounded-none sm:rounded-md px-4 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 border border-white/5">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="min-w-0">
                             <div className="flex items-center gap-2">
@@ -579,7 +579,7 @@ function PartyCard({
     return (
         <div
             onClick={onClick}
-            className="group relative flex flex-col min-h-[230px] justify-between rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 hover:border-[#5B69FF]/50 hover:shadow-[0_0_30px_-10px_rgba(91,105,255,0.15)] hover:-translate-y-1 cursor-pointer overflow-hidden"
+            className="group relative flex flex-col min-h-[230px] justify-between rounded-none sm:rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 hover:border-[#5B69FF]/50 hover:shadow-[0_0_30px_-10px_rgba(91,105,255,0.15)] hover:-translate-y-1 cursor-pointer overflow-hidden"
         >
             <div className="absolute inset-0 bg-gradient-to-br from-[#5B69FF]/0 via-[#5B69FF]/0 to-[#5B69FF]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
@@ -711,7 +711,7 @@ function AddPartyPromoCard({ onCreateClick }: { onCreateClick: () => void }) {
     return (
         <button
             onClick={onCreateClick}
-            className="group relative flex h-full min-h-[240px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.02]  text-center transition-all duration-300 hover:border-[#5B69FF]/40 hover:bg-white/[0.04] hover:scale-[1.01]"
+            className="group relative flex h-full min-h-[240px] flex-col items-center justify-center gap-3 sm:rounded-xl rounded-none border border-dashed border-white/10 bg-white/[0.02]  text-center transition-all duration-300 hover:border-[#5B69FF]/40 hover:bg-white/[0.04] hover:scale-[1.01]"
         >
             <div className="relative mb-1">
                 <div className="absolute -inset-2 bg-[#5B69FF]/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />

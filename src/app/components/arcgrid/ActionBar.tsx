@@ -1,6 +1,6 @@
 export default function ActionBar({ coreCount, invCount, onRun }: { coreCount: number; invCount: number; onRun: () => void }) {
     return (
-        <footer className="bottom-0 left-0 right-0 bg-[#2d333b] backdrop-blur border border-[#444c56] rounded-lg px-4 py-3 flex items-center gap-3">
+        <footer className="bottom-0 left-0 right-0 bg-[#2d333b] backdrop-blur border border-[#444c56] rounded-none sm:rounded-lg px-4 py-3 flex items-center gap-3">
             <div className="text-sm ">선택 코어 <b className="ml-1 ">{coreCount}</b></div>
             <div className="text-sm ">보유 젬 <b className="ml-1 ">{invCount}</b></div>
             <div className="grow" />
