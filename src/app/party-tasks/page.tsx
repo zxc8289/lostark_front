@@ -402,13 +402,13 @@ export default function PartyTasksPage() {
 
                             <AddPartyPromoCard onCreateClick={() => setCreateModalOpen(true)} />
 
-                            <div className="w-full h-[240px] rounded-xl border border-white/10 bg-[#16181D] overflow-hidden flex items-center justify-center relative">
+                            {/* <div className="w-full h-[240px] rounded-xl border border-white/10 bg-[#16181D] overflow-hidden flex items-center justify-center relative">
                                 <GoogleAd
                                     slot={AD_SLOT_MAIN_BANNER}
                                     className="!my-0 w-full h-full"
                                     responsive={true}
                                 />
-                            </div>
+                            </div> */}
                         </div>
                     ) : (
                         <div className="rounded-2xl border border-dashed border-white/10 bg-[#16181D]/50 p-16 text-center">

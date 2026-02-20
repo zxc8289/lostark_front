@@ -28,7 +28,6 @@ interface TaskSidebarProps {
     setOnlyRemain: (v: boolean) => void;
     isCardView: boolean;
     setIsCardView: (v: boolean) => void;
-
     // 광고 슬롯
     adSlot?: string;
 }
