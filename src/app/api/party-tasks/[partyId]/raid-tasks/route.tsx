@@ -41,6 +41,7 @@ type RaidStateJson = {
     summary?: any | null;
     prefsByChar?: Record<string, any>;
     visibleByChar?: Record<string, boolean>;
+    tableOrder?: string[]; // 🔥 추가: 테이블 레이드 순서 저장용
 };
 
 type RaidTaskStateRow = {
@@ -57,6 +58,7 @@ type PartyMemberTasks = {
     summary: any | null; // CharacterSummary
     prefsByChar: Record<string, any>;
     visibleByChar: Record<string, boolean>;
+    tableOrder?: string[]; // 🔥 추가
 };
 
 type PartyRaidTasksResponse = {
@@ -271,13 +273,11 @@ export async function GET(
         }
 
         // ⭐ 여기서 "껍데기 멤버" 판정
-        // - stateRow가 존재하는데도 accounts도 없고 summary도 없으면 → 계정 다 지워진 상태라고 보고 숨김
         if (stateRow) {
             const hasAnyAccount = accounts.length > 0;
             const hasSummary = !!effectiveSummary;
 
             if (!hasAnyAccount && !hasSummary) {
-                // 이 유저는 숙제/계정 정보가 완전히 비어 있으므로 파티 숙제 목록에서 제외
                 continue;
             }
         }
@@ -290,6 +290,7 @@ export async function GET(
             summary: effectiveSummary,
             prefsByChar: parsed?.prefsByChar ?? {},
             visibleByChar: parsed?.visibleByChar ?? {},
+            tableOrder: parsed?.tableOrder ?? [], // 🔥 DB에서 가져와서 프론트엔드로 전달!
         });
     }
 
@@ -299,7 +300,9 @@ export async function GET(
     );
 }
 
-// app/api/party-tasks/[partyId]/raid-tasks/route.ts 중 POST 함수 부분
+// ─────────────────────────────
+// POST: 파티원들의 "내 숙제 상태" 저장
+// ─────────────────────────────
 export async function POST(
     req: NextRequest,
     { params }: { params: RouteParams }
@@ -320,7 +323,8 @@ export async function POST(
         return NextResponse.json({ message: "Invalid JSON" }, { status: 400 });
     }
 
-    const { userId: targetUserId, prefsByChar, visibleByChar, nickname, summary, accounts, activeAccountId, activeAccountByParty } = body;
+    // 🔥 바디에서 tableOrder 속성도 구조분해 할당으로 빼내기
+    const { userId: targetUserId, prefsByChar, visibleByChar, tableOrder, nickname, summary, accounts, activeAccountId, activeAccountByParty } = body;
 
     if (!targetUserId) {
         return NextResponse.json({ message: "userId required" }, { status: 400 });
@@ -347,9 +351,10 @@ export async function POST(
     // 1. 기본 필드 업데이트
     if (prefsByChar) nextState.prefsByChar = prefsByChar;
     if (visibleByChar) nextState.visibleByChar = visibleByChar;
+    if (tableOrder) nextState.tableOrder = tableOrder; // 🔥 바뀐 테이블 순서를 DB 저장용 객체에 반영!
     if (typeof nickname === "string") nextState.nickname = nickname;
 
-    // 2. 🔥 핵심: summary(캐릭터 목록) 업데이트 로직 개선
+    // 2. 핵심: summary(캐릭터 목록) 업데이트 로직
     if (summary !== undefined) {
         // (1) 루트 레벨의 summary 업데이트 (하위 호환성)
         nextState.summary = summary;

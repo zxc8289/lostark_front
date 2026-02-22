@@ -66,6 +66,16 @@ wss.on("connection", (ws, req) => {
 
         } else if (msg.type === "joinRoom") {
             joinRoom(ws, msg.roomKey, joinedRooms);
+        } else if (msg.type === "tableOrderUpdate") {
+            const outMsg = { ...msg, type: "memberUpdated" };
+
+            if (msg.partyIds && Array.isArray(msg.partyIds)) {
+                msg.partyIds.forEach(pid => broadcastToRoom(`party:${pid}`, outMsg));
+            } else if (msg.partyId) {
+                broadcastToRoom(`party:${msg.partyId}`, outMsg);
+            }
+
+            if (msg.userId) broadcastToRoom(`user:${msg.userId}`, outMsg);
         }
     });
 

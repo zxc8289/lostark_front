@@ -191,6 +191,7 @@ type SavedAccount = {
 const FILTER_KEY = "raidTaskFilters";
 const LOCAL_KEY = "raidTaskLastAccount";
 const VISIBLE_KEY = "raidTaskVisibleByChar";
+const TABLE_ORDER_KEY = "raidTaskTableOrder";
 
 const ACCOUNTS_KEY = "raidTaskAccounts";
 const ACTIVE_ACCOUNT_KEY = "raidTaskActiveAccount";
@@ -246,7 +247,7 @@ function DemoSidebar({
   return (
     <div className="space-y-4">
       {/* 1. 데모 상태 안내 섹션 */}
-      <section className="overflow-hidden rounded-none sm:rounded-lg bg-[#16181D] border border-white/5 shadow-xl">
+      <section className="overflow-hidden rounded-none sm:rounded-lg bg-[#16181D] border border-white/5">
         {/* 상단 라벨 영역 */}
         <div className="flex items-center gap-2 px-4 py-3 bg-white/5 border-b border-white/5">
           <div className="relative flex h-2 w-2">
@@ -257,7 +258,7 @@ function DemoSidebar({
         </div>
 
         {/* 메인 정보 영역 */}
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-2">
           <div className="flex flex-col gap-1">
             <span className="text-base font-bold text-white tracking-tight">
               테스트 계정
@@ -266,15 +267,15 @@ function DemoSidebar({
 
           <div className="space-y-2.5">
             <p className="text-[11px] text-gray-400 leading-relaxed break-keep">
-              로그인 없이 체험할 수 있는 <span className="text-gray-200 font-medium">샘플 데이터</span>입니다.
+              캐릭터 등록 없이 체험할 수 있는 <span className="text-gray-200 font-medium">샘플 데이터</span> 입니다.
               자신의 캐릭터를 등록하여 숙제를 관리해보세요.
             </p>
 
             <button
               onClick={onAddAccount}
-              className="group w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-xs font-bold text-white transition-all duration-200 active:scale-[0.98] shadow-lg shadow-[#5B69FF]/10"
+              className="group w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-xs font-bold text-white transition-all duration-200 active:scale-[0.98]"
             >
-              내 원정대 등록하기
+              내 계정 불러오기
             </button>
           </div>
         </div>
@@ -315,7 +316,7 @@ function DemoSidebar({
               </span>
 
               {/* ✅ [추가] 툴팁 메시지 (Hover 시 노출) */}
-              <div className="pointer-events-none absolute left-6 top-full mt-2.5 w-64 p-4 rounded-2xl bg-gray-900/95 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.4)] opacity-0 translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out z-[200]">
+              <div className="pointer-events-none absolute left-6 top-full mt-2.5 w-64 p-4 rounded-2xl bg-gray-900/95 backdrop-blur-xl border border-white/[0.08]  opacity-0 translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out z-[200]">
                 <div className="flex flex-col gap-2 text-xs leading-relaxed text-left">
                   <p className="text-gray-200">
                     <span className="font-bold text-sky-400">카드 보기</span>에서만 적용됩니다.
@@ -423,6 +424,7 @@ export default function MyTasksPage() {
    * ────────────────────────── */
 
   const [prefsByChar, setPrefsByChar] = useState<Record<string, CharacterTaskPrefs>>({});
+  const [tableOrder, setTableOrder] = useState<string[]>([]);
   const [editingChar, setEditingChar] = useState<RosterCharacter | null>(null);
   const [isCharSettingOpen, setIsCharSettingOpen] = useState(false);
 
@@ -437,6 +439,15 @@ export default function MyTasksPage() {
    * 웹소켓 실시간 데이터 수신
    * ────────────────────────── */
 
+  // 🔥 추가: 비로그인 유저가 새로고침해도 테이블 순서 유지되도록 불러옴
+  useEffect(() => {
+    if (isAuthed) return;
+    try {
+      const saved = localStorage.getItem(TABLE_ORDER_KEY);
+      if (saved) setTableOrder(JSON.parse(saved));
+    } catch { }
+  }, [isAuthed]);
+
   useEffect(() => {
     if (!ws || !isAuthed || !session?.user) return;
 
@@ -449,6 +460,7 @@ export default function MyTasksPage() {
         if (msg.type === "memberUpdated" && msg.userId === myUserId) {
           if (msg.prefsByChar) setPrefsByChar(msg.prefsByChar);
           if (msg.visibleByChar) setVisibleByChar(msg.visibleByChar);
+          if (msg.tableOrder) setTableOrder(msg.tableOrder); // 🔥 추가
         }
 
         if (msg.type === "activeAccountUpdated" && msg.userId === myUserId) {
@@ -665,6 +677,7 @@ export default function MyTasksPage() {
       accounts: accountsForServer,
       prefsByChar,
       visibleByChar,
+      tableOrder,
     };
   }
 
@@ -685,6 +698,7 @@ export default function MyTasksPage() {
 
       if (state.prefsByChar) setPrefsByChar(state.prefsByChar);
       if (state.visibleByChar) setVisibleByChar(state.visibleByChar);
+      if (state.tableOrder) setTableOrder(state.tableOrder);
     } catch { }
   }
 
@@ -727,7 +741,7 @@ export default function MyTasksPage() {
       controller.abort();
       clearTimeout(timeoutId);
     };
-  }, [authStatus, syncedWithServer, booting, accounts, prefsByChar, visibleByChar, onlyRemain, isCardView]);
+  }, [authStatus, syncedWithServer, booting, accounts, prefsByChar, visibleByChar, tableOrder, onlyRemain, isCardView]);
 
   /* ──────────────────────────
    * 로그인 상태 초기 서버 동기화(그대로)
@@ -1026,54 +1040,89 @@ export default function MyTasksPage() {
     }
   };
 
-
   const handleAutoSetup = () => {
     if (!effectiveAccount?.summary?.roster || effectiveAccount.summary.roster.length === 0) return;
 
     const roster = effectiveAccount.summary.roster;
-    const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(roster, effectivePrefsByChar);
 
-    // 데모면 데모 state만 변경
+    const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(
+      roster,
+      effectivePrefsByChar
+    );
+
+    // ✅ TaskTable 내부 localOrder를 무시시키기 위해 "길이 > 0"인 리셋용 tableOrder를 넣는다
+    // (TaskTable은 tableOrder.length > 0 일 때 localOrder 대신 tableOrder를 우선 사용)
+    const RESET_TABLE_ORDER = ["__empty_0"];
+
+    // ✅ (핵심) visibleByChar를 merge 하지 말고,
+    //    "이번 roster에 속한 캐릭터는 기본 false"로 깔고, auto-setup 대상으로만 true를 반영
+    const nextVisibleMerged: Record<string, boolean> = usingDemo
+      ? { ...demoVisibleByChar }
+      : { ...visibleByChar };
+
+    for (const c of roster) {
+      const name = c.name;
+      nextVisibleMerged[name] = nextVisibleByChar[name] ?? false;
+    }
+
+    // ✅ prefs는 auto-setup 결과를 char 단위로 교체(덮어쓰기)하고,
+    //    다른 계정/다른 캐릭 데이터는 유지(멀티 계정/멀티 로스터 안전)
+    const nextPrefsMerged: Record<string, CharacterTaskPrefs> = usingDemo
+      ? { ...demoPrefsByChar, ...nextPrefsByChar }
+      : { ...prefsByChar, ...nextPrefsByChar };
+
+    // ─────────────────────────────
+    // 데모 모드: 데모 state만 바꾸고 저장/WS는 안 함
+    // ─────────────────────────────
     if (usingDemo) {
-      setDemoPrefsByChar((prev) => ({ ...prev, ...nextPrefsByChar }));
-      setDemoVisibleByChar((prev) => ({ ...prev, ...nextVisibleByChar }));
+      setDemoPrefsByChar(nextPrefsMerged);
+      setDemoVisibleByChar(nextVisibleMerged);
+      setTableOrder(RESET_TABLE_ORDER);
       return;
     }
 
-    let mergedPrefs = { ...prefsByChar };
-    let mergedVisible = { ...visibleByChar };
+    // ─────────────────────────────
+    // 실제 모드: 상태 반영 + 로컬/서버 저장
+    // ─────────────────────────────
+    setPrefsByChar(nextPrefsMerged);
+    setVisibleByChar(nextVisibleMerged);
+    setTableOrder(RESET_TABLE_ORDER);
 
-    setPrefsByChar((prev) => {
-      mergedPrefs = { ...prev, ...nextPrefsByChar };
+    // 비로그인: 로컬 저장
+    if (!isAuthed) {
       try {
-        if (!isAuthed) {
-          for (const [name, prefs] of Object.entries(nextPrefsByChar)) {
-            writePrefs(name, prefs);
-          }
+        // auto-setup에서 바뀐 캐릭만 로컬 prefs 저장
+        for (const [name, prefs] of Object.entries(nextPrefsByChar)) {
+          writePrefs(name, prefs);
         }
-      } catch { }
-      return mergedPrefs;
-    });
 
-    setVisibleByChar((prev) => {
-      mergedVisible = { ...prev, ...nextVisibleByChar };
-      try {
-        if (!isAuthed) {
-          localStorage.setItem(VISIBLE_KEY, JSON.stringify(mergedVisible));
-        } else if (session?.user && sendMessage) {
-          const userId = (session.user as any).id || (session.user as any).userId;
-          sendMessage({
-            type: "gateUpdate",
-            userId,
-            prefsByChar: mergedPrefs,
-            visibleByChar: mergedVisible,
-          });
-        }
-      } catch { }
-      return mergedVisible;
-    });
+        localStorage.setItem(VISIBLE_KEY, JSON.stringify(nextVisibleMerged));
+        localStorage.setItem(TABLE_ORDER_KEY, JSON.stringify(RESET_TABLE_ORDER));
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    // 로그인: WS로 동기화(다른 탭/디바이스 반영)
+    if (session?.user && sendMessage) {
+      const userId = (session.user as any).id || (session.user as any).userId;
+
+      sendMessage({
+        type: "gateUpdate",
+        userId,
+        prefsByChar: nextPrefsMerged,
+        visibleByChar: nextVisibleMerged,
+      });
+
+      // tableOrder도 같이 리셋(컬럼 섞임 방지)
+      sendMessage({
+        type: "tableOrderUpdate",
+        userId,
+        tableOrder: RESET_TABLE_ORDER,
+      });
+    }
   };
-
   const gateAllClear = () => {
     if (usingDemo) {
       setDemoPrefsByChar((prev) => {
@@ -1163,7 +1212,7 @@ export default function MyTasksPage() {
         <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-0 sm:py-2 px-4 sm:px-0">
           <div className="flex flex-col gap-1 flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight truncate break-keep">
-              내 숙제 {usingDemo ? <span className="ml-2 text-xs text-[#5B69FF]">(데모)</span> : null}
+              내 숙제 {usingDemo ? <span className="ml-2 text-xs text-[#5B69FF]">(테스트)</span> : null}
             </h1>
           </div>
         </div>
@@ -1239,7 +1288,7 @@ export default function MyTasksPage() {
                   <button onClick={handleAutoSetup} className="relative group flex items-center justify-center py-2 px-6 rounded-lg bg-white/[.04] border border-white/10 hover:bg-white/5 hover:border-white/20 text-xs sm:text-sm font-medium text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
                     <span>자동 세팅</span>
                     <span className="absolute top-1 right-1 w-3 h-3 rounded-full border border-white/20 text-[9px] font-bold flex items-center justify-center text-gray-400 bg-black/20 group-hover:text-white group-hover:border-white/40 transition-colors duration-200 cursor-help">?</span>
-                    <div className="pointer-events-none absolute bottom-full left-15 mb-3 w-64 p-3 rounded-xl bg-gray-900/95 backdrop-blur-md border border-white/10 text-xs text-gray-300 leading-relaxed text-center shadow-2xl shadow-black/50 opacity-0 translate-y-2 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out z-20">
+                    <div className="pointer-events-none absolute bottom-full left-15 mb-3 w-64 p-3 rounded-xl bg-gray-900/95 backdrop-blur-md border border-white/10 text-xs text-gray-300 leading-relaxed text-center  opacity-0 translate-y-2 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out z-20">
                       <p><span className="text-white font-semibold">아이템 레벨 상위 6개 캐릭터</span>와 해당 캐릭터의 <span className="text-indigo-400">Top 3 레이드</span>를 자동으로 세팅합니다.</p>
                       <div className="absolute -bottom-1.5 left-4 w-3 h-3 bg-gray-900/95 border-b border-r border-white/10 rotate-45" />
                     </div>
@@ -1265,42 +1314,46 @@ export default function MyTasksPage() {
               </div>
             </div>
 
-            {/* ✅ 데모 안내 + 빠른 검색 */}
             {usingDemo && (
-              <div className="w-full px-4 sm:px-6 py-4 rounded-none sm:rounded-2xl border border-white/10 bg-[#16181D]">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="text-sm text-gray-300">
-                    지금은 <span className="text-[#5B69FF] font-semibold">예시 데이터</span>로 화면을 보여주고 있어요.
-                    <div className="text-[12px] text-gray-500 mt-1">
-                      내 캐릭터를 불러오면 예시 데이터 대신 실제 데이터로 자동 전환됩니다.
+              <div className="flex flex-col gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+                  {/* Step 1 */}
+                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] transition-colors">
+                    <div className="font-semibold text-sm text-gray-200 flex items-center gap-1.5">
+                      <span className="text-[#5B69FF]">1.</span> 캐릭터 연동
+                    </div>
+                    <div className="text-[12px] text-gray-400 leading-relaxed break-keep">
+                      <strong className="text-gray-300">내 계정 불러오기</strong>를 통해 대표 캐릭터 닉네임을 입력하고 원정대 정보를 한 번에 가져오세요.
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setIsAddAccountOpen(true)}
-                      className="px-3 py-2 rounded-lg bg-[#5B69FF] text-white text-xs font-semibold hover:bg-[#4A57E6]"
-                      type="button"
-                    >
-                      내 캐릭터 불러오기
-                    </button>
-                    <button
-                      onClick={() => setDemoEnabled(false)}
-                      className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-200 text-xs hover:bg-white/10"
-                      type="button"
-                    >
-                      데모 끄기
-                    </button>
+
+                  {/* Step 2 */}
+                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] transition-colors">
+                    <div className="font-semibold text-sm text-gray-200 flex items-center gap-1.5">
+                      <span className="text-[#5B69FF]">2.</span> 편리한 세팅
+                    </div>
+                    <div className="text-[12px] text-gray-400 leading-relaxed break-keep">
+                      <strong className="text-gray-300">자동 세팅</strong>으로 주력 캐릭터의 레이드를 구성하고, 클릭 한 번으로 관문 클리어 여부와 골드를 체크하세요.
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] transition-colors">
+                    <div className="font-semibold text-sm text-gray-200 flex items-center gap-1.5">
+                      <span className="text-[#5B69FF]">3.</span> 데이터 저장 및 동기화
+                    </div>
+                    <div className="text-[12px] text-gray-400 leading-relaxed break-keep">
+                      비로그인 시에는 내 PC(웹)에 자동 저장되며, 로그인 시 <strong className="text-[#5B69FF]">클라우드에 안전하게 저장</strong>되어 어디서든 연동됩니다.
+                    </div>
                   </div>
                 </div>
               </div>
             )}
-
             {/* 🔥 빈 상태 (모바일 Edge-to-Edge) */}
             {showEmptyState && (
               <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 rounded-none sm:rounded-2xl animate-in fade-in zoom-in-95 duration-500">
                 <div className="relative mb-6">
                   <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
+                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10">
                     <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">LOA</span>
                   </div>
                   <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2 py-0.5 rounded-full border border-white/10">
@@ -1355,85 +1408,71 @@ export default function MyTasksPage() {
                 <TaskTable
                   roster={visibleRoster}
                   prefsByChar={effectivePrefsByChar}
+                  tableOrder={tableOrder}
+                  onReorderTable={(newOrder) => {
+                    setTableOrder(newOrder);
+
+                    if (!isAuthed) {
+                      try { localStorage.setItem(TABLE_ORDER_KEY, JSON.stringify(newOrder)); } catch { }
+                    } else if (session?.user && sendMessage) {
+                      const userId = (session.user as any).id || (session.user as any).userId;
+                      sendMessage({
+                        type: "tableOrderUpdate",
+                        userId,
+                        tableOrder: newOrder,
+                      });
+                    }
+                  }}
                   onToggleGate={handleTableToggleGate}
                   onEdit={(c) => setEditingChar(c)}
                 />
               ) : (
                 <div className="flex flex-col gap-4">
-                  {visibleRoster
-                    .sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0))
-                    .map((c) => {
-                      const tasks = buildTasksFor(c);
-                      if (onlyRemain && tasks.length === 0) return null;
+                  {(() => {
+                    const strips = visibleRoster
+                      .sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0))
+                      .map((c) => {
+                        const tasks = buildTasksFor(c);
+                        // 남은 숙제만 보기 체크 상태에서 남은 과제가 없으면 렌더링하지 않음
+                        if (onlyRemain && tasks.length === 0) return null;
+
+                        return (
+                          <CharacterTaskStrip
+                            key={c.name}
+                            character={c}
+                            tasks={tasks}
+                            onEdit={() => setEditingChar(c)}
+                            onReorder={(char, newOrderIds) => {
+                              setCharPrefs(char.name, (cur) => ({ ...cur, order: newOrderIds }));
+                            }}
+                          />
+                        );
+                      })
+                      .filter(Boolean); // null 값 필터링
+
+                    // 남은 숙제만 보기가 켜져 있고, 화면에 그릴 캐릭터 리스트가 아예 없다면 완료 UI 표시
+                    if (onlyRemain && strips.length === 0) {
                       return (
-                        <CharacterTaskStrip
-                          key={c.name}
-                          character={c}
-                          tasks={tasks}
-                          onEdit={() => setEditingChar(c)}
-                          onReorder={(char, newOrderIds) => {
-                            setCharPrefs(char.name, (cur) => ({ ...cur, order: newOrderIds }));
-                          }}
-                        />
+                        <div className="flex flex-col items-center justify-center py-14 rounded-none sm:rounded-xl border-x-0 sm:border border-white/5 bg-white/[0.02] animate-in fade-in zoom-in-95 duration-300">
+                          <div className="relative mb-4">
+                            <div className="absolute inset-0 bg-emerald-500 blur-[24px] opacity-20 rounded-full" />
+                            <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#16181D] border border-emerald-500/30 shadow-lg shadow-emerald-900/20">
+                              <Check className="h-7 w-7 text-emerald-400" strokeWidth={3} />
+                            </div>
+                          </div>
+                          <h3 className="text-gray-200 font-bold text-base">모든 숙제 완료!</h3>
+                          <p className="text-gray-500 text-xs mt-1.5 font-medium">이번 주 숙제를 모두 끝내셨습니다</p>
+                        </div>
                       );
-                    })}
+                    }
+
+                    return strips;
+                  })()}
                 </div>
               )
             ) : null}
 
-            {/* ───────── 서비스 안내 섹션 (How to use) ───────── */}
-            <section className="w-full pt-4 md:pt-4 px-0">
-              <div className="relative overflow-hidden rounded-none sm:rounded-2xl border border-white/5 bg-[#16181D] p-6 sm:p-10 shadow-2xl">
-                {/* 배경 꾸밈 요소 (은은한 글로우) */}
-                <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#5B69FF]/5 blur-[80px] pointer-events-none" />
 
-                <div className="relative z-10">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-                    <div className="space-y-2">
-                      <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                        로아체크의 숙제 관리 기능은 <br className="sm:hidden" />
-                        <span className="text-[#5B69FF]">어떻게 사용하나요?</span>
-                      </h2>
-                    </div>
-                    <div className="hidden md:block">
-                      <Check className="h-12 w-12 text-white/5" strokeWidth={3} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 text-sm sm:text-base">
-                    {/* Step 1 */}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-xs font-bold text-gray-400 border border-white/5">
-                          01
-                        </div>
-                        <h4 className="font-bold text-gray-200">캐릭터 등록 및 자동 동기화</h4>
-                      </div>
-                      <p className="pl-11 text-gray-400 leading-relaxed break-keep text-[13px] sm:text-[14px]">
-                        <strong className="text-gray-200">로아체크(Loacheck)</strong>에 접속하여 캐릭터 닉네임을 등록하세요.
-                        로스트아크 공식 API를 통해 원정대의 모든 캐릭터 정보를 즉시 불러오며, 아이템 레벨과 클래스 정보가 실시간으로 반영됩니다.
-                      </p>
-                    </div>
-
-                    {/* Step 2 */}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#5B69FF]/20 text-xs font-bold text-[#5B69FF] border border-[#5B69FF]/20">
-                          02
-                        </div>
-                        <h4 className="font-bold text-gray-200">주간 숙제 선택 및 상태 저장</h4>
-                      </div>
-                      <p className="pl-11 text-gray-400 leading-relaxed break-keep text-[13px] sm:text-[14px]">
-                        매주 수요일 오전 6시에 초기화되는 주간 숙제들을 관리하세요.
-                        원하는 레이드를 선택하고, <span className="text-[#5B69FF] font-medium">'내 숙제'</span> 메뉴에서 체크박스를 클릭하는 것만으로 완료 여부가 실시간으로 저장됩니다.
-                      </p>
-                    </div>
-                  </div>
-
-
-                </div>
-              </div>
-            </section>
 
             {shouldShowAds && (
               <div className="block lg:hidden w-full">
@@ -1457,7 +1496,7 @@ export default function MyTasksPage() {
 
       {deleteConfirmOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 animate-in zoom-in-95 duration-200">
             <div className="p-6 text-center">
               <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
                 <AlertTriangle className="h-7 w-7" />
@@ -1476,8 +1515,8 @@ export default function MyTasksPage() {
                   취소
                 </button>
                 <button
-                  onClick={handleDeleteAccount} // 👈 여기서 위에서 만든 함수를 호출합니다.
-                  className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold transition-colors text-sm shadow-lg shadow-red-500/20"
+                  onClick={handleDeleteAccount}
+                  className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold transition-colors text-sm"
                 >
                   삭제하기
                 </button>

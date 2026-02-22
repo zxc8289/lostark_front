@@ -32,7 +32,10 @@ export default function WebSocketProvider({ children }: { children: React.ReactN
         const finalMsg = { ...msg };
 
         const isMyUpdate = finalMsg.userId === userId;
-        const isTargetType = finalMsg.type === "gateUpdate" || finalMsg.type === "activeAccountUpdate";
+        const isTargetType =
+            finalMsg.type === "gateUpdate" ||
+            finalMsg.type === "activeAccountUpdate" ||
+            finalMsg.type === "tableOrderUpdate";
 
         // 내 데이터를 보낼 때 무조건 브라우저가 기억하는 '모든 파티방' 아이디를 쑤셔 넣음
         if (isTargetType && isMyUpdate) {
@@ -72,7 +75,7 @@ export default function WebSocketProvider({ children }: { children: React.ReactN
                 } catch (e) { }
 
                 try {
-                    const res = await fetch("/api/party-tasks", { cache: "no-store" });
+                    const res = await fetch("/api/party-tasks/my-parties", { cache: "no-store" });
                     if (res.ok) {
                         const text = await res.text();
                         const data = text ? JSON.parse(text) : null;

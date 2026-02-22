@@ -93,6 +93,7 @@ type PartyMemberTasks = {
     summary: CharacterSummary | null;
     prefsByChar: Record<string, CharacterTaskPrefs>;
     visibleByChar: Record<string, boolean>;
+    tableOrder?: string[];
 };
 
 type PartyRaidTasksResponse = {
@@ -379,15 +380,17 @@ export default function PartyDetailPage() {
         partyId: number,
         userId: string,
         prefsByChar: Record<string, CharacterTaskPrefs>,
-        visibleByChar?: Record<string, boolean>
+        visibleByChar?: Record<string, boolean>,
+        tableOrder?: string[] // 🔥 파라미터 추가
     ) {
         if (sendGlobalMessage) {
             sendGlobalMessage({
-                type: "gateUpdate",
+                type: "tableOrderUpdate", // 🔥 소켓 서버가 인지하는 타입으로 변경
                 partyId,
                 userId,
                 prefsByChar,
                 visibleByChar,
+                tableOrder, // 🔥 추가
             });
         }
     }
@@ -953,17 +956,19 @@ export default function PartyDetailPage() {
         partyId: number,
         userId: string,
         prefsByChar: Record<string, CharacterTaskPrefs>,
-        visibleByChar?: Record<string, boolean>
+        visibleByChar?: Record<string, boolean>,
+        tableOrder?: string[] // 🔥 파라미터 추가
     ) {
         try {
             await fetch(`/api/party-tasks/${partyId}/raid-tasks`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(
-                    visibleByChar
-                        ? { userId, prefsByChar, visibleByChar }
-                        : { userId, prefsByChar }
-                ),
+                body: JSON.stringify({
+                    userId,
+                    prefsByChar,
+                    visibleByChar,
+                    tableOrder, // 🔥 추가
+                }),
             });
         } catch (e) {
             console.error("파티원 숙제 저장 실패 (네트워크 에러):", e);
@@ -1051,16 +1056,15 @@ export default function PartyDetailPage() {
         if (!party || !partyTasks) return;
 
         const partyIdNum = party.id;
+        const RESET_TABLE_ORDER = ["__empty_0"];
 
         const next: PartyMemberTasks[] = partyTasks.map((m) => {
             if (m.userId !== memberUserId) return m;
 
             let roster = m.summary?.roster ?? [];
-
             if (isMe && currentAccount?.summary?.roster) {
                 roster = currentAccount.summary.roster;
             }
-
             if (!roster.length) return m;
 
             const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(
@@ -1068,16 +1072,28 @@ export default function PartyDetailPage() {
                 m.prefsByChar ?? {}
             );
 
+            // ✅ 첫번째(handleAutoSetup)와 동일: roster 기준으로 visible 확정 (없으면 false)
+            const nextVisibleMerged: Record<string, boolean> = {
+                ...(m.visibleByChar ?? {}),
+            };
+            for (const c of roster) {
+                const name = c.name;
+                nextVisibleMerged[name] = nextVisibleByChar[name] ?? false;
+            }
+
+            // ✅ prefs merge
+            const nextPrefsMerged: Record<string, CharacterTaskPrefs> = {
+                ...(m.prefsByChar ?? {}),
+                ...nextPrefsByChar,
+            };
+
             return {
                 ...m,
-                prefsByChar: {
-                    ...(m.prefsByChar ?? {}),
-                    ...nextPrefsByChar,
-                },
-                visibleByChar: {
-                    ...(m.visibleByChar ?? {}),
-                    ...nextVisibleByChar,
-                },
+                prefsByChar: nextPrefsMerged,
+                visibleByChar: nextVisibleMerged,
+
+                // ✅ 테이블 컬럼 순서 리셋
+                tableOrder: RESET_TABLE_ORDER,
             };
         });
 
@@ -1089,14 +1105,16 @@ export default function PartyDetailPage() {
                 partyIdNum,
                 updated.userId,
                 updated.prefsByChar,
-                updated.visibleByChar
+                updated.visibleByChar,
+                updated.tableOrder
             );
 
             void saveMemberPrefsToServer(
                 partyIdNum,
                 updated.userId,
                 updated.prefsByChar,
-                updated.visibleByChar
+                updated.visibleByChar,
+                updated.tableOrder
             );
         }
     };
@@ -1158,6 +1176,42 @@ export default function PartyDetailPage() {
                 updated.userId,
                 updated.prefsByChar,
                 updated.visibleByChar
+            );
+        }
+    };
+
+    const handleMemberTableReorder = (memberUserId: string, newOrder: string[]) => {
+        if (!party || !partyTasks) return;
+        const partyIdNum = party.id;
+
+        const next: PartyMemberTasks[] = partyTasks.map((m) => {
+            if (m.userId !== memberUserId) return m;
+            return {
+                ...m,
+                tableOrder: newOrder,
+            };
+        });
+
+        setPartyTasks(next);
+
+        const updated = next.find((m) => m.userId === memberUserId);
+        if (updated) {
+            // 변경된 순서를 즉시 웹소켓으로 뿌림
+            sendMemberUpdateWS(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar,
+                updated.visibleByChar,
+                updated.tableOrder
+            );
+
+            // DB에 영구 저장
+            void saveMemberPrefsToServer(
+                partyIdNum,
+                updated.userId,
+                updated.prefsByChar,
+                updated.visibleByChar,
+                updated.tableOrder
             );
         }
     };
@@ -1378,6 +1432,9 @@ export default function PartyDetailPage() {
     /* ─────────────────────────────
          * 🔥 [수정] 전역 WebSocket 리스너 (글로벌 동기화 허용)
          * ───────────────────────────── */
+    /* ─────────────────────────────
+           * 🔥 [수정] 전역 WebSocket 리스너 (글로벌 동기화 허용)
+           * ───────────────────────────── */
     useEffect(() => {
         if (!ws || !party || status !== "authenticated") return;
 
@@ -1391,15 +1448,18 @@ export default function PartyDetailPage() {
                         const exists = prev.some((m) => m.userId === msg.userId);
                         if (!exists) return prev;
 
-                        return prev.map((m) =>
-                            m.userId === msg.userId
-                                ? {
+                        return prev.map((m) => {
+                            if (m.userId === msg.userId) {
+                                // 🔥 기존 데이터와 웹소켓 데이터를 명확하게 병합 (undefined 방지)
+                                return {
                                     ...m,
-                                    prefsByChar: msg.prefsByChar ?? m.prefsByChar,
-                                    visibleByChar: msg.visibleByChar ?? m.visibleByChar,
-                                }
-                                : m
-                        );
+                                    prefsByChar: msg.prefsByChar ?? m.prefsByChar ?? {},
+                                    visibleByChar: msg.visibleByChar ?? m.visibleByChar ?? {},
+                                    tableOrder: msg.tableOrder ?? m.tableOrder ?? [], // 🔥 빈 배열 폴백 추가
+                                };
+                            }
+                            return m;
+                        });
                     });
                 }
                 else if (msg.type === "activeAccountUpdated") {
@@ -1683,7 +1743,7 @@ export default function PartyDetailPage() {
                             setOnlyRemain={setOnlyRemain}
                             isCardView={isCardView}
                             setIsCardView={setIsCardView}
-                            adSlot={AD_SLOT_SIDEBAR}
+                        // adSlot={AD_SLOT_SIDEBAR}
                         />
 
                         {accountSearchErr && (
@@ -1729,6 +1789,7 @@ export default function PartyDetailPage() {
                                         member={m}
                                         isMe={myUserId === m.userId}
                                         currentAccount={currentAccount}
+                                        onReorderTable={handleMemberTableReorder}
                                         onlyRemain={onlyRemain}
                                         isCardView={isCardView}
                                         onAutoSetup={(isMe) => handleMemberAutoSetup(m.userId, isMe)}
@@ -1745,15 +1806,14 @@ export default function PartyDetailPage() {
                             </div>
                         )}
 
-                        <div className="block lg:hidden w-full">
-                            {/* 🔥 모바일 Edge-to-Edge 광고 */}
+                        {/* <div className="block lg:hidden w-full">
                             <div
                                 className="w-full bg-[#1e2128]/30 border-x-0 sm:border border-white/5 rounded-none sm:rounded-lg overflow-hidden flex items-center justify-center"
                                 style={{ height: '100px', minHeight: '100px', maxHeight: '100px' }}
                             >
                                 <GoogleAd slot={AD_SLOT_BOTTOM_BANNER} className="!my-0 w-full h-full" responsive={false} />
                             </div>
-                        </div>
+                        </div> */}
 
                         {!tasksLoading && !tasksErr && partyTasks && partyTasks.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-none sm:rounded-2xl border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 bg-[#16181D]">
@@ -2087,6 +2147,7 @@ export default function PartyDetailPage() {
 
 function PartyMemberBlock({
     partyId,
+    onReorderTable,
     member,
     isMe,
     currentAccount,
@@ -2104,6 +2165,7 @@ function PartyMemberBlock({
 }: {
     partyId: number;
     member: PartyMemberTasks;
+    onReorderTable: (userId: string, newOrder: string[]) => void;
     isMe: boolean;
     currentAccount: SavedAccount | null;
     onlyRemain: boolean;
@@ -2273,9 +2335,7 @@ function PartyMemberBlock({
                                                 <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#16181D] border border-emerald-500/30 shadow-lg shadow-emerald-900/20">
                                                     <Check className="h-7 w-7 text-emerald-400" strokeWidth={3} />
                                                 </div>
-
                                             </div>
-
                                             <h3 className="text-gray-200 font-bold text-base">모든 숙제 완료!</h3>
                                             <p className="text-gray-500 text-xs mt-1.5 font-medium">이번 주 숙제를 모두 끝내셨습니다</p>
                                         </div>
@@ -2296,6 +2356,8 @@ function PartyMemberBlock({
                         <TaskTable
                             roster={sortedRoster}
                             prefsByChar={member.prefsByChar}
+                            tableOrder={member.tableOrder} // 🔥 멤버별 저장된 테이블 순서 전달
+                            onReorderTable={(newOrder) => onReorderTable(member.userId, newOrder)} // 🔥 자리 바꿈 이벤트 연결
                             onToggleGate={(char, raid, gate, cur, all) => onToggleGate(member.userId, char, raid, gate, cur, all)}
                             onEdit={(c) => onEdit(member, c)}
                         />

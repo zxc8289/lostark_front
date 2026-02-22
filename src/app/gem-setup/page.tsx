@@ -784,18 +784,7 @@ export default function ArcGridPage() {
         />
       )}
 
-      <div className="w-full">
-        <div
-          className="w-full bg-[#1e2128]/30 border border-white/5 rounded-lg overflow-hidden flex items-center justify-center"
-          style={{ height: '130px', minHeight: '130px', maxHeight: '130px' }}
-        >
-          <GoogleAd
-            slot={AD_SLOT_BOTTOM_BANNER}
-            className="!my-0 w-full h-full"
-            responsive={false}
-          />
-        </div>
-      </div>
+
 
       {toast && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-2">

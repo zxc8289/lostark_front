@@ -179,10 +179,7 @@ export default function TaskSidebar({
                 </div>
             </section>
 
-            {/* 3. 광고 영역 */}
-            <div className="hidden lg:block w-full h-[600px] bg-[#1e2128]/30 border border-white/5 rounded-lg overflow-hidden">
-                <GoogleAd slot={adSlot} className="!my-0 w-full h-full" />
-            </div>
+
         </div>
     );
 }

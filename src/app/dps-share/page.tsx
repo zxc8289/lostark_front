@@ -296,14 +296,14 @@ export default function DpsSharePage() {
                 </div>
             </div>
 
-            <div className="w-full">
+            {/* <div className="w-full">
                 <div
                     className="w-full bg-[#1e2128]/30 border-y sm:border border-white/5 rounded-none sm:rounded-lg overflow-hidden flex items-center justify-center"
                     style={{ height: '130px', minHeight: '130px', maxHeight: '130px' }}
                 >
                     <GoogleAd slot={AD_SLOT_BOTTOM_BANNER} className="!my-0 w-full h-full" responsive={false} />
                 </div>
-            </div>
+            </div> */}
         </>
     );
 }

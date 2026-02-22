@@ -29,7 +29,6 @@ export default async function HomePage() {
   } catch (e) { console.error("[HomePage] fetch error:", e); }
 
   const AD_SLOT_MAIN_TOP_RIGHT = "4951318932";
-  const AD_SLOT_BOTTOM_BANNER = "7577482274";
   const AD_SLOT_MAIN_LEFT = "6052642414";
 
   const toggleBtnClass = "order-2 w-full list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center justify-center gap-2 py-2.5 md:py-3 rounded-xl bg-[#131519] border border-white/5 hover:bg-[#1A1D24] hover:border-white/10 hover:text-gray-200 transition-all text-xs font-bold text-gray-500 mt-3 md:mt-4";
@@ -91,7 +90,7 @@ export default async function HomePage() {
           </div>
 
           <div className="w-full flex-1 bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex items-center justify-center relative min-h-[180px] md:min-h-[300px]">
-            <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-xs z-0">AD Area</div>
+            <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-xs z-0"></div>
             <div className="relative z-10 w-full h-full">
               <ClientOnly fallback={<div className="w-full h-full bg-white/5 animate-pulse" />}>
                 <GoogleAd slot={AD_SLOT_MAIN_LEFT} className="!my-0 w-full h-full" />
@@ -199,12 +198,6 @@ export default async function HomePage() {
             </a>
           </div>
         </div>
-      </div>
-
-      <div className="w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex items-center justify-center h-[100px] md:h-[140px]">
-        <ClientOnly fallback={<div className="w-full h-full bg-white/5 animate-pulse" />}>
-          <GoogleAd slot={AD_SLOT_BOTTOM_BANNER} className="!my-0 w-full h-full" responsive={false} />
-        </ClientOnly>
       </div>
 
       {/* 🔥 3. 텍스트가 화면 끝에 닿지 않도록 하단 가이드 섹션에만 모바일 여백(px-4) 추가 */}
