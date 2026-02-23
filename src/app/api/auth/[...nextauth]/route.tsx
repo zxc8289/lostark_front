@@ -1,5 +1,3 @@
-// app/api/auth/[...nextauth]/route.ts
-
 import NextAuth, { NextAuthOptions } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
 import type { Account, Profile, User, Session } from "next-auth";
@@ -56,20 +54,19 @@ export const authOptions: NextAuthOptions = {
                 const image =
                     (user as any).image ?? (user as any).picture ?? null;
 
-                // 🔥 [수정 1] name 필드를 $set에서 제거하고 $setOnInsert로 이동했습니다.
                 await usersCol.updateOne(
                     { id: userId },
                     {
                         $set: {
                             id: userId,
-                            // name: user.name ?? null,  <-- (제거됨) 여기 있으면 매번 덮어써짐
                             email: user.email ?? null,
-                            image, // 프사나 이메일은 디스코드 따라가는 게 보통 맞음
+                            image,
                             updatedAt: new Date(),
                         },
                         $setOnInsert: {
-                            name: user.name ?? null, // 👈 (이동됨) 처음 가입할 때만 디스코드 이름 사용
+                            name: user.name ?? null,
                             createdAt: new Date(),
+                            canOthersEdit: true, // 🔥 [추가] 신규 가입 시 기본값 true
                         },
                     },
                     { upsert: true }
@@ -84,26 +81,33 @@ export const authOptions: NextAuthOptions = {
         },
 
         async jwt({ token, account, trigger, session }) {
-            // 1. 로그인 직후 (account 객체가 존재함)
+            // 1. 로그인 직후
             if (account?.providerAccountId) {
                 token.sub = account.providerAccountId;
 
-                // 🔥 [수정 2] 로그인 시, Discord 이름 대신 DB에 있는 '진짜 닉네임'을 가져와야 합니다.
                 try {
                     const db = await getDb();
                     const storedUser = await db.collection("users").findOne({ id: account.providerAccountId });
 
-                    if (storedUser && storedUser.name) {
-                        token.name = storedUser.name; // DB 닉네임으로 토큰 덮어쓰기
+                    if (storedUser) {
+                        if (storedUser.name) {
+                            token.name = storedUser.name;
+                        }
+                        // 🔥 [추가] DB에 저장된 권한 값을 토큰에 동기화
+                        if (storedUser.canOthersEdit !== undefined) {
+                            token.canOthersEdit = storedUser.canOthersEdit;
+                        }
                     }
                 } catch (e) {
-                    console.error("DB 닉네임 불러오기 실패", e);
+                    console.error("DB 정보 불러오기 실패", e);
                 }
             }
 
-            // 2. 클라이언트에서 닉네임 변경 시 (update 호출)
-            if (trigger === "update" && session?.name) {
-                token.name = session.name;
+            // 2. 클라이언트에서 update() 호출 시 세션 갱신
+            if (trigger === "update") {
+                if (session?.name) token.name = session.name;
+                // 🔥 [추가] 클라이언트에서 권한 토글 시 토큰 갱신
+                if (session?.canOthersEdit !== undefined) token.canOthersEdit = session.canOthersEdit;
             }
 
             return token;
@@ -113,9 +117,12 @@ export const authOptions: NextAuthOptions = {
             if (session.user && token.sub) {
                 (session.user as any).id = token.sub;
             }
-            // token.name은 위 jwt 함수에서 DB 값으로 잘 세팅되었으므로 그대로 씁니다.
             if (token.name) {
                 session.user.name = token.name;
+            }
+            // 🔥 [추가] 토큰에 있는 권한 값을 세션 객체에 넘겨줌 (클라이언트에서 사용 가능)
+            if (token.canOthersEdit !== undefined) {
+                (session.user as any).canOthersEdit = token.canOthersEdit;
             }
             return session;
         },

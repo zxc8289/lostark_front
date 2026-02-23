@@ -18,6 +18,7 @@ type PartyMemberRow = {
     name: string | null;
     email: string | null;
     image: string | null;
+    canOthersEdit?: boolean; // 🔥 추가
 };
 
 type RaidStateJson = {
@@ -41,7 +42,7 @@ type RaidStateJson = {
     summary?: any | null;
     prefsByChar?: Record<string, any>;
     visibleByChar?: Record<string, boolean>;
-    tableOrder?: string[]; // 🔥 추가: 테이블 레이드 순서 저장용
+    tableOrder?: string[]; // 테이블 레이드 순서 저장용
 };
 
 type RaidTaskStateRow = {
@@ -58,7 +59,8 @@ type PartyMemberTasks = {
     summary: any | null; // CharacterSummary
     prefsByChar: Record<string, any>;
     visibleByChar: Record<string, boolean>;
-    tableOrder?: string[]; // 🔥 추가
+    tableOrder?: string[];
+    canOthersEdit?: boolean; // 🔥 추가
 };
 
 type PartyRaidTasksResponse = {
@@ -146,13 +148,14 @@ export async function GET(
 
     const memberUserIds = memberDocs.map((m) => m.user_id);
 
-    // 유저 정보(users) 조인
+    // 🔥 유저 정보(users) 조인할 때 canOthersEdit 필드도 가져오기
     const userDocs = (await usersCol
         .find<{
             id: string;
             name: string | null;
             email: string | null;
             image: string | null;
+            canOthersEdit?: boolean; // 🔥 추가
         }>({
             id: { $in: memberUserIds },
         })
@@ -161,11 +164,12 @@ export async function GET(
             name: string | null;
             email: string | null;
             image: string | null;
+            canOthersEdit?: boolean; // 🔥 추가
         }[];
 
     const userById = new Map<
         string,
-        { id: string; name: string | null; email: string | null; image: string | null }
+        { id: string; name: string | null; email: string | null; image: string | null; canOthersEdit?: boolean } // 🔥 추가
     >();
     for (const u of userDocs) {
         userById.set(u.id, u);
@@ -176,7 +180,6 @@ export async function GET(
     for (const m of memberDocs) {
         const u = userById.get(m.user_id);
         if (!u) {
-            // 계정 삭제된 유저 → 껍데기 방지용으로 아예 제외
             continue;
         }
         memberRows.push({
@@ -187,18 +190,17 @@ export async function GET(
             name: u.name ?? null,
             email: u.email ?? null,
             image: u.image ?? null,
+            canOthersEdit: u.canOthersEdit, // 🔥 추가: DB에 있는 권한 값 매핑
         });
     }
 
     if (memberRows.length === 0) {
-        // 필터링 결과 멤버가 없으면 그냥 빈 배열 반환
         return NextResponse.json(
             { members: [] } satisfies PartyRaidTasksResponse,
             { status: 200 }
         );
     }
 
-    // 현재 로그인한 유저가 이 파티의 멤버인지 확인
     const isMember = memberRows.some((m) => m.user_id === userId);
     if (!isMember) {
         return NextResponse.json(
@@ -248,18 +250,13 @@ export async function GET(
             }
         }
 
-        // 기본값: 옛날 single-summary 구조
         let effectiveSummary: any = parsed?.summary ?? null;
         const accounts = parsed?.accounts ?? [];
 
         if (accounts.length > 0) {
-            // 1순위: 이 파티에서 선택한 대표 계정
             const partyActiveId = parsed?.activeAccountByParty?.[partyKey] ?? null;
-
-            // 2순위: 전역 대표 (activeAccountId)
             const globalActiveId = parsed?.activeAccountId ?? null;
 
-            // 3,4,5순위: isSelected / isPrimary / 첫 번째 계정
             const selectedAcc =
                 (partyActiveId && accounts.find((a) => a.id === partyActiveId)) ||
                 (globalActiveId && accounts.find((a) => a.id === globalActiveId)) ||
@@ -272,7 +269,6 @@ export async function GET(
             }
         }
 
-        // ⭐ 여기서 "껍데기 멤버" 판정
         if (stateRow) {
             const hasAnyAccount = accounts.length > 0;
             const hasSummary = !!effectiveSummary;
@@ -290,7 +286,8 @@ export async function GET(
             summary: effectiveSummary,
             prefsByChar: parsed?.prefsByChar ?? {},
             visibleByChar: parsed?.visibleByChar ?? {},
-            tableOrder: parsed?.tableOrder ?? [], // 🔥 DB에서 가져와서 프론트엔드로 전달!
+            tableOrder: parsed?.tableOrder ?? [],
+            canOthersEdit: m.canOthersEdit ?? true, // 🔥 프론트엔드로 전달! (DB에 값이 없으면 기본적으로 true)
         });
     }
 
@@ -323,7 +320,6 @@ export async function POST(
         return NextResponse.json({ message: "Invalid JSON" }, { status: 400 });
     }
 
-    // 🔥 바디에서 tableOrder 속성도 구조분해 할당으로 빼내기
     const { userId: targetUserId, prefsByChar, visibleByChar, tableOrder, nickname, summary, accounts, activeAccountId, activeAccountByParty } = body;
 
     if (!targetUserId) {
@@ -351,17 +347,14 @@ export async function POST(
     // 1. 기본 필드 업데이트
     if (prefsByChar) nextState.prefsByChar = prefsByChar;
     if (visibleByChar) nextState.visibleByChar = visibleByChar;
-    if (tableOrder) nextState.tableOrder = tableOrder; // 🔥 바뀐 테이블 순서를 DB 저장용 객체에 반영!
+    if (tableOrder) nextState.tableOrder = tableOrder;
     if (typeof nickname === "string") nextState.nickname = nickname;
 
     // 2. 핵심: summary(캐릭터 목록) 업데이트 로직
     if (summary !== undefined) {
-        // (1) 루트 레벨의 summary 업데이트 (하위 호환성)
         nextState.summary = summary;
 
-        // (2) 멀티 계정(accounts) 배열이 있다면, 해당 계정의 summary도 함께 업데이트
         if (Array.isArray(nextState.accounts)) {
-            // 전달된 nickname이 있으면 그것으로 찾고, 없으면 현재 root nickname으로 찾음
             const targetNickname = nickname || nextState.nickname;
 
             const accIdx = nextState.accounts.findIndex(
@@ -369,10 +362,8 @@ export async function POST(
             );
 
             if (accIdx >= 0) {
-                // 찾았다면 해당 계정의 summary를 교체
                 nextState.accounts[accIdx].summary = summary;
             } else if (nextState.accounts.length > 0) {
-                // 닉네임 매칭이 안 될 경우, 현재 선택된(isSelected) 계정이라도 업데이트
                 const selectedIdx = nextState.accounts.findIndex((a: any) => a.isSelected);
                 const finalIdx = selectedIdx >= 0 ? selectedIdx : 0;
                 nextState.accounts[finalIdx].summary = summary;

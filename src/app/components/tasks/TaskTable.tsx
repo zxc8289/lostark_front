@@ -12,6 +12,7 @@ import {
     DndContext,
     type DragEndEvent,
     PointerSensor,
+    TouchSensor,
     useSensor,
     useSensors,
     DragOverlay,
@@ -44,19 +45,19 @@ const GATE_BTN_BASE =
 const DIFF_STYLES = {
     하드: {
         check:
-            "bg-[#FF5252] text-white border-[#FF5252] shadow-[0_0_12px_rgba(255,82,82,0.55)]",
+            "bg-[#FF5252] text-white border-[#FF5252]",
         idle: "bg-[#FF5252]/8 text-[#FFB3B3]/80 border-[#FF5252]/40",
         hover: "hover:bg-[#FF5252] hover:text-white",
     },
     노말: {
         check:
-            "bg-[#5B69FF] text-white border-[#5B69FF] shadow-[0_0_12px_rgba(91,105,255,0.55)]",
+            "bg-[#5B69FF] text-white border-[#5B69FF]",
         idle: "bg-[#5B69FF]/8 text-[#C0C6FF]/85 border-[#5B69FF]/40",
         hover: "hover:bg-[#5B69FF] hover:text-white",
     },
     나메: {
         check:
-            "bg-[#6D28D9] text-white border-[#6D28D9] shadow-[0_0_12px_rgba(109,40,217,0.55)]",
+            "bg-[#6D28D9] text-white border-[#6D28D9]",
         idle: "bg-[#6D28D9]/8 text-[#D6BCFA]/85 border-[#6D28D9]/75",
         hover: "hover:bg-[#6D28D9] hover:text-white",
     },
@@ -116,11 +117,19 @@ function SortableHeader({
             style={style}
             {...(isBlank ? {} : attributes)}
             {...(isBlank ? {} : listeners)}
-            // isDragging일 때 border-solid 적용
-            className={`${RAID_COL_CLASS} ${isBlank ? " border-dashed border-white/5 rou" : ""
-                } ${isDragging ? "border-2 border-solid border-[#5B69FF] bg-[#5B69FF]/10 rounded-sm" : ""
+            // relative를 추가하여 내부 absolute 요소의 기준점이 되도록 설정
+            className={`${RAID_COL_CLASS} relative touch-none ${isBlank ? "border-dashed border-white/5" : ""
                 }`}
         >
+            {/* 잡았을 때 원래 자리에 생기는 UI
+              - border-[2px]: 테두리 굵기 (필요시 border-[3px] 등으로 변경)
+              - rounded-md: 라운디드 적용 (필요시 rounded-lg 등으로 변경)
+              - inset-[2px]: 셀보다 2px 작게 만들어 테두리가 테이블 밖으로 튀어나가지 않게 함
+            */}
+            {isDragging && (
+                <div className="absolute inset-[2px] border-[2px] border-solid border-[#5B69FF] bg-[#5B69FF]/10 rounded-md pointer-events-none" />
+            )}
+
             <span className={isDragging ? "opacity-0" : "opacity-100"}>
                 {isBlank ? "" : displayName}
             </span>
@@ -160,8 +169,15 @@ export default function TaskTable({
     const [activeId, setActiveId] = useState<string | null>(null);
 
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 250, // 0.25초 동안 누르고 있어야 드래그 시작 (스크롤 오작동 방지)
+                tolerance: 5, // 누르고 있는 동안 5px 이상 움직이면 드래그 취소
+            },
+        })
     );
+
 
     const lastFlipRef = useRef(0);
     const pointerRef = useRef<{ x: number; y: number } | null>(null);
@@ -187,7 +203,6 @@ export default function TaskTable({
         return () => window.removeEventListener("resize", updateMaxVisible);
     }, []);
 
-    // 원본 정렬 방식 복구 및 공백 유지 (+ empty 안정화)
     const displayColumns = useMemo(() => {
         const activeRaidSet = new Set<string>();
 
@@ -199,11 +214,12 @@ export default function TaskTable({
             });
         });
 
-        // 기본 정렬: 레벨 낮은 순
         const defaultSortedRaids = Array.from(activeRaidSet).sort((a, b) => {
-            const ka = getRaidColumnSortKeyForRoster(a, sortedRoster, prefsByChar);
-            const kb = getRaidColumnSortKeyForRoster(b, sortedRoster, prefsByChar);
-            return ka.level - kb.level;
+            const dateA = raidInformation[a]?.releaseDate || "2000-01-01";
+            const dateB = raidInformation[b]?.releaseDate || "2000-01-01";
+
+            // 오래된 날짜가 왼쪽(앞)으로 오도록 오름차순 정렬
+            return dateA.localeCompare(dateB);
         });
 
         const currentOrder = tableOrder && tableOrder.length > 0 ? tableOrder : localOrder;
@@ -597,12 +613,12 @@ export default function TaskTable({
                         {activeId && !activeId.startsWith("__empty_") ? (
                             <div
                                 className={`
-                                    ${RAID_COL_CLASS} 
-                                    flex items-center justify-center 
-                                    bg-[#1E222B] text-gray-200 uppercase text-[10px] sm:text-xs font-semibold
-                                    border-2 border-solid border-[#5B69FF] shadow-2xl rounded-sm cursor-grabbing
-                                    min-w-[80px] sm:min-w-[120px] m-0 box-border
-                                `}
+                ${RAID_COL_CLASS} 
+                flex items-center justify-center 
+                bg-[#1E222B] text-gray-200 uppercase text-[10px] sm:text-xs font-semibold
+                border-[2px] border-solid border-[#5B69FF] shadow-2xl rounded-md cursor-grabbing
+                m-0 box-border
+            `}
                             >
                                 {(() => {
                                     const info = raidInformation[activeId];

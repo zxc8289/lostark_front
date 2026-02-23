@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Info } from "lucide-react";
 import GoogleAd from "../components/GoogleAd";
 
 type RaidCategory = "카제로스" | "그림자";
@@ -10,7 +10,7 @@ type DiffKey = "노말" | "하드" | "나메";
 type GateRow = {
     gate: number;
     hp: number;
-    range: [number, number];
+    range: [number, number]; // [강투 컷, 잔혈 컷]
 };
 
 const DIFF = {
@@ -21,16 +21,18 @@ const DIFF = {
     },
     하드: {
         badge: "bg-[#FF5252]/10 text-[#FF5252]",
-        check: "bg-[#ff5a5a] text-white",
+        check: "bg-[#ff5a5a] text-white border-[#ff5a5a]",
         hover: "hover:bg-[#FF5252] hover:text-white",
     },
     노말: {
         badge: "bg-[#5B69FF]/10 text-[#5B69FF]",
-        check: "bg-[#5B69FF] text-white",
+        check: "bg-[#5B69FF] text-white border-[#5B69FF]",
         hover: "hover:bg-[#5B69FF] hover:text-white",
     },
 } as const;
 
+// 8인 레이드: 잔혈 20% / 강투 15%
+// 4인 레이드(세르카): 잔혈 40% / 강투 30%
 const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>> = {
     "카제로스": {
         "1막": {
@@ -85,19 +87,34 @@ export default function DpsSharePage() {
         }
     };
 
+    // 4인 레이드(세르카)인지 8인 레이드인지 판별
+    const is4PlayerRaid = category === "그림자";
+    // 칭호 기준 퍼센트
+    const strongCut = is4PlayerRaid ? 30 : 15;
+    const bleedCut = is4PlayerRaid ? 40 : 20;
+
+    // 전체 요약 계산 (보스 체력 기반이 아닌, 잔혈 컷을 역산한 "실질 총 피해량" 기준)
     const { totalHp, totalShare } = useMemo(() => {
         const rows = RAID_DATA[category][act][diff] || [];
-        let hpSum = 0;
-        let dmgSum = 0;
+        let hpSum = 0; // 보여주기용 보스 총 체력
+        let effectiveTotalDmg = 0; // 잔혈 컷으로 역산한 파티 실질 총 딜량
+        let myDmgSum = 0;
+
         for (const row of rows) {
             const key = `${category}-${act}-${diff}-${row.gate}`;
             const dmg = Number(dmgInput[key] ?? "0") || 0;
             hpSum += row.hp;
-            dmgSum += dmg;
+            myDmgSum += dmg;
+
+            // [강투, 잔혈]
+            const bleedDmg = row.range[1];
+            // 잔혈 딜량 / 잔혈 기준치(0.2 or 0.4) = 해당 관문의 파티 전체 실질 딜량
+            effectiveTotalDmg += bleedDmg / (bleedCut / 100);
         }
-        const share = hpSum > 0 ? (dmgSum / hpSum) * 100 : 0;
+
+        const share = effectiveTotalDmg > 0 ? (myDmgSum / effectiveTotalDmg) * 100 : 0;
         return { totalHp: hpSum, totalShare: share };
-    }, [category, act, diff, dmgInput]);
+    }, [category, act, diff, dmgInput, bleedCut]);
 
     const rows = RAID_DATA[category][act][diff] || [];
 
@@ -116,7 +133,7 @@ export default function DpsSharePage() {
             `}</style>
 
             <div className="w-full text-white py-8 sm:py-12">
-                <div className="mx-auto max-w-7xl space-y-4">
+                <div className="mx-auto max-w-[1400px] space-y-4">
                     <div className="relative pb-7 px-4 sm:px-0">
                         <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                             <div className="space-y-2">
@@ -136,7 +153,7 @@ export default function DpsSharePage() {
 
                     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 sm:gap-6 items-start">
                         <div className="space-y-4">
-                            {/* [좌측] 레이드 설정 (모든 쉐도우/블러 제거) */}
+                            {/* [좌측] 레이드 설정 */}
                             <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 overflow-hidden">
                                 <div className="px-5 py-4 border-b border-white/5">
                                     <h3 className="font-semibold text-white flex items-center gap-2">
@@ -153,7 +170,7 @@ export default function DpsSharePage() {
                                                 <button
                                                     key={cat}
                                                     onClick={() => handleCategoryChange(cat)}
-                                                    className={`flex w-full items-center gap-3 px-4 py-3 transition-colors ${category === cat
+                                                    className={`flex w-full items-center gap-3 px-4 py-3 transition-colors border-b border-white/5 last:border-b-0 ${category === cat
                                                         ? "bg-[#5B69FF]/15 text-white"
                                                         : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
                                                         }`}
@@ -169,14 +186,14 @@ export default function DpsSharePage() {
 
                                     <div className="space-y-2">
                                         <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">난이도</label>
-                                        <div className={`grid ${category === "카제로스" ? "grid-cols-2" : "grid-cols-3"} gap-2 p-1 bg-[#121318] rounded-lg`}>
+                                        <div className={`grid ${category === "카제로스" ? "grid-cols-2" : "grid-cols-3"} gap-2 p-1 bg-[#121318] rounded-lg border border-white/5`}>
                                             {(["노말", "하드", "나메"] as DiffKey[])
                                                 .filter(d => category !== "카제로스" || d !== "나메")
                                                 .map((d) => (
                                                     <button
                                                         key={d}
                                                         onClick={() => setDiff(d)}
-                                                        className={`py-2 rounded-md text-sm font-bold transition-all ${diff === d ? DIFF[d].check : `bg-[#1B222D] text-gray-400 ${DIFF[d].hover}`
+                                                        className={`py-2 rounded-md text-sm font-bold transition-all border ${diff === d ? DIFF[d].check : `bg-[#1B222D] text-gray-400 border-transparent ${DIFF[d].hover}`
                                                             }`}
                                                     >
                                                         {d}
@@ -195,15 +212,15 @@ export default function DpsSharePage() {
                                                         key={a}
                                                         onClick={() => setAct(a)}
                                                         className={`relative flex items-center justify-center py-2 px-3 text-sm font-bold rounded-lg border transition-all ${isActive
-                                                            ? "bg-[#5B69FF]/15 border-white/5 text-white"
-                                                            : "bg-transparent border-transparent text-gray-500 hover:bg-white/5 hover:text-gray-300"
+                                                            ? "bg-[#5B69FF]/15 border-[#5B69FF]/30 text-white"
+                                                            : "bg-transparent border-white/5 text-gray-500 hover:bg-white/5 hover:text-gray-300"
                                                             }`}
                                                     >
                                                         <div className={`absolute left-3 flex items-center justify-center w-3.5 h-3.5 ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
                                                             <Check className="w-full h-full" strokeWidth={3} />
                                                         </div>
 
-                                                        <span className="truncate">{a}</span>
+                                                        <span className="truncate pl-3">{a}</span>
                                                     </button>
                                                 );
                                             })}
@@ -211,11 +228,13 @@ export default function DpsSharePage() {
                                     </div>
                                 </div>
                             </section>
+
+
                         </div>
 
-                        {/* [우측] 결과 영역 (쉐도우 제거) */}
+                        {/* [우측] 결과 영역 */}
                         <div className="space-y-5">
-                            <div className="bg-[#16181D] rounded-none sm:rounded-xl border-y sm:border border-white/5 px-5 py-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="bg-[#16181D] rounded-none sm:rounded-xl border-y sm:border border-white/5 px-5 py-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
                                 <div className="flex items-center gap-3">
                                     <div className={`px-3 py-2 rounded-lg flex items-center justify-center text-sm font-bold ${DIFF[diff].badge}`}>
                                         {diff}
@@ -243,10 +262,13 @@ export default function DpsSharePage() {
                                         const [strong, bleed] = row.range;
                                         const key = `${category}-${act}-${diff}-${row.gate}`;
                                         const input = dmgInput[key] ?? "";
-                                        const sharePercent = row.hp > 0 ? ((Number(input) / row.hp) * 100).toFixed(1) : "0.0";
+
+                                        // ✅ 해당 관문의 잔혈 컷을 기반으로 '파티 실질 총 딜량' 역산 후 퍼센트 계산
+                                        const effectiveHp = bleed / (bleedCut / 100);
+                                        const sharePercent = effectiveHp > 0 ? ((Number(input) / effectiveHp) * 100).toFixed(1) : "0.0";
 
                                         return (
-                                            <div key={key} className="relative group flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border border-white/5 bg-[#16181D] p-5 transition-all hover:border-white/10">
+                                            <div key={key} className="relative group flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border border-white/5 bg-[#16181D] p-5 transition-all hover:border-white/10 shadow-sm">
                                                 <div className="flex items-center justify-between">
                                                     <span className="font-semibold text-gray-200">{row.gate} 관문</span>
                                                     <span className="text-xs font-mono text-gray-500">체력: {row.hp.toLocaleString()}억</span>
@@ -267,17 +289,17 @@ export default function DpsSharePage() {
                                                 <div className="mt-auto space-y-4">
                                                     <div className="flex items-end justify-between border-b border-white/5 pb-3">
                                                         <span className="text-[11px] text-gray-500 font-medium">현재 딜 지분</span>
-                                                        <span className={`text-2xl font-bold font-mono ${Number(sharePercent) >= 20 ? "text-amber-400" : "text-white"}`}>
+                                                        <span className={`text-2xl font-bold font-mono ${Number(sharePercent) >= bleedCut ? "text-[#FF8585]" : Number(sharePercent) >= strongCut ? "text-[#7C88FF]" : "text-white"}`}>
                                                             {sharePercent}%
                                                         </span>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-3">
                                                         <div className="flex flex-col items-center justify-center rounded-lg bg-[#5B69FF]/5 border border-[#5B69FF]/10 py-2.5">
-                                                            <span className="text-[14px] text-[#7C88FF] font-bold mb-0.5">강투</span>
+                                                            <span className="text-[14px] text-[#7C88FF] font-bold mb-0.5">강투 ({strongCut}%)</span>
                                                             <span className="text-lg font-medium text-gray-300">{strong.toLocaleString()}억</span>
                                                         </div>
                                                         <div className="flex flex-col items-center justify-center rounded-lg bg-[#FF5252]/5 border border-[#FF5252]/10 py-2.5">
-                                                            <span className="text-[14px] text-[#FF8585] font-bold mb-0.5">잔혈</span>
+                                                            <span className="text-[14px] text-[#FF8585] font-bold mb-0.5">잔혈 ({bleedCut}%)</span>
                                                             <span className="text-lg font-medium text-gray-300">{bleed.toLocaleString()}억</span>
                                                         </div>
                                                     </div>
@@ -291,6 +313,55 @@ export default function DpsSharePage() {
                                     해당 난이도의 데이터가 없습니다.
                                 </div>
                             )}
+
+                            <section className="block lg:hidden rounded-none bg-gradient-to-b from-[#16181D] to-[#121318] border-y border-white/5 p-5 mt-6">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Info className="w-4 h-4 text-indigo-400" />
+                                    <h4 className="text-sm font-bold text-gray-200">딜 지분 계산기 활용법</h4>
+                                </div>
+                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
+                                    <p>
+                                        <strong>로스트아크 딜 지분 계산기</strong>는 게임 내 MVP 화면에서 확인한 내 피해량(억 단위)을 바탕으로, <strong className="text-gray-300 font-medium">보스의 정확한 전체 체력 대비 내 실질적인 딜 기여도(%)를 역산해 주는 분석 도구</strong>입니다.
+                                    </p>
+                                    <p>
+                                        단순히 '투사', '강투', '잔혈' 같은 칭호 확인에 그치지 않고, 내 캐릭터가 파티 내에서 어느 정도의 퍼포먼스를 내고 있는지 디테일하게 점검할 수 있습니다.
+                                        아래의 레이드 인원별 커트라인을 참고해보세요.
+                                    </p>
+                                </div>
+
+                            </section>
+
+                            <section className="hidden lg:block rounded-xl bg-gradient-to-b from-[#16181D] to-[#121318] border border-white/5 p-5 mt-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Info className="w-4 h-4 text-indigo-400" />
+                                    <h4 className="text-sm font-bold text-gray-200">딜 지분 계산기란?</h4>
+                                </div>
+                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
+                                    <p>
+                                        <strong>로스트아크 딜 지분 계산기</strong>는 게임 내 MVP 화면에서 확인한 내 피해량(억 단위)을 바탕으로, <strong className="text-gray-300 font-medium">보스의 정확한 전체 체력 대비 내 실질적인 딜 기여도(%)를 역산해 주는 분석 도구</strong>입니다.
+                                    </p>
+                                    <p>
+                                        단순히 '투사', '강투', '잔혈' 같은 칭호 확인에 그치지 않고, 내 캐릭터가 파티 내에서 어느 정도의 퍼포먼스를 내고 있는지 디테일하게 점검할 수 있습니다.
+                                        아래의 레이드 인원별 커트라인을 참고해보세요.
+                                    </p>
+                                    <div className="w-full h-px bg-white/5 my-3" />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <strong className="text-gray-300 font-medium block mb-1">8인 레이드 (딜러 6명 기준)</strong>
+                                            • 1인분 평균: <strong className="text-white">약 16.6%</strong><br />
+                                            • <span className="text-[#7C88FF]">강직한 투사:</span> 15% 이상<br />
+                                            • <span className="text-[#FF8585]">잔혹한 혈투사:</span> 20% 이상
+                                        </div>
+                                        <div>
+                                            <strong className="text-gray-300 font-medium block mb-1">4인 레이드 (딜러 3명 기준)</strong>
+                                            • 1인분 평균: <strong className="text-white">약 33.3%</strong><br />
+                                            • <span className="text-[#7C88FF]">강직한 투사:</span> 30% 이상<br />
+                                            • <span className="text-[#FF8585]">잔혹한 혈투사:</span> 40% 이상
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
                         </div>
                     </div>
                 </div>

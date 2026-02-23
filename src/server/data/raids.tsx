@@ -297,7 +297,7 @@ export const raidInformation: Record<
     },
     "종막-카제로스": {
         kind: "카제로스",
-        releaseDate: "2025-08-20",
+        releaseDate: "2025-08-21",
         gates: 2,
         difficulty: {
             "노말": {

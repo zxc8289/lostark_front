@@ -58,7 +58,6 @@ import PartySettingsModal from "@/app/components/tasks/PartySettingsModal";
 import GoogleAd from "@/app/components/GoogleAd";
 import TaskSidebar from "@/app/components/tasks/TaskSidebar";
 
-// 🔥 [추가] 전역 웹소켓 사용
 import { useGlobalWebSocket } from "@/app/components/WebSocketProvider";
 
 /* ─────────────────────────────
@@ -94,6 +93,7 @@ type PartyMemberTasks = {
     prefsByChar: Record<string, CharacterTaskPrefs>;
     visibleByChar: Record<string, boolean>;
     tableOrder?: string[];
+    canOthersEdit?: boolean;
 };
 
 type PartyRaidTasksResponse = {
@@ -111,6 +111,7 @@ type SavedFilters = {
     isCardView?: boolean;
     tableView?: boolean;
     columnOrder?: string[];
+    selectedRaids?: string[];
 };
 
 type SavedAccount = {
@@ -250,7 +251,7 @@ export default function PartyDetailPage() {
         (session as any)?.userId ??
         (session as any)?.user?.discordId ??
         null;
-
+    const [selectedRaids, setSelectedRaids] = useState<string[]>([]);
     const [party, setParty] = useState<PartyDetail | null>(null);
     const [partyLoading, setPartyLoading] = useState(true);
     const [partyErr, setPartyErr] = useState<string | null>(null);
@@ -381,16 +382,16 @@ export default function PartyDetailPage() {
         userId: string,
         prefsByChar: Record<string, CharacterTaskPrefs>,
         visibleByChar?: Record<string, boolean>,
-        tableOrder?: string[] // 🔥 파라미터 추가
+        tableOrder?: string[]
     ) {
         if (sendGlobalMessage) {
             sendGlobalMessage({
-                type: "tableOrderUpdate", // 🔥 소켓 서버가 인지하는 타입으로 변경
+                type: "tableOrderUpdate",
                 partyId,
                 userId,
                 prefsByChar,
                 visibleByChar,
-                tableOrder, // 🔥 추가
+                tableOrder,
             });
         }
     }
@@ -537,7 +538,6 @@ export default function PartyDetailPage() {
             setInlineSearchInput("");
         }
     };
-
 
     const openEditModal = (member: PartyMemberTasks, char: RosterCharacter) => {
         const prefs = member.prefsByChar[char.name] ?? { raids: {} };
@@ -957,7 +957,7 @@ export default function PartyDetailPage() {
         userId: string,
         prefsByChar: Record<string, CharacterTaskPrefs>,
         visibleByChar?: Record<string, boolean>,
-        tableOrder?: string[] // 🔥 파라미터 추가
+        tableOrder?: string[]
     ) {
         try {
             await fetch(`/api/party-tasks/${partyId}/raid-tasks`, {
@@ -967,7 +967,7 @@ export default function PartyDetailPage() {
                     userId,
                     prefsByChar,
                     visibleByChar,
-                    tableOrder, // 🔥 추가
+                    tableOrder,
                 }),
             });
         } catch (e) {
@@ -1072,7 +1072,6 @@ export default function PartyDetailPage() {
                 m.prefsByChar ?? {}
             );
 
-            // ✅ 첫번째(handleAutoSetup)와 동일: roster 기준으로 visible 확정 (없으면 false)
             const nextVisibleMerged: Record<string, boolean> = {
                 ...(m.visibleByChar ?? {}),
             };
@@ -1081,7 +1080,6 @@ export default function PartyDetailPage() {
                 nextVisibleMerged[name] = nextVisibleByChar[name] ?? false;
             }
 
-            // ✅ prefs merge
             const nextPrefsMerged: Record<string, CharacterTaskPrefs> = {
                 ...(m.prefsByChar ?? {}),
                 ...nextPrefsByChar,
@@ -1091,8 +1089,6 @@ export default function PartyDetailPage() {
                 ...m,
                 prefsByChar: nextPrefsMerged,
                 visibleByChar: nextVisibleMerged,
-
-                // ✅ 테이블 컬럼 순서 리셋
                 tableOrder: RESET_TABLE_ORDER,
             };
         });
@@ -1196,7 +1192,6 @@ export default function PartyDetailPage() {
 
         const updated = next.find((m) => m.userId === memberUserId);
         if (updated) {
-            // 변경된 순서를 즉시 웹소켓으로 뿌림
             sendMemberUpdateWS(
                 partyIdNum,
                 updated.userId,
@@ -1205,7 +1200,6 @@ export default function PartyDetailPage() {
                 updated.tableOrder
             );
 
-            // DB에 영구 저장
             void saveMemberPrefsToServer(
                 partyIdNum,
                 updated.userId,
@@ -1279,13 +1273,13 @@ export default function PartyDetailPage() {
 
             const saved = JSON.parse(raw) as SavedFilters & { isCardView?: boolean };
 
-            if (typeof saved.onlyRemain === "boolean") {
-                setOnlyRemain(saved.onlyRemain);
-            }
-            if (typeof saved.isCardView === "boolean") {
-                setIsCardView(saved.isCardView);
-            } else if (typeof saved.tableView === "boolean") {
-                setIsCardView(!saved.tableView);
+            if (typeof saved.onlyRemain === "boolean") setOnlyRemain(saved.onlyRemain);
+            if (typeof saved.isCardView === "boolean") setIsCardView(saved.isCardView);
+            else if (typeof saved.tableView === "boolean") setIsCardView(!saved.tableView);
+
+            // ✅ 추가
+            if (Array.isArray(saved.selectedRaids)) {
+                setSelectedRaids(saved.selectedRaids.filter((x) => typeof x === "string"));
             }
         } catch (e) {
             console.error("파티 필터 불러오기 실패:", e);
@@ -1300,19 +1294,14 @@ export default function PartyDetailPage() {
             const toSave: SavedFilters = {
                 onlyRemain,
                 isCardView,
+                selectedRaids, // ✅ 추가
             };
-            localStorage.setItem(
-                PARTY_FILTER_KEY(party.id),
-                JSON.stringify(toSave)
-            );
+            localStorage.setItem(PARTY_FILTER_KEY(party.id), JSON.stringify(toSave));
         } catch (e) {
             console.error("파티 필터 저장 실패:", e);
         }
-    }, [onlyRemain, isCardView, party]);
+    }, [onlyRemain, isCardView, selectedRaids, party]);
 
-    /* ─────────────────────────────
-     * 1차: 파티 기본 정보 불러오기
-     * ───────────────────────────── */
     useEffect(() => {
         if (status === "loading") return;
 
@@ -1421,20 +1410,11 @@ export default function PartyDetailPage() {
         };
     }, [status, partyId, joinRoom]);
 
-    /* ─────────────────────────────
-     * 2차: 파티원들의 "내 숙제 상태" 불러오기 (초기 1회 + party 변경 시)
-     * ───────────────────────────── */
     useEffect(() => {
         if (!party || status !== "authenticated") return;
         void reloadPartyTasks(true);
     }, [party, status, reloadPartyTasks]);
 
-    /* ─────────────────────────────
-         * 🔥 [수정] 전역 WebSocket 리스너 (글로벌 동기화 허용)
-         * ───────────────────────────── */
-    /* ─────────────────────────────
-           * 🔥 [수정] 전역 WebSocket 리스너 (글로벌 동기화 허용)
-           * ───────────────────────────── */
     useEffect(() => {
         if (!ws || !party || status !== "authenticated") return;
 
@@ -1450,12 +1430,11 @@ export default function PartyDetailPage() {
 
                         return prev.map((m) => {
                             if (m.userId === msg.userId) {
-                                // 🔥 기존 데이터와 웹소켓 데이터를 명확하게 병합 (undefined 방지)
                                 return {
                                     ...m,
                                     prefsByChar: msg.prefsByChar ?? m.prefsByChar ?? {},
                                     visibleByChar: msg.visibleByChar ?? m.visibleByChar ?? {},
-                                    tableOrder: msg.tableOrder ?? m.tableOrder ?? [], // 🔥 빈 배열 폴백 추가
+                                    tableOrder: msg.tableOrder ?? m.tableOrder ?? [],
                                 };
                             }
                             return m;
@@ -1536,9 +1515,37 @@ export default function PartyDetailPage() {
         );
     };
 
-    /* ─────────────────────────────
-     * 상태별 렌더링
-     * ───────────────────────────── */
+    function filterPrefsBySelectedRaids(
+        prefsByChar: Record<string, CharacterTaskPrefs>,
+        selectedRaids: string[]
+    ): Record<string, CharacterTaskPrefs> {
+        if (!selectedRaids || selectedRaids.length === 0) return prefsByChar;
+
+        const allow = new Set(selectedRaids);
+        const out: Record<string, CharacterTaskPrefs> = {};
+
+        for (const [charName, prefs] of Object.entries(prefsByChar ?? {})) {
+            const raids = prefs.raids ?? {};
+
+            const nextRaids = Object.fromEntries(
+                Object.entries(raids).filter(([raidName]) => allow.has(raidName))
+            ) as CharacterTaskPrefs["raids"];
+
+            const filteredOrder = prefs.order
+                ?.filter((r) => allow.has(r) && nextRaids[r])
+                .filter(Boolean);
+
+            // order가 비어버리면(undefined로) → buildTasksForCharacter가 자동 정렬 fallback을 타게 함
+            const { order: _old, ...rest } = prefs;
+
+            out[charName] =
+                filteredOrder && filteredOrder.length > 0
+                    ? { ...rest, raids: nextRaids, order: filteredOrder }
+                    : { ...rest, raids: nextRaids };
+        }
+
+        return out;
+    }
 
     if (status === "unauthenticated") {
         return (
@@ -1743,7 +1750,8 @@ export default function PartyDetailPage() {
                             setOnlyRemain={setOnlyRemain}
                             isCardView={isCardView}
                             setIsCardView={setIsCardView}
-                        // adSlot={AD_SLOT_SIDEBAR}
+                            selectedRaids={selectedRaids}
+                            setSelectedRaids={setSelectedRaids}
                         />
 
                         {accountSearchErr && (
@@ -1782,38 +1790,40 @@ export default function PartyDetailPage() {
 
                         {!tasksLoading && !tasksErr && sortedPartyTasks && sortedPartyTasks.length > 0 && (
                             <div className="flex flex-col gap-6 sm:gap-10">
-                                {sortedPartyTasks.map((m) => (
-                                    <PartyMemberBlock
-                                        key={m.userId}
-                                        partyId={party.id}
-                                        member={m}
-                                        isMe={myUserId === m.userId}
-                                        currentAccount={currentAccount}
-                                        onReorderTable={handleMemberTableReorder}
-                                        onlyRemain={onlyRemain}
-                                        isCardView={isCardView}
-                                        onAutoSetup={(isMe) => handleMemberAutoSetup(m.userId, isMe)}
-                                        onGateAllClear={() => handleMemberGateAllClear(m.userId)}
-                                        onOpenCharSetting={() => openMemberCharSetting(m)}
-                                        onToggleGate={handleMemberToggleGate}
-                                        onEdit={openEditModal}
-                                        onReorder={handleMemberReorder}
-                                        onSearch={handleCharacterSearch}
-                                        searchLoading={accountSearchLoading}
-                                        searchError={accountSearchErr}
-                                    />
-                                ))}
+                                {sortedPartyTasks.map((m) => {
+                                    const filteredPrefs = filterPrefsBySelectedRaids(m.prefsByChar, selectedRaids);
+
+                                    let filteredTableOrder = m.tableOrder;
+                                    if (selectedRaids.length > 0 && Array.isArray(m.tableOrder)) {
+                                        filteredTableOrder = m.tableOrder.filter(raidId => selectedRaids.includes(raidId));
+                                    }
+
+                                    return (
+                                        <PartyMemberBlock
+                                            key={m.userId}
+                                            partyId={party.id}
+                                            member={{ ...m, prefsByChar: filteredPrefs, tableOrder: filteredTableOrder }}
+                                            selectedRaids={selectedRaids}
+                                            isMe={myUserId === m.userId}
+                                            currentAccount={currentAccount}
+                                            onReorderTable={handleMemberTableReorder}
+                                            onlyRemain={onlyRemain}
+                                            isCardView={isCardView}
+                                            onAutoSetup={(isMe) => handleMemberAutoSetup(m.userId, isMe)}
+                                            onGateAllClear={() => handleMemberGateAllClear(m.userId)}
+                                            onOpenCharSetting={() => openMemberCharSetting(m)}
+                                            onRefreshAccount={myUserId === m.userId ? handleMyRefreshAccount : () => handleMemberRefreshAccount(m.userId)}
+                                            onToggleGate={handleMemberToggleGate}
+                                            onEdit={openEditModal}
+                                            onReorder={handleMemberReorder}
+                                            onSearch={handleCharacterSearch}
+                                            searchLoading={accountSearchLoading}
+                                            searchError={accountSearchErr}
+                                        />
+                                    );
+                                })}
                             </div>
                         )}
-
-                        {/* <div className="block lg:hidden w-full">
-                            <div
-                                className="w-full bg-[#1e2128]/30 border-x-0 sm:border border-white/5 rounded-none sm:rounded-lg overflow-hidden flex items-center justify-center"
-                                style={{ height: '100px', minHeight: '100px', maxHeight: '100px' }}
-                            >
-                                <GoogleAd slot={AD_SLOT_BOTTOM_BANNER} className="!my-0 w-full h-full" responsive={false} />
-                            </div>
-                        </div> */}
 
                         {!tasksLoading && !tasksErr && partyTasks && partyTasks.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-none sm:rounded-2xl border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 bg-[#16181D]">
@@ -2009,7 +2019,7 @@ export default function PartyDetailPage() {
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0 fill-current">
                                             <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.086 2.157 2.419 0 1.334-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.086 2.157 2.419 0 1.334-.946 2.419-2.157 2.419z" />
                                         </svg>
-                                        <span className="text-sm font-bold">Discord로 보내기</span>
+                                        Discord로 보내기
                                     </button>
                                     <p className="mt-2 text-[10px] text-gray-500 text-center">
                                         버튼을 누르면 링크가 복사되고 디스코드가 열립니다.
@@ -2162,6 +2172,8 @@ function PartyMemberBlock({
     onSearch,
     searchLoading,
     searchError,
+    onRefreshAccount,
+    selectedRaids,
 }: {
     partyId: number;
     member: PartyMemberTasks;
@@ -2179,11 +2191,29 @@ function PartyMemberBlock({
     onSearch?: (name: string) => Promise<boolean>;
     searchLoading?: boolean;
     searchError?: string | null;
+    onRefreshAccount: () => Promise<void>;
+    selectedRaids: string[];
 }) {
     const [isExpanded, setIsExpanded] = useState(true);
     const [searchInput, setSearchInput] = useState("");
+    const [showPermissionError, setShowPermissionError] = useState(false); // 🔥 모달 상태 추가
 
     const storageKey = `party_expand_state_v1:${partyId}:${member.userId}`;
+    // 🔥 권한 체크 로직: 내가 내 것을 보거나, 상대방이 권한을 허용했을 때만 true
+    const canEdit = isMe || member.canOthersEdit === true;
+
+    // 🔥 권한 없는 클릭을 막아주는 래퍼 함수 (안보이게 처리 안함)
+    const withEditAuth = <T extends (...args: any[]) => any>(fn: T) => {
+        return (...args: Parameters<T>): ReturnType<T> | void => {
+            if (!canEdit) {
+                setShowPermissionError(true); // alert 대신 모달 띄우기
+                return;
+            }
+            return fn(...args);
+        };
+    };
+
+
 
     useEffect(() => {
         const saved = localStorage.getItem(storageKey);
@@ -2198,10 +2228,17 @@ function PartyMemberBlock({
         localStorage.setItem(storageKey, String(nextState));
     };
 
-    const handleLocalSearch = (e: React.FormEvent) => {
+    const handleLocalSearch = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // 검색 전 권한 체크
+        if (!canEdit) {
+            setShowPermissionError(true); // alert 대신 모달 띄우기
+            return;
+        }
+
         if (onSearch && searchInput.trim()) {
-            onSearch(searchInput);
+            await onSearch(searchInput);
         }
     };
 
@@ -2209,11 +2246,19 @@ function PartyMemberBlock({
     const visibleRoster = baseSummary?.roster?.filter((c) => member.visibleByChar?.[c.name] ?? true) ?? [];
     const sortedRoster = [...visibleRoster].sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0));
     const memberSummary = computeMemberSummary({ ...member, summary: baseSummary });
+    const isRaidFilterActive = selectedRaids.length > 0;
+
+    const rosterForView = isRaidFilterActive
+        ? sortedRoster.filter((c) => {
+            const prefs = member.prefsByChar?.[c.name];
+            const raids = prefs?.raids ?? {};
+            return Object.values(raids).some((p) => p?.enabled);
+        })
+        : sortedRoster;
 
     if (visibleRoster.length === 0) {
         return (
-            // 🔥 빈 회원 블록 (모바일 Edge-to-Edge)
-            <div className="rounded-none sm:rounded-xl border-x-0 sm:border border-white/10 bg-[#16181D] overflow-hidden">
+            <div className="rounded-none sm:rounded-xl border-x-0 sm:border border-white/10 bg-[#16181D] overflow-hidden relative">
                 <div className="flex items-center gap-3 px-4 py-5 ">
                     <MemberAvatar member={{ id: member.userId, name: member.name, image: member.image, role: "member" }} className="h-8 w-8 rounded-full border border-black/50" />
                     <span className="font-semibold text-xl text-gray-200">{member.name || "이름 없음"}</span>
@@ -2289,20 +2334,46 @@ function PartyMemberBlock({
                         </div>
                     )}
                 </div>
+
+                {/* 🔥 빈 계정 상태에서도 검색 버튼 누를 때 권한 없으면 띄우는 모달 */}
+                {showPermissionError && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+                        <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                            <div className="p-6 text-center">
+                                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+                                    <AlertTriangle className="h-7 w-7" />
+                                </div>
+                                <h3 className="text-lg font-bold text-white mb-2">
+                                    수정 권한 없음
+                                </h3>
+                                <p className="text-sm text-gray-400 leading-relaxed mb-6 break-keep">
+                                    해당 파티원이 숙제 수정을<br />허용하지 않았습니다.
+                                </p>
+                                <button
+                                    onClick={() => setShowPermissionError(false)}
+                                    className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold transition-colors text-sm"
+                                >
+                                    확인
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
 
     return (
-        // 🔥 파티원 블록 (모바일 Edge-to-Edge)
-        <div className="grid grid-cols-1 gap-4 sm:gap-1 rounded-none sm:rounded-lg border-x-0 sm:border border-y sm:border-y border-white/10 px-3 sm:px-4 py-3 sm:py-4">
+        <div className="grid grid-cols-1 gap-4 sm:gap-1 rounded-none sm:rounded-lg border-x-0 sm:border border-y sm:border-y border-white/10 px-3 sm:px-4 py-3 sm:py-4 relative">
             <PartyMemberSummaryBar member={member} summary={memberSummary}>
+                {/* 🔥 권한 래퍼를 씌운 액션 핸들러들 전달 */}
                 <PartyMemberActions
-                    onAutoSetup={() => onAutoSetup(isMe)}
-                    onGateAllClear={onGateAllClear}
-                    onOpenCharSetting={onOpenCharSetting}
+                    onAutoSetup={withEditAuth(() => onAutoSetup(isMe))}
+                    onGateAllClear={withEditAuth(onGateAllClear)}
+                    onOpenCharSetting={withEditAuth(onOpenCharSetting)}
+                    onRefreshAccount={withEditAuth(async () => { await onRefreshAccount(); })}
                     isExpanded={isExpanded}
-                    onToggleExpand={handleToggleExpand}
+                    onToggleExpand={handleToggleExpand} // 접기/펼치기는 항상 작동
                 />
             </PartyMemberSummaryBar>
 
@@ -2311,9 +2382,11 @@ function PartyMemberBlock({
                     {isCardView ? (
                         <div className="flex flex-col gap-4">
                             {(() => {
-                                const strips = sortedRoster.map((c) => {
-                                    const toggleWrapper = (rName: string, gate: number, curG: number[], allG: number[]) =>
-                                        onToggleGate(member.userId, c.name, rName, gate, curG, allG);
+                                const strips = rosterForView.map((c) => {
+                                    // 🔥 onToggleGate 래핑
+                                    const toggleWrapper = withEditAuth((rName: string, gate: number, curG: number[], allG: number[]) =>
+                                        onToggleGate(member.userId, c.name, rName, gate, curG, allG)
+                                    );
 
                                     const tasksAll = buildTasksForCharacter(c, member.prefsByChar, { onlyRemain: false, onToggleGate: toggleWrapper });
                                     const tasksShown = onlyRemain
@@ -2346,28 +2419,61 @@ function PartyMemberBlock({
                                         key={c.name}
                                         character={c}
                                         tasks={tasks}
-                                        onEdit={() => onEdit(member, c)}
-                                        onReorder={(char, newOrder) => onReorder(member.userId, char.name, newOrder)}
+                                        // 🔥 편집 및 순서 변경 래핑
+                                        onEdit={withEditAuth(() => onEdit(member, c))}
+                                        onReorder={withEditAuth((char, newOrder) => {
+                                            if (selectedRaids.length > 0) return;
+                                            onReorder(member.userId, char.name, newOrder);
+                                        })}
                                     />
                                 ));
                             })()}
                         </div>
                     ) : (
                         <TaskTable
-                            roster={sortedRoster}
+                            roster={rosterForView}
                             prefsByChar={member.prefsByChar}
-                            tableOrder={member.tableOrder} // 🔥 멤버별 저장된 테이블 순서 전달
-                            onReorderTable={(newOrder) => onReorderTable(member.userId, newOrder)} // 🔥 자리 바꿈 이벤트 연결
-                            onToggleGate={(char, raid, gate, cur, all) => onToggleGate(member.userId, char, raid, gate, cur, all)}
-                            onEdit={(c) => onEdit(member, c)}
+                            tableOrder={member.tableOrder}
+                            onReorderTable={withEditAuth((newOrder) => {
+                                if (selectedRaids.length > 0) return; // ✅ 필터 중일 때는 데이터 유실 방지를 위해 순서 저장 무시
+                                onReorderTable(member.userId, newOrder);
+                            })}
+                            onToggleGate={withEditAuth((char, raid, gate, cur, all) => onToggleGate(member.userId, char, raid, gate, cur, all))}
+                            onEdit={withEditAuth((c) => onEdit(member, c))}
                         />
                     )}
+                </div>
+            )}
+
+            {/* 🔥 권한 부족 경고 모달 */}
+            {showPermissionError && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+                                <AlertTriangle className="h-7 w-7" />
+                            </div>
+                            <h3 className="text-lg font-bold text-white mb-2">
+                                수정 권한 없음
+                            </h3>
+                            <p className="text-sm text-gray-400 leading-relaxed mb-6 break-keep">
+                                해당 파티원이 타인의 숙제 수정을<br />허용하지 않았습니다.
+                            </p>
+                            <button
+                                onClick={() => setShowPermissionError(false)}
+                                className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold transition-colors text-sm"
+                            >
+                                확인
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
     );
 }
 
+// ... 아래 `PartyMemberSummaryBar`, `PartyMemberActions`, `MemberAvatar` 컴포넌트는 기존과 동일
 type PartyMemberSummaryBarProps = {
     member: PartyMemberTasks;
     summary: RaidSummary;
@@ -2469,6 +2575,7 @@ type PartyMemberActionsProps = {
     onAutoSetup: () => void;
     onGateAllClear: () => void;
     onOpenCharSetting: () => void;
+    onRefreshAccount: () => Promise<void> | void;
     isExpanded: boolean;
     onToggleExpand: () => void;
 };
@@ -2477,11 +2584,13 @@ function PartyMemberActions({
     onAutoSetup,
     onGateAllClear,
     onOpenCharSetting,
+    onRefreshAccount,
     isExpanded,
     onToggleExpand,
 }: PartyMemberActionsProps) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -2493,9 +2602,37 @@ function PartyMemberActions({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    const handleRefreshClick = async () => {
+        if (!onRefreshAccount) return;
+        try {
+            setIsRefreshing(true);
+            await onRefreshAccount();
+        } catch (error) {
+            console.error("계정 업데이트 실패:", error);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
     return (
         <div className="flex items-center gap-1 sm:gap-2" ref={menuRef}>
             <div className="relative">
+                <button
+                    onClick={handleRefreshClick}
+                    disabled={isRefreshing}
+                    className={`
+                    p-2 rounded-lg transition-colors
+                    ${isRefreshing
+                            ? "text-indigo-400 cursor-not-allowed"
+                            : "text-gray-400 hover:text-white hover:bg-white/5"
+                        }
+                `}
+                    title="계정 정보 업데이트"
+                >
+                    <RefreshCcw
+                        className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`}
+                    />
+                </button>
                 <button
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                     className={`

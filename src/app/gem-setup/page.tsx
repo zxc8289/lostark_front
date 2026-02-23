@@ -16,7 +16,7 @@ import Select from "../components/arcgrid/ui/Select";
 import Input from "../components/arcgrid/ui/Input";
 
 // Icons
-import { LayoutGrid, Save, FolderOpen, Trash2, ArrowUpDown } from "lucide-react";
+import { LayoutGrid, Save, FolderOpen, Trash2, ArrowUpDown, Info } from "lucide-react";
 import GoogleAd from "../components/GoogleAd";
 
 type Constraints = Record<string, { minPts: number; maxPts: number }>;
@@ -131,20 +131,18 @@ export default function ArcGridPage() {
   }, [state.inventory.order, state.inventory.chaos]);
 
   // --- Sort Helper ---
-  // 화면에 보여줄 때만 정렬하고, 실제 데이터(state) 순서는 유지합니다.
   const getSortedList = (list: Gem[]) => {
     const temp = [...list];
     switch (sortMode) {
       case "newest":
-        return temp.reverse(); // 최신순 (역순)
+        return temp.reverse();
       case "will_desc":
-        return temp.sort((a, b) => (b.baseWill ?? 0) - (a.baseWill ?? 0)); // 의지력 높은순
+        return temp.sort((a, b) => (b.baseWill ?? 0) - (a.baseWill ?? 0));
       case "pts_desc":
-        // 보통 options[1]이 코어 포인트라고 가정
-        return temp.sort((a, b) => ((b.options[1]?.lv ?? 0) - (a.options[1]?.lv ?? 0))); // 포인트 높은순
+        return temp.sort((a, b) => ((b.options[1]?.lv ?? 0) - (a.options[1]?.lv ?? 0)));
       case "default":
       default:
-        return temp; // 등록순 (오래된순)
+        return temp;
     }
   };
 
@@ -445,9 +443,9 @@ export default function ArcGridPage() {
   const isMobile = useMediaQuery("(max-width: 640px)");
 
   return (
-    <div className="space-y-8 py-8 sm:py-12 text-gray-300 w-full">
+    <div className="space-y-8 py-8 sm:py-12 text-gray-300 w-full max-w-7xl mx-auto px-4 sm:px-0">
       {/* 1) Header */}
-      <div className="space-y-2 px-4 sm:px-0">
+      <div className="space-y-2">
         <div className="inline-flex items-center gap-2 text-xs font-medium text-[#5B69FF]">
           <LayoutGrid className="h-4 w-4" />
           <span>아크 그리드 최적화</span>
@@ -460,7 +458,7 @@ export default function ArcGridPage() {
       </div>
 
       {/* 2) Save/Load */}
-      <div className="bg-[#16181D] border border-white/5 rounded-none sm:rounded-2xl p-5 shadow-sm">
+      <div className="bg-[#16181D] border border-white/5 rounded-2xl p-5 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-6 text-xs sm:text-sm text-gray-400">
             <div className="flex items-center gap-2">
@@ -503,7 +501,7 @@ export default function ArcGridPage() {
       </div>
 
       {/* 3) Core Settings */}
-      <div className="bg-[#16181D] border border-white/5 rounded-none sm:rounded-2xl p-6 shadow-sm">
+      <div className="bg-[#16181D] border border-white/5 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-white">1. 코어 설정</h2>
@@ -569,13 +567,12 @@ export default function ArcGridPage() {
       </div>
 
       {/* 4) Inventory */}
-      <div className="bg-[#16181D] border border-white/5 rounded-none sm:rounded-2xl p-6 shadow-sm">
+      <div className="bg-[#16181D] border border-white/5 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             2. 보유 젬 입력
           </h2>
 
-          {/* 정렬 컨트롤 추가 */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <div className="w-full sm:w-48">
               <Select
@@ -618,7 +615,7 @@ export default function ArcGridPage() {
       </div>
 
       {/* 5) Results */}
-      <div className="bg-[#16181D] border border-white/5 rounded-none sm:rounded-2xl p-6 shadow-sm">
+      <div className="bg-[#16181D] border border-white/5 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             3. 결과 확인
@@ -770,6 +767,43 @@ export default function ArcGridPage() {
         )}
       </div>
 
+      {/* 🔥 가이드 & 설명글 영역 (애드센스 SEO 강화) */}
+      <section className="rounded-2xl bg-gradient-to-b from-[#16181D] to-[#121318] border border-white/5 p-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <Info className="w-5 h-5 text-indigo-400" />
+          <h3 className="text-base font-bold text-gray-200">아크 그리드 최적화 가이드</h3>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6 text-sm text-gray-400 leading-relaxed break-keep">
+          <div className="space-y-4">
+            <p>
+              <strong className="text-gray-300">아크 그리드 시스템</strong>은 로스트아크의 핵심 스펙업 콘텐츠입니다. 한정된 젬과 코어 포인트를 어떻게 분배하느냐에 따라 캐릭터의 성능이 크게 달라집니다.
+            </p>
+            <p>
+              이 최적화 도구는 유저가 보유한 젬(질서/혼돈)의 의지력 효율과 옵션을 바탕으로, <strong className="text-indigo-400">수만 가지의 조합 중 가장 이상적인 코어 포인트와 스탯 조합</strong>을 계산해냅니다.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-gray-300 font-semibold mb-2">💡 활용 팁</h4>
+            <ul className="space-y-2">
+              <li className="flex items-start gap-2">
+                <span className="text-[#5B69FF] mt-0.5">•</span>
+                <span><strong>포인트 우선:</strong> 코어 활성화에 필요한 최소 포인트를 맞추는 데 집중합니다.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#5B69FF] mt-0.5">•</span>
+                <span><strong>스탯 상위 (최대P):</strong> 도달 가능한 최대 포인트를 유지하면서 전투 스탯(공격력/서포팅)이 가장 높은 조합을 찾습니다.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#5B69FF] mt-0.5">•</span>
+                <span><strong>스탯 우선:</strong> 포인트보다 실질적인 스탯 효율을 최우선으로 계산해줍니다.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       {/* 기존 하단 액션바 유지 */}
       <ActionBar coreCount={selectedCoreCount} invCount={invCount} onRun={runPoints} />
 
@@ -783,8 +817,6 @@ export default function ArcGridPage() {
           }}
         />
       )}
-
-
 
       {toast && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-2">
