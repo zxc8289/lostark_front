@@ -10,16 +10,16 @@ import { Lock, Swords } from "lucide-react";
 // 🎨 난이도별 색상 스타일 정의
 const DIFF_STYLES = {
     하드: {
-        check: "bg-[#FF5252] text-white border-[#FF5252] shadow-[0_0_12px_rgba(255,82,82,0.55)]",
+        check: "bg-[#FF5252] text-white border-[#FF5252]",
         // idle 상태는 아래에서 공통으로 처리하므로 hover만 정의해도 됨 (필요시 사용)
         hover: "hover:text-[#FF5252] hover:bg-[#FF5252]/10 hover:border-[#FF5252]/30",
     },
     노말: {
-        check: "bg-[#5B69FF] text-white border-[#5B69FF] shadow-[0_0_12px_rgba(91,105,255,0.55)]",
+        check: "bg-[#5B69FF] text-white border-[#5B69FF]",
         hover: "hover:text-[#5B69FF] hover:bg-[#5B69FF]/10 hover:border-[#5B69FF]/30",
     },
     나메: {
-        check: "bg-[#6D28D9] text-white border-[#6D28D9] shadow-[0_0_12px_rgba(109,40,217,0.55)]",
+        check: "bg-[#6D28D9] text-white border-[#6D28D9]",
         hover: "hover:text-[#6D28D9] hover:bg-[#6D28D9]/10 hover:border-[#6D28D9]/30",
     },
 } as const;
@@ -35,7 +35,7 @@ type Props = {
 function makeDefaultPref(
     info: (typeof raidInformation)[string],
     ilvl: number
-): { enabled: boolean; difficulty: DifficultyKey; gates: number[] } {
+): { enabled: boolean; difficulty: DifficultyKey; gates: number[], isBonus: boolean } {
     const nightmare = info.difficulty["나메"];
     const hard = info.difficulty["하드"];
     const normal = info.difficulty["노말"];
@@ -48,7 +48,8 @@ function makeDefaultPref(
 
     const enabled = false;
     const gates: number[] = [];
-    return { enabled, difficulty: picked, gates };
+
+    return { enabled, difficulty: picked, gates, isBonus: false };
 }
 
 export default function EditTasksModal({ open, onClose, character, initial, onSave }: Props) {
@@ -253,20 +254,46 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                         return (
                                             <div
                                                 key={raidName}
-                                                className={`
-                                                    group relative rounded-xl border p-4 transition-all duration-200
-                                                    ${pref.enabled
-                                                        ? "bg-[#1E222B] border-white/10 shadow-lg shadow-black/20"
-                                                        : "bg-[#16181D] border-white/5 opacity-80 grayscale-[0.3]"
-                                                    }
-                                                `}
+                                                className={`group relative rounded-xl border p-4 transition-all duration-200 ${pref.enabled
+                                                    ? "bg-[#1E222B] border-white/10 shadow-lg shadow-black/20"
+                                                    : "bg-[#16181D] border-white/5 opacity-80 grayscale-[0.3]"
+                                                    }`}
                                             >
                                                 <div className="flex items-center justify-between mb-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className={`w-1 h-8 rounded-full ${pref.enabled ? "bg-[#5B69FF]" : "bg-gray-700"}`} />
                                                         <div>
-                                                            <div className={`font-bold ${pref.enabled ? "text-white" : "text-gray-400"}`}>
-                                                                {raidName}
+                                                            {/* 🔥 레이드 이름 & 더보기 버튼 영역 (디자인 개선) */}
+                                                            <div className={`font-bold flex items-center gap-2.5 ${pref.enabled ? "text-white" : "text-gray-400"}`}>
+                                                                <span className="text-[14px] sm:text-[15px]">{raidName}</span>
+                                                                {pref.enabled && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setState((s) => ({
+                                                                                ...s,
+                                                                                raids: {
+                                                                                    ...s.raids,
+                                                                                    [raidName]: { ...pref, isBonus: !pref.isBonus },
+                                                                                },
+                                                                            }));
+                                                                        }}
+                                                                        className={`
+                                                                                flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-all duration-200 border
+                                                                                ${pref.isBonus
+                                                                                ? "bg-[#5B69FF]/10 text-[#8eaaff] border-[#5B69FF]/30"
+                                                                                : "bg-[#121418] text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300 hover:border-white/10"
+                                                                            }
+                                                                            `}
+                                                                    >
+                                                                        {/* 상태 표시 LED 점 */}
+                                                                        <div className={`w-1.5 h-1.5 rounded-full transition-colors ${pref.isBonus
+                                                                            ? "bg-[#5B69FF] shadow-[0_0_4px_rgba(91,105,255,0.8)]"
+                                                                            : "bg-gray-600"
+                                                                            }`} />
+                                                                        더보기
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                             <div className="text-xs text-gray-500">
                                                                 {curText}
@@ -371,7 +398,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
 
                     <button
                         onClick={() => onSave(state)}
-                        className="w-full sm:w-auto px-6 h-10 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-white text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center"
+                        className="w-full sm:w-auto px-6 h-10 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-white text-sm font-bold transition-all active:scale-95 flex items-center justify-center"
                     >
                         설정 완료 ({enabledCount})
                     </button>

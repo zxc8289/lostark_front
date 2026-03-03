@@ -139,9 +139,9 @@ export type RaidSummary = {
 
 /**
  * 하나의 roster + prefsByChar 에 대한
- *  - 남은 숙제 수
- *  - 숙제 남은 캐릭 수
- *  - 남은 골드 / 전체 골드
+ * - 남은 숙제 수
+ * - 숙제 남은 캐릭 수
+ * - 남은 골드 / 전체 골드
  * 공통 계산 로직
  */
 export function computeRaidSummaryForRoster(
@@ -170,17 +170,22 @@ export function computeRaidSummaryForRoster(
             if (!diffInfo || !gatesDef.length) continue;
 
             const gates = p.gates ?? [];
+            const isBonus = p.isBonus ?? false; // 🔥 더보기 상태 확인
 
-            // 이 레이드의 "전체 골드"
-            const totalGoldForRaid = gatesDef.reduce(
-                (sum, g) => sum + (g.gold ?? 0),
-                0
-            );
+            // 🔥 이 레이드의 "전체 골드" (더보기 ON이면 차감)
+            const totalGoldForRaid = gatesDef.reduce((sum, g) => {
+                const baseGold = g.gold ?? 0;
+                const cost = isBonus ? (g.bonusCost ?? 0) : 0;
+                return sum + Math.max(0, baseGold - cost); // 마이너스 방지
+            }, 0);
 
-            // 이 레이드에서 이미 체크된 관문 골드
+            // 🔥 이 레이드에서 이미 체크된 관문 골드 (더보기 ON이면 차감)
             const selectedGoldForRaid = gates.reduce((sum, gi) => {
                 const g = gatesDef.find((x) => x.index === gi);
-                return sum + (g?.gold ?? 0);
+                if (!g) return sum;
+                const baseGold = g.gold ?? 0;
+                const cost = isBonus ? (g.bonusCost ?? 0) : 0;
+                return sum + Math.max(0, baseGold - cost); // 마이너스 방지
             }, 0);
 
             // 남은 골드 = 전체 - 체크된
@@ -299,6 +304,7 @@ export function autoSelectTop3Raids(
             ...pref,
             enabled: false,
             gates: [],
+            isBonus: false,
         };
     }
 

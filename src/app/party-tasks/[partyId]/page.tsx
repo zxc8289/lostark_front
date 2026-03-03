@@ -257,9 +257,11 @@ function buildTasksForCharacter(
 
         const totalGold = (p.gates ?? []).reduce((sum, gi) => {
             const g = diff.gates.find((x) => x.index === gi);
-            return sum + (g?.gold ?? 0);
+            if (!g) return sum;
+            const gold = g.gold ?? 0;
+            const cost = p.isBonus ? (g.bonusCost ?? 0) : 0;
+            return sum + Math.max(0, gold - cost);
         }, 0);
-
         const right = (
             <span className="text-xs px-2 py-1 rounded bg-yellow-500/10 text-yellow-300 border border-yellow-300/20">
                 {totalGold.toLocaleString()}g
@@ -325,6 +327,7 @@ export default function PartyDetailPage() {
     const [tasksLoading, setTasksLoading] = useState(false);
     const [tasksErr, setTasksErr] = useState<string | null>(null);
     const [refreshErr, setRefreshErr] = useState<string | null>(null);
+    const [autoSetupConfirmOpen, setAutoSetupConfirmOpen] = useState(false);
 
     const [onlyRemain, setOnlyRemain] = useState(false);
     const [isCardView, setIsCardView] = useState(false);
@@ -935,11 +938,11 @@ export default function PartyDetailPage() {
             console.error("대상 파티원을 찾을 수 없습니다.");
             return;
         }
-
+        const currentActiveNick = (target.summary?.name ?? "").trim();
         const originalNick = (target.nickname ?? "").trim();
         const rosterNames = target.summary?.roster?.map((c) => c.name) ?? [];
 
-        const searchCandidates = Array.from(new Set([originalNick, ...rosterNames])).filter(Boolean);
+        const searchCandidates = Array.from(new Set([currentActiveNick, originalNick, ...rosterNames])).filter(Boolean);
 
         if (searchCandidates.length === 0) {
             setRefreshErr("검색할 닉네임 정보가 없습니다.");
@@ -2997,6 +3000,7 @@ function PartyMemberActions({
     const menuRef = useRef<HTMLDivElement>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showAutoSetupSettings, setShowAutoSetupSettings] = useState(false);
+    const [autoSetupConfirmOpen, setAutoSetupConfirmOpen] = useState(false);
     const [autoSetupCharCount, setAutoSetupCharCount] = useState<number>(() => {
         if (typeof window === "undefined") return 6;
         try {
@@ -3063,8 +3067,9 @@ function PartyMemberActions({
                             {/* 자동 세팅 버튼 그룹 */}
                             <div className="relative group">
                                 <button
-                                    onClick={() => {
-                                        onAutoSetup();
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setAutoSetupConfirmOpen(true);
                                         setIsMenuOpen(false);
                                     }}
                                     className="w-full h-14 text-left px-4 hover:bg-white/5 flex items-center gap-3 transition-colors rounded-t-xl"
@@ -3118,7 +3123,7 @@ function PartyMemberActions({
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                onAutoSetup();
+                                                setAutoSetupConfirmOpen(true);
                                                 setShowAutoSetupSettings(false);
                                                 setIsMenuOpen(false);
                                             }}
@@ -3177,6 +3182,42 @@ function PartyMemberActions({
                     <ChevronDown className="h-5 w-5" />
                 )}
             </button>
+            {autoSetupConfirmOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 animate-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-500">
+                                <AlertTriangle className="h-7 w-7" />
+                            </div>
+                            <h3 className="text-lg font-bold text-white mb-2">자동 세팅을 진행하시겠습니까?</h3>
+                            <p className="text-sm text-gray-400 leading-relaxed mb-6">
+                                진행 시 기존에 직접 설정해둔 레이드 세팅이
+                                <br />
+                                모두 <strong className="text-white">초기화</strong>되고 새로 덮어씌워집니다.
+                                <br />
+                                <span className="text-yellow-500/80 text-xs mt-1 block">(정말 진행하시겠습니까?)</span>
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setAutoSetupConfirmOpen(false)}
+                                    className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium transition-colors text-sm"
+                                >
+                                    취소
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        onAutoSetup(); // 진짜 실행은 여기서!
+                                        setAutoSetupConfirmOpen(false);
+                                    }}
+                                    className="flex-1 py-3 rounded-xl bg-[#5B69FF] hover:bg-[#4A57E6] text-white font-bold transition-colors text-sm"
+                                >
+                                    적용하기
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
