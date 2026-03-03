@@ -324,12 +324,13 @@ export type AutoSetupResult = {
 };
 
 /**
- * 아이템 레벨 상위 6캐릭 + 각 캐릭터 Top3 레이드 자동 세팅
+ * 아이템 레벨 상위 N캐릭 + 각 캐릭터 Top3 레이드 자동 세팅
  * - 공통으로 MyTasks / Party 페이지 양쪽에서 사용
  */
 export function buildAutoSetupForRoster(
     roster: RosterCharacter[],
-    prevPrefsByChar: Record<string, CharacterTaskPrefs>
+    prevPrefsByChar: Record<string, CharacterTaskPrefs>,
+    charCount: number = 6 // 🔥 매개변수 추가 (기본값 6)
 ): AutoSetupResult {
     if (!roster.length) {
         return {
@@ -338,25 +339,25 @@ export function buildAutoSetupForRoster(
         };
     }
 
-    // 1) 아이템 레벨 기준 상위 6캐릭
+    // 1) 아이템 레벨 기준 상위 N캐릭 (기존 6캐릭 하드코딩에서 charCount로 변경)
     const sorted = [...roster].sort(
         (a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)
     );
-    const top6 = sorted.slice(0, 6);
-    const top6Names = new Set(top6.map((c) => c.name));
+    const targetCharacters = sorted.slice(0, Math.max(0, charCount)); // 🔥 charCount 만큼만 자르기
+    const targetNames = new Set(targetCharacters.map((c) => c.name));
 
-    // 2) visibleByChar: 상위 6만 true
+    // 2) visibleByChar: 설정한 개수만큼만 true
     const nextVisibleByChar: Record<string, boolean> = {};
     for (const c of roster) {
-        nextVisibleByChar[c.name] = top6Names.has(c.name);
+        nextVisibleByChar[c.name] = targetNames.has(c.name);
     }
 
-    // 3) 각 상위 6캐릭에 대해 Top3 레이드 자동 세팅
+    // 3) 각 설정된 캐릭터에 대해 Top3 레이드 자동 세팅
     const nextPrefsByChar: Record<string, CharacterTaskPrefs> = {
         ...prevPrefsByChar,
     };
 
-    for (const c of top6) {
+    for (const c of targetCharacters) { // 🔥 top6 대신 targetCharacters 순회
         const ilvlNum = c.itemLevelNum ?? 0;
         const prevPrefs = nextPrefsByChar[c.name] ?? { raids: {} };
         nextPrefsByChar[c.name] = autoSelectTop3Raids(ilvlNum, prevPrefs);

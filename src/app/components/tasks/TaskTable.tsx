@@ -6,7 +6,12 @@ import type { CSSProperties } from "react";
 import { raidInformation } from "@/server/data/raids";
 import { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
 import { RosterCharacter } from "../AddAccount";
-import { ChevronLeft, ChevronRight, SquarePen } from "lucide-react";
+import {
+    ChevronLeft,
+    ChevronRight,
+    SquarePen,
+    GripVertical,
+} from "lucide-react";
 import { getRaidColumnSortKeyForRoster } from "@/app/lib/tasks/raid-utils";
 import {
     DndContext,
@@ -16,19 +21,29 @@ import {
     useSensor,
     useSensors,
     DragOverlay,
+    closestCenter,
 } from "@dnd-kit/core";
 import {
     SortableContext,
     horizontalListSortingStrategy,
+    verticalListSortingStrategy,
     useSortable,
+    arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 type Props = {
     roster: RosterCharacter[];
     prefsByChar: Record<string, CharacterTaskPrefs>;
+
+    // ✅ 레이드(컬럼) 순서
     tableOrder?: string[];
     onReorderTable?: (newOrder: string[]) => void;
+
+    // ✅ 캐릭터(행) 순서 (옵션: 부모에서 저장/복원하려면 사용)
+    rosterOrder?: string[];
+    onReorderRoster?: (newOrder: string[]) => void;
+
     onToggleGate: (
         charName: string,
         raidName: string,
@@ -37,6 +52,7 @@ type Props = {
         allGates: number[]
     ) => void;
     onEdit: (character: RosterCharacter) => void;
+    isDragEnabled?: boolean; // 드래그 활성화 여부
 };
 
 const GATE_BTN_BASE =
@@ -44,20 +60,17 @@ const GATE_BTN_BASE =
 
 const DIFF_STYLES = {
     하드: {
-        check:
-            "bg-[#FF5252] text-white border-[#FF5252]",
+        check: "bg-[#FF5252] text-white border-[#FF5252]",
         idle: "bg-[#FF5252]/8 text-[#FFB3B3]/80 border-[#FF5252]/40",
         hover: "hover:bg-[#FF5252] hover:text-white",
     },
     노말: {
-        check:
-            "bg-[#5B69FF] text-white border-[#5B69FF]",
+        check: "bg-[#5B69FF] text-white border-[#5B69FF]",
         idle: "bg-[#5B69FF]/8 text-[#C0C6FF]/85 border-[#5B69FF]/40",
         hover: "hover:bg-[#5B69FF] hover:text-white",
     },
     나메: {
-        check:
-            "bg-[#6D28D9] text-white border-[#6D28D9]",
+        check: "bg-[#6D28D9] text-white border-[#6D28D9]",
         idle: "bg-[#6D28D9]/8 text-[#D6BCFA]/85 border-[#6D28D9]/75",
         hover: "hover:bg-[#6D28D9] hover:text-white",
     },
@@ -71,6 +84,9 @@ const RAID_COL_CLASS = "px-2 py-3 sm:py-4 whitespace-nowrap text-center";
 const EDGE_THRESHOLD_PX = 64;
 // ✅ 연속 flip 방지 (ms)
 const EDGE_FLIP_COOLDOWN_MS = 380;
+
+// ✅ row id prefix (컬럼 id와 충돌 방지)
+const CHAR_ID_PREFIX = "char:";
 
 function formatHeaderTitle(kind: string, name: string) {
     if (!name) return "";
@@ -96,36 +112,41 @@ function SortableHeader({
     id,
     displayName,
     isBlank,
+    isDragEnabled, // 🔥 추가
 }: {
     id: string;
     displayName: string;
     isBlank?: boolean;
+    isDragEnabled: boolean; // 🔥 추가
 }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-        useSortable({ id });
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id });
+
+    // 🔥 isDragEnabled가 false면 드래그 이벤트 차단
+    const dragListeners = isDragEnabled && !isBlank ? listeners : {};
+    const dragAttributes = isDragEnabled && !isBlank ? attributes : {};
 
     const style: CSSProperties = {
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.6 : 1, // 원래 자리가 너무 투명해지지 않게 조정
-        cursor: isBlank ? "default" : (isDragging ? "grabbing" : "grab"),
+        opacity: isDragging ? 0.6 : 1,
+        cursor: isBlank ? "default" : (isDragEnabled ? (isDragging ? "grabbing" : "grab") : "default"),
     };
 
     return (
         <th
             ref={setNodeRef}
             style={style}
-            {...(isBlank ? {} : attributes)}
-            {...(isBlank ? {} : listeners)}
-            // relative를 추가하여 내부 absolute 요소의 기준점이 되도록 설정
-            className={`${RAID_COL_CLASS} relative touch-none ${isBlank ? "border-dashed border-white/5" : ""
-                }`}
+            {...dragAttributes}
+            {...dragListeners}
+            className={`${RAID_COL_CLASS} relative touch-none ${isBlank ? "border-dashed border-white/5" : ""}`}
         >
-            {/* 잡았을 때 원래 자리에 생기는 UI
-              - border-[2px]: 테두리 굵기 (필요시 border-[3px] 등으로 변경)
-              - rounded-md: 라운디드 적용 (필요시 rounded-lg 등으로 변경)
-              - inset-[2px]: 셀보다 2px 작게 만들어 테두리가 테이블 밖으로 튀어나가지 않게 함
-            */}
             {isDragging && (
                 <div className="absolute inset-[2px] border-[2px] border-solid border-[#5B69FF] bg-[#5B69FF]/10 rounded-md pointer-events-none" />
             )}
@@ -139,11 +160,9 @@ function SortableHeader({
 
 function getClientPoint(e: any): { x: number; y: number } | null {
     if (!e) return null;
-    // PointerEvent / MouseEvent
     if (typeof e.clientX === "number" && typeof e.clientY === "number") {
         return { x: e.clientX, y: e.clientY };
     }
-    // TouchEvent
     const t = e.touches?.[0] ?? e.changedTouches?.[0];
     if (t && typeof t.clientX === "number" && typeof t.clientY === "number") {
         return { x: t.clientX, y: t.clientY };
@@ -151,13 +170,221 @@ function getClientPoint(e: any): { x: number; y: number } | null {
     return null;
 }
 
+function SortableCharacterRow({
+    char,
+    prefs,
+    visibleRaidColumns,
+    maxVisible,
+    onEdit,
+    onToggleGate,
+    isDragEnabled, // 🔥 추가
+}: {
+    char: RosterCharacter;
+    prefs: CharacterTaskPrefs | undefined;
+    visibleRaidColumns: string[];
+    maxVisible: number;
+    onEdit: (character: RosterCharacter) => void;
+    onToggleGate: Props["onToggleGate"];
+    isDragEnabled: boolean; // 🔥 추가
+}) {
+    const rowId = `${CHAR_ID_PREFIX}${char.name}`;
+    const sortable = useSortable({ id: rowId });
+
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+        isOver, // 🔥 현재 내가 드래그 오버(덮어써진)된 상태인지 확인
+    } = sortable;
+
+    // 🔥 스왑(Swap) UI: 드래그 중인 아이템이 내 위에 올라오면 하이라이트 표시
+    const overStyle = isOver && !isDragging ? "bg-white/10 ring-2 ring-inset ring-[#5B69FF]" : "";
+
+    const style: CSSProperties = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.35 : 1,
+    };
+
+    const hasAnyRaid =
+        !!prefs && Object.values(prefs.raids ?? {}).some((r) => r?.enabled);
+
+    const dragListeners = isDragEnabled ? listeners : {};
+    const dragAttributes = isDragEnabled ? attributes : {};
+
+    return (
+        <tr
+            ref={setNodeRef}
+            style={style}
+            className={`hover:bg-white/[0.02] transition-colors group ${overStyle}`}
+        >
+            <td
+                // 수정된 조건부 드래그 변수 적용
+                {...dragAttributes}
+                {...dragListeners}
+                className={`px-3 sm:px-0 py-2 sm:py-3 text-center align-middle sticky left-0 z-10 border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] bg-[#111217] group-hover:bg-[#16181D] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}
+            >
+                {/* 🚨 중요: 안쪽 버튼(캐릭터 설정 펜 버튼) 클릭 시 드래그가 시작되지 않도록
+                  stopPropagation 및 pointer-events-auto 처리 
+                */}
+                <div className="flex flex-col items-center justify-center h-full pointer-events-none">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                        <span
+                            className="block max-w-[80px] sm:max-w-[110px] truncate text-white font-medium text-[10px] sm:text-sm"
+                            title={char.name}
+                        >
+                            {char.name}
+                        </span>
+
+                        <button
+                            onPointerDown={(e) => e.stopPropagation()} // 드래그 방지
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(char);
+                            }}
+                            className="text-gray-600 hover:text-white transition-colors p-0.5 rounded hover:bg-white/10 pointer-events-auto cursor-pointer"
+                            title="캐릭터 설정"
+                        >
+                            <SquarePen
+                                size={12}
+                                className="sm:w-[13px] sm:h-[13px]"
+                                strokeWidth={2}
+                            />
+                        </button>
+                    </div>
+
+                    <div className="text-[9px] sm:text-[11px] text-gray-500 flex gap-1.5 mt-0.5 justify-center pointer-events-none">
+                        <span>{char.className}</span>
+                        <span className="text-[#5B69FF]">{char.itemLevel}</span>
+                    </div>
+                </div>
+            </td>
+
+            {/* 레이드 관문 부분 유지 */}
+            {hasAnyRaid ? (
+                <>
+                    {visibleRaidColumns.map((raidId) => {
+                        if (raidId.startsWith("__empty_")) {
+                            return (
+                                <td
+                                    key={raidId}
+                                    className={`${RAID_COL_CLASS} `}
+                                />
+                            );
+                        }
+
+                        const p = prefs?.raids?.[raidId];
+                        const info = raidInformation[raidId];
+                        const diffInfo =
+                            info && p
+                                ? (info.difficulty as any)[p.difficulty]
+                                : undefined;
+
+                        if (!p?.enabled || !info || !diffInfo) {
+                            return (
+                                <td
+                                    key={raidId}
+                                    className={RAID_COL_CLASS}
+                                />
+                            );
+                        }
+
+                        const checkedSet = new Set(p.gates ?? []);
+                        const allGates: number[] = diffInfo.gates.map(
+                            (g: any) => g.index
+                        );
+
+                        const diffStyle =
+                            DIFF_STYLES[
+                            p.difficulty as keyof typeof DIFF_STYLES
+                            ] ?? DIFF_STYLES["노말"];
+
+                        return (
+                            <td
+                                key={raidId}
+                                className={`${RAID_COL_CLASS} align-middle`}
+                            >
+                                <div className="flex items-center justify-center gap-[4px] sm:gap-[5px]">
+                                    {allGates.map((g: number) => {
+                                        const isChecked = checkedSet.has(g);
+                                        return (
+                                            <button
+                                                key={g}
+                                                type="button"
+                                                title={`관문 ${g}`}
+                                                aria-pressed={isChecked}
+                                                onClick={() =>
+                                                    onToggleGate(
+                                                        char.name,
+                                                        raidId,
+                                                        g,
+                                                        Array.from(checkedSet),
+                                                        allGates
+                                                    )
+                                                }
+                                                className={[
+                                                    GATE_BTN_BASE,
+                                                    "hover:scale-[1.1]",
+                                                    isChecked
+                                                        ? `${diffStyle.check} border-transparent`
+                                                        : [
+                                                            diffStyle.idle,
+                                                            "hover:border-white/30",
+                                                            diffStyle.hover,
+                                                        ].join(" "),
+                                                ].join(" ")}
+                                            >
+                                                {isChecked ? (
+                                                    <svg
+                                                        viewBox="0 0 20 20"
+                                                        className="h-3 w-3 sm:h-4 sm:w-4"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth={2}
+                                                    >
+                                                        <path
+                                                            d="M5 10l3 3 7-7"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                        />
+                                                    </svg>
+                                                ) : (
+                                                    g
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </td>
+                        );
+                    })}
+                </>
+            ) : (
+                <td colSpan={maxVisible} className="px-3 py-3 sm:py-4 align-middle">
+                    <div className="px-3 py-2 text-[10px] sm:text-[11px] md:text-sm text-gray-500 text-center">
+                        <span className="text-[#FFFFFF]/70">{char.name}</span>
+                        <SquarePen className="inline-block align-middle w-3 h-3 sm:w-4 sm:h-4 mx-1 text-[#FFFFFF]/70" />
+                        <span>에서 캐릭터의 레이드 숙제를 설정하고 관리해 보세요.</span>
+                    </div>
+                </td>
+            )}
+        </tr>
+    );
+}
+
 export default function TaskTable({
     roster,
     prefsByChar,
     tableOrder,
     onReorderTable,
+    rosterOrder,
+    onReorderRoster,
     onToggleGate,
     onEdit,
+    isDragEnabled = false,
 }: Props) {
     const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -165,26 +392,92 @@ export default function TaskTable({
     const [startIndex, setStartIndex] = useState(0);
     const [localOrder, setLocalOrder] = useState<string[]>([]);
 
-    const [isDragging, setIsDragging] = useState(false);
+    // ✅ 캐릭터 로컬 순서 (부모에서 rosterOrder를 안 주는 경우만 사용)
+    const [localRosterOrder, setLocalRosterOrder] = useState<string[]>([]);
+
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [dragKind, setDragKind] = useState<"raid" | "char" | null>(null);
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-        useSensor(TouchSensor, {
-            activationConstraint: {
-                delay: 250, // 0.25초 동안 누르고 있어야 드래그 시작 (스크롤 오작동 방지)
-                tolerance: 5, // 누르고 있는 동안 5px 이상 움직이면 드래그 취소
-            },
-        })
-    );
+    // ⭕ TO-BE (수정된 코드)
+    const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 5 } });
+    const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } });
 
+    // 조건부 전개 연산자를 빼고 항상 두 센서를 전달합니다.
+    const sensors = useSensors(pointerSensor, touchSensor);
+    // const sensors = useSensors(
+    //     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    //     useSensor(TouchSensor, {
+    //         activationConstraint: {
+    //             delay: 250,
+    //             tolerance: 5,
+    //         },
+    //     })
+    // );
 
     const lastFlipRef = useRef(0);
     const pointerRef = useRef<{ x: number; y: number } | null>(null);
 
-    const sortedRoster = useMemo(
+    // ✅ 기본 캐릭터 정렬(기존 동작 유지): 아이템레벨 내림차순
+    const defaultSortedRoster = useMemo(
         () => [...roster].sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)),
         [roster]
+    );
+
+    // ✅ roster 변경 시(추가/삭제) 로컬 오더 보정
+    useEffect(() => {
+        if (rosterOrder && rosterOrder.length > 0) return; // controlled면 로컬 보정 불필요
+
+        const allNames = new Set(roster.map((c) => c.name));
+        const defaultNames = defaultSortedRoster.map((c) => c.name);
+
+        setLocalRosterOrder((prev) => {
+            const base = prev.length > 0 ? prev : defaultNames;
+            const filtered = base.filter((n) => allNames.has(n));
+            const missing = defaultNames.filter((n) => !filtered.includes(n));
+            const next = [...filtered, ...missing];
+
+            if (
+                next.length === prev.length &&
+                next.every((v, i) => v === prev[i])
+            ) {
+                return prev;
+            }
+            return next;
+        });
+    }, [roster, rosterOrder, defaultSortedRoster]);
+
+    const rosterByName = useMemo(() => {
+        const m = new Map<string, RosterCharacter>();
+        for (const c of roster) m.set(c.name, c);
+        return m;
+    }, [roster]);
+
+    // ✅ 실제 렌더/드래그에 사용할 캐릭터 순서
+    const rosterOrderToUse = useMemo(() => {
+        const allNames = new Set(roster.map((c) => c.name));
+        const defaultNames = defaultSortedRoster.map((c) => c.name);
+
+        const base =
+            rosterOrder && rosterOrder.length > 0
+                ? rosterOrder
+                : localRosterOrder.length > 0
+                    ? localRosterOrder
+                    : defaultNames;
+
+        const filtered = base.filter((n) => allNames.has(n));
+        const missing = defaultNames.filter((n) => !filtered.includes(n));
+        return [...filtered, ...missing];
+    }, [roster, rosterOrder, localRosterOrder, defaultSortedRoster]);
+
+    const orderedRoster = useMemo(() => {
+        return rosterOrderToUse
+            .map((name) => rosterByName.get(name))
+            .filter(Boolean) as RosterCharacter[];
+    }, [rosterOrderToUse, rosterByName]);
+
+    const rowIds = useMemo(
+        () => rosterOrderToUse.map((name) => `${CHAR_ID_PREFIX}${name}`),
+        [rosterOrderToUse]
     );
 
     useEffect(() => {
@@ -206,7 +499,7 @@ export default function TaskTable({
     const displayColumns = useMemo(() => {
         const activeRaidSet = new Set<string>();
 
-        sortedRoster.forEach((char) => {
+        orderedRoster.forEach((char) => {
             const prefs = prefsByChar[char.name];
             if (!prefs) return;
             Object.keys(prefs.raids).forEach((r) => {
@@ -217,17 +510,15 @@ export default function TaskTable({
         const defaultSortedRaids = Array.from(activeRaidSet).sort((a, b) => {
             const dateA = raidInformation[a]?.releaseDate || "2000-01-01";
             const dateB = raidInformation[b]?.releaseDate || "2000-01-01";
-
-            // 오래된 날짜가 왼쪽(앞)으로 오도록 오름차순 정렬
-            return dateA.localeCompare(dateB);
+            return dateA.localeCompare(dateB); // 오래된 것이 왼쪽
         });
 
-        const currentOrder = tableOrder && tableOrder.length > 0 ? tableOrder : localOrder;
+        const currentOrder =
+            tableOrder && tableOrder.length > 0 ? tableOrder : localOrder;
 
         let cols: string[] = [];
 
         if (currentOrder.length > 0) {
-            // 저장된 순서가 있을 때: 사용중인 레이드 + 빈공간 유지
             cols = [...currentOrder].filter((id) => {
                 if (id.startsWith("__empty_")) return true;
 
@@ -238,10 +529,11 @@ export default function TaskTable({
                 return false;
             });
 
-            // 새로 켜진 레이드가 있다면 빈공간에 채우거나 맨 뒤에 추가
             defaultSortedRaids.forEach((raidId) => {
                 if (activeRaidSet.has(raidId)) {
-                    const emptyIdx = cols.findIndex((id) => id.startsWith("__empty_"));
+                    const emptyIdx = cols.findIndex((id) =>
+                        id.startsWith("__empty_")
+                    );
                     if (emptyIdx !== -1) cols[emptyIdx] = raidId;
                     else cols.push(raidId);
                 }
@@ -250,7 +542,6 @@ export default function TaskTable({
             cols = [...defaultSortedRaids];
         }
 
-        // maxVisible 배수 맞추기
         const remainder = cols.length % maxVisible;
         if (cols.length === 0 || remainder !== 0) {
             const needed = cols.length === 0 ? maxVisible : maxVisible - remainder;
@@ -259,9 +550,8 @@ export default function TaskTable({
         }
 
         return cols;
-    }, [sortedRoster, prefsByChar, tableOrder, localOrder, maxVisible]);
+    }, [orderedRoster, prefsByChar, tableOrder, localOrder, maxVisible]);
 
-    // startIndex가 displayColumns 길이 변화로 튀는거 방지
     useEffect(() => {
         if (startIndex >= displayColumns.length) setStartIndex(0);
     }, [displayColumns.length, startIndex]);
@@ -274,9 +564,9 @@ export default function TaskTable({
     const canScrollLeft = startIndex > 0;
     const canScrollRight = startIndex + maxVisible < displayColumns.length;
 
-    // ✅ 드래그 중 포인터 좌표 추적 (버튼 droppable 필요 없음)
+    // ✅ “레이드 컬럼 드래그” 중에만 포인터 추적 + edge flip 동작
     useEffect(() => {
-        if (!isDragging) return;
+        if (dragKind !== "raid") return;
 
         const onMove = (e: PointerEvent) => {
             pointerRef.current = { x: e.clientX, y: e.clientY };
@@ -288,11 +578,10 @@ export default function TaskTable({
             window.removeEventListener("pointermove", onMove);
             pointerRef.current = null;
         };
-    }, [isDragging]);
+    }, [dragKind]);
 
-    // ✅ 드래그 중 “좌/우 가장자리”에 들어오면 자동 페이지 flip
     useEffect(() => {
-        if (!isDragging) return;
+        if (dragKind !== "raid") return;
 
         const tick = () => {
             const p = pointerRef.current;
@@ -300,7 +589,6 @@ export default function TaskTable({
             if (!p || !el) return;
 
             const rect = el.getBoundingClientRect();
-            // 컴포넌트 위에 있을 때만 동작 (원하면 이 조건 제거 가능)
             if (p.y < rect.top || p.y > rect.bottom) return;
 
             const now = Date.now();
@@ -310,7 +598,6 @@ export default function TaskTable({
             const rightDist = rect.right - p.x;
 
             if (leftDist <= EDGE_THRESHOLD_PX) {
-                // prev
                 setStartIndex((v) => {
                     const next = v > 0 ? Math.max(0, v - maxVisible) : v;
                     if (next !== v) lastFlipRef.current = now;
@@ -320,7 +607,6 @@ export default function TaskTable({
             }
 
             if (rightDist <= EDGE_THRESHOLD_PX) {
-                // next
                 setStartIndex((v) => {
                     const next =
                         v + maxVisible < displayColumns.length ? v + maxVisible : v;
@@ -330,22 +616,54 @@ export default function TaskTable({
             }
         };
 
-        // 바로 1번 실행 + 주기 실행
         tick();
         const t = window.setInterval(tick, 120);
         return () => window.clearInterval(t);
-    }, [isDragging, maxVisible, displayColumns.length]);
+    }, [dragKind, maxVisible, displayColumns.length]);
 
     const handleDragEnd = (event: DragEndEvent) => {
-        setIsDragging(false);
+        const { active, over } = event;
+
+        setDragKind(null);
         setActiveId(null);
 
-        const { active, over } = event;
         if (!over) return;
 
         const activeKey = String(active.id);
         const overKey = String(over.id);
         if (activeKey === overKey) return;
+
+        const isCharDrag =
+            activeKey.startsWith(CHAR_ID_PREFIX) &&
+            overKey.startsWith(CHAR_ID_PREFIX);
+
+        // ✅ 캐릭터(행) 정렬
+        if (isCharDrag) {
+            const activeName = activeKey.slice(CHAR_ID_PREFIX.length);
+            const overName = overKey.slice(CHAR_ID_PREFIX.length);
+
+            const oldIndex = rosterOrderToUse.indexOf(activeName);
+            const newIndex = rosterOrderToUse.indexOf(overName);
+            if (oldIndex === -1 || newIndex === -1) return;
+
+            const newOrder = [...rosterOrderToUse];
+            newOrder[oldIndex] = overName;
+            newOrder[newIndex] = activeName;
+
+            // controlled(부모 order 제공)면 로컬 저장은 하지 않고 콜백만 호출
+            if (!(rosterOrder && rosterOrder.length > 0)) {
+                setLocalRosterOrder(newOrder);
+            }
+            onReorderRoster?.(newOrder);
+            return;
+        }
+
+        // ✅ 레이드(컬럼) 정렬 (기존 로직 유지: swap)
+        const isRaidDrag =
+            !activeKey.startsWith(CHAR_ID_PREFIX) &&
+            !overKey.startsWith(CHAR_ID_PREFIX);
+
+        if (!isRaidDrag) return;
 
         const oldIndex = displayColumns.indexOf(activeKey);
         const newIndex = displayColumns.indexOf(overKey);
@@ -361,30 +679,50 @@ export default function TaskTable({
         }
     };
 
-    if (!sortedRoster.length) return null;
-    const first = sortedRoster[0];
+    if (!orderedRoster.length) return null;
+    const first = orderedRoster[0];
+
+    const activeIsRaid =
+        !!activeId &&
+        !activeId.startsWith(CHAR_ID_PREFIX) &&
+        !activeId.startsWith("__empty_");
+    const activeIsChar = !!activeId && activeId.startsWith(CHAR_ID_PREFIX);
+
+    const activeChar = useMemo(() => {
+        if (!activeId || !activeId.startsWith(CHAR_ID_PREFIX)) return null;
+        const name = activeId.slice(CHAR_ID_PREFIX.length);
+        return rosterByName.get(name) ?? null;
+    }, [activeId, rosterByName]);
 
     return (
         <div ref={rootRef} className="bg-[#16181D] rounded-md relative">
             <DndContext
                 sensors={sensors}
+                collisionDetection={closestCenter}
                 onDragStart={(e) => {
-                    setIsDragging(true);
-                    setActiveId(e.active.id as string);
+                    const id = String(e.active.id);
+                    setActiveId(id);
 
-                    // 시작 시 포인터 위치 초기화 (드래그 시작 직후 flip이 더 자연스러움)
+                    if (id.startsWith(CHAR_ID_PREFIX)) {
+                        setDragKind("char");
+                        return;
+                    }
+
+                    setDragKind("raid");
+
+                    // 레이드 드래그 시작 시 포인터 위치 초기화
                     const pt = getClientPoint((e as any).activatorEvent);
                     if (pt) pointerRef.current = pt;
                 }}
                 onDragEnd={handleDragEnd}
                 onDragCancel={() => {
-                    setIsDragging(false);
+                    setDragKind(null);
                     setActiveId(null);
                 }}
             >
                 {/* 헤더 */}
                 <div className="flex items-center px-5 py-[17px]">
-                    <div className="min-w-0 ">
+                    <div className="min-w-0 py-[2px]">
                         <div className="flex items-center gap-2">
                             <span
                                 className="block truncate max-w-[100px] sm:max-w-[300px] font-semibold text-sm sm:text-xl"
@@ -407,7 +745,6 @@ export default function TaskTable({
                                 {displayColumns.length}
                             </span>
 
-                            {/* 버튼은 “클릭용”으로만 유지 */}
                             <button
                                 disabled={!canScrollLeft}
                                 onClick={() => setStartIndex((v) => Math.max(0, v - maxVisible))}
@@ -458,6 +795,7 @@ export default function TaskTable({
                                                     id={raidId}
                                                     displayName={displayName}
                                                     isBlank={isBlank}
+                                                    isDragEnabled={isDragEnabled}
                                                 />
                                             );
                                         })}
@@ -466,164 +804,67 @@ export default function TaskTable({
                             </thead>
 
                             <tbody className="divide-y divide-white/5">
-                                {sortedRoster.map((char) => {
-                                    const prefs = prefsByChar[char.name];
-                                    const hasAnyRaid =
-                                        !!prefs &&
-                                        Object.values(prefs.raids ?? {}).some((r) => r?.enabled);
-
-                                    return (
-                                        <tr
-                                            key={char.name}
-                                            className="hover:bg-white/[0.02] transition-colors group"
-                                        >
-                                            <td
-                                                className={`px-3 sm:px-0 py-2 sm:py-3 text-center align-middle sticky left-0 z-10 border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] bg-[#111217] group-hover:bg-[#16181D] ${CHAR_COL_WIDTH}`}
-                                            >
-                                                <div className="flex flex-col items-center justify-center h-full">
-                                                    <div className="flex items-center gap-1.5 mb-0.5">
-                                                        <span
-                                                            className="block max-w-[80px] sm:max-w-[110px] truncate text-white font-medium text-[10px] sm:text-sm"
-                                                            title={char.name}
-                                                        >
-                                                            {char.name}
-                                                        </span>
-                                                        <button
-                                                            onClick={() => onEdit(char)}
-                                                            className="text-gray-600 hover:text-white transition-colors p-0.5 rounded hover:bg-white/10"
-                                                        >
-                                                            <SquarePen
-                                                                size={12}
-                                                                className="sm:w-[13px] sm:h-[13px]"
-                                                                strokeWidth={2}
-                                                            />
-                                                        </button>
-                                                    </div>
-                                                    <div className="text-[9px] sm:text-[11px] text-gray-500 flex gap-1.5 mt-0.5 justify-center">
-                                                        <span>{char.className}</span>
-                                                        <span className="text-[#5B69FF]">{char.itemLevel}</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-
-                                            {/* ✅ 여기부터가 핵심: 레이드 세팅이 없으면 안내 문구 1칸(colSpan)으로 */}
-                                            {hasAnyRaid ? (
-                                                <>
-                                                    {visibleRaidColumns.map((raidId) => {
-                                                        // 빈 컬럼(패딩)
-                                                        if (raidId.startsWith("__empty_")) {
-                                                            return (
-                                                                <td
-                                                                    key={raidId}
-                                                                    className={`${RAID_COL_CLASS} `}
-                                                                />
-                                                            );
-                                                        }
-
-                                                        const p = prefs?.raids?.[raidId];
-                                                        const info = raidInformation[raidId];
-                                                        const diffInfo =
-                                                            info && p ? (info.difficulty as any)[p.difficulty] : undefined;
-
-                                                        if (!p?.enabled || !info || !diffInfo) {
-                                                            return <td key={raidId} className={RAID_COL_CLASS} />;
-                                                        }
-
-                                                        const checkedSet = new Set(p.gates ?? []);
-                                                        const allGates: number[] = diffInfo.gates.map((g: any) => g.index);
-
-                                                        const diffStyle =
-                                                            DIFF_STYLES[p.difficulty as keyof typeof DIFF_STYLES] ??
-                                                            DIFF_STYLES["노말"];
-
-                                                        return (
-                                                            <td key={raidId} className={`${RAID_COL_CLASS} align-middle`}>
-                                                                <div className="flex items-center justify-center gap-[4px] sm:gap-[5px]">
-                                                                    {allGates.map((g: number) => {
-                                                                        const isChecked = checkedSet.has(g);
-                                                                        return (
-                                                                            <button
-                                                                                key={g}
-                                                                                type="button"
-                                                                                title={`관문 ${g}`}
-                                                                                aria-pressed={isChecked}
-                                                                                onClick={() =>
-                                                                                    onToggleGate(
-                                                                                        char.name,
-                                                                                        raidId,
-                                                                                        g,
-                                                                                        Array.from(checkedSet),
-                                                                                        allGates
-                                                                                    )
-                                                                                }
-                                                                                className={[
-                                                                                    GATE_BTN_BASE,
-                                                                                    "hover:scale-[1.1]",
-                                                                                    isChecked
-                                                                                        ? `${diffStyle.check} border-transparent`
-                                                                                        : [
-                                                                                            diffStyle.idle,
-                                                                                            "hover:border-white/30",
-                                                                                            diffStyle.hover,
-                                                                                        ].join(" "),
-                                                                                ].join(" ")}
-                                                                            >
-                                                                                {isChecked ? (
-                                                                                    <svg
-                                                                                        viewBox="0 0 20 20"
-                                                                                        className="h-3 w-3 sm:h-4 sm:w-4"
-                                                                                        fill="none"
-                                                                                        stroke="currentColor"
-                                                                                        strokeWidth={2}
-                                                                                    >
-                                                                                        <path
-                                                                                            d="M5 10l3 3 7-7"
-                                                                                            strokeLinecap="round"
-                                                                                            strokeLinejoin="round"
-                                                                                        />
-                                                                                    </svg>
-                                                                                ) : (
-                                                                                    g
-                                                                                )}
-                                                                            </button>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </>
-                                            ) : (
-                                                <td colSpan={maxVisible} className="px-3 py-3 sm:py-4 align-middle">
-                                                    <div className="px-3 py-2 text-[10px] sm:text-[11px] md:text-sm text-gray-500 text-center">
-                                                        <span className="text-[#FFFFFF]/70">{char.name}</span>
-                                                        <SquarePen className="inline-block align-middle w-3 h-3 sm:w-4 sm:h-4 mx-1 text-[#FFFFFF]/70" />
-                                                        <span>에서 캐릭터의 레이드 숙제를 설정하고 관리해 보세요.</span>
-                                                    </div>
-                                                </td>
-                                            )}
-                                        </tr>
-                                    );
-                                })}
+                                {/* ✅ 캐릭터(행)도 SortableContext로 감싸기 */}
+                                <SortableContext
+                                    items={rowIds}
+                                    strategy={verticalListSortingStrategy}
+                                >
+                                    {orderedRoster.map((char) => {
+                                        const prefs = prefsByChar[char.name];
+                                        return (
+                                            <SortableCharacterRow
+                                                key={char.name}
+                                                char={char}
+                                                prefs={prefs}
+                                                visibleRaidColumns={visibleRaidColumns}
+                                                maxVisible={maxVisible}
+                                                onEdit={onEdit}
+                                                onToggleGate={onToggleGate}
+                                                isDragEnabled={isDragEnabled}
+                                            />
+                                        );
+                                    })}
+                                </SortableContext>
                             </tbody>
                         </table>
                     </div>
 
                     <DragOverlay>
-                        {activeId && !activeId.startsWith("__empty_") ? (
+                        {/* ✅ 레이드(컬럼) 오버레이 */}
+                        {activeIsRaid ? (
                             <div
                                 className={`
-                ${RAID_COL_CLASS} 
-                flex items-center justify-center 
-                bg-[#1E222B] text-gray-200 uppercase text-[10px] sm:text-xs font-semibold
-                border-[2px] border-solid border-[#5B69FF] shadow-2xl rounded-md cursor-grabbing
-                m-0 box-border
-            `}
+                                    ${RAID_COL_CLASS} 
+                                    flex items-center justify-center 
+                                    bg-[#1E222B] text-gray-200 uppercase text-[10px] sm:text-xs font-semibold
+                                    border-[2px] border-solid border-[#5B69FF] shadow-2xl rounded-md cursor-grabbing
+                                    m-0 box-border
+                                `}
                             >
                                 {(() => {
-                                    const info = raidInformation[activeId];
-                                    return info ? formatHeaderTitle(info.kind, activeId) : activeId;
+                                    const info = raidInformation[activeId as string];
+                                    return info
+                                        ? formatHeaderTitle(info.kind, activeId as string)
+                                        : (activeId as string);
                                 })()}
+                            </div>
+                        ) : null}
+
+                        {/* ✅ 캐릭터(행) 오버레이 */}
+                        {activeIsChar && activeChar ? (
+                            <div className="px-3 py-2 bg-[#1E222B] text-gray-200 border-[2px] border-solid border-[#5B69FF] shadow-2xl rounded-md cursor-grabbing">
+                                <div className="flex items-center gap-2">
+                                    <GripVertical className="w-4 h-4 text-gray-300/80" />
+                                    <span className="font-semibold text-sm">
+                                        {activeChar.name}
+                                    </span>
+                                    <span className="text-gray-400 text-[11px]">
+                                        {activeChar.itemLevel
+                                            ? `Lv. ${activeChar.itemLevel}`
+                                            : "Lv. -"}
+                                        {activeChar.className ? ` / ${activeChar.className}` : ""}
+                                    </span>
+                                </div>
                             </div>
                         ) : null}
                     </DragOverlay>

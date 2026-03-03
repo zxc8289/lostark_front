@@ -21,18 +21,48 @@ import {
 } from "../lib/tasks/raid-utils";
 import AnimatedNumber from "../components/tasks/AnimatedNumber";
 import EmptyCharacterState from "../components/tasks/EmptyCharacterState";
-import { AlertTriangle, Check, ChevronDown, ChevronUp, Plus, RefreshCcw, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronUp, Plus, RefreshCcw, Settings, X } from "lucide-react";
 import GoogleAd from "../components/GoogleAd";
 import TaskSidebar from "../components/tasks/TaskSidebar";
 
 // 🔥 전역 웹소켓 훅
 import { useGlobalWebSocket } from "../components/WebSocketProvider";
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+function SortableCardStripWrapper({ id, character, tasks, onEdit, onReorderTask, isDragEnabled }: any) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    position: isDragging ? ("relative" as const) : ("static" as const),
+    zIndex: isDragging ? 10 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <CharacterTaskStrip
+        character={character}
+        tasks={tasks}
+        onEdit={onEdit}
+        onReorder={onReorderTask}
+        isDragEnabled={isDragEnabled}
+        dragHandleProps={{ ...attributes, ...listeners }} // 이 속성만 드래그 핸들에 전달됨
+      />
+    </div>
+  );
+}
 
 /* ──────────────────────────
  * ✅ 데모(임시) 데이터: 로스터가 없을 때 자동으로 보여줄 프리뷰
  * ────────────────────────── */
 
 const DEMO_ACCOUNT_ID = "__demo__";
+
+
 
 function pickDemoRaidNames(): string[] {
   const preferred = ["발탄", "비아키스", "쿠크세이튼", "아브렐슈드", "카멘", "일리아칸", "아카테스"];
@@ -128,6 +158,7 @@ type SavedFilters = {
   onlyRemain?: boolean;
   isCardView?: boolean;
   selectedRaids?: string[]; // 선택된 레이드 목록
+  isDragEnabled?: boolean;
 };
 
 type SavedAccount = {
@@ -142,6 +173,8 @@ const FILTER_KEY = "raidTaskFilters";
 const LOCAL_KEY = "raidTaskLastAccount";
 const VISIBLE_KEY = "raidTaskVisibleByChar";
 const TABLE_ORDER_KEY = "raidTaskTableOrder";
+const ROSTER_ORDER_KEY = "raidTaskRosterOrder";
+const CARD_ROSTER_ORDER_KEY = "raidTaskCardRosterOrder";
 
 const ACCOUNTS_KEY = "raidTaskAccounts";
 const ACTIVE_ACCOUNT_KEY = "raidTaskActiveAccount";
@@ -178,6 +211,8 @@ function DemoSidebar({
   selectedRaids,
   setSelectedRaids,
   adSlot = "4444902536",
+  isDragEnabled,
+  setIsDragEnabled,
 }: {
   accounts: SavedAccount[];
   activeAccountId: string | null;
@@ -190,6 +225,8 @@ function DemoSidebar({
   selectedRaids: string[];
   setSelectedRaids: (v: string[]) => void;
   adSlot?: string;
+  isDragEnabled: boolean;
+  setIsDragEnabled: (v: boolean) => void;
 }) {
   const [isRaidDropdownOpen, setIsRaidDropdownOpen] = useState(false);
 
@@ -273,11 +310,10 @@ function DemoSidebar({
               </span>
               <span>남은 숙제만 보기</span>
 
-              <span className="w-3 h-3 rounded-full border border-white/20 text-[9px] font-bold flex items-center justify-center text-gray-400 bg-black/20 group-hover:text-white group-hover:border-white/40 transition-colors duration-200 cursor-help">
+              {/* <span className="w-3 h-3 rounded-full border border-white/20 text-[9px] font-bold flex items-center justify-center text-gray-400 bg-black/20 group-hover:text-white group-hover:border-white/40 transition-colors duration-200 cursor-help">
                 ?
               </span>
 
-              {/* 툴팁 */}
               <div className="pointer-events-none absolute left-6 top-full mt-2.5 w-64 p-4 rounded-2xl bg-gray-900/95 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.4)] opacity-0 translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out z-[200]">
                 <div className="flex flex-col gap-2 text-xs leading-relaxed text-left">
                   <p className="text-gray-200">
@@ -290,7 +326,7 @@ function DemoSidebar({
                   <p className="text-gray-400 font-medium">※ 테이블 보기에서는 이 옵션이 적용되지 않습니다.</p>
                 </div>
                 <div className="absolute -top-[5px] left-6 w-2.5 h-2.5 bg-gray-900/95 border-t border-l border-white/[0.08] rotate-45 z-10" />
-              </div>
+              </div> */}
             </label>
           </div>
 
@@ -310,6 +346,24 @@ function DemoSidebar({
                 </svg>
               </span>
               <span>카드로 보기</span>
+            </label>
+          </div>
+          <div className="space-y-3">
+            <div className="font-semibold text-white">자리 이동</div>
+            <label className={`flex items-center gap-2 cursor-pointer ${isCardView ? "opacity-50" : "text-[#A2A3A5]"}`}>
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={isDragEnabled}
+                onChange={(e) => setIsDragEnabled(e.target.checked)}
+                disabled={isCardView} // 카드 뷰에서는 비활성화
+              />
+              <span className={`grid place-items-center h-5 w-5 rounded-md border border-white/30 transition peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF] ${isCardView ? "" : "peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500"} peer-checked:[&_svg]:opacity-100`}>
+                <svg className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100" viewBox="0 0 20 20" fill="none">
+                  <path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <span>드래그로 자리 이동</span>
             </label>
           </div>
 
@@ -395,6 +449,21 @@ export default function MyTasksPage() {
   const [syncedWithServer, setSyncedWithServer] = useState(false);
   const [syncingServer, setSyncingServer] = useState(false);
   const isAuthed = authStatus === "authenticated" && !!session?.user;
+  const [showAutoSetupSettings, setShowAutoSetupSettings] = useState(false);
+  const [isDragEnabled, setIsDragEnabled] = useState<boolean>(() => {
+    const saved = loadSavedFilters();
+    return typeof saved?.isDragEnabled === "boolean" ? saved.isDragEnabled : false;
+  });
+
+  const [autoSetupCharCount, setAutoSetupCharCount] = useState<number>(() => {
+    if (typeof window === "undefined") return 6;
+    try {
+      const saved = localStorage.getItem("raidTaskAutoSetupCount");
+      return saved ? Number(saved) : 6;
+    } catch {
+      return 6;
+    }
+  });
 
   // 🔥 웹소켓
   const wsContext = useGlobalWebSocket();
@@ -423,6 +492,7 @@ export default function MyTasksPage() {
       localStorage.removeItem(LOCAL_KEY);
       localStorage.removeItem(VISIBLE_KEY);
       localStorage.removeItem(ACCOUNTS_KEY);
+      localStorage.removeItem(ROSTER_ORDER_KEY);
       clearAllPrefs();
     } catch { }
   };
@@ -458,7 +528,8 @@ export default function MyTasksPage() {
   const [tableOrder, setTableOrder] = useState<string[]>([]);
   const [editingChar, setEditingChar] = useState<RosterCharacter | null>(null);
   const [isCharSettingOpen, setIsCharSettingOpen] = useState(false);
-
+  const [rosterOrder, setRosterOrder] = useState<string[]>([]);
+  const [cardRosterOrder, setCardRosterOrder] = useState<string[]>([]);
   const [visibleByChar, setVisibleByChar] = useState<Record<string, boolean>>({});
 
   /* ✅ 데모 상태 */
@@ -473,8 +544,30 @@ export default function MyTasksPage() {
   useEffect(() => {
     if (isAuthed) return;
     try {
+      const saved = localStorage.getItem(CARD_ROSTER_ORDER_KEY);
+      if (saved) setCardRosterOrder(JSON.parse(saved));
+    } catch { }
+  }, [isAuthed]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("raidTaskAutoSetupCount", String(autoSetupCharCount));
+    } catch { }
+  }, [autoSetupCharCount]);
+
+  useEffect(() => {
+    if (isAuthed) return;
+    try {
       const saved = localStorage.getItem(TABLE_ORDER_KEY);
       if (saved) setTableOrder(JSON.parse(saved));
+    } catch { }
+  }, [isAuthed]);
+
+  useEffect(() => {
+    if (isAuthed) return;
+    try {
+      const saved = localStorage.getItem(ROSTER_ORDER_KEY);
+      if (saved) setRosterOrder(JSON.parse(saved));
     } catch { }
   }, [isAuthed]);
 
@@ -491,6 +584,8 @@ export default function MyTasksPage() {
           if (msg.prefsByChar) setPrefsByChar(msg.prefsByChar);
           if (msg.visibleByChar) setVisibleByChar(msg.visibleByChar);
           if (msg.tableOrder) setTableOrder(msg.tableOrder);
+          if (msg.rosterOrder) setRosterOrder(msg.rosterOrder);
+          if (msg.cardRosterOrder) setCardRosterOrder(msg.cardRosterOrder);
         }
 
         if (msg.type === "activeAccountUpdated" && msg.userId === myUserId) {
@@ -620,10 +715,10 @@ export default function MyTasksPage() {
    * ────────────────────────── */
   useEffect(() => {
     try {
-      const payload: SavedFilters = { onlyRemain, isCardView, selectedRaids };
+      const payload: SavedFilters = { onlyRemain, isCardView, selectedRaids, isDragEnabled };
       localStorage.setItem(FILTER_KEY, JSON.stringify(payload));
     } catch { }
-  }, [onlyRemain, isCardView, selectedRaids, isAuthed]);
+  }, [onlyRemain, isCardView, selectedRaids, isAuthed, isDragEnabled]);
 
   /* ──────────────────────────
    * ✅ 로스터/로딩 상태 계산 (여기는 "진짜 데이터" 기준)
@@ -681,6 +776,8 @@ export default function MyTasksPage() {
     return next;
   }, [effectivePrefsByChar, isRaidFilterActive, selectedRaids]);
 
+
+
   function setCharPrefs(name: string, updater: (cur: CharacterTaskPrefs) => CharacterTaskPrefs) {
     if (usingDemo) {
       setDemoPrefsByChar((prev) => {
@@ -723,6 +820,8 @@ export default function MyTasksPage() {
       prefsByChar,
       visibleByChar,
       tableOrder,
+      rosterOrder,
+      cardRosterOrder,
     };
   }
 
@@ -744,6 +843,8 @@ export default function MyTasksPage() {
       if (state.prefsByChar) setPrefsByChar(state.prefsByChar);
       if (state.visibleByChar) setVisibleByChar(state.visibleByChar);
       if (state.tableOrder) setTableOrder(state.tableOrder);
+      if (state.rosterOrder) setRosterOrder(state.rosterOrder);
+      if (state.cardRosterOrder) setCardRosterOrder(state.cardRosterOrder);
     } catch { }
   }
 
@@ -783,7 +884,7 @@ export default function MyTasksPage() {
       controller.abort();
       clearTimeout(timeoutId);
     };
-  }, [authStatus, syncedWithServer, booting, accounts, prefsByChar, visibleByChar, tableOrder, onlyRemain, isCardView]);
+  }, [authStatus, syncedWithServer, booting, accounts, prefsByChar, visibleByChar, tableOrder, rosterOrder, cardRosterOrder, onlyRemain, isCardView]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
@@ -1073,12 +1174,11 @@ export default function MyTasksPage() {
     }
   };
 
-  const handleAutoSetup = () => {
+  const handleAutoSetup = (charCount: number = 6) => {
     if (!effectiveAccount?.summary?.roster || effectiveAccount.summary.roster.length === 0) return;
 
     const roster = effectiveAccount.summary.roster;
-    const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(roster, effectivePrefsByChar);
-
+    const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(roster, effectivePrefsByChar, charCount);
     const RESET_TABLE_ORDER = ["__empty_0"];
     const nextVisibleMerged: Record<string, boolean> = usingDemo ? { ...demoVisibleByChar } : { ...visibleByChar };
 
@@ -1289,6 +1389,31 @@ export default function MyTasksPage() {
     return Array.from(set);
   }, [tableRoster, tablePrefsByChar]);
 
+  function mergeReorderedSubset(full: string[], subset: string[], subsetNew: string[]) {
+    const subsetSet = new Set(subset);
+
+    // full에 없는 애들은 뒤에 붙는 구조 보정 (안전장치)
+    const baseFull = full.length ? full : subset;
+
+    const result: string[] = [];
+    let k = 0;
+
+    for (const name of baseFull) {
+      if (subsetSet.has(name)) {
+        result.push(subsetNew[k++] ?? name);
+      } else {
+        result.push(name);
+      }
+    }
+
+    // full에 없던 subsetNew 항목이 있으면 뒤에 추가
+    for (; k < subsetNew.length; k++) {
+      if (!result.includes(subsetNew[k])) result.push(subsetNew[k]);
+    }
+
+    return result;
+  }
+
   // ✅ tableOrder가 비어있거나 "__empty_0" 같은 초기값이어도, 항상 표시 가능한 order를 만들어줌
   const tableOrderForView = useMemo(() => {
     const available = tableRaidNames;
@@ -1296,23 +1421,47 @@ export default function MyTasksPage() {
 
     const availableSet = new Set(available);
 
-    // 저장된 order에서 유효한 것만
-    const saved = (tableOrder ?? []).filter((r) => availableSet.has(r) && !String(r).startsWith("__empty_"));
+    // 1. 유효한 레이드와 빈칸(__empty_)만 1차 필터링
+    const saved = (tableOrder ?? []).filter((r) =>
+      availableSet.has(r) || String(r).startsWith("__empty_")
+    );
 
-    // 빠진 레이드는 기본(레벨 낮은 순 = 오래된 순)으로 뒤에 붙임
-    const missing = available.filter((r) => !saved.includes(r)).sort((a, b) => getRaidBaseLevel(a) - getRaidBaseLevel(b));
+    // 2. 양 끝에 불필요하게 쌓인 빈칸 제거 (무조건 왼쪽 정렬되도록 보장)
+    let startIndex = 0;
+    let endIndex = saved.length - 1;
 
-    const merged = [...saved, ...missing];
+    while (startIndex <= endIndex && saved[startIndex].startsWith("__empty_")) {
+      startIndex++;
+    }
+    while (endIndex >= startIndex && saved[endIndex].startsWith("__empty_")) {
+      endIndex--;
+    }
+
+    const trimmedSaved = startIndex <= endIndex ? saved.slice(startIndex, endIndex + 1) : [];
+
+    // 🔥 3. 수정된 부분: 레벨(getRaidBaseLevel) 기준 정렬을 TaskTable과 똑같이 출시일(releaseDate) 기준으로 변경
+    const sortByReleaseDate = (a: string, b: string) => {
+      const dateA = raidInformation[a]?.releaseDate || "2000-01-01";
+      const dateB = raidInformation[b]?.releaseDate || "2000-01-01";
+      return dateA.localeCompare(dateB);
+    };
+
+    // 빠진 레이드는 출시일이 오래된 순으로 뒤에 붙임
+    const missing = available.filter((r) => !trimmedSaved.includes(r)).sort(sortByReleaseDate);
+
+    const merged = [...trimmedSaved, ...missing];
     if (merged.length) return merged;
 
-    // saved가 의미 없으면 기본 정렬 (레벨 낮은 순 = 오래된 순)
-    return [...available].sort((a, b) => getRaidBaseLevel(a) - getRaidBaseLevel(b));
+    // saved가 의미 없으면 기본 정렬 (출시일 오래된 순)
+    return [...available].sort(sortByReleaseDate);
   }, [tableOrder, tableRaidNames]);
 
   const isTableFiltered = isRaidFilterActive || onlyRemain;
 
-  const isTableEmpty = tableRoster.length === 0 || tableRaidNames.length === 0;
-
+  const isTableEmpty = tableRoster.length === 0;
+  const cardSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
   return (
     <div className="w-full text-white py-8 sm:py-12">
       <div className="mx-auto max-w-7xl space-y-5">
@@ -1339,6 +1488,8 @@ export default function MyTasksPage() {
                 selectedRaids={selectedRaids}
                 setSelectedRaids={setSelectedRaids}
                 adSlot={AD_SLOT_SIDEBAR}
+                isDragEnabled={isDragEnabled} // 🔥 전달
+                setIsDragEnabled={setIsDragEnabled} // 🔥 전달
               />
             ) : (
               <TaskSidebar
@@ -1353,6 +1504,8 @@ export default function MyTasksPage() {
                 selectedRaids={selectedRaids}
                 setSelectedRaids={setSelectedRaids}
                 adSlot={AD_SLOT_SIDEBAR}
+                isDragEnabled={isDragEnabled} // 🔥 전달
+                setIsDragEnabled={setIsDragEnabled} // 🔥 전달
               />
             )}
 
@@ -1406,22 +1559,61 @@ export default function MyTasksPage() {
                     </button>
                   )}
 
-                  <button
-                    onClick={handleAutoSetup}
-                    className="relative group flex items-center justify-center py-2 px-6 rounded-lg bg-white/[.04] border border-white/10 hover:bg-white/5 hover:border-white/20 text-xs sm:text-sm font-medium text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span>자동 세팅</span>
-                    <span className="absolute top-1 right-1 w-3 h-3 rounded-full border border-white/20 text-[9px] font-bold flex items-center justify-center text-gray-400 bg-black/20 group-hover:text-white group-hover:border-white/40 transition-colors duration-200 cursor-help">
-                      ?
-                    </span>
-                    <div className="pointer-events-none absolute bottom-full left-15 mb-3 w-64 p-3 rounded-xl bg-gray-900/95 backdrop-blur-md border border-white/10 text-xs text-gray-300 leading-relaxed text-center  opacity-0 translate-y-2 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out z-20">
-                      <p>
-                        <span className="text-white font-semibold">아이템 레벨 상위 6개 캐릭터</span>와 해당 캐릭터의{" "}
-                        <span className="text-indigo-400">Top 3 레이드</span>를 자동으로 세팅합니다.
-                      </p>
-                      <div className="absolute -bottom-1.5 left-4 w-3 h-3 bg-gray-900/95 border-b border-r border-white/10 rotate-45" />
-                    </div>
-                  </button>
+                  {/* 🔥 수정된 자동 세팅 그룹 (디자인 원복 + 로컬스토리지 연동) */}
+                  <div className="relative flex items-center">
+                    <button
+                      onClick={() => handleAutoSetup(autoSetupCharCount)}
+                      className="relative group flex items-center justify-center py-2 px-6 rounded-lg bg-white/[.04] border border-white/10 hover:bg-white/5 hover:border-white/20 text-xs sm:text-sm font-medium text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span>자동 세팅</span>
+
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation(); // 부모 버튼(자동 세팅) 클릭 방지
+                          setShowAutoSetupSettings(!showAutoSetupSettings);
+                        }}
+                        className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors duration-200 cursor-pointer z-10"
+                        title="자동 세팅 설정"
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                      </div>
+                    </button>
+
+                    {/* 설정 팝업창: top-full과 mt-2를 사용하여 버튼 아래로 배치 */}
+                    {showAutoSetupSettings && (
+                      <div className="absolute top-full left-0 mt-2 w-60 p-4 rounded-xl bg-gray-900/95 backdrop-blur-md border border-white/10 shadow-xl z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-bold text-white">자동 세팅 설정</h4>
+                          <button onClick={() => setShowAutoSetupSettings(false)} className="text-gray-400 hover:text-white">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between gap-4 mb-4">
+                          <span className="text-xs text-gray-400">적용할 캐릭터 수</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={24}
+                            value={autoSetupCharCount}
+                            onChange={(e) => setAutoSetupCharCount(Number(e.target.value))}
+                            className="w-14 h-8 bg-[#0F1115] border border-white/10 rounded-md px-2 text-sm text-center text-white focus:outline-none focus:border-[#5B69FF] appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                        </div>
+                        <button
+                          onClick={() => {
+                            handleAutoSetup(autoSetupCharCount);
+                            setShowAutoSetupSettings(false);
+                          }}
+                          className="w-full py-2 bg-[#5B69FF] hover:bg-[#4A57E6] text-white text-xs font-bold rounded-lg transition-colors"
+                        >
+                          적용하기
+                        </button>
+
+                        {/* 🔥 말풍선 꼬리 위치도 위쪽으로 수정 */}
+                        <div className="absolute -top-1.5 left-10 w-3 h-3 bg-gray-900/95 border-t border-l border-white/10 rotate-45" />
+                      </div>
+                    )}
+                  </div>
 
                   <button
                     onClick={gateAllClear}
@@ -1585,37 +1777,63 @@ export default function MyTasksPage() {
                     }}
                     onToggleGate={handleTableToggleGate}
                     onEdit={(c) => setEditingChar(c)}
+                    rosterOrder={rosterOrder}
+                    isDragEnabled={isDragEnabled} // 🔥 전달
+                    onReorderRoster={(newOrder) => {
+                      // ✅ newOrder: 현재 테이블에 보이는 캐릭터들(tableRoster)의 순서
+                      const subset = tableRoster.map((c) => c.name);
+
+                      setRosterOrder((prev) => {
+                        const merged = mergeReorderedSubset(prev, subset, newOrder);
+
+                        if (!isAuthed) {
+                          try {
+                            localStorage.setItem(ROSTER_ORDER_KEY, JSON.stringify(merged));
+                          } catch { }
+                        } else if (session?.user && sendMessage) {
+                          const userId = (session.user as any).id || (session.user as any).userId;
+
+                          sendMessage({
+                            type: "tableOrderUpdate",   // ✅ 레이드 이동과 동일한 타입
+                            userId,
+                            rosterOrder: merged,        // ✅ payload에 rosterOrder 실어서 보냄
+                          });
+                        }
+
+                        return merged;
+                      });
+                    }}
                   />
                 )
               ) : (
                 // ✅ 카드 뷰
                 <div className="flex flex-col gap-4">
                   {(() => {
-                    const strips = visibleRoster
-                      .sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0))
-                      .map((c) => {
-                        const tasks = buildTasksFor(c);
-                        if (onlyRemain && tasks.length === 0) return null;
-                        if (isRaidFilterActive && tasks.length === 0) return null;
+                    // 1. 카드 뷰 전용 정렬 (레벨 순 정렬 후 cardRosterOrder 기준 재정렬)
+                    const sortedRoster = [...visibleRoster].sort((a, b) => {
+                      const diff = (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0);
+                      if (!cardRosterOrder.length) return diff;
 
-                        return (
-                          <CharacterTaskStrip
-                            key={c.name}
-                            character={c}
-                            tasks={tasks}
-                            onEdit={() => setEditingChar(c)}
-                            onReorder={(char, newOrderIds) => {
-                              if (isRaidFilterActive) return;
-                              setCharPrefs(char.name, (cur) => ({ ...cur, order: newOrderIds }));
-                            }}
-                          />
-                        );
-                      })
-                      .filter(Boolean);
+                      const idxA = cardRosterOrder.indexOf(a.name);
+                      const idxB = cardRosterOrder.indexOf(b.name);
+                      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                      if (idxA !== -1) return -1;
+                      if (idxB !== -1) return 1;
+                      return diff;
+                    });
 
-                    if (strips.length === 0) {
+                    // 2. 현재 필터 조건에 부합하는 (보여줄) 카드들만 미리 계산
+                    const visibleCardStrips = sortedRoster.map(c => ({
+                      character: c,
+                      tasks: buildTasksFor(c)
+                    })).filter(item => {
+                      if (onlyRemain && item.tasks.length === 0) return false;
+                      if (isRaidFilterActive && item.tasks.length === 0) return false;
+                      return true;
+                    });
+
+                    if (visibleCardStrips.length === 0) {
                       if (isRaidFilterActive) return null;
-
                       if (onlyRemain) {
                         return (
                           <div className="flex flex-col items-center justify-center py-14 rounded-none sm:rounded-xl border-x-0 sm:border border-white/5 bg-white/[0.02] animate-in fade-in zoom-in-95 duration-300">
@@ -1630,11 +1848,64 @@ export default function MyTasksPage() {
                           </div>
                         );
                       }
-
                       return null;
                     }
 
-                    return strips;
+
+                    const handleCardDragEnd = (e: DragEndEvent) => {
+                      const { active, over } = e;
+                      if (!over || active.id === over.id) return;
+
+                      const subset = visibleCardStrips.map((s) => s.character.name);
+                      const oldIndex = subset.indexOf(String(active.id));
+                      const newIndex = subset.indexOf(String(over.id));
+
+                      if (oldIndex !== -1 && newIndex !== -1) {
+                        const newSubsetOrder = arrayMove(subset, oldIndex, newIndex);
+
+                        setCardRosterOrder((prev) => {
+                          const merged = mergeReorderedSubset(prev, subset, newSubsetOrder);
+
+                          // 🔥 무조건 로컬스토리지에 저장
+                          try { localStorage.setItem(CARD_ROSTER_ORDER_KEY, JSON.stringify(merged)); } catch { }
+
+                          // 🔥 로그인 상태일 경우 실시간으로 서버 및 다른 브라우저에 전송
+                          if (isAuthed && session?.user && sendMessage) {
+                            const userId = (session.user as any).id || (session.user as any).userId;
+                            sendMessage({
+                              type: "tableOrderUpdate",
+                              userId,
+                              cardRosterOrder: merged,
+                            });
+                          }
+
+                          return merged;
+                        });
+                      }
+                    };
+
+                    return (
+                      <DndContext sensors={cardSensors} collisionDetection={closestCenter} onDragEnd={handleCardDragEnd}>
+                        <SortableContext items={visibleCardStrips.map(s => s.character.name)} strategy={verticalListSortingStrategy}>
+                          <div className="flex flex-col gap-4">
+                            {visibleCardStrips.map(({ character, tasks }) => (
+                              <SortableCardStripWrapper
+                                key={character.name}
+                                id={character.name}
+                                character={character}
+                                tasks={tasks}
+                                isDragEnabled={isDragEnabled}
+                                onEdit={() => setEditingChar(character)}
+                                onReorderTask={(char: any, newOrderIds: any) => {
+                                  if (isRaidFilterActive) return;
+                                  setCharPrefs(char.name, (cur) => ({ ...cur, order: newOrderIds }));
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
+                    );
                   })()}
                 </div>
               )

@@ -3,7 +3,7 @@
 export type RaidKind = "군단장" | "카제로스" | "어비스" | "에픽" | "그림자";
 export type DifficultyKey = "노말" | "하드" | "나메";
 
-type Gate = { index: number; name: string; gold: number };
+type Gate = { index: number; name: string; gold: number; bonusCost: number; };
 type Difficulty = { level: number; gold: number; gates: Gate[] };
 
 export const raidInformation: Record<
@@ -13,6 +13,7 @@ export const raidInformation: Record<
         gates: number;
         difficulty: Partial<Record<DifficultyKey, Difficulty>>;
         releaseDate: string;
+
     }
 > = {
     "발탄": {
@@ -24,16 +25,16 @@ export const raidInformation: Record<
                 level: 1415,
                 gold: 1200,
                 gates: [
-                    { index: 1, name: "1관문", gold: 500 },
-                    { index: 2, name: "2관문", gold: 700 },
+                    { index: 1, name: "1관문", gold: 500, bonusCost: 300 },
+                    { index: 2, name: "2관문", gold: 700, bonusCost: 300 },
                 ],
             },
             "하드": {
                 level: 1445,
                 gold: 1800,
                 gates: [
-                    { index: 1, name: "1관문", gold: 700 },
-                    { index: 2, name: "2관문", gold: 1100 },
+                    { index: 1, name: "1관문", gold: 700, bonusCost: 300 },
+                    { index: 2, name: "2관문", gold: 1100, bonusCost: 300 },
                 ],
             },
         },
@@ -48,16 +49,16 @@ export const raidInformation: Record<
                 level: 1430,
                 gold: 1600,
                 gates: [
-                    { index: 1, name: "1관문", gold: 600 },
-                    { index: 2, name: "2관문", gold: 1000 },
+                    { index: 1, name: "1관문", gold: 600, bonusCost: 300 },
+                    { index: 2, name: "2관문", gold: 1000, bonusCost: 300 },
                 ],
             },
             "하드": {
                 level: 1460,
                 gold: 2400,
                 gates: [
-                    { index: 1, name: "1관문", gold: 900 },
-                    { index: 2, name: "2관문", gold: 1500 },
+                    { index: 1, name: "1관문", gold: 900, bonusCost: 300 },
+                    { index: 2, name: "2관문", gold: 1500, bonusCost: 300 },
                 ],
             },
         },
@@ -72,9 +73,9 @@ export const raidInformation: Record<
                 level: 1475,
                 gold: 3000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 600 },
-                    { index: 2, name: "2관문", gold: 900 },
-                    { index: 3, name: "3관문", gold: 1500 },
+                    { index: 1, name: "1관문", gold: 600, bonusCost: 300 },
+                    { index: 2, name: "2관문", gold: 900, bonusCost: 300 },
+                    { index: 3, name: "3관문", gold: 1500, bonusCost: 300 },
                 ],
             },
         },
@@ -89,20 +90,20 @@ export const raidInformation: Record<
                 level: 1490,
                 gold: 4600,
                 gates: [
-                    { index: 1, name: "1관문", gold: 1000 },
-                    { index: 2, name: "2관문", gold: 1000 },
-                    { index: 3, name: "3관문", gold: 1000 },
-                    { index: 4, name: "4관문", gold: 1600 },
+                    { index: 1, name: "1관문", gold: 1000, bonusCost: 300 },
+                    { index: 2, name: "2관문", gold: 1000, bonusCost: 300 },
+                    { index: 3, name: "3관문", gold: 1000, bonusCost: 300 },
+                    { index: 4, name: "4관문", gold: 1600, bonusCost: 300 },
                 ],
             },
             "하드": {
                 level: 1540,
                 gold: 5600,
                 gates: [
-                    { index: 1, name: "1관문", gold: 1200 },
-                    { index: 2, name: "2관문", gold: 1200 },
-                    { index: 3, name: "3관문", gold: 1200 },
-                    { index: 4, name: "4관문", gold: 2000 },
+                    { index: 1, name: "1관문", gold: 1200, bonusCost: 300 },
+                    { index: 2, name: "2관문", gold: 1200, bonusCost: 300 },
+                    { index: 3, name: "3관문", gold: 1200, bonusCost: 300 },
+                    { index: 4, name: "4관문", gold: 2000, bonusCost: 300 },
                 ],
             },
         },
@@ -117,18 +118,18 @@ export const raidInformation: Record<
                 level: 1580,
                 gold: 4700,
                 gates: [
-                    { index: 1, name: "1관문", gold: 850 },
-                    { index: 2, name: "2관문", gold: 1550 },
-                    { index: 3, name: "3관문", gold: 2300 },
+                    { index: 1, name: "1관문", gold: 850, bonusCost: 300 },
+                    { index: 2, name: "2관문", gold: 1550, bonusCost: 300 },
+                    { index: 3, name: "3관문", gold: 2300, bonusCost: 300 },
                 ],
             },
             "하드": {
                 level: 1600,
                 gold: 6000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 1200 },
-                    { index: 2, name: "2관문", gold: 2000 },
-                    { index: 3, name: "3관문", gold: 2800 },
+                    { index: 1, name: "1관문", gold: 1200, bonusCost: 300 },
+                    { index: 2, name: "2관문", gold: 2000, bonusCost: 300 },
+                    { index: 3, name: "3관문", gold: 2800, bonusCost: 300 },
                 ],
             },
         },
@@ -143,19 +144,19 @@ export const raidInformation: Record<
                 level: 1610,
                 gold: 6400,
                 gates: [
-                    { index: 1, name: "1관문", gold: 1600 },
-                    { index: 2, name: "2관문", gold: 2000 },
-                    { index: 3, name: "3관문", gold: 2800 },
+                    { index: 1, name: "1관문", gold: 1600, bonusCost: 360 },
+                    { index: 2, name: "2관문", gold: 2000, bonusCost: 440 },
+                    { index: 3, name: "3관문", gold: 2800, bonusCost: 640 },
                 ],
             },
             "하드": {
                 level: 1630,
                 gold: 13000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 2000 },
-                    { index: 2, name: "2관문", gold: 2400 },
-                    { index: 3, name: "3관문", gold: 3600 },
-                    { index: 4, name: "4관문", gold: 5000 },
+                    { index: 1, name: "1관문", gold: 2000, bonusCost: 500 },
+                    { index: 2, name: "2관문", gold: 2400, bonusCost: 600 },
+                    { index: 3, name: "3관문", gold: 3600, bonusCost: 900 },
+                    { index: 4, name: "4관문", gold: 5000, bonusCost: 1250 },
                 ],
             },
         },
@@ -170,8 +171,8 @@ export const raidInformation: Record<
                 level: 1640,
                 gold: 7200,
                 gates: [
-                    { index: 1, name: "1관문", gold: 2200 },
-                    { index: 2, name: "2관문", gold: 5000 },
+                    { index: 1, name: "1관문", gold: 2200, bonusCost: 720 },
+                    { index: 2, name: "2관문", gold: 5000, bonusCost: 1630 },
                 ],
             },
         },
@@ -186,16 +187,16 @@ export const raidInformation: Record<
                 level: 1620,
                 gold: 6100,
                 gates: [
-                    { index: 1, name: "1관문", gold: 1900 },
-                    { index: 2, name: "2관문", gold: 4200 },
+                    { index: 1, name: "1관문", gold: 1900, bonusCost: 310 },
+                    { index: 2, name: "2관문", gold: 4200, bonusCost: 700 },
                 ],
             },
             "하드": {
                 level: 1630,
                 gold: 7200,
                 gates: [
-                    { index: 1, name: "1관문", gold: 2200 },
-                    { index: 2, name: "2관문", gold: 5000 },
+                    { index: 1, name: "1관문", gold: 2200, bonusCost: 720 },
+                    { index: 2, name: "2관문", gold: 5000, bonusCost: 1630 },
                 ],
             },
         },
@@ -210,16 +211,16 @@ export const raidInformation: Record<
                 level: 1660,
                 gold: 11500,
                 gates: [
-                    { index: 1, name: "1관문", gold: 3500 },
-                    { index: 2, name: "2관문", gold: 8000 },
+                    { index: 1, name: "1관문", gold: 3500, bonusCost: 750 },
+                    { index: 2, name: "2관문", gold: 8000, bonusCost: 1780 },
                 ],
             },
             "하드": {
                 level: 1680,
                 gold: 18000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 5500 },
-                    { index: 2, name: "2관문", gold: 12500 },
+                    { index: 1, name: "1관문", gold: 5500, bonusCost: 1820 },
+                    { index: 2, name: "2관문", gold: 12500, bonusCost: 4150 },
                 ],
             },
         },
@@ -233,16 +234,16 @@ export const raidInformation: Record<
                 level: 1670,
                 gold: 16500,
                 gates: [
-                    { index: 1, name: "1관문", gold: 5500 },
-                    { index: 2, name: "2관문", gold: 11000 },
+                    { index: 1, name: "1관문", gold: 5500, bonusCost: 1820 },
+                    { index: 2, name: "2관문", gold: 11000, bonusCost: 3720 },
                 ],
             },
             "하드": {
                 level: 1690,
                 gold: 23000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 7500 },
-                    { index: 2, name: "2관문", gold: 15500 },
+                    { index: 1, name: "1관문", gold: 7500, bonusCost: 2400 },
+                    { index: 2, name: "2관문", gold: 15500, bonusCost: 5100 },
                 ],
             },
         },
@@ -256,18 +257,18 @@ export const raidInformation: Record<
                 level: 1680,
                 gold: 21000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 4000 },
-                    { index: 2, name: "2관문", gold: 7000 },
-                    { index: 3, name: "3관문", gold: 10000 },
+                    { index: 1, name: "1관문", gold: 4000, bonusCost: 1300 },
+                    { index: 2, name: "2관문", gold: 7000, bonusCost: 2350 },
+                    { index: 3, name: "3관문", gold: 10000, bonusCost: 3360 },
                 ],
             },
             "하드": {
                 level: 1700,
                 gold: 27000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 5000 },
-                    { index: 2, name: "2관문", gold: 8000 },
-                    { index: 3, name: "3관문", gold: 14000 },
+                    { index: 1, name: "1관문", gold: 5000, bonusCost: 1650 },
+                    { index: 2, name: "2관문", gold: 8000, bonusCost: 2640 },
+                    { index: 3, name: "3관문", gold: 14000, bonusCost: 4060 },
                 ],
             },
         },
@@ -281,16 +282,16 @@ export const raidInformation: Record<
                 level: 1700,
                 gold: 33000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 12500 },
-                    { index: 2, name: "2관문", gold: 20500 },
+                    { index: 1, name: "1관문", gold: 12500, bonusCost: 4000 },
+                    { index: 2, name: "2관문", gold: 20500, bonusCost: 6560 },
                 ],
             },
             "하드": {
                 level: 1720,
                 gold: 42000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 15000 },
-                    { index: 2, name: "2관문", gold: 27000 },
+                    { index: 1, name: "1관문", gold: 15000, bonusCost: 4800 },
+                    { index: 2, name: "2관문", gold: 27000, bonusCost: 8640 },
                 ],
             },
         },
@@ -304,16 +305,16 @@ export const raidInformation: Record<
                 level: 1710,
                 gold: 40000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 14000 },
-                    { index: 2, name: "2관문", gold: 26000 },
+                    { index: 1, name: "1관문", gold: 14000, bonusCost: 4480 },
+                    { index: 2, name: "2관문", gold: 26000, bonusCost: 8320 },
                 ],
             },
             "하드": {
                 level: 1730,
                 gold: 52000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 17000 },
-                    { index: 2, name: "2관문", gold: 35000 },
+                    { index: 1, name: "1관문", gold: 17000, bonusCost: 5440 },
+                    { index: 2, name: "2관문", gold: 35000, bonusCost: 11200 },
                 ],
             },
         },
@@ -329,18 +330,18 @@ export const raidInformation: Record<
                 level: 1540,
                 gold: 3300,
                 gates: [
-                    { index: 1, name: "1관문", gold: 750 },
-                    { index: 2, name: "2관문", gold: 1100 },
-                    { index: 3, name: "3관문", gold: 1450 },
+                    { index: 1, name: "1관문", gold: 750, bonusCost: 180 },
+                    { index: 2, name: "2관문", gold: 1100, bonusCost: 200 },
+                    { index: 3, name: "3관문", gold: 1450, bonusCost: 270 },
                 ],
             },
             "하드": {
                 level: 1580,
                 gold: 4300,
                 gates: [
-                    { index: 1, name: "1관문", gold: 900 },
-                    { index: 2, name: "2관문", gold: 1400 },
-                    { index: 3, name: "3관문", gold: 2000 },
+                    { index: 1, name: "1관문", gold: 900, bonusCost: 225 },
+                    { index: 2, name: "2관문", gold: 1400, bonusCost: 350 },
+                    { index: 3, name: "3관문", gold: 2000, bonusCost: 500 },
                 ],
             },
         },
@@ -355,18 +356,18 @@ export const raidInformation: Record<
                 level: 1600,
                 gold: 5200,
                 gates: [
-                    { index: 1, name: "1관문", gold: 1200 },
-                    { index: 2, name: "2관문", gold: 1600 },
-                    { index: 3, name: "3관문", gold: 2400 },
+                    { index: 1, name: "1관문", gold: 1200, bonusCost: 180 },
+                    { index: 2, name: "2관문", gold: 1600, bonusCost: 220 },
+                    { index: 3, name: "3관문", gold: 2400, bonusCost: 300 },
                 ],
             },
             "하드": {
                 level: 1620,
                 gold: 7200,
                 gates: [
-                    { index: 1, name: "1관문", gold: 1400 },
-                    { index: 2, name: "2관문", gold: 2000 },
-                    { index: 3, name: "3관문", gold: 3800 },
+                    { index: 1, name: "1관문", gold: 1400, bonusCost: 350 },
+                    { index: 2, name: "2관문", gold: 2000, bonusCost: 500 },
+                    { index: 3, name: "3관문", gold: 3800, bonusCost: 950 },
                 ],
             },
         },
@@ -381,29 +382,26 @@ export const raidInformation: Record<
                 level: 1710,
                 gold: 35000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 14000 },
-                    { index: 2, name: "2관문", gold: 21000 },
+                    { index: 1, name: "1관문", gold: 14000, bonusCost: 4480 },
+                    { index: 2, name: "2관문", gold: 21000, bonusCost: 6720 },
                 ],
             },
             "하드": {
                 level: 1730,
                 gold: 44000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 17500 },
-                    { index: 2, name: "2관문", gold: 26500 },
+                    { index: 1, name: "1관문", gold: 17500, bonusCost: 5600 },
+                    { index: 2, name: "2관문", gold: 26500, bonusCost: 8480 },
                 ],
             },
             "나메": {
                 level: 1740,
                 gold: 54000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 21000 },
-                    { index: 2, name: "2관문", gold: 33000 },
+                    { index: 1, name: "1관문", gold: 21000, bonusCost: 6720 },
+                    { index: 2, name: "2관문", gold: 33000, bonusCost: 10560 },
                 ],
             },
         },
     },
 };
-
-
-

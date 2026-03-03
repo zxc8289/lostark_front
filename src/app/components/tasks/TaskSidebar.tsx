@@ -35,6 +35,9 @@ interface TaskSidebarProps {
     setSelectedRaids: (v: string[]) => void;
 
     adSlot?: string;
+
+    isDragEnabled: boolean;
+    setIsDragEnabled: (v: boolean) => void;
 }
 
 export default function TaskSidebar({
@@ -48,7 +51,9 @@ export default function TaskSidebar({
     setIsCardView,
     selectedRaids,
     setSelectedRaids,
-    adSlot = "4444902536"
+    adSlot = "4444902536",
+    isDragEnabled,
+    setIsDragEnabled
 }: TaskSidebarProps) {
     const [isAccountListOpen, setIsAccountListOpen] = useState(false);
     const [isRaidDropdownOpen, setIsRaidDropdownOpen] = useState(false);
@@ -154,11 +159,10 @@ export default function TaskSidebar({
                             </span>
                             <span>남은 숙제만 보기</span>
 
-                            <span className="w-3 h-3 rounded-full border border-white/20 text-[9px] font-bold flex items-center justify-center text-gray-400 bg-black/20 group-hover:text-white group-hover:border-white/40 transition-colors duration-200 cursor-help">
+                            {/* <span className="w-3 h-3 rounded-full border border-white/20 text-[9px] font-bold flex items-center justify-center text-gray-400 bg-black/20 group-hover:text-white group-hover:border-white/40 transition-colors duration-200 cursor-help">
                                 ?
                             </span>
 
-                            {/* 툴팁 */}
                             <div className="pointer-events-none absolute left-6 top-full mt-2.5 w-64 p-4 rounded-2xl bg-gray-900/95 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.4)] opacity-0 translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out z-[200]">
                                 <div className="flex flex-col gap-2 text-xs leading-relaxed text-left">
                                     <p className="text-gray-200">
@@ -173,7 +177,7 @@ export default function TaskSidebar({
                                     </p>
                                 </div>
                                 <div className="absolute -top-[5px] left-6 w-2.5 h-2.5 bg-gray-900/95 border-t border-l border-white/[0.08] rotate-45 z-10" />
-                            </div>
+                            </div> */}
                         </label>
                     </div>
 
@@ -195,6 +199,24 @@ export default function TaskSidebar({
                         </label>
                     </div>
 
+                    <div className="space-y-3">
+                        <div className="font-semibold text-white">자리 이동</div>
+                        <label className="flex items-center gap-2 cursor-pointer text-[#A2A3A5]">
+                            <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={isDragEnabled}
+                                onChange={(e) => setIsDragEnabled(e.target.checked)}
+                            // disabled={isCardView}  <-- 이 부분 삭제
+                            />
+                            <span className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF] peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-checked:[&_svg]:opacity-100">
+                                <svg className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100" viewBox="0 0 20 20" fill="none">
+                                    <path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </span>
+                            <span>드래그로 자리 이동</span>
+                        </label>
+                    </div>
                     <div className="space-y-3 pt-2">
                         <div className="flex items-center justify-between">
                             <div className="font-semibold text-white">레이드 설정</div>
@@ -207,6 +229,8 @@ export default function TaskSidebar({
                                 </button>
                             )}
                         </div>
+
+
                         <div className="relative">
                             <button
                                 onClick={() => setIsRaidDropdownOpen(!isRaidDropdownOpen)}
@@ -240,6 +264,8 @@ export default function TaskSidebar({
                                 </div>
                             )}
                         </div>
+
+
 
                         {selectedRaids.length > 0 && (
                             <div className="grid grid-cols-2 gap-2 mt-3 animate-in fade-in duration-300">

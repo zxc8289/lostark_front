@@ -18,7 +18,7 @@ import {
     arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronLeft, ChevronRight, SquarePen } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical, SquarePen } from "lucide-react";
 
 export type RosterCharacter = {
     name: string;
@@ -36,14 +36,18 @@ export type Props = {
     tasks: TaskItem[]; // ← TaskCarousel에 그대로 넘길 ReactNode 배열로 변환해서 사용
     onEdit?: (c: RosterCharacter) => void;
     onReorder?: (c: RosterCharacter, newOrderIds: string[]) => void; // ← 드랍 후 순서 반영
+    dragHandleProps?: Record<string, any>;
+    isDragEnabled?: boolean;
 };
 
 function SortableCard({
     id,
     children,
+    isDragEnabled, // 🔥 추가됨
 }: {
     id: string;
     children: React.ReactNode;
+    isDragEnabled?: boolean; // 🔥 추가됨
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id });
@@ -51,10 +55,15 @@ function SortableCard({
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.9 : 1,
-        cursor: "grab",
+        cursor: isDragEnabled ? "grab" : "default",
     };
     return (
-        <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...(isDragEnabled ? attributes : {})} // 🔥 자리이동 켜졌을때만 드래그 허용
+            {...(isDragEnabled ? listeners : {})}  // 🔥 자리이동 켜졌을때만 클릭 이벤트 허용
+        >
             {children}
         </div>
     );
@@ -65,6 +74,8 @@ export default function CharacterTaskStrip({
     tasks,
     onEdit,
     onReorder,
+    dragHandleProps,
+    isDragEnabled,
 }: Props) {
     const carouselRef = useRef<TaskCarouselHandle>(null);
     const [cur, setCur] = useState(0);
@@ -78,11 +89,12 @@ export default function CharacterTaskStrip({
     );
     const carouselItems = useMemo(
         () => tasks.map(t => (
-            <SortableCard key={t.id} id={t.id}>
+            // 🔥 isDragEnabled 를 SortableCard로 넘겨줌
+            <SortableCard key={t.id} id={t.id} isDragEnabled={isDragEnabled}>
                 {t.element}
             </SortableCard>
         )),
-        [tasks]
+        [tasks, isDragEnabled] // 🔥 의존성 배열에 isDragEnabled 추가
     );
 
     useEffect(() => {
@@ -115,16 +127,18 @@ export default function CharacterTaskStrip({
         <div className="bg-[#16181D] rounded-md px-5 py-4 space-y-2">
             {/* 헤더 */}
             <div className="flex items-center">
-                <div className="min-w-0">
+                <div
+                    className="min-w-0"
+                    {...(isDragEnabled ? dragHandleProps : {})}
+                    style={isDragEnabled ? { touchAction: "none", cursor: "grab" } : {}}
+                >
                     <div className="flex items-center gap-2">
                         <span
-                            className="
-                                block                    
-                                truncate                
-                                max-w-[120px]            
-                                sm:max-w-[220px]       
+                            className={`
+                                block truncate max-w-[120px] sm:max-w-[220px] 
                                 font-semibold text-base sm:text-xl
-                                "
+                                ${isDragEnabled ? "hover:text-[#5B69FF] transition-colors" : ""}
+                            `}
                             title={character.name}
                         >
                             {character.name}
@@ -139,7 +153,6 @@ export default function CharacterTaskStrip({
                             {character.className ? ` / ${character.className}` : ""}
                         </span>
                     </div>
-
                 </div>
 
                 <div className="ml-auto mr-2 flex items-center gap-1.5 sm:gap-3">

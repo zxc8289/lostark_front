@@ -43,6 +43,8 @@ type RaidStateJson = {
     prefsByChar?: Record<string, any>;
     visibleByChar?: Record<string, boolean>;
     tableOrder?: string[]; // 테이블 레이드 순서 저장용
+    rosterOrder?: string[]; // ✅ 추가
+    cardRosterOrder?: string[];
 };
 
 type RaidTaskStateRow = {
@@ -61,6 +63,8 @@ type PartyMemberTasks = {
     visibleByChar: Record<string, boolean>;
     tableOrder?: string[];
     canOthersEdit?: boolean; // 🔥 추가
+    rosterOrder?: string[]; // ✅ 추가
+    cardRosterOrder?: string[];
 };
 
 type PartyRaidTasksResponse = {
@@ -288,6 +292,8 @@ export async function GET(
             visibleByChar: parsed?.visibleByChar ?? {},
             tableOrder: parsed?.tableOrder ?? [],
             canOthersEdit: m.canOthersEdit ?? true, // 🔥 프론트엔드로 전달! (DB에 값이 없으면 기본적으로 true)
+            rosterOrder: parsed?.rosterOrder ?? [], // ✅ 추가
+            cardRosterOrder: parsed?.cardRosterOrder ?? [], // 🔥 DB에서 읽어와서 응답에 추가
         });
     }
 
@@ -320,8 +326,7 @@ export async function POST(
         return NextResponse.json({ message: "Invalid JSON" }, { status: 400 });
     }
 
-    const { userId: targetUserId, prefsByChar, visibleByChar, tableOrder, nickname, summary, accounts, activeAccountId, activeAccountByParty } = body;
-
+    const { userId: targetUserId, prefsByChar, visibleByChar, tableOrder, nickname, summary, accounts, activeAccountId, activeAccountByParty, rosterOrder, cardRosterOrder } = body;
     if (!targetUserId) {
         return NextResponse.json({ message: "userId required" }, { status: 400 });
     }
@@ -348,6 +353,8 @@ export async function POST(
     if (prefsByChar) nextState.prefsByChar = prefsByChar;
     if (visibleByChar) nextState.visibleByChar = visibleByChar;
     if (tableOrder) nextState.tableOrder = tableOrder;
+    if (Array.isArray(rosterOrder)) nextState.rosterOrder = rosterOrder;
+    if (Array.isArray(cardRosterOrder)) nextState.cardRosterOrder = cardRosterOrder; // 🔥 이 줄을 추가합니다.
     if (typeof nickname === "string") nextState.nickname = nickname;
 
     // 2. 핵심: summary(캐릭터 목록) 업데이트 로직

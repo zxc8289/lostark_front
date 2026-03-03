@@ -220,7 +220,7 @@ export default function DpsSharePage() {
                                                             <Check className="w-full h-full" strokeWidth={3} />
                                                         </div>
 
-                                                        <span className="truncate pl-3">{a}</span>
+                                                        <span className="truncate">{a}</span>
                                                     </button>
                                                 );
                                             })}
