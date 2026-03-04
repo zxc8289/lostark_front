@@ -42,6 +42,7 @@ const items = [
     { href: "/", label: "홈" },
     { href: "/my-tasks", label: "내 숙제" },
     { href: "/party-tasks", label: "파티 숙제" },
+    { href: "/calculator", label: "계산기" },
     { href: "/dps-share", label: "딜 지분" },
     { href: "/gem-setup", label: "젬 세팅" },
     { href: "/support", label: "문의하기" },
