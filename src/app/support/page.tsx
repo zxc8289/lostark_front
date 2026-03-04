@@ -87,6 +87,16 @@ const Icons = {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
     ),
+    ChevronLeft: () => (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+    ),
+    ChevronRight: () => (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+    ),
 };
 
 function fmtDate(iso: string | null) {
@@ -126,6 +136,8 @@ export default function SupportPage() {
     const [isAnonymous, setIsAnonymous] = useState(false);
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const POSTS_PER_PAGE = 9; // 한 페이지에 보여줄 게시글 수
 
     const { data: session, status } = useSession();
     const isLoggedIn = status === "authenticated";
@@ -361,6 +373,12 @@ export default function SupportPage() {
         }
     }
 
+    const totalPages = Math.ceil(posts.length / POSTS_PER_PAGE);
+    const currentPosts = posts.slice(
+        (currentPage - 1) * POSTS_PER_PAGE,
+        currentPage * POSTS_PER_PAGE
+    );
+
     return (
         <div className="w-full text-white py-8 sm:py-12">
             <div className="mx-auto max-w-7xl space-y-5">
@@ -480,7 +498,7 @@ export default function SupportPage() {
                         <>
                             {viewMode === "card" && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {posts.map((post) => (
+                                    {currentPosts.map((post) => (
                                         <button
                                             key={post.id}
                                             onClick={() => openDetail(post.id)}
@@ -529,7 +547,7 @@ export default function SupportPage() {
                                         <div className="w-24 text-center">날짜</div>
                                     </div>
                                     <div className="divide-y divide-gray-700">
-                                        {posts.map((post) => (
+                                        {currentPosts.map((post) => (
                                             <div key={post.id} className="flex flex-col sm:flex-row sm:items-center px-6 py-4 hover:bg-gray-800/30 transition-colors gap-2 sm:gap-0">
                                                 <div className="flex sm:hidden justify-between text-xs text-gray-500 mb-1">
                                                     <span className={`px-1.5 rounded border ${statusBadgeClass(post.status)}`}>{post.status}</span>
@@ -572,6 +590,46 @@ export default function SupportPage() {
                                     </div>
                                 </div>
                             )}
+                            {/* 👇 새로 변경된 페이지네이션 UI */}
+                            {totalPages > 1 && (
+                                <div className="flex justify-center mt-10 mb-4">
+                                    <div className="flex items-center bg-gray-800 rounded-lg p-1 border border-gray-700 shadow-sm">
+                                        <button
+                                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                            disabled={currentPage === 1}
+                                            className="w-9 h-9 rounded-md flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed focus:outline-none"
+                                            title="이전 페이지"
+                                        >
+                                            <Icons.ChevronLeft />
+                                        </button>
+
+                                        <div className="flex items-center gap-0.5 px-1 border-x border-gray-700/50 mx-1">
+                                            {Array.from({ length: totalPages }).map((_, i) => (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => setCurrentPage(i + 1)}
+                                                    className={`w-9 h-9 rounded-md flex items-center justify-center text-sm font-medium transition-all focus:outline-none ${currentPage === i + 1
+                                                        ? "bg-gray-600 text-white shadow-sm"
+                                                        : "text-gray-400 hover:text-white hover:bg-white/5"
+                                                        }`}
+                                                >
+                                                    {i + 1}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <button
+                                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                            disabled={currentPage === totalPages}
+                                            className="w-9 h-9 rounded-md flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed focus:outline-none"
+                                            title="다음 페이지"
+                                        >
+                                            <Icons.ChevronRight />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                         </>
                     )}
                 </div>

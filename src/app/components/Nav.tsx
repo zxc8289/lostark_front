@@ -12,7 +12,7 @@ import {
     ArrowLeftStartOnRectangleIcon,
     PencilSquareIcon,
     CheckIcon,
-    Bars3Icon // 🔥 햄버거 아이콘 추가
+    Bars3Icon
 } from "@heroicons/react/24/solid";
 import { useState, useRef, useEffect } from "react";
 import { UPDATE_LOGS } from "@/data/updateLogs";
@@ -38,13 +38,27 @@ type RaidTaskState = {
     visibleByChar?: Record<string, boolean>;
 };
 
-const items = [
+// 🔥 서브 아이템을 가질 수 있도록 타입 수정
+type NavItem = {
+    href?: string;
+    label: string;
+    subItems?: { href: string; label: string }[];
+};
+
+const items: NavItem[] = [
     { href: "/", label: "홈" },
     { href: "/my-tasks", label: "내 숙제" },
     { href: "/party-tasks", label: "파티 숙제" },
-    { href: "/calculator", label: "계산기" },
     { href: "/dps-share", label: "딜 지분" },
     { href: "/gem-setup", label: "젬 세팅" },
+    {
+        href: "/calculator",
+        label: "계산기",
+        subItems: [
+            { href: "/calculator", label: "경매 계산기" },
+            { href: "/", label: "테스트" },
+        ]
+    },
     { href: "/support", label: "문의하기" },
 ];
 
@@ -69,9 +83,12 @@ export default function Nav() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
+    // 🔥 데스크탑 드롭다운 상태 추가
+    const [openDropdownIdx, setOpenDropdownIdx] = useState<number | null>(null);
+
     const notiRef = useRef<HTMLDivElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
-    const mobileMenuRef = useRef<HTMLDivElement>(null); // 🔥 모바일 메뉴 영역 Ref
+    const mobileMenuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const savedNoti = localStorage.getItem("isNotiEnabled");
@@ -89,10 +106,8 @@ export default function Nav() {
             const savedEditAuth = localStorage.getItem(storageKey);
 
             if (savedEditAuth !== null) {
-                // 1. 내가 토글을 건드려서 로컬스토리지에 최신 값이 있다면 무조건 이걸 우선 적용
                 setIsEditAuthEnabled(savedEditAuth === "true");
             } else {
-                // 2. 다른 기기에서 처음 로그인했거나 캐시를 비웠다면 DB에 저장된 세션 값 사용
                 const dbAuthValue = (session.user as any).canOthersEdit;
                 if (dbAuthValue !== undefined) {
                     setIsEditAuthEnabled(dbAuthValue);
@@ -120,7 +135,7 @@ export default function Nav() {
 
             if (res.ok) {
                 alert("그동안 이용해주셔서 감사합니다. 모든 데이터가 삭제되었습니다.");
-                signOut({ callbackUrl: "/" }); // 메인으로 보내며 세션 파기
+                signOut({ callbackUrl: "/" });
             } else {
                 const data = await res.json();
                 throw new Error(data.error || "탈퇴 처리 중 오류 발생");
@@ -136,35 +151,25 @@ export default function Nav() {
 
     const toggleEditAuth = async () => {
         const newState = !isEditAuthEnabled;
-
-        // 1. UI 상태 즉시 변경
         setIsEditAuthEnabled(newState);
-
-        // 2. 유저 ID를 포함해 로컬 스토리지에 최신 상태 저장
         const userId = (session?.user as any)?.id;
-        if (userId) {
-            localStorage.setItem(`isEditAuthEnabled_${userId}`, String(newState));
-        }
+        if (userId) localStorage.setItem(`isEditAuthEnabled_${userId}`, String(newState));
 
         try {
-            // 3. 서버 DB에 백그라운드로 조용히 저장
             const res = await fetch("/api/user/setting", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ canOthersEdit: newState }),
             });
-
             if (!res.ok) throw new Error("저장 실패");
         } catch (e) {
             console.error(e);
-            // 실패 시 원복
             setIsEditAuthEnabled(!newState);
-            if (userId) {
-                localStorage.setItem(`isEditAuthEnabled_${userId}`, String(!newState));
-            }
+            if (userId) localStorage.setItem(`isEditAuthEnabled_${userId}`, String(!newState));
             alert("권한 설정 저장에 실패했습니다.");
         }
     };
+
     useEffect(() => {
         if (UPDATE_LOGS.length === 0) return;
         const maxId = Math.max(...UPDATE_LOGS.map(log => log.id));
@@ -249,7 +254,8 @@ export default function Nav() {
         }
         setIsNotiOpen(!isNotiOpen);
         setIsProfileOpen(false);
-        setIsMobileMenuOpen(false); // 🔥 다른 탭 열 때 모바일 메뉴 닫기
+        setIsMobileMenuOpen(false);
+        setOpenDropdownIdx(null);
     };
 
     const handleProfileClick = () => {
@@ -257,10 +263,10 @@ export default function Nav() {
         setIsNotiOpen(false);
         setIsEditingNickname(false);
         setStatusMessage(null);
-        setIsMobileMenuOpen(false); // 🔥 다른 탭 열 때 모바일 메뉴 닫기
+        setIsMobileMenuOpen(false);
+        setOpenDropdownIdx(null);
     };
 
-    // 🔥 모바일 메뉴 토글 함수
     const handleMobileMenuClick = () => {
         setIsMobileMenuOpen(!isMobileMenuOpen);
         setIsNotiOpen(false);
@@ -275,7 +281,6 @@ export default function Nav() {
 
     const saveNickname = async () => {
         if (!editedNickname.trim() || isSavingNickname) return;
-
         setIsSavingNickname(true);
         setStatusMessage(null);
 
@@ -285,9 +290,7 @@ export default function Nav() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ nickname: editedNickname }),
             });
-
             const data = await res.json();
-
             if (res.ok) {
                 await update({ name: editedNickname });
                 setStatusMessage({ type: 'success', text: '변경 완료!' });
@@ -311,16 +314,15 @@ export default function Nav() {
             const target = event.target as Node;
             if (notiRef.current && !notiRef.current.contains(target)) setIsNotiOpen(false);
             if (profileRef.current && !profileRef.current.contains(target)) setIsProfileOpen(false);
-            // 🔥 모바일 메뉴 외부 클릭 시 닫기
             if (mobileMenuRef.current && !mobileMenuRef.current.contains(target)) setIsMobileMenuOpen(false);
         }
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // 🔥 라우트(페이지)가 변경되면 모바일 메뉴 자동 닫기
     useEffect(() => {
         setIsMobileMenuOpen(false);
+        setOpenDropdownIdx(null);
     }, [pathname]);
 
     const sortedLogs = [...UPDATE_LOGS].sort((a, b) => b.id - a.id);
@@ -331,16 +333,65 @@ export default function Nav() {
             <nav className="fixed top-0 left-0 right-0 z-50 w-full h-20 bg-[#1B1D22]/95 backdrop-blur-sm border-b border-[#5C5C5C]">
                 <div className="mx-auto max-w-7xl h-full flex items-center justify-between px-4 sm:px-6">
 
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-6 h-full">
                         <Link href="/" className="font-semibold tracking-wide text-gray-200 text-xl md:text-2xl whitespace-nowrap hover:text-white transition-colors">LOACHECK</Link>
 
                         {/* 데스크탑 메뉴 */}
-                        <ul className="hidden md:flex items-center gap-1 lg:gap-3 ml-4">
-                            {items.map((it) => {
-                                const active = pathname === it.href || (it.href !== "/" && pathname.startsWith(it.href));
+                        <ul className="hidden md:flex items-center gap-1 lg:gap-3 ml-4 h-full">
+                            {items.map((it, idx) => {
+                                // 서브 메뉴가 있는 경우 (계산기)
+                                if (it.subItems) {
+                                    const isAnySubActive = pathname === it.href || it.subItems.some(sub => pathname === sub.href || pathname.startsWith(sub.href + "/"));
+                                    const isOpen = openDropdownIdx === idx;
+
+                                    return (
+                                        <li
+                                            key={it.label}
+                                            className="relative desktop-dropdown flex items-center h-full"
+                                            onMouseEnter={() => setOpenDropdownIdx(idx)}
+                                            onMouseLeave={() => setOpenDropdownIdx(null)}
+                                        >
+                                            {/* 🔥 다시 <Link>로 변경하여 클릭 시 페이지 이동 적용 */}
+                                            <Link
+                                                href={it.href!}
+                                                onClick={() => setOpenDropdownIdx(isOpen ? null : idx)}
+                                                className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm transition-all ${isAnySubActive ? "text-white font-bold bg-white/5" : "text-gray-400 hover:text-gray-200 hover:bg-white/5"}`}
+                                            >
+                                                {it.label}
+                                            </Link>
+
+                                            {/* 데스크탑 드롭다운 메뉴 (hover 풀림 방지를 위해 pt-2 추가, 마진 제거) */}
+                                            {isOpen && (
+                                                <div className="absolute top-[80%] pt-2 left-0 w-40 z-50">
+                                                    <div className="bg-[#25272e] border border-white/10 rounded-lg shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                                                        <ul className="flex flex-col">
+                                                            {it.subItems.map(sub => {
+                                                                const isSubActive = pathname === sub.href;
+                                                                return (
+                                                                    <li key={sub.href}>
+                                                                        <Link
+                                                                            href={sub.href}
+                                                                            onClick={() => setOpenDropdownIdx(null)}
+                                                                            className={`block px-4 py-2.5 text-sm transition-colors ${isSubActive ? "text-white bg-[#5B69FF]/20 font-bold" : "text-gray-400 hover:text-white hover:bg-white/5"}`}
+                                                                        >
+                                                                            {sub.label}
+                                                                        </Link>
+                                                                    </li>
+                                                                )
+                                                            })}
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </li>
+                                    );
+                                }
+
+                                // 일반 단일 메뉴
+                                const active = it.href && (pathname === it.href || (it.href !== "/" && pathname.startsWith(it.href)));
                                 return (
-                                    <li key={it.href}>
-                                        <Link href={it.href} className={`px-3 py-2 rounded-md text-sm transition-all ${active ? "text-white font-bold bg-white/5" : "text-gray-400 hover:text-gray-200 hover:bg-white/5"}`}>
+                                    <li key={it.href} className="flex items-center h-full">
+                                        <Link href={it.href!} className={`px-3 py-2 rounded-md text-sm transition-all ${active ? "text-white font-bold bg-white/5" : "text-gray-400 hover:text-gray-200 hover:bg-white/5"}`}>
                                             {it.label}
                                         </Link>
                                     </li>
@@ -424,7 +475,6 @@ export default function Nav() {
 
                                     {isProfileOpen && (
                                         <div className="absolute top-full right-0 mt-3 w-64 bg-[#25272e] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right z-50">
-
                                             <div className="p-4 flex items-center gap-3 border-b border-white/5 bg-[#2c2f36]">
                                                 {session.user.image ? (
                                                     <Image src={session.user.image} alt="Profile" width={40} height={40} className="rounded-full border border-white/10 shrink-0" />
@@ -489,8 +539,7 @@ export default function Nav() {
                                                 <div className="h-px bg-white/5 my-1 mx-2" />
 
                                                 <div className="p-2">
-                                                    <button onClick={() => signOut({ callbackUrl: "/" })} className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-medium text-gray-500 hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-colors"
-                                                    >
+                                                    <button onClick={() => signOut({ callbackUrl: "/" })} className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-medium text-gray-500 hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-colors">
                                                         <ArrowLeftStartOnRectangleIcon className="w-4 h-4" />
                                                         로그아웃
                                                     </button>
@@ -499,7 +548,7 @@ export default function Nav() {
                                                     <button
                                                         onClick={() => {
                                                             setIsDeleteModalOpen(true);
-                                                            setIsProfileOpen(false); // 프로필 메뉴는 닫음
+                                                            setIsProfileOpen(false);
                                                         }}
                                                         className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-medium text-gray-500 hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-colors"
                                                     >
@@ -516,7 +565,7 @@ export default function Nav() {
                             )}
                         </div>
 
-                        {/* 🔥 햄버거 토글 버튼 (모바일에서만 보임) */}
+                        {/* 🔥 햄버거 토글 버튼 */}
                         <button
                             className="md:hidden p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"
                             onClick={handleMobileMenuClick}
@@ -534,15 +583,60 @@ export default function Nav() {
                 {isMobileMenuOpen && (
                     <div
                         ref={mobileMenuRef}
-                        className="md:hidden absolute top-20 left-0 w-full bg-[#1B1D22]/95 backdrop-blur-md border-b border-[#5C5C5C] shadow-2xl animate-in slide-in-from-top-2 duration-200 z-40"
+                        className="md:hidden absolute top-20 left-0 w-full bg-[#1B1D22] border-b border-[#5C5C5C] shadow-2xl animate-in slide-in-from-top-2 duration-200 z-40 max-h-[80vh] overflow-y-auto custom-scrollbar"
                     >
                         <ul className="flex flex-col px-4 py-4 space-y-1">
-                            {items.map((it) => {
-                                const active = pathname === it.href || (it.href !== "/" && pathname.startsWith(it.href));
+                            {items.map((it, idx) => {
+                                if (it.subItems) {
+                                    const isAnySubActive = pathname === it.href || it.subItems.some(sub => pathname === sub.href || pathname.startsWith(sub.href + "/"));
+                                    const isOpen = openDropdownIdx === idx;
+
+                                    return (
+                                        <li key={it.label} className="flex flex-col">
+                                            <div className={`flex items-center justify-between rounded-xl transition-all ${isAnySubActive ? "text-white bg-[#5B69FF]/10 border border-[#5B69FF]/20" : "text-gray-400 hover:text-white hover:bg-white/5"}`}>
+                                                <Link
+                                                    href={it.href!}
+                                                    className="flex-1 px-4 py-3 font-medium"
+                                                >
+                                                    {it.label}
+                                                </Link>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        setOpenDropdownIdx(isOpen ? null : idx);
+                                                    }}
+                                                    className="px-4 py-3 h-full flex items-center justify-center border-l border-white/5"
+                                                >
+                                                    <ChevronDownIcon className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                                                </button>
+                                            </div>
+
+                                            {isOpen && (
+                                                <ul className="flex flex-col pl-4 mt-1 space-y-1 animate-in slide-in-from-top-1 duration-150">
+                                                    {it.subItems.map(sub => {
+                                                        const isSubActive = pathname === sub.href;
+                                                        return (
+                                                            <li key={sub.href}>
+                                                                <Link
+                                                                    href={sub.href}
+                                                                    className={`block px-4 py-2.5 rounded-lg text-sm transition-colors ${isSubActive ? "text-white bg-[#5B69FF]/10 border border-[#5B69FF]/20" : "text-gray-500 hover:text-gray-300"}`}
+                                                                >
+                                                                    {sub.label}
+                                                                </Link>
+                                                            </li>
+                                                        )
+                                                    })}
+                                                </ul>
+                                            )}
+                                        </li>
+                                    );
+                                }
+
+                                const active = it.href && (pathname === it.href || (it.href !== "/" && pathname.startsWith(it.href)));
                                 return (
                                     <li key={it.href}>
                                         <Link
-                                            href={it.href}
+                                            href={it.href!}
                                             className={`block px-4 py-3 rounded-xl text-base font-medium transition-all ${active
                                                 ? "text-white bg-[#5B69FF]/10 border border-[#5B69FF]/20"
                                                 : "text-gray-400 hover:text-white hover:bg-white/5"
