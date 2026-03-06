@@ -52,7 +52,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 🟦 [2. 메인 컨텐츠] */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-6">
         <div className="lg:col-span-3 flex flex-col gap-4 lg:gap-6 h-full">
           <div className="bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex flex-col shrink-0">
@@ -107,15 +106,16 @@ export default async function HomePage() {
               <HomeMyTasksSummary>
                 <div className="w-full flex flex-col min-h-[300px] md:min-h-[340px]">
                   <div className="w-full mb-auto">
-                    <div className="w-full flex items-center justify-between gap-3 mb-3 md:mb-4">
+                    {/* 🔥 a 태그를 바깥으로 빼서 전체 영역을 감싸도록 수정 */}
+                    <a href="/my-tasks" className="group w-full flex items-center justify-between gap-3 mb-3 md:mb-4 cursor-pointer">
                       <div className="flex items-center gap-2">
-                        <div className="w-1 md:w-1.5 h-5 md:h-6 bg-blue-500 rounded-r-md" />
-                        <span className="font-bold text-lg md:text-xl text-gray-100">내 숙제 현황</span>
+                        <div className="w-1 md:w-1.5 h-5 md:h-6 bg-blue-500 rounded-r-md transition-colors group-hover:bg-blue-400" />
+                        <span className="font-bold text-lg md:text-xl text-gray-100 transition-colors group-hover:text-white">내 숙제 현황</span>
                       </div>
-                      <a href="/my-tasks" className="text-gray-400 hover:text-gray-200 transition-colors">
-                        <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
-                      </a>
-                    </div>
+                      <div className="text-gray-400 transition-colors group-hover:text-white">
+                        <ChevronRight className="w-5 h-5 md:w-6 md:h-6 transition-transform group-hover:translate-x-1" />
+                      </div>
+                    </a>
                     <div className="w-full pt-1 md:pt-2"><HomeMyTasksHeader /></div>
                   </div>
                   <HomeMyTasksGuard>
@@ -137,15 +137,16 @@ export default async function HomePage() {
             <Card className="border border-x-0 md:border-x border-white/5 bg-[#16181D] w-full flex flex-col rounded-none md:rounded-2xl" contentPadding="lg">
               <HomePartySummaryProvider>
                 <div className="w-full flex flex-col min-h-[300px] md:min-h-[340px]">
-                  <div className="w-full flex items-center justify-between gap-3 mb-3 md:mb-4">
+                  {/* 🔥 a 태그를 바깥으로 빼서 전체 영역을 감싸도록 수정 */}
+                  <a href="/party-tasks" className="group w-full flex items-center justify-between gap-3 mb-3 md:mb-4 cursor-pointer">
                     <div className="flex items-center gap-2">
-                      <div className="w-1 md:w-1.5 h-5 md:h-6 bg-blue-500 rounded-r-md" />
-                      <span className="font-bold text-lg md:text-xl text-gray-100">내 참여 파티</span>
+                      <div className="w-1 md:w-1.5 h-5 md:h-6 bg-blue-500 rounded-r-md transition-colors group-hover:bg-blue-400" />
+                      <span className="font-bold text-lg md:text-xl text-gray-100 transition-colors group-hover:text-white">내 참여 파티</span>
                     </div>
-                    <a href="/party-tasks" className="text-gray-400 hover:text-gray-200 transition-colors">
-                      <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
-                    </a>
-                  </div>
+                    <div className="text-gray-400 transition-colors group-hover:text-white">
+                      <ChevronRight className="w-5 h-5 md:w-6 md:h-6 transition-transform group-hover:translate-x-1" />
+                    </div>
+                  </a>
                   <HomePartyGuard>
                     <div className="w-full mb-auto pt-1 md:pt-2"><HomePartyHeader /></div>
                     <div className="w-full mt-2 md:mt-0">

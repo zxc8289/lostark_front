@@ -11,6 +11,8 @@ import {
     ChevronRight,
     SquarePen,
     GripVertical,
+    ChevronDown,
+    ChevronUp,
 } from "lucide-react";
 import { getRaidColumnSortKeyForRoster } from "@/app/lib/tasks/raid-utils";
 import {
@@ -392,8 +394,9 @@ export default function TaskTable({
     const [startIndex, setStartIndex] = useState(0);
     const [localOrder, setLocalOrder] = useState<string[]>([]);
 
-    // ✅ 캐릭터 로컬 순서 (부모에서 rosterOrder를 안 주는 경우만 사용)
     const [localRosterOrder, setLocalRosterOrder] = useState<string[]>([]);
+
+    const [isSortDesc, setIsSortDesc] = useState(true);
 
     const [activeId, setActiveId] = useState<string | null>(null);
     const [dragKind, setDragKind] = useState<"raid" | "char" | null>(null);
@@ -417,13 +420,11 @@ export default function TaskTable({
     const lastFlipRef = useRef(0);
     const pointerRef = useRef<{ x: number; y: number } | null>(null);
 
-    // ✅ 기본 캐릭터 정렬(기존 동작 유지): 아이템레벨 내림차순
     const defaultSortedRoster = useMemo(
         () => [...roster].sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)),
         [roster]
     );
 
-    // ✅ roster 변경 시(추가/삭제) 로컬 오더 보정
     useEffect(() => {
         if (rosterOrder && rosterOrder.length > 0) return; // controlled면 로컬 보정 불필요
 
@@ -479,6 +480,33 @@ export default function TaskTable({
         () => rosterOrderToUse.map((name) => `${CHAR_ID_PREFIX}${name}`),
         [rosterOrderToUse]
     );
+
+    const handleSortCharacters = () => {
+        const nextDesc = !isSortDesc;
+        setIsSortDesc(nextDesc);
+
+        // 현재 표시 중인 캐릭터 목록을 아이템 레벨 기준으로 정렬
+        const sorted = [...orderedRoster].sort((a, b) => {
+            const aLevel = a.itemLevelNum ?? 0;
+            const bLevel = b.itemLevelNum ?? 0;
+            if (nextDesc) {
+                return bLevel - aLevel; // 내림차순 (높은 레벨이 위로)
+            } else {
+                return aLevel - bLevel; // 오름차순 (낮은 레벨이 위로)
+            }
+        });
+
+        // 정렬된 캐릭터들의 이름 배열 추출
+        const newOrder = sorted.map(c => c.name);
+
+        // 빠른 화면 렌더링을 위해 로컬 상태 먼저 업데이트
+        setLocalRosterOrder(newOrder);
+
+        // 부모 컴포넌트로 변경된 순서 전달 (DB 및 로컬스토리지 자동 저장됨)
+        if (onReorderRoster) {
+            onReorderRoster(newOrder);
+        }
+    };
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -771,9 +799,20 @@ export default function TaskTable({
                             <thead className="bg-[#1E222B] text-gray-200 uppercase text-[10px] sm:text-xs font-semibold select-none">
                                 <tr>
                                     <th
-                                        className={`px-3 py-3 sm:py-4 text-center sticky left-0 z-20 bg-[#1E222B] border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] ${CHAR_COL_WIDTH}`}
+                                        onClick={handleSortCharacters}
+                                        className={`px-3 py-3 sm:py-4 text-center sticky left-0 z-20 bg-[#1E222B] border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] ${CHAR_COL_WIDTH} cursor-pointer hover:bg-[#252a36] transition-colors group`}
+                                        title="클릭하여 아이템 레벨순 정렬"
                                     >
-                                        <span className="pl-1">캐릭터</span>
+                                        <div className="flex items-center justify-center gap-1.5 pl-1">
+                                            <span>캐릭터</span>
+                                            <div className="text-gray-500 group-hover:text-gray-300 transition-colors">
+                                                {isSortDesc ? (
+                                                    <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                                ) : (
+                                                    <ChevronUp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                                )}
+                                            </div>
+                                        </div>
                                     </th>
 
                                     <SortableContext

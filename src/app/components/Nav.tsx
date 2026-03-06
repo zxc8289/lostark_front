@@ -56,7 +56,7 @@ const items: NavItem[] = [
         label: "계산기",
         subItems: [
             { href: "/calculator", label: "경매 계산기" },
-            { href: "/", label: "테스트" },
+            // { href: "/", label: "테스트" },
         ]
     },
     { href: "/support", label: "문의하기" },

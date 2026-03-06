@@ -21,8 +21,10 @@ import {
 } from "../lib/tasks/raid-utils";
 import AnimatedNumber from "../components/tasks/AnimatedNumber";
 import EmptyCharacterState from "../components/tasks/EmptyCharacterState";
-import { AlertTriangle, Check, ChevronDown, ChevronUp, Plus, RefreshCcw, Settings, X } from "lucide-react";
+import { AlertTriangle, Check, Plus, RefreshCcw, Settings, X, Wand2 } from "lucide-react";
 import GoogleAd from "../components/GoogleAd";
+
+// 🔥 공용 사이드바 컴포넌트 임포트!
 import TaskSidebar from "../components/tasks/TaskSidebar";
 
 // 🔥 전역 웹소켓 훅
@@ -50,7 +52,7 @@ function SortableCardStripWrapper({ id, character, tasks, onEdit, onReorderTask,
         onEdit={onEdit}
         onReorder={onReorderTask}
         isDragEnabled={isDragEnabled}
-        dragHandleProps={{ ...attributes, ...listeners }} // 이 속성만 드래그 핸들에 전달됨
+        dragHandleProps={{ ...attributes, ...listeners }}
       />
     </div>
   );
@@ -61,8 +63,6 @@ function SortableCardStripWrapper({ id, character, tasks, onEdit, onReorderTask,
  * ────────────────────────── */
 
 const DEMO_ACCOUNT_ID = "__demo__";
-
-
 
 function pickDemoRaidNames(): string[] {
   const preferred = ["발탄", "비아키스", "쿠크세이튼", "아브렐슈드", "카멘", "일리아칸", "아카테스"];
@@ -157,7 +157,7 @@ const DEMO_SUMMARY: CharacterSummary = {
 type SavedFilters = {
   onlyRemain?: boolean;
   isCardView?: boolean;
-  selectedRaids?: string[]; // 선택된 레이드 목록
+  selectedRaids?: string[];
   isDragEnabled?: boolean;
 };
 
@@ -198,259 +198,14 @@ function loadSavedFilters(): SavedFilters | null {
   }
 }
 
-// 🔥 DemoSidebar 컴포넌트 수정 (실제 버전과 동일한 필터 UI 적용)
-function DemoSidebar({
-  accounts,
-  activeAccountId,
-  onSelectAccount,
-  onAddAccount,
-  onlyRemain,
-  setOnlyRemain,
-  isCardView,
-  setIsCardView,
-  selectedRaids,
-  setSelectedRaids,
-  adSlot = "4444902536",
-  isDragEnabled,
-  setIsDragEnabled,
-}: {
-  accounts: SavedAccount[];
-  activeAccountId: string | null;
-  onSelectAccount: (id: string) => void;
-  onAddAccount: () => void;
-  onlyRemain: boolean;
-  setOnlyRemain: (v: boolean) => void;
-  isCardView: boolean;
-  setIsCardView: (v: boolean) => void;
-  selectedRaids: string[];
-  setSelectedRaids: (v: string[]) => void;
-  adSlot?: string;
-  isDragEnabled: boolean;
-  setIsDragEnabled: (v: boolean) => void;
-}) {
-  const [isRaidDropdownOpen, setIsRaidDropdownOpen] = useState(false);
-
-  // 모든 레이드 목록 가져오기 (레벨 높은 순)
-  const allRaidNames = useMemo(() => {
-    return Object.keys(raidInformation).sort((a, b) => getRaidBaseLevel(b) - getRaidBaseLevel(a));
-  }, []);
-
-  const toggleRaid = (raidName: string) => {
-    if (selectedRaids.includes(raidName)) {
-      setSelectedRaids(selectedRaids.filter((r) => r !== raidName));
-    } else {
-      setSelectedRaids([...selectedRaids, raidName]);
-    }
-  };
-
-  const removeRaidChip = (raidName: string) => {
-    setSelectedRaids(selectedRaids.filter((r) => r !== raidName));
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* 1. 데모 상태 안내 섹션 */}
-      <section className="overflow-hidden rounded-none sm:rounded-lg bg-[#16181D] border border-white/5">
-        <div className="flex items-center gap-2 px-4 py-3 bg-white/5 border-b border-white/5">
-          <div className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#5B69FF] opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#5B69FF]"></span>
-          </div>
-          <span className="text-[11px] font-bold text-[#5B69FF] tracking-widest uppercase">Preview Mode</span>
-        </div>
-
-        <div className="p-4 space-y-2">
-          <div className="flex flex-col gap-1">
-            <span className="text-base font-bold text-white tracking-tight">테스트 계정</span>
-          </div>
-          <div className="space-y-2.5">
-            <p className="text-[11px] text-gray-400 leading-relaxed break-keep">
-              캐릭터 등록 없이 체험할 수 있는 <span className="text-gray-200 font-medium">샘플 데이터</span> 입니다.
-            </p>
-            <button
-              onClick={onAddAccount}
-              className="group w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-xs font-bold text-white transition-all duration-200 active:scale-[0.98]"
-            >
-              내 계정 불러오기
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* 2. 필터 섹션 */}
-      <section className="rounded-none sm:rounded-sm bg-[#16181D]">
-        <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-          <h3 className="text-base sm:text-lg font-semibold text-white">필터</h3>
-          <button
-            onClick={() => {
-              setOnlyRemain(false);
-              setIsCardView(false);
-              setSelectedRaids([]);
-            }}
-            className="text-[11px] sm:text-xs text-neutral-400 hover:text-neutral-200"
-          >
-            초기화 ⟳
-          </button>
-        </header>
-        <div className="px-5 py-7 space-y-7 text-sm">
-          {/* 숙제/보상 체크박스 */}
-          <div className="space-y-3">
-            <div className="font-bold text-white">숙제/보상</div>
-            <label className="flex items-center gap-2 cursor-pointer text-[#A2A3A5] relative group">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={onlyRemain}
-                onChange={(e) => setOnlyRemain(e.target.checked)}
-              />
-              <span className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF] peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-checked:[&_svg]:opacity-100">
-                <svg className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100" viewBox="0 0 20 20" fill="none">
-                  <path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-              <span>남은 숙제만 보기</span>
-
-              {/* <span className="w-3 h-3 rounded-full border border-white/20 text-[9px] font-bold flex items-center justify-center text-gray-400 bg-black/20 group-hover:text-white group-hover:border-white/40 transition-colors duration-200 cursor-help">
-                ?
-              </span>
-
-              <div className="pointer-events-none absolute left-6 top-full mt-2.5 w-64 p-4 rounded-2xl bg-gray-900/95 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.4)] opacity-0 translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out z-[200]">
-                <div className="flex flex-col gap-2 text-xs leading-relaxed text-left">
-                  <p className="text-gray-200">
-                    <span className="font-bold text-sky-400">카드 보기</span>에서만 적용됩니다.
-                    <span className="block text-gray-400 font-normal mt-0.5">
-                      마지막 관문까지 완료되지 않은 레이드만 필터링하여 보여줍니다.
-                    </span>
-                  </p>
-                  <div className="w-full h-px bg-white/5 my-0.5" />
-                  <p className="text-gray-400 font-medium">※ 테이블 보기에서는 이 옵션이 적용되지 않습니다.</p>
-                </div>
-                <div className="absolute -top-[5px] left-6 w-2.5 h-2.5 bg-gray-900/95 border-t border-l border-white/[0.08] rotate-45 z-10" />
-              </div> */}
-            </label>
-          </div>
-
-          {/* 보기 설정 체크박스 */}
-          <div className="space-y-3">
-            <div className="font-semibold text-white">보기 설정</div>
-            <label className="flex items-center gap-2 cursor-pointer text-[#A2A3A5]">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={isCardView}
-                onChange={(e) => setIsCardView(e.target.checked)}
-              />
-              <span className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF] peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-checked:[&_svg]:opacity-100">
-                <svg className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100" viewBox="0 0 20 20" fill="none">
-                  <path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-              <span>카드로 보기</span>
-            </label>
-          </div>
-          <div className="space-y-3">
-            <div className="font-semibold text-white">자리 이동</div>
-            <label className={`flex items-center gap-2 cursor-pointer ${isCardView ? "opacity-50" : "text-[#A2A3A5]"}`}>
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={isDragEnabled}
-                onChange={(e) => setIsDragEnabled(e.target.checked)}
-                disabled={isCardView} // 카드 뷰에서는 비활성화
-              />
-              <span className={`grid place-items-center h-5 w-5 rounded-md border border-white/30 transition peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF] ${isCardView ? "" : "peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500"} peer-checked:[&_svg]:opacity-100`}>
-                <svg className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100" viewBox="0 0 20 20" fill="none">
-                  <path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-              <span>드래그로 자리 이동</span>
-            </label>
-          </div>
-
-          {/* 🔥 레이드 다중 선택 드롭다운 (개별 초기화 버튼 포함) */}
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between">
-              <div className="font-semibold text-white">레이드 선택</div>
-              {selectedRaids.length > 0 && (
-                <button
-                  onClick={() => setSelectedRaids([])}
-                  className="text-[11px] text-[#5B69FF] hover:text-[#4A57E6] transition-colors"
-                >
-                  초기화 ⟳
-                </button>
-              )}
-            </div>
-            <div className="relative">
-              <button
-                onClick={() => setIsRaidDropdownOpen(!isRaidDropdownOpen)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-all ${isRaidDropdownOpen ? "border-[#5B69FF]/50 ring-1 ring-[#5B69FF]/50" : ""
-                  }`}
-              >
-                <span className="text-xs text-gray-300 truncate pr-1">모든 레이드</span>
-                {isRaidDropdownOpen ? (
-                  <ChevronUp className="h-4 w-4 text-gray-400" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
-                )}
-              </button>
-
-              {isRaidDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-[#1E2128] border border-white/10 rounded-lg shadow-[0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[100]">
-                  <div className="flex flex-col gap-1 p-1.5 max-h-64 overflow-y-auto custom-scrollbar">
-                    {allRaidNames.map((raidName) => {
-                      const isActive = selectedRaids.includes(raidName);
-                      return (
-                        <button
-                          key={raidName}
-                          onClick={() => toggleRaid(raidName)}
-                          className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-white/5"
-                            }`}
-                        >
-                          <div className={`w-4 h-4 flex items-center justify-center transition-colors ${isActive ? "text-[#5B69FF]" : "text-transparent"}`}>
-                            <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                          </div>
-                          <span className="text-xs font-medium">{raidName}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 🔥 선택된 레이드 칩 영역 */}
-            {selectedRaids.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-3 animate-in fade-in duration-300">
-                {selectedRaids.map((raid) => (
-                  <div
-                    key={raid}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#5B69FF]/10 border border-[#5B69FF]/30 text-[#A2A3A5] text-[11px] font-medium transition-all hover:border-[#5B69FF]/60"
-                  >
-                    <span className="text-gray-200">{raid}</span>
-                    <button
-                      onClick={() => removeRaidChip(raid)}
-                      className="p-0.5 hover:bg-[#5B69FF]/20 rounded-full transition-colors group"
-                    >
-                      <X className="w-3 h-3 text-gray-500 group-hover:text-white" strokeWidth={2.5} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 export default function MyTasksPage() {
   const { data: session, status: authStatus } = useSession();
   const [syncedWithServer, setSyncedWithServer] = useState(false);
   const [syncingServer, setSyncingServer] = useState(false);
   const isAuthed = authStatus === "authenticated" && !!session?.user;
   const [showAutoSetupSettings, setShowAutoSetupSettings] = useState(false);
-  const [autoSetupConfirmOpen, setAutoSetupConfirmOpen] = useState(false); // 자동 세팅 모달창
+  const [autoSetupConfirmOpen, setAutoSetupConfirmOpen] = useState(false);
+  const [showAllViewWarning, setShowAllViewWarning] = useState(false); // 🔥 경고 모달
   const [isDragEnabled, setIsDragEnabled] = useState<boolean>(() => {
     const saved = loadSavedFilters();
     return typeof saved?.isDragEnabled === "boolean" ? saved.isDragEnabled : false;
@@ -466,7 +221,6 @@ export default function MyTasksPage() {
     }
   });
 
-  // 🔥 웹소켓
   const wsContext = useGlobalWebSocket();
   const ws = wsContext?.ws;
   const sendMessage = wsContext?.sendMessage;
@@ -481,7 +235,6 @@ export default function MyTasksPage() {
     return typeof saved?.isCardView === "boolean" ? saved.isCardView : false;
   });
 
-  // 🔥 레이드 필터 상태
   const [selectedRaids, setSelectedRaids] = useState<string[]>(() => {
     const saved = loadSavedFilters();
     return Array.isArray(saved?.selectedRaids) ? saved.selectedRaids : [];
@@ -505,11 +258,31 @@ export default function MyTasksPage() {
   const [accounts, setAccounts] = useState<SavedAccount[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
 
-  const activeAccount =
-    accounts.find((a) => a.id === activeAccountId) ??
-    accounts.find((a) => a.isPrimary) ??
-    accounts[0] ??
-    null;
+  // 🔥 "모두 보기" 처리를 위한 effectiveAccount 계산
+  const isAllView = activeAccountId === "ALL";
+  const effectiveAccount = useMemo(() => {
+    if (isAllView) {
+      // 모든 계정 병합 후 아이템 레벨 정렬
+      const allRoster = accounts.flatMap(a => a.summary?.roster || []);
+      const uniqueRoster = Array.from(new Map(allRoster.map(item => [item.name, item])).values());
+      uniqueRoster.sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0));
+
+      return {
+        id: "ALL",
+        nickname: "모두 보기",
+        summary: {
+          name: "모두 보기",
+          roster: uniqueRoster,
+        },
+        isSelected: true,
+      } as SavedAccount;
+    }
+
+    return accounts.find((a) => a.id === activeAccountId) ??
+      accounts.find((a) => a.isPrimary) ??
+      accounts[0] ??
+      null;
+  }, [accounts, activeAccountId, isAllView]);
 
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
@@ -686,12 +459,15 @@ export default function MyTasksPage() {
     }
 
     setActiveAccountId((prev) => {
+      // 기존에 ALL 상태면 유지
+      if (prev === "ALL") return prev;
       if (prev && accounts.some((a) => a.id === prev)) return prev;
 
       let nextId: string | null = null;
       if (typeof window !== "undefined") {
         try {
           const savedId = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
+          if (savedId === "ALL") return "ALL";
           if (savedId && accounts.some((a) => a.id === savedId)) nextId = savedId;
         } catch { }
       }
@@ -722,31 +498,30 @@ export default function MyTasksPage() {
   }, [onlyRemain, isCardView, selectedRaids, isAuthed, isDragEnabled]);
 
   /* ──────────────────────────
-   * ✅ 로스터/로딩 상태 계산 (여기는 "진짜 데이터" 기준)
+   * 로스터/로딩 상태 계산
    * ────────────────────────── */
-  const hasRealRoster = !!activeAccount && !!activeAccount.summary?.roster?.length;
+  const hasRealRoster = !!effectiveAccount && !!effectiveAccount.summary?.roster?.length;
 
   const isAuthLoading = authStatus === "loading";
-  const isAuthAuthed = authStatus === "authenticated";
-  const waitingInitialData = isAuthLoading || (isAuthAuthed && !syncedWithServer);
+  const waitingInitialData = isAuthLoading || (isAuthed && !syncedWithServer);
 
   const showInitialLoading = !hasRealRoster && (waitingInitialData || booting || syncingServer);
 
   const usingDemo = demoEnabled && !hasRealRoster && !showInitialLoading;
 
-  const effectiveAccount: SavedAccount | null = usingDemo
+  const currentActiveAccount: SavedAccount | null = usingDemo
     ? {
       id: DEMO_ACCOUNT_ID,
       nickname: "예시 원정대",
       summary: DEMO_SUMMARY,
       isPrimary: true,
     }
-    : activeAccount;
+    : effectiveAccount;
 
   const effectivePrefsByChar = usingDemo ? demoPrefsByChar : prefsByChar;
   const effectiveVisibleByChar = usingDemo ? demoVisibleByChar : visibleByChar;
 
-  const effectiveHasRoster = !!effectiveAccount && !!effectiveAccount.summary?.roster?.length;
+  const effectiveHasRoster = !!currentActiveAccount && !!currentActiveAccount.summary?.roster?.length;
 
   const showEmptyState =
     !showInitialLoading &&
@@ -755,7 +530,7 @@ export default function MyTasksPage() {
     (authStatus === "unauthenticated" || (authStatus === "authenticated" && syncedWithServer));
 
   /* ──────────────────────────
-   * ✅ 필터: selectedRaids (기본 필터)
+   * 필터: selectedRaids
    * ────────────────────────── */
   const isRaidFilterActive = selectedRaids.length > 0;
 
@@ -776,8 +551,6 @@ export default function MyTasksPage() {
     }
     return next;
   }, [effectivePrefsByChar, isRaidFilterActive, selectedRaids]);
-
-
 
   function setCharPrefs(name: string, updater: (cur: CharacterTaskPrefs) => CharacterTaskPrefs) {
     if (usingDemo) {
@@ -823,6 +596,7 @@ export default function MyTasksPage() {
       tableOrder,
       rosterOrder,
       cardRosterOrder,
+      activeAccountId,
     };
   }
 
@@ -846,6 +620,7 @@ export default function MyTasksPage() {
       if (state.tableOrder) setTableOrder(state.tableOrder);
       if (state.rosterOrder) setRosterOrder(state.rosterOrder);
       if (state.cardRosterOrder) setCardRosterOrder(state.cardRosterOrder);
+      if (state.activeAccountId) setActiveAccountId(state.activeAccountId);
     } catch { }
   }
 
@@ -858,6 +633,15 @@ export default function MyTasksPage() {
     if (isAuthed && session?.user && sendMessage) {
       const userId = (session.user as any).id || (session.user as any).userId;
       sendMessage({ type: "activeAccountUpdate", userId, activeAccountId: id });
+
+      // 내 로컬 상태 서버에도 엎어치기 (동기화)
+      const payload = buildServerStatePayload();
+      payload.activeAccountId = id;
+      fetch("/api/raid-tasks/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).catch(e => console.error(e));
     }
   };
 
@@ -885,7 +669,7 @@ export default function MyTasksPage() {
       controller.abort();
       clearTimeout(timeoutId);
     };
-  }, [authStatus, syncedWithServer, booting, accounts, prefsByChar, visibleByChar, tableOrder, rosterOrder, cardRosterOrder, onlyRemain, isCardView]);
+  }, [authStatus, syncedWithServer, booting, accounts, prefsByChar, visibleByChar, tableOrder, rosterOrder, cardRosterOrder, activeAccountId]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
@@ -941,11 +725,8 @@ export default function MyTasksPage() {
     return () => {
       cancelled = true;
     };
-  }, [authStatus, syncedWithServer, booting, accounts, prefsByChar, visibleByChar, onlyRemain, isCardView]);
+  }, [authStatus, syncedWithServer, booting, accounts, prefsByChar, visibleByChar]);
 
-  /* ──────────────────────────
-   * ✅ 카드 뷰용 build
-   * ────────────────────────── */
   const buildTasksFor = (c: RosterCharacter): TaskItem[] => {
     const prefs = effectivePrefsByChar[c.name];
     if (!prefs) return [];
@@ -956,7 +737,6 @@ export default function MyTasksPage() {
     const items: TaskItem[] = [];
 
     for (const raidName of raidNames) {
-      // ✅ 레이드 필터
       if (isRaidFilterActive && !selectedRaids.includes(raidName)) continue;
 
       const p = (prefs.raids as any)?.[raidName];
@@ -982,9 +762,7 @@ export default function MyTasksPage() {
         const g = diff.gates.find((x: any) => x.index === gi);
         if (!g) return sum;
         const gold = g.gold ?? 0;
-        // 🔥 더보기가 켜져있으면 bonusCost를 가져오고, 아니면 0으로 처리
         const cost = p.isBonus ? (g.bonusCost ?? 0) : 0;
-        // 획득 골드에서 차감 (마이너스가 되지 않게 Math.max 처리)
         return sum + Math.max(0, gold - cost);
       }, 0);
 
@@ -1057,9 +835,7 @@ export default function MyTasksPage() {
           next[idx] = updated;
           newActiveId = updated.id;
         } else {
-          const id =
-            typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${trimmed}-${Date.now()}`;
-
+          const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${trimmed}-${Date.now()}`;
           const acc: SavedAccount = {
             id,
             nickname: trimmed,
@@ -1071,9 +847,7 @@ export default function MyTasksPage() {
         }
 
         if (!isAuthed) {
-          try {
-            localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next));
-          } catch { }
+          try { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next)); } catch { }
         }
         return next;
       });
@@ -1098,10 +872,10 @@ export default function MyTasksPage() {
   };
 
   const handleMyRefreshAccount = async () => {
-    if (!activeAccount) return;
+    if (!currentActiveAccount || isAllView) return; // 🔥 모두 보기 상태에선 동작 방지
     try {
       setIsRefreshing(true);
-      await handleCharacterSearch(activeAccount.nickname);
+      await handleCharacterSearch(currentActiveAccount.nickname);
     } catch (e) {
       console.error(e);
     } finally {
@@ -1116,13 +890,13 @@ export default function MyTasksPage() {
   };
 
   const handleDeleteAccount = () => {
-    if (!activeAccount || usingDemo) return;
+    if (!currentActiveAccount || usingDemo || isAllView) return; // 🔥 모두 보기 상태에선 삭제 방지
 
     setDeleteConfirmOpen(false);
     setIsCharSettingOpen(false);
 
     try {
-      const namesToRemove = new Set(activeAccount.summary?.roster?.map((c) => c.name) ?? []);
+      const namesToRemove = new Set(currentActiveAccount.summary?.roster?.map((c) => c.name) ?? []);
 
       if (!isAuthed) {
         for (const name of namesToRemove) clearCharPrefs(name);
@@ -1145,13 +919,11 @@ export default function MyTasksPage() {
       let nextActiveId: string | null = null;
 
       setAccounts((prev) => {
-        const without = prev.filter((a) => a.id !== activeAccount.id);
+        const without = prev.filter((a) => a.id !== currentActiveAccount.id);
 
         if (without.length === 0) {
           if (!isAuthed) {
-            try {
-              localStorage.setItem(ACCOUNTS_KEY, JSON.stringify([]));
-            } catch { }
+            try { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify([])); } catch { }
           }
           nextActiveId = null;
           return [];
@@ -1161,9 +933,7 @@ export default function MyTasksPage() {
         nextActiveId = baseActive.id;
 
         if (!isAuthed) {
-          try {
-            localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(without));
-          } catch { }
+          try { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(without)); } catch { }
         }
         return without;
       });
@@ -1181,9 +951,9 @@ export default function MyTasksPage() {
   };
 
   const handleAutoSetup = (charCount: number = 6) => {
-    if (!effectiveAccount?.summary?.roster || effectiveAccount.summary.roster.length === 0) return;
+    if (!currentActiveAccount?.summary?.roster || currentActiveAccount.summary.roster.length === 0) return;
 
-    const roster = effectiveAccount.summary.roster;
+    const roster = currentActiveAccount.summary.roster;
     const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(roster, effectivePrefsByChar, charCount);
     const RESET_TABLE_ORDER = ["__empty_0"];
     const nextVisibleMerged: Record<string, boolean> = usingDemo ? { ...demoVisibleByChar } : { ...visibleByChar };
@@ -1307,10 +1077,8 @@ export default function MyTasksPage() {
     });
   };
 
-  const visibleRoster =
-    (effectiveAccount?.summary?.roster ?? []).filter((c) => (effectiveVisibleByChar[c.name] ?? true)) ?? [];
+  const visibleRoster = (currentActiveAccount?.summary?.roster ?? []).filter((c) => (effectiveVisibleByChar[c.name] ?? true)) ?? [];
 
-  // 통계 계산: 필터 무관(전체 기준)
   const { totalRemainingTasks, remainingCharacters, totalRemainingGold, totalGold } = useMemo<RaidSummary>(() => {
     return computeRaidSummaryForRoster(visibleRoster, effectivePrefsByChar);
   }, [visibleRoster, effectivePrefsByChar]);
@@ -1318,13 +1086,8 @@ export default function MyTasksPage() {
   const isAllCleared = totalRemainingGold === 0 && totalGold > 0;
   const shouldShowAds = effectiveHasRoster && !usingDemo;
 
-  /* ──────────────────────────
-   * ✅ 테이블 뷰 전용: selectedRaids + onlyRemain까지 반영
-   * ────────────────────────── */
-
   const tablePrefsByChar = useMemo(() => {
     const base = raidFilteredPrefsByChar;
-
     if (!onlyRemain) return base;
 
     const next: Record<string, CharacterTaskPrefs> = {};
@@ -1346,35 +1109,23 @@ export default function MyTasksPage() {
           continue;
         }
 
-        const lastGateIndex = gatesDef.reduce(
-          (max: number, g: any) => (g.index > max ? g.index : max),
-          gatesDef[0].index
-        );
-
+        const lastGateIndex = gatesDef.reduce((max: number, g: any) => (g.index > max ? g.index : max), gatesDef[0].index);
         const gates = (raidPref as any).gates ?? [];
         const isCompleted = gates.includes(lastGateIndex);
 
-        if (isCompleted) continue; // ✅ onlyRemain이면 완료 레이드는 숨김
-
+        if (isCompleted) continue;
         filteredRaids[raidName] = raidPref;
       }
 
       const nextOrder = pref.order?.filter((r) => filteredRaids[r]) ?? Object.keys(filteredRaids);
-
-      next[charName] = {
-        ...pref,
-        raids: filteredRaids,
-        order: nextOrder,
-      };
+      next[charName] = { ...pref, raids: filteredRaids, order: nextOrder };
     }
 
     return next;
   }, [raidFilteredPrefsByChar, onlyRemain]);
 
-  // ✅ 테이블에서 실제로 보여줄 roster(필터 결과가 있는 캐릭터만)
   const tableRoster = useMemo(() => {
     if (!isRaidFilterActive && !onlyRemain) return visibleRoster;
-
     return visibleRoster.filter((c) => {
       const pref = tablePrefsByChar[c.name];
       if (!pref?.raids) return false;
@@ -1382,7 +1133,6 @@ export default function MyTasksPage() {
     });
   }, [visibleRoster, tablePrefsByChar, isRaidFilterActive, onlyRemain]);
 
-  // ✅ 테이블에서 실제로 존재하는 레이드 목록(행)
   const tableRaidNames = useMemo(() => {
     const set = new Set<string>();
     for (const c of tableRoster) {
@@ -1397,10 +1147,7 @@ export default function MyTasksPage() {
 
   function mergeReorderedSubset(full: string[], subset: string[], subsetNew: string[]) {
     const subsetSet = new Set(subset);
-
-    // full에 없는 애들은 뒤에 붙는 구조 보정 (안전장치)
     const baseFull = full.length ? full : subset;
-
     const result: string[] = [];
     let k = 0;
 
@@ -1412,62 +1159,45 @@ export default function MyTasksPage() {
       }
     }
 
-    // full에 없던 subsetNew 항목이 있으면 뒤에 추가
     for (; k < subsetNew.length; k++) {
       if (!result.includes(subsetNew[k])) result.push(subsetNew[k]);
     }
-
     return result;
   }
 
-  // ✅ tableOrder가 비어있거나 "__empty_0" 같은 초기값이어도, 항상 표시 가능한 order를 만들어줌
   const tableOrderForView = useMemo(() => {
     const available = tableRaidNames;
     if (!available.length) return [];
 
     const availableSet = new Set(available);
+    const saved = (tableOrder ?? []).filter((r) => availableSet.has(r) || String(r).startsWith("__empty_"));
 
-    // 1. 유효한 레이드와 빈칸(__empty_)만 1차 필터링
-    const saved = (tableOrder ?? []).filter((r) =>
-      availableSet.has(r) || String(r).startsWith("__empty_")
-    );
-
-    // 2. 양 끝에 불필요하게 쌓인 빈칸 제거 (무조건 왼쪽 정렬되도록 보장)
     let startIndex = 0;
     let endIndex = saved.length - 1;
 
-    while (startIndex <= endIndex && saved[startIndex].startsWith("__empty_")) {
-      startIndex++;
-    }
-    while (endIndex >= startIndex && saved[endIndex].startsWith("__empty_")) {
-      endIndex--;
-    }
+    while (startIndex <= endIndex && saved[startIndex].startsWith("__empty_")) { startIndex++; }
+    while (endIndex >= startIndex && saved[endIndex].startsWith("__empty_")) { endIndex--; }
 
     const trimmedSaved = startIndex <= endIndex ? saved.slice(startIndex, endIndex + 1) : [];
 
-    // 🔥 3. 수정된 부분: 레벨(getRaidBaseLevel) 기준 정렬을 TaskTable과 똑같이 출시일(releaseDate) 기준으로 변경
     const sortByReleaseDate = (a: string, b: string) => {
       const dateA = raidInformation[a]?.releaseDate || "2000-01-01";
       const dateB = raidInformation[b]?.releaseDate || "2000-01-01";
       return dateA.localeCompare(dateB);
     };
 
-    // 빠진 레이드는 출시일이 오래된 순으로 뒤에 붙임
     const missing = available.filter((r) => !trimmedSaved.includes(r)).sort(sortByReleaseDate);
 
     const merged = [...trimmedSaved, ...missing];
     if (merged.length) return merged;
 
-    // saved가 의미 없으면 기본 정렬 (출시일 오래된 순)
     return [...available].sort(sortByReleaseDate);
   }, [tableOrder, tableRaidNames]);
 
   const isTableFiltered = isRaidFilterActive || onlyRemain;
-
   const isTableEmpty = tableRoster.length === 0;
-  const cardSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
+  const cardSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
   return (
     <div className="w-full text-white py-8 sm:py-12">
       <div className="mx-auto max-w-7xl space-y-5">
@@ -1481,40 +1211,51 @@ export default function MyTasksPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)] gap-5 lg:items-start">
           <div className="space-y-4">
-            {usingDemo ? (
-              <DemoSidebar
-                accounts={accounts}
-                activeAccountId={activeAccountId}
-                onSelectAccount={handleSelectAccount}
-                onAddAccount={() => setIsAddAccountOpen(true)}
-                onlyRemain={onlyRemain}
-                setOnlyRemain={setOnlyRemain}
-                isCardView={isCardView}
-                setIsCardView={setIsCardView}
-                selectedRaids={selectedRaids}
-                setSelectedRaids={setSelectedRaids}
-                adSlot={AD_SLOT_SIDEBAR}
-                isDragEnabled={isDragEnabled} // 🔥 전달
-                setIsDragEnabled={setIsDragEnabled} // 🔥 전달
-              />
-            ) : (
-              <TaskSidebar
-                accounts={accounts}
-                activeAccountId={activeAccountId}
-                onSelectAccount={handleSelectAccount}
-                onAddAccount={() => setIsAddAccountOpen(true)}
-                onlyRemain={onlyRemain}
-                setOnlyRemain={setOnlyRemain}
-                isCardView={isCardView}
-                setIsCardView={setIsCardView}
-                selectedRaids={selectedRaids}
-                setSelectedRaids={setSelectedRaids}
-                adSlot={AD_SLOT_SIDEBAR}
-                isDragEnabled={isDragEnabled} // 🔥 전달
-                setIsDragEnabled={setIsDragEnabled} // 🔥 전달
-              />
+            {/* 🔥 데모일 땐 가짜 사이드바(배너), 아닐 땐 진짜 사이드바 렌더링하도록 분리된 로직 */}
+            {usingDemo && (
+              <section className="overflow-hidden rounded-none sm:rounded-lg bg-[#16181D] border border-white/5">
+                <div className="flex items-center gap-2 px-4 py-3 bg-white/5 border-b border-white/5">
+                  <div className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#5B69FF] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#5B69FF]"></span>
+                  </div>
+                  <span className="text-[11px] font-bold text-[#5B69FF] tracking-widest uppercase">Preview Mode</span>
+                </div>
+
+                <div className="p-4 space-y-2">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-base font-bold text-white tracking-tight">테스트 계정</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    <p className="text-[11px] text-gray-400 leading-relaxed break-keep">
+                      캐릭터 등록 없이 체험할 수 있는 <span className="text-gray-200 font-medium">샘플 데이터</span> 입니다.
+                    </p>
+                    <button
+                      onClick={() => setIsAddAccountOpen(true)}
+                      className="group w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-xs font-bold text-white transition-all duration-200 active:scale-[0.98]"
+                    >
+                      내 계정 불러오기
+                    </button>
+                  </div>
+                </div>
+              </section>
             )}
 
+            {/* 🔥 공용 TaskSidebar (MyTaskSidebar, DemoSidebar 삭제 후 교체) */}
+            <TaskSidebar
+              accounts={usingDemo && currentActiveAccount ? [currentActiveAccount] : accounts}
+              activeAccountId={activeAccountId}
+              onSelectAccount={handleSelectAccount}
+              onAddAccount={() => setIsAddAccountOpen(true)}
+              onlyRemain={onlyRemain}
+              setOnlyRemain={setOnlyRemain}
+              isCardView={isCardView}
+              setIsCardView={setIsCardView}
+              selectedRaids={selectedRaids}
+              setSelectedRaids={setSelectedRaids}
+              isDragEnabled={isDragEnabled}
+              setIsDragEnabled={setIsDragEnabled}
+            />
             {accountSearchErr && <p className="mt-2 text-[11px] text-red-400 px-1">에러: {accountSearchErr}</p>}
           </div>
 
@@ -1553,40 +1294,51 @@ export default function MyTasksPage() {
                 <div className="flex flex-row flex-wrap gap-2 sm:gap-3 items-center">
                   {!usingDemo && (
                     <button
-                      onClick={handleMyRefreshAccount}
-                      disabled={isRefreshing || !effectiveHasRoster}
-                      className={`
-                        p-2 rounded-lg transition-colors
-                        ${isRefreshing || !effectiveHasRoster ? "text-indigo-400 cursor-not-allowed" : "text-gray-400 hover:text-white hover:bg-white/5"}
-                      `}
+                      onClick={() => {
+                        if (isAllView) {
+                          setShowAllViewWarning(true);
+                          return;
+                        }
+                        handleMyRefreshAccount();
+                      }}
+                      disabled={isRefreshing}
+                      className={`p-2 rounded-lg transition-colors ${isRefreshing ? "text-indigo-400 cursor-not-allowed" :
+                        isAllView ? "text-gray-600 opacity-50 cursor-pointer" :
+                          "text-gray-400 hover:text-white hover:bg-white/5"
+                        }`}
                       title="계정 정보 업데이트"
                     >
                       <RefreshCcw className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`} />
                     </button>
                   )}
 
-                  {/* 🔥 수정된 자동 세팅 그룹 (디자인 원복 + 로컬스토리지 연동) */}
+                  {/* 🔥 자동 세팅 그룹 */}
                   <div className="relative flex items-center">
                     <button
-                      onClick={() => setAutoSetupConfirmOpen(true)}
-                      className="relative group flex items-center justify-center py-2 px-6 rounded-lg bg-white/[.04] border border-white/10 hover:bg-white/5 hover:border-white/20 text-xs sm:text-sm font-medium text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={(e) => {
+                        if (isAllView) {
+                          setShowAllViewWarning(true);
+                          return;
+                        }
+                        setAutoSetupConfirmOpen(true);
+                      }}
+                      className={`relative group flex items-center justify-center py-2 px-6 rounded-lg bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium transition-all duration-200 ${isAllView ? 'text-gray-600 opacity-50 cursor-pointer' : 'hover:bg-white/5 hover:border-white/20 text-white'
+                        }`}
                     >
                       <span>자동 세팅</span>
-
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation(); // 부모 버튼(자동 세팅) 클릭 방지
-                          setShowAutoSetupSettings(!showAutoSetupSettings);
-                        }}
-                        className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors duration-200 cursor-pointer z-10"
-                        title="자동 세팅 설정"
-                      >
-                        <Settings className="w-3.5 h-3.5" />
-                      </div>
+                      {!isAllView && (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowAutoSetupSettings(!showAutoSetupSettings);
+                          }}
+                          className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors duration-200 cursor-pointer z-10"
+                          title="자동 세팅 설정"
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                        </div>
+                      )}
                     </button>
-
-
-
 
                     {showAutoSetupSettings && (
                       <div className="absolute top-full left-0 mt-2 w-56 p-4 rounded-xl bg-[#1E2028] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.7)] z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
@@ -1623,7 +1375,6 @@ export default function MyTasksPage() {
                         >
                           적용하기
                         </button>
-
                         <div className="absolute -top-1.5 left-16 w-3 h-3 bg-[#1E2028] border-t border-l border-white/10 rotate-45" />
                       </div>
                     )}
@@ -1638,50 +1389,38 @@ export default function MyTasksPage() {
                   </button>
 
                   <button
-                    onClick={() => setIsCharSettingOpen(true)}
+                    onClick={() => {
+                      if (isAllView) {
+                        setShowAllViewWarning(true);
+                        return;
+                      }
+                      setIsCharSettingOpen(true);
+                    }}
                     disabled={!effectiveHasRoster}
-                    className="inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium disabled:opacity-50"
+                    className={`inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium transition-colors ${isAllView ? 'text-gray-600 opacity-50 cursor-pointer' : 'hover:bg-white/5 text-white disabled:opacity-50'
+                      }`}
                   >
                     캐릭터 설정
                   </button>
                 </div>
               </div>
             </div>
-
             {usingDemo && (
-              <div className="flex flex-col gap-5">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] transition-colors">
-                    <div className="font-semibold text-sm text-gray-200 flex items-center gap-1.5">
-                      <span className="text-[#5B69FF]">1.</span> 캐릭터 연동
-                    </div>
-                    <div className="text-[12px] text-gray-400 leading-relaxed break-keep">
-                      <strong className="text-gray-300">내 계정 불러오기</strong>를 통해 대표 캐릭터 닉네임을 입력하고 원정대 정보를 한 번에 가져오세요.
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] transition-colors">
-                    <div className="font-semibold text-sm text-gray-200 flex items-center gap-1.5">
-                      <span className="text-[#5B69FF]">2.</span> 편리한 세팅
-                    </div>
-                    <div className="text-[12px] text-gray-400 leading-relaxed break-keep">
-                      <strong className="text-gray-300">자동 세팅</strong>으로 주력 캐릭터의 레이드를 구성하고, 클릭 한 번으로 관문 클리어 여부와 골드를 체크하세요.
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] transition-colors">
-                    <div className="font-semibold text-sm text-gray-200 flex items-center gap-1.5">
-                      <span className="text-[#5B69FF]">3.</span> 데이터 저장 및 동기화
-                    </div>
-                    <div className="text-[12px] text-gray-400 leading-relaxed break-keep">
-                      비로그인 시에는 내 PC(웹)에 자동 저장되며, 로그인 시{" "}
-                      <strong className="text-[#5B69FF]">클라우드에 안전하게 저장</strong>되어 어디서든 연동됩니다.
-                    </div>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 ">
+                <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div className="font-semibold text-sm text-[#5B69FF] flex items-center gap-1.5">1. 캐릭터 연동</div>
+                  <div className="text-[12px] text-gray-400 break-keep">내 계정 불러오기를 통해 대표 캐릭터 닉네임을 입력하고 원정대 정보를 한 번에 가져오세요.</div>
+                </div>
+                <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div className="font-semibold text-sm text-[#5B69FF] flex items-center gap-1.5">2. 편리한 세팅</div>
+                  <div className="text-[12px] text-gray-400 break-keep">자동 세팅으로 주력 캐릭터의 레이드를 구성하고, 클릭 한 번으로 관문 클리어 여부와 골드를 체크하세요.</div>
+                </div>
+                <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div className="font-semibold text-sm text-[#5B69FF] flex items-center gap-1.5">3. 데이터 저장 및 동기화</div>
+                  <div className="text-[12px] text-gray-400 break-keep">비로그인 시에는 내 PC(웹)에 자동 저장되며, 로그인 시 클라우드에 안전하게 저장되어 어디서든 연동됩니다.</div>
                 </div>
               </div>
             )}
-
             {showEmptyState && (
               <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 rounded-none sm:rounded-2xl animate-in fade-in zoom-in-95 duration-500">
                 <div className="relative mb-6">
@@ -1747,11 +1486,8 @@ export default function MyTasksPage() {
 
             {effectiveHasRoster ? (
               !isCardView ? (
-                // ✅ 테이블 뷰
                 isTableEmpty ? (
-                  // 레이드 필터로 인해 비었으면: 아무 것도 안 띄움
                   isRaidFilterActive ? null : (
-                    // onlyRemain 때문에 비었으면: 완료 문구
                     onlyRemain ? (
                       <div className="flex flex-col items-center justify-center py-14 rounded-none sm:rounded-xl border-x-0 sm:border border-white/5 bg-white/[0.02] animate-in fade-in zoom-in-95 duration-300">
                         <div className="relative mb-4">
@@ -1767,67 +1503,46 @@ export default function MyTasksPage() {
                   )
                 ) : (
                   <TaskTable
-                    roster={tableRoster}                 // ✅ 필터 반영 roster
-                    prefsByChar={tablePrefsByChar}       // ✅ 필터 반영 prefs
-                    tableOrder={tableOrderForView}       // ✅ 항상 표시 가능한 order
+                    key={`table-${isAllView ? 'all' : currentActiveAccount?.id}`} // 🔥 계정 변경 시 초기화
+                    roster={tableRoster}
+                    prefsByChar={tablePrefsByChar}
+                    tableOrder={tableOrderForView}
                     onReorderTable={(newOrder) => {
-                      // ✅ 데이터 유실 방지: 필터 켜져 있으면 저장/전송 안 함
                       if (isTableFiltered) return;
-
                       setTableOrder(newOrder);
 
                       if (!isAuthed) {
-                        try {
-                          localStorage.setItem(TABLE_ORDER_KEY, JSON.stringify(newOrder));
-                        } catch { }
+                        try { localStorage.setItem(TABLE_ORDER_KEY, JSON.stringify(newOrder)); } catch { }
                       } else if (session?.user && sendMessage) {
                         const userId = (session.user as any).id || (session.user as any).userId;
-                        sendMessage({
-                          type: "tableOrderUpdate",
-                          userId,
-                          tableOrder: newOrder,
-                        });
+                        sendMessage({ type: "tableOrderUpdate", userId, tableOrder: newOrder });
                       }
                     }}
                     onToggleGate={handleTableToggleGate}
                     onEdit={(c) => setEditingChar(c)}
                     rosterOrder={rosterOrder}
-                    isDragEnabled={isDragEnabled} // 🔥 전달
+                    isDragEnabled={isDragEnabled}
                     onReorderRoster={(newOrder) => {
-                      // ✅ newOrder: 현재 테이블에 보이는 캐릭터들(tableRoster)의 순서
                       const subset = tableRoster.map((c) => c.name);
-
                       setRosterOrder((prev) => {
                         const merged = mergeReorderedSubset(prev, subset, newOrder);
-
                         if (!isAuthed) {
-                          try {
-                            localStorage.setItem(ROSTER_ORDER_KEY, JSON.stringify(merged));
-                          } catch { }
+                          try { localStorage.setItem(ROSTER_ORDER_KEY, JSON.stringify(merged)); } catch { }
                         } else if (session?.user && sendMessage) {
                           const userId = (session.user as any).id || (session.user as any).userId;
-
-                          sendMessage({
-                            type: "tableOrderUpdate",   // ✅ 레이드 이동과 동일한 타입
-                            userId,
-                            rosterOrder: merged,        // ✅ payload에 rosterOrder 실어서 보냄
-                          });
+                          sendMessage({ type: "tableOrderUpdate", userId, rosterOrder: merged });
                         }
-
                         return merged;
                       });
                     }}
                   />
                 )
               ) : (
-                // ✅ 카드 뷰
                 <div className="flex flex-col gap-4">
                   {(() => {
-                    // 1. 카드 뷰 전용 정렬 (레벨 순 정렬 후 cardRosterOrder 기준 재정렬)
                     const sortedRoster = [...visibleRoster].sort((a, b) => {
                       const diff = (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0);
                       if (!cardRosterOrder.length) return diff;
-
                       const idxA = cardRosterOrder.indexOf(a.name);
                       const idxB = cardRosterOrder.indexOf(b.name);
                       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
@@ -1836,7 +1551,6 @@ export default function MyTasksPage() {
                       return diff;
                     });
 
-                    // 2. 현재 필터 조건에 부합하는 (보여줄) 카드들만 미리 계산
                     const visibleCardStrips = sortedRoster.map(c => ({
                       character: c,
                       tasks: buildTasksFor(c)
@@ -1865,7 +1579,6 @@ export default function MyTasksPage() {
                       return null;
                     }
 
-
                     const handleCardDragEnd = (e: DragEndEvent) => {
                       const { active, over } = e;
                       if (!over || active.id === over.id) return;
@@ -1879,20 +1592,11 @@ export default function MyTasksPage() {
 
                         setCardRosterOrder((prev) => {
                           const merged = mergeReorderedSubset(prev, subset, newSubsetOrder);
-
-                          // 🔥 무조건 로컬스토리지에 저장
                           try { localStorage.setItem(CARD_ROSTER_ORDER_KEY, JSON.stringify(merged)); } catch { }
-
-                          // 🔥 로그인 상태일 경우 실시간으로 서버 및 다른 브라우저에 전송
                           if (isAuthed && session?.user && sendMessage) {
                             const userId = (session.user as any).id || (session.user as any).userId;
-                            sendMessage({
-                              type: "tableOrderUpdate",
-                              userId,
-                              cardRosterOrder: merged,
-                            });
+                            sendMessage({ type: "tableOrderUpdate", userId, cardRosterOrder: merged });
                           }
-
                           return merged;
                         });
                       }
@@ -1901,7 +1605,7 @@ export default function MyTasksPage() {
                     return (
                       <DndContext sensors={cardSensors} collisionDetection={closestCenter} onDragEnd={handleCardDragEnd}>
                         <SortableContext items={visibleCardStrips.map(s => s.character.name)} strategy={verticalListSortingStrategy}>
-                          <div className="flex flex-col gap-4">
+                          <div className="flex flex-col gap-4" key={`cards-${isAllView ? 'all' : currentActiveAccount?.id}`}>
                             {visibleCardStrips.map(({ character, tasks }) => (
                               <SortableCardStripWrapper
                                 key={character.name}
@@ -2010,6 +1714,32 @@ export default function MyTasksPage() {
         </div>
       )}
 
+      {/* 🔥 모두 보기 상태 경고 모달 */}
+      {showAllViewWarning && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+                <AlertTriangle className="h-7 w-7" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">
+                기능 사용 불가
+              </h3>
+              <p className="text-sm text-gray-400 leading-relaxed mb-6 break-keep">
+                <span className="text-white font-medium">'모두 보기'</span> 상태에서는 데이터 꼬임을 방지하기 위해 해당 기능을 이용할 수 없습니다.<br /><br />
+                단일 계정을 선택한 후 다시 시도해주세요.
+              </p>
+              <button
+                onClick={() => setShowAllViewWarning(false)}
+                className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold transition-colors text-sm"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editingChar && (
         <EditTasksModal
           open
@@ -2031,16 +1761,12 @@ export default function MyTasksPage() {
             setAccountSearchErr(null);
           }}
           roster={effectiveAccount?.summary?.roster ?? []}
-          onDeleteAccount={() => {
-            if (usingDemo) {
-              setIsAddAccountOpen(true);
-              return;
-            }
-            setDeleteConfirmOpen(true);
-          }}
+          onDeleteAccount={
+            usingDemo || isAllView ? undefined : () => setDeleteConfirmOpen(true) // 🔥 모두 보기 상태일 때 삭제 막기
+          }
           visibleByChar={effectiveVisibleByChar}
           refreshError={accountSearchErr}
-          onRefreshAccount={handleMyRefreshAccount}
+          onRefreshAccount={isAllView ? undefined : handleMyRefreshAccount} // 🔥 모두 보기 상태일 때 갱신 막기
           onChangeVisible={(partial) => {
             if (usingDemo) {
               setDemoVisibleByChar((prev) => ({ ...prev, ...partial }));

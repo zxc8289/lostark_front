@@ -162,8 +162,8 @@ export default function AuctionCalculatorPage() {
                                     <div className="mt-auto space-y-4">
                                         <div className="flex items-end justify-between border-b border-white/5 pb-3">
                                             <span className="text-[11px] text-gray-500 font-medium">분배금 포기 대비 얻는 추가 이익</span>
-                                            <span className="text-2xl font-bold font-mono text-indigo-400">
-                                                +{fmt(calc.nbbSnipeMyNet - calc.nbbSnipeDividend)} G
+                                            <span className="text-2xl font-bold font-mono text-white">
+                                                {fmt(calc.nbbSnipeMyNet - calc.nbbSnipeDividend)} G
                                             </span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">

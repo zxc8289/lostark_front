@@ -262,6 +262,7 @@ function buildTasksForCharacter(
             const cost = p.isBonus ? (g.bonusCost ?? 0) : 0;
             return sum + Math.max(0, gold - cost);
         }, 0);
+
         const right = (
             <span className="text-xs px-2 py-1 rounded bg-yellow-500/10 text-yellow-300 border border-yellow-300/20">
                 {totalGold.toLocaleString()}g
@@ -362,6 +363,7 @@ export default function PartyDetailPage() {
     const [accountSearchLoading, setAccountSearchLoading] = useState(false);
     const [accountSearchErr, setAccountSearchErr] = useState<string | null>(null);
     const [accounts, setAccounts] = useState<SavedAccount[]>([]);
+    const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
     const [isAccountListOpen, setIsAccountListOpen] = useState(false);
     const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
     const [inlineSearchInput, setInlineSearchInput] = useState("");
@@ -370,11 +372,31 @@ export default function PartyDetailPage() {
     const AD_SLOT_SIDEBAR = "4444902536";
     const AD_SLOT_BOTTOM_BANNER = "7577482274"
 
-    const currentAccount =
-        accounts.find((a) => a.isSelected) ??
-        accounts.find((a) => a.isPrimary) ??
-        accounts[0] ??
-        null;
+    const currentAccount = useMemo(() => {
+        if (activeAccountId === "ALL") {
+            // 모든 계정의 캐릭터를 하나의 배열로 합칩니다.
+            const allRoster = accounts.flatMap(a => a.summary?.roster || []);
+            // 중복 제거 (이름 기준, 만약 동일 캐릭터가 여러 계정에 있을 경우 방지)
+            const uniqueRoster = Array.from(new Map(allRoster.map(item => [item.name, item])).values());
+
+            return {
+                id: "ALL",
+                nickname: "모두 보기",
+                summary: {
+                    name: "모두 보기",
+                    roster: uniqueRoster, // 합쳐진 로스터 적용
+                },
+                isSelected: true,
+            } as SavedAccount;
+        }
+
+        // 일반 계정 선택 시
+        return accounts.find((a) => a.id === activeAccountId) ??
+            accounts.find((a) => a.isPrimary) ??
+            accounts[0] ??
+            null;
+    }, [accounts, activeAccountId]);
+
 
     const reloadPartyTasks = useCallback(
         async (showSpinner: boolean) => {
@@ -490,7 +512,7 @@ export default function PartyDetailPage() {
         visibleByChar?: Record<string, boolean>,
         tableOrder?: string[],
         rosterOrder?: string[],
-        cardRosterOrder?: string[]      // ✅ 추가
+        cardRosterOrder?: string[]
     ) {
         if (sendGlobalMessage) {
             sendGlobalMessage({
@@ -501,30 +523,47 @@ export default function PartyDetailPage() {
                 visibleByChar,
                 tableOrder,
                 rosterOrder,
-                cardRosterOrder,            // ✅ 추가
+                cardRosterOrder,
             });
         }
     }
 
-    const handleSelectAccount = (accountId: string) => {
+    const handleSelectAccount = (targetId: string) => {
         if (!party) return;
-        const targetAcc = accounts.find((a) => a.id === accountId);
-        if (!targetAcc) return;
+
+        setActiveAccountId(targetId); // 즉시 UI 반영
 
         void (async () => {
-            const nextAccounts = await applyActiveAccount(
-                targetAcc,
-                accounts,
-                party.id,
-                myUserId,
-                saveRaidState,
-                saveActiveAccountToServer,
-                sendGlobalMessage
+            // accounts 배열에서 isSelected 업데이트 (ALL일 경우 모두 false 처리)
+            const nextAccounts = accounts.map((a) =>
+                a.id === targetId ? { ...a, isSelected: true } : { ...a, isSelected: false }
             );
+
             setAccounts(nextAccounts);
+
+            // DB에 저장
+            await saveRaidState({
+                accounts: nextAccounts,
+                activeAccountId: targetId === "ALL" ? "ALL" : (nextAccounts.find(a => a.id === targetId)?.id ?? null),
+            });
+
+            await saveActiveAccountToServer(party.id, targetId);
+
+            // 다른 파티원들에게 동기화
+            if (sendGlobalMessage && myUserId) {
+                sendGlobalMessage({
+                    type: "activeAccountUpdate",
+                    partyId: party.id,
+                    userId: myUserId,
+                    activeAccountId: targetId,
+                });
+            }
+
+            // "ALL" 상태일 때 백엔드에 통합된 데이터를 보내줄 필요가 있다면
+            // 나중에 reloadPartyTasks를 호출하거나 백엔드 GET 로직 수정이 필요합니다.
+            void reloadPartyTasks(false);
         })();
     };
-
     const handleCharacterSearch = async (name: string): Promise<boolean> => {
         const trimmed = name.trim();
         if (!trimmed) return false;
@@ -1552,7 +1591,7 @@ export default function PartyDetailPage() {
                         }
 
                         setAccounts(accs);
-
+                        setActiveAccountId(initialActiveId);
                         if (shouldSaveDefault && initialActiveId) {
                             void saveActiveAccountToServer(data.id, initialActiveId);
                         }
@@ -1908,7 +1947,7 @@ export default function PartyDetailPage() {
                     <div className="space-y-4">
                         <TaskSidebar
                             accounts={accounts}
-                            activeAccountId={currentAccount?.id ?? null}
+                            activeAccountId={activeAccountId}
                             onSelectAccount={handleSelectAccount}
                             onAddAccount={() => setIsAddAccountOpen(true)}
                             onlyRemain={onlyRemain}
@@ -1980,6 +2019,10 @@ export default function PartyDetailPage() {
                                         ? filteredTableOrder.slice(startIndex, endIndex + 1)
                                         : [];
 
+                                    const isAllView = (myUserId === m.userId)
+                                        ? activeAccountId === "ALL"
+                                        : (m.summary?.name === "통합 원정대" || m.summary?.name === "모두 보기");
+
                                     return (
                                         <PartyMemberBlock
                                             key={m.userId}
@@ -1989,6 +2032,7 @@ export default function PartyDetailPage() {
                                             viewTableOrder={finalTableOrder} // 🔥 필터 및 정렬된 테이블 순서 (화면 렌더링용)
                                             selectedRaids={selectedRaids}
                                             isMe={myUserId === m.userId}
+                                            isAllView={isAllView}
                                             currentAccount={currentAccount}
                                             onReorderTable={handleMemberTableReorder}
                                             onlyRemain={onlyRemain}
@@ -2090,7 +2134,7 @@ export default function PartyDetailPage() {
                                         handleMemberChangeVisible(charSettingTarget.memberUserId, next);
                                     }}
                                     onDeleteAccount={
-                                        isMeTarget ? () => setDeleteConfirmOpen(true) : undefined
+                                        isMeTarget && activeAccountId !== "ALL" ? () => setDeleteConfirmOpen(true) : undefined
                                     }
                                     onRefreshAccount={
                                         isMeTarget
@@ -2391,6 +2435,7 @@ function PartyMemberBlock({
     selectedRaids,
     isDragEnabled,
     onReorderCardRoster,
+    isAllView,
 
 }: {
     partyId: number;
@@ -2416,6 +2461,7 @@ function PartyMemberBlock({
     onReorderRoster: (userId: string, mergedRosterOrder: string[]) => void;
     isDragEnabled: boolean;
     onReorderCardRoster: (userId: string, mergedCardOrder: string[]) => void; // ✅ 추가
+    isAllView: boolean; // 🔥 이 줄 추가
 }) {
     const [isExpanded, setIsExpanded] = useState(true);
     const [searchInput, setSearchInput] = useState("");
@@ -2687,6 +2733,7 @@ function PartyMemberBlock({
                     onRefreshAccount={withEditAuth(async () => { await onRefreshAccount(); })}
                     isExpanded={isExpanded}
                     onToggleExpand={handleToggleExpand} // 접기/펼치기는 항상 작동
+                    isAllView={isAllView} // 🔥 이 줄 추가
                 />
             </PartyMemberSummaryBar>
 
@@ -2821,6 +2868,7 @@ function PartyMemberBlock({
                             )
                         ) : (
                             <TaskTable
+                                key={`table-${isAllView ? 'all' : currentAccount?.id}`}
                                 roster={tableRoster}
                                 prefsByChar={tablePrefsByChar}
                                 tableOrder={viewTableOrder}
@@ -2986,6 +3034,7 @@ type PartyMemberActionsProps = {
     onRefreshAccount: () => Promise<void> | void;
     isExpanded: boolean;
     onToggleExpand: () => void;
+    isAllView?: boolean; // 🔥 이 줄 추가
 };
 
 function PartyMemberActions({
@@ -2995,12 +3044,15 @@ function PartyMemberActions({
     onRefreshAccount,
     isExpanded,
     onToggleExpand,
+    isAllView,
 }: PartyMemberActionsProps) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showAutoSetupSettings, setShowAutoSetupSettings] = useState(false);
     const [autoSetupConfirmOpen, setAutoSetupConfirmOpen] = useState(false);
+    const [showAllViewWarning, setShowAllViewWarning] = useState(false);
+
     const [autoSetupCharCount, setAutoSetupCharCount] = useState<number>(() => {
         if (typeof window === "undefined") return 6;
         try {
@@ -3010,7 +3062,6 @@ function PartyMemberActions({
             return 6;
         }
     });
-
 
     useEffect(() => {
         try {
@@ -3044,10 +3095,21 @@ function PartyMemberActions({
     return (
         <div className="flex items-center gap-1 sm:gap-2" ref={menuRef}>
             <div className="relative">
+                {/* 1️⃣ 새로고침(업데이트) 버튼 - 막음 */}
                 <button
-                    onClick={handleRefreshClick}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (isAllView) {
+                            setShowAllViewWarning(true);
+                            return;
+                        }
+                        handleRefreshClick();
+                    }}
                     disabled={isRefreshing}
-                    className={`p-2 rounded-lg transition-colors ${isRefreshing ? "text-indigo-400 cursor-not-allowed" : "text-gray-400 hover:text-white hover:bg-white/5"}`}
+                    className={`p-2 rounded-lg transition-colors ${isRefreshing ? "text-indigo-400 cursor-not-allowed" :
+                        isAllView ? "text-gray-600 opacity-50 cursor-pointer" :
+                            "text-gray-400 hover:text-white hover:bg-white/5"
+                        }`}
                     title="계정 정보 업데이트"
                 >
                     <RefreshCcw className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`} />
@@ -3064,37 +3126,44 @@ function PartyMemberActions({
                 {isMenuOpen && (
                     <div className="absolute right-0 top-full mt-2 w-52 z-50 origin-top-right rounded-xl bg-[#1E2028] border border-white/10 shadow-xl overflow-visible animate-in fade-in zoom-in-95 duration-150">
                         <div className="relative">
-                            {/* 자동 세팅 버튼 그룹 */}
+                            {/* 2️⃣ 자동 세팅 버튼 - 막음 */}
                             <div className="relative group">
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        if (isAllView) {
+                                            setShowAllViewWarning(true);
+                                            setIsMenuOpen(false);
+                                            return;
+                                        }
                                         setAutoSetupConfirmOpen(true);
                                         setIsMenuOpen(false);
                                     }}
-                                    className="w-full h-14 text-left px-4 hover:bg-white/5 flex items-center gap-3 transition-colors rounded-t-xl"
+                                    className={`w-full h-14 text-left px-4 flex items-center gap-3 transition-colors rounded-t-xl ${isAllView ? 'opacity-40 cursor-pointer' : 'hover:bg-white/5'}`}
                                 >
-                                    <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
+                                    <div className={`p-1.5 rounded-lg ${isAllView ? 'bg-gray-500/10 text-gray-400' : 'bg-indigo-500/10 text-indigo-400'}`}>
                                         <Wand2 className="w-4 h-4" />
                                     </div>
                                     <div className="flex flex-col justify-center">
-                                        <span className="block text-sm font-medium text-gray-200 leading-tight">자동 세팅</span>
+                                        <span className={`block text-sm font-medium leading-tight ${isAllView ? 'text-gray-500' : 'text-gray-200'}`}>자동 세팅</span>
                                         <span className="block text-[10px] text-gray-500 mt-0.5 leading-tight">상위 {autoSetupCharCount}캐릭 세팅</span>
                                     </div>
                                 </button>
 
-                                {/* 톱니바퀴 아이콘 */}
-                                <div
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setShowAutoSetupSettings(!showAutoSetupSettings);
-                                    }}
-                                    className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-colors cursor-pointer z-[60]"
-                                >
-                                    <Settings className="w-3 h-3" />
-                                </div>
+                                {/* 톱니바퀴 아이콘 (모두보기 상태면 숨김) */}
+                                {!isAllView && (
+                                    <div
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowAutoSetupSettings(!showAutoSetupSettings);
+                                        }}
+                                        className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-colors cursor-pointer z-[60]"
+                                    >
+                                        <Settings className="w-3 h-3" />
+                                    </div>
+                                )}
 
-                                {/* 🔥 설정 팝업창: z-index를 최상위급으로 높이고 위치 고정 */}
+                                {/* 설정 팝업창 */}
                                 {showAutoSetupSettings && (
                                     <div className="absolute top-[80%] right-2 mt-2 w-56 p-4 rounded-xl bg-[#1E2028] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.7)] z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
                                         <div className="flex items-center justify-between mb-3">
@@ -3131,21 +3200,23 @@ function PartyMemberActions({
                                         >
                                             적용하기
                                         </button>
-                                        {/* 화살표 위치 조정 */}
                                         <div className="absolute -top-1.5 right-3 w-3 h-3 bg-[#1E2028] border-t border-l border-white/10 rotate-45" />
                                     </div>
                                 )}
                             </div>
 
-                            {/* 나머지 버튼들... */}
+                            {/* 3️⃣ 관문 초기화 버튼 - 🔥 모두 보기에서도 정상 작동 (막기 해제) */}
                             <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    // 🔥 이제 isAllView 검사 안 함. 그냥 초기화 로직 실행
                                     onGateAllClear();
                                     setIsMenuOpen(false);
                                 }}
-                                className="w-full h-14 text-left px-4 hover:bg-white/5 flex items-center gap-3 transition-colors"
+                                // 🔥 비활성화 스타일(opacity-40) 제거, 기본 hover 스타일 유지
+                                className="w-full h-14 text-left px-4 flex items-center gap-3 transition-colors hover:bg-white/5"
                             >
-                                <div className="p-1.5 rounded-lg bg-red-500/10 text-red-400 shrink-0">
+                                <div className="p-1.5 rounded-lg shrink-0 bg-red-500/10 text-red-400">
                                     <RefreshCcw className="w-4 h-4" />
                                 </div>
                                 <div className="flex flex-col justify-center">
@@ -3154,17 +3225,24 @@ function PartyMemberActions({
                                 </div>
                             </button>
 
+                            {/* 4️⃣ 캐릭터 설정 버튼 - 막음 */}
                             <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (isAllView) {
+                                        setShowAllViewWarning(true);
+                                        setIsMenuOpen(false);
+                                        return;
+                                    }
                                     onOpenCharSetting();
                                     setIsMenuOpen(false);
                                 }}
-                                className="w-full h-14 text-left px-4 hover:bg-white/5 flex items-center gap-3 transition-colors rounded-b-xl"
+                                className={`w-full h-14 text-left px-4 flex items-center gap-3 transition-colors rounded-b-xl ${isAllView ? 'opacity-40 cursor-pointer' : 'hover:bg-white/5'}`}
                             >
-                                <div className="p-1.5 rounded-lg bg-gray-700/50 text-gray-400 shrink-0">
+                                <div className={`p-1.5 rounded-lg shrink-0 ${isAllView ? 'bg-gray-700/30 text-gray-500' : 'bg-gray-700/50 text-gray-400'}`}>
                                     <Settings className="w-4 h-4" />
                                 </div>
-                                <span className="text-sm font-medium text-gray-300">캐릭터 설정</span>
+                                <span className={`text-sm font-medium ${isAllView ? 'text-gray-500' : 'text-gray-300'}`}>캐릭터 설정</span>
                             </button>
                         </div>
                     </div>
@@ -3182,6 +3260,8 @@ function PartyMemberActions({
                     <ChevronDown className="h-5 w-5" />
                 )}
             </button>
+
+            {/* 모달 1: 자동 세팅 확인 모달 */}
             {autoSetupConfirmOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
                     <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 animate-in zoom-in-95 duration-200">
@@ -3206,7 +3286,7 @@ function PartyMemberActions({
                                 </button>
                                 <button
                                     onClick={() => {
-                                        onAutoSetup(); // 진짜 실행은 여기서!
+                                        onAutoSetup();
                                         setAutoSetupConfirmOpen(false);
                                     }}
                                     className="flex-1 py-3 rounded-xl bg-[#5B69FF] hover:bg-[#4A57E6] text-white font-bold transition-colors text-sm"
@@ -3214,6 +3294,32 @@ function PartyMemberActions({
                                     적용하기
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 모달 2: 모두 보기 상태 경고 모달 */}
+            {showAllViewWarning && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+                                <AlertTriangle className="h-7 w-7" />
+                            </div>
+                            <h3 className="text-lg font-bold text-white mb-2">
+                                기능 사용 불가
+                            </h3>
+                            <p className="text-sm text-gray-400 leading-relaxed mb-6 break-keep">
+                                <span className="text-white font-medium">'모두 보기'</span> 상태에서는 데이터 꼬임을 방지하기 위해 해당 기능을 이용할 수 없습니다.<br /><br />
+                                단일 계정을 선택한 후 다시 시도해주세요.
+                            </p>
+                            <button
+                                onClick={() => setShowAllViewWarning(false)}
+                                className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold transition-colors text-sm"
+                            >
+                                확인
+                            </button>
                         </div>
                     </div>
                 </div>

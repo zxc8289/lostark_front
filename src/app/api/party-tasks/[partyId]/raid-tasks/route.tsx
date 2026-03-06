@@ -143,7 +143,6 @@ export async function GET(
         }[];
 
     if (!memberDocs || memberDocs.length === 0) {
-        // 파티는 있는데 멤버가 하나도 없는 극단상황
         return NextResponse.json(
             { members: [] } satisfies PartyRaidTasksResponse,
             { status: 200 }
@@ -152,14 +151,13 @@ export async function GET(
 
     const memberUserIds = memberDocs.map((m) => m.user_id);
 
-    // 🔥 유저 정보(users) 조인할 때 canOthersEdit 필드도 가져오기
     const userDocs = (await usersCol
         .find<{
             id: string;
             name: string | null;
             email: string | null;
             image: string | null;
-            canOthersEdit?: boolean; // 🔥 추가
+            canOthersEdit?: boolean;
         }>({
             id: { $in: memberUserIds },
         })
@@ -168,24 +166,22 @@ export async function GET(
             name: string | null;
             email: string | null;
             image: string | null;
-            canOthersEdit?: boolean; // 🔥 추가
+            canOthersEdit?: boolean;
         }[];
 
     const userById = new Map<
         string,
-        { id: string; name: string | null; email: string | null; image: string | null; canOthersEdit?: boolean } // 🔥 추가
+        { id: string; name: string | null; email: string | null; image: string | null; canOthersEdit?: boolean }
     >();
     for (const u of userDocs) {
         userById.set(u.id, u);
     }
 
-    // users 컬렉션에 문서가 없는 유저(탈퇴 등)는 파티 멤버에서 제외
     const memberRows: PartyMemberRow[] = [];
     for (const m of memberDocs) {
         const u = userById.get(m.user_id);
-        if (!u) {
-            continue;
-        }
+        if (!u) continue;
+
         memberRows.push({
             party_id: m.party_id,
             user_id: m.user_id,
@@ -194,7 +190,7 @@ export async function GET(
             name: u.name ?? null,
             email: u.email ?? null,
             image: u.image ?? null,
-            canOthersEdit: u.canOthersEdit, // 🔥 추가: DB에 있는 권한 값 매핑
+            canOthersEdit: u.canOthersEdit,
         });
     }
 
@@ -261,15 +257,36 @@ export async function GET(
             const partyActiveId = parsed?.activeAccountByParty?.[partyKey] ?? null;
             const globalActiveId = parsed?.activeAccountId ?? null;
 
-            const selectedAcc =
-                (partyActiveId && accounts.find((a) => a.id === partyActiveId)) ||
-                (globalActiveId && accounts.find((a) => a.id === globalActiveId)) ||
-                accounts.find((a) => a.isSelected) ||
-                accounts.find((a) => a.isPrimary) ||
-                accounts[0];
+            // 🔥 현재 선택된 계정 ID (파티 기준 우선)
+            const activeId = partyActiveId || globalActiveId;
 
-            if (selectedAcc?.summary) {
-                effectiveSummary = selectedAcc.summary;
+            if (activeId === "ALL") {
+                // ✅ 핵심: "ALL"일 경우 모든 계정의 로스터(캐릭터 목록) 병합
+                const allRosters = accounts.flatMap((a: any) => a.summary?.roster || []);
+
+                // 이름 기준으로 중복 캐릭터 제거 (동일 캐릭터가 중복 등록된 경우 방지)
+                const uniqueRoster = Array.from(
+                    new Map(allRosters.map((c: any) => [c.name, c])).values()
+                );
+
+                // 첫 번째 계정의 요약 정보를 베이스로 하되 이름과 로스터만 덮어씌움
+                const baseSummary = accounts[0]?.summary || {};
+                effectiveSummary = {
+                    ...baseSummary,
+                    name: "통합 원정대",
+                    roster: uniqueRoster,
+                };
+            } else {
+                // ✅ 기존 로직: 특정 단일 계정 선택
+                const selectedAcc =
+                    (activeId && accounts.find((a) => a.id === activeId)) ||
+                    accounts.find((a) => a.isSelected) ||
+                    accounts.find((a) => a.isPrimary) ||
+                    accounts[0];
+
+                if (selectedAcc?.summary) {
+                    effectiveSummary = selectedAcc.summary;
+                }
             }
         }
 
@@ -287,13 +304,13 @@ export async function GET(
             name: m.name,
             image: m.image,
             nickname: parsed?.nickname ?? "",
-            summary: effectiveSummary,
+            summary: effectiveSummary, // 🔥 이제 "ALL"이면 합쳐진 데이터가 들어감!
             prefsByChar: parsed?.prefsByChar ?? {},
             visibleByChar: parsed?.visibleByChar ?? {},
             tableOrder: parsed?.tableOrder ?? [],
-            canOthersEdit: m.canOthersEdit ?? true, // 🔥 프론트엔드로 전달! (DB에 값이 없으면 기본적으로 true)
-            rosterOrder: parsed?.rosterOrder ?? [], // ✅ 추가
-            cardRosterOrder: parsed?.cardRosterOrder ?? [], // 🔥 DB에서 읽어와서 응답에 추가
+            canOthersEdit: m.canOthersEdit ?? true,
+            rosterOrder: parsed?.rosterOrder ?? [],
+            cardRosterOrder: parsed?.cardRosterOrder ?? [],
         });
     }
 

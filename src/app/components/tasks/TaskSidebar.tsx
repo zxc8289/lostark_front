@@ -1,7 +1,7 @@
 // components/tasks/layout/TaskSidebar.tsx
 "use client";
 
-import { Check, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Plus, Users, X } from "lucide-react";
 import { useState, useMemo } from "react";
 // 경로가 다르다면 수정 필요
 import GoogleAd from "../../components/GoogleAd";
@@ -58,9 +58,12 @@ export default function TaskSidebar({
     const [isAccountListOpen, setIsAccountListOpen] = useState(false);
     const [isRaidDropdownOpen, setIsRaidDropdownOpen] = useState(false);
 
-    const currentAccount = accounts.find(a => a.id === activeAccountId)
-        ?? accounts.find(a => a.isPrimary)
-        ?? accounts[0];
+    const isAllView = activeAccountId === "ALL";
+
+    const currentAccount = isAllView
+        ? { nickname: "모두 보기" }
+        : (accounts.find(a => a.id === activeAccountId) ?? accounts.find(a => a.isPrimary) ?? accounts[0]);
+
 
     // 모든 레이드 목록 가져오기 (레벨 높은 순 정렬)
     const allRaidNames = useMemo(() => {
@@ -77,6 +80,15 @@ export default function TaskSidebar({
 
     const removeRaidChip = (raidName: string) => {
         setSelectedRaids(selectedRaids.filter(r => r !== raidName));
+    };
+
+    const handleToggleAllView = (checked: boolean) => {
+        if (checked) {
+            onSelectAccount("ALL");
+        } else {
+            const defaultAcc = accounts.find(a => a.isPrimary) ?? accounts[0];
+            if (defaultAcc) onSelectAccount(defaultAcc.id);
+        }
     };
 
     return (
@@ -100,6 +112,23 @@ export default function TaskSidebar({
 
                 {isAccountListOpen && (
                     <div className="px-3 pb-3 pt-2 bg-[#16181D]">
+                        {accounts.length > 1 && (
+                            <div className="flex items-center justify-between px-3 py-2.5 mb-2 bg-[#0F1115] rounded-lg border border-white/5">
+                                <div className="flex items-center gap-2">
+                                    <Users className="w-4 h-4 text-gray-400" />
+                                    <span className="text-xs font-semibold text-gray-200">모두 보기</span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={isAllView}
+                                        onChange={(e) => handleToggleAllView(e.target.checked)}
+                                    />
+                                    <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5B69FF]"></div>
+                                </label>
+                            </div>
+                        )}
                         <div className="flex flex-col gap-1">
                             {accounts.map((acc) => {
                                 const isActive = acc.id === activeAccountId;
