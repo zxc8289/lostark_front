@@ -229,10 +229,10 @@ function SortableCharacterRow({
                 className={`px-1 sm:px-0 py-1.5 sm:py-2 align-middle sticky left-0 z-10 border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] bg-[#111217] group-hover:bg-[#16181D] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}
             >
                 {/* 가상의 중앙선을 기준으로 양쪽 배치 */}
-                <div className="flex items-center justify-center w-full h-full pointer-events-none gap-1 sm:gap-2">
+                <div className="flex items-center justify-center w-full h-full pointer-events-none gap-1 sm:gap-1.5">
 
                     {/* 좌측 영역 (우측 정렬): 닉네임, 레벨 */}
-                    <div className="flex flex-col items-end justify-center gap-[4px] w-1/2 overflow-hidden">
+                    <div className="flex flex-col items-end justify-center gap-[9px] w-1/2 overflow-hidden">
                         <span
                             className="block truncate max-w-[55px] sm:max-w-[80px] text-white font-medium text-[11px] sm:text-[13px] leading-none"
                             title={char.name}
@@ -245,7 +245,7 @@ function SortableCharacterRow({
                     </div>
 
                     {/* 우측 영역 (좌측 정렬): 직업+버튼, 전투력 */}
-                    <div className="flex flex-col items-start justify-center gap-[4px] w-1/2 overflow-hidden">
+                    <div className="flex flex-col items-start justify-center gap-[9px] w-1/2 overflow-hidden">
                         <div className="flex items-center gap-0.5 leading-none w-full">
                             <span className="text-[#8A95A5] font-normal text-[9px] sm:text-[10px] whitespace-nowrap overflow-hidden max-w-[40px] sm:max-w-[55px]">
                                 {char.className}
