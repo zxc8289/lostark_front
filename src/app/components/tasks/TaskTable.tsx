@@ -224,47 +224,58 @@ function SortableCharacterRow({
             className={`hover:bg-white/[0.02] transition-colors group ${overStyle}`}
         >
             <td
-                // 수정된 조건부 드래그 변수 적용
                 {...dragAttributes}
                 {...dragListeners}
-                className={`px-3 sm:px-0 py-2 sm:py-3 text-center align-middle sticky left-0 z-10 border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] bg-[#111217] group-hover:bg-[#16181D] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}
+                className={`px-1 sm:px-0 py-1.5 sm:py-2 align-middle sticky left-0 z-10 border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] bg-[#111217] group-hover:bg-[#16181D] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}
             >
-                {/* 🚨 중요: 안쪽 버튼(캐릭터 설정 펜 버튼) 클릭 시 드래그가 시작되지 않도록
-                  stopPropagation 및 pointer-events-auto 처리 
-                */}
-                <div className="flex flex-col items-center justify-center h-full pointer-events-none">
-                    <div className="flex items-center gap-1.5 mb-0.5">
+                {/* 가상의 중앙선을 기준으로 양쪽 배치 */}
+                <div className="flex items-center justify-center w-full h-full pointer-events-none gap-1 sm:gap-2">
+
+                    {/* 좌측 영역 (우측 정렬): 닉네임, 레벨 */}
+                    <div className="flex flex-col items-end justify-center gap-[4px] w-1/2 overflow-hidden">
                         <span
-                            className="block max-w-[80px] sm:max-w-[110px] truncate text-white font-medium text-[10px] sm:text-sm"
+                            className="block truncate max-w-[55px] sm:max-w-[80px] text-white font-medium text-[11px] sm:text-[13px] leading-none"
                             title={char.name}
                         >
                             {char.name}
                         </span>
-
-                        <button
-                            onPointerDown={(e) => e.stopPropagation()} // 드래그 방지
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onEdit(char);
-                            }}
-                            className="text-gray-600 hover:text-white transition-colors p-0.5 rounded hover:bg-white/10 pointer-events-auto cursor-pointer"
-                            title="캐릭터 설정"
-                        >
-                            <SquarePen
-                                size={12}
-                                className="sm:w-[13px] sm:h-[13px]"
-                                strokeWidth={2}
-                            />
-                        </button>
+                        <span className="text-gray-400 font-normal text-[9px] sm:text-[10px] leading-none whitespace-nowrap">
+                            Lv. {char.itemLevel}
+                        </span>
                     </div>
 
-                    <div className="text-[9px] sm:text-[11px] text-gray-500 flex gap-1.5 mt-0.5 justify-center pointer-events-none">
-                        <span>{char.className}</span>
-                        <span className="text-[#5B69FF]">{char.itemLevel}</span>
+                    {/* 우측 영역 (좌측 정렬): 직업+버튼, 전투력 */}
+                    <div className="flex flex-col items-start justify-center gap-[4px] w-1/2 overflow-hidden">
+                        <div className="flex items-center gap-0.5 leading-none w-full">
+                            <span className="text-[#8A95A5] font-normal text-[9px] sm:text-[10px] whitespace-nowrap overflow-hidden max-w-[40px] sm:max-w-[55px]">
+                                {char.className}
+                            </span>
+                            <button
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(char);
+                                }}
+                                className="text-[#64748B] hover:text-white transition-colors p-[0.2px] rounded hover:bg-white/10 pointer-events-auto cursor-pointer flex-shrink-0"
+                                title="캐릭터 설정"
+                            >
+                                <SquarePen size={9} className="sm:w-[10px] sm:h-[10px]" strokeWidth={2} />
+                            </button>
+                        </div>
+
+                        {/* 전투력 */}
+                        {char.combatPower && char.combatPower !== "0" ? (
+                            <div className="flex items-center gap-0.5 leading-none flex-shrink-0">
+                                <span className="text-[8px] sm:text-[9px] grayscale opacity-50 translate-y-[-0.5px]">⚔️</span>
+                                <span className="text-[#E57373] font-medium text-[9px] sm:text-[10px] whitespace-nowrap">{char.combatPower}</span>
+                            </div>
+                        ) : (
+                            <span className="text-transparent text-[9px] sm:text-[10px] leading-none select-none">-</span>
+                        )}
                     </div>
+
                 </div>
             </td>
-
             {/* 레이드 관문 부분 유지 */}
             {hasAnyRaid ? (
                 <>
@@ -752,16 +763,42 @@ export default function TaskTable({
                 <div className="flex items-center px-5 py-[17px]">
                     <div className="min-w-0 py-[2px]">
                         <div className="flex items-center gap-2">
+                            {/* 닉네임 */}
                             <span
-                                className="block truncate max-w-[100px] sm:max-w-[300px] font-semibold text-sm sm:text-xl"
+                                className="block truncate max-w-[100px] sm:max-w-[300px] font-semibold text-sm sm:text-xl "
                                 title={first.name}
                             >
                                 {first.name}
                             </span>
-                            <span className="text-gray-400 text-[11px] sm:text-sm ">
-                                {first.itemLevel ? `Lv. ${first.itemLevel}` : "Lv. -"}{" "}
-                                {first.className ? `/ ${first.className}` : ""}
+
+                            {/* 모바일 뷰: 레벨만 */}
+                            <span className="text-gray-400 text-[11px] sm:hidden">
+                                {first.itemLevel ? `Lv. ${first.itemLevel}` : "Lv. -"}
                             </span>
+
+                            {/* 데스크탑 뷰: 레벨 / 직업 / 전투력 (🔥 수정됨) */}
+                            <div className="hidden sm:flex items-center gap-1.5 text-gray-400 text-sm font-medium">
+                                <span >
+                                    {first.itemLevel ? `Lv. ${first.itemLevel}` : "Lv. -"}
+                                </span>
+
+                                {first.className && (
+                                    <>
+                                        <span className="text-gray-600 text-[15px] mx-0.5">/</span>
+                                        <span>{first.className}</span>
+                                    </>
+                                )}
+
+                                {(first as any).combatPower && (first as any).combatPower !== "0" && (
+                                    <>
+                                        <span className="text-gray-600 text-[15px] mx-0.5">/</span>
+                                        <div className="flex items-center gap-0.5 text-[#8A95A5]">
+                                            <span className="text-[12px] translate-y-[-1px]">⚔️</span>
+                                            <span>{(first as any).combatPower}</span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
 

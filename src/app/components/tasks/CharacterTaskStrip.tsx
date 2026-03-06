@@ -133,6 +133,7 @@ export default function CharacterTaskStrip({
                     style={isDragEnabled ? { touchAction: "none", cursor: "grab" } : {}}
                 >
                     <div className="flex items-center gap-2">
+                        {/* 닉네임 */}
                         <span
                             className={`
                                 block truncate max-w-[120px] sm:max-w-[220px] 
@@ -144,14 +145,32 @@ export default function CharacterTaskStrip({
                             {character.name}
                         </span>
 
+                        {/* 모바일 뷰: 레벨만 */}
                         <span className="text-gray-400 text-[11px] sm:hidden">
                             {levelText}
                         </span>
 
-                        <span className="hidden sm:inline text-gray-400 text-sm">
-                            {levelText}
-                            {character.className ? ` / ${character.className}` : ""}
-                        </span>
+                        <div className="hidden sm:flex items-center gap-1.5 text-gray-400 text-sm font-medium">
+                            <span>{levelText}</span>
+
+                            {character.className && (
+                                <>
+                                    <span className="text-gray-600 text-[15px] mx-0.5">/</span>
+                                    <span>{character.className}</span>
+                                </>
+                            )}
+
+                            {/* 🔥 추가된 전투력 부분 */}
+                            {(character as any).combatPower && (character as any).combatPower !== "0" && (
+                                <>
+                                    <span className="text-gray-600 text-[15px] mx-0.5">/</span>
+                                    <div className="flex items-center gap-0.5 text-[#8A95A5]">
+                                        <span className="text-[12px] translate-y-[-1px]">⚔️</span>
+                                        <span>{(character as any).combatPower}</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </div>
 

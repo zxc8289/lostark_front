@@ -1,23 +1,19 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
-import { headers } from "next/headers"; // 👈 [필수] IP 확인용
+import { headers } from "next/headers";
 
 // ─────────────────────────────────────────────────────────────────
 // [설정]
-// 1. 캐시 시간 (기본 10분)
-// 2. 도배 방지 (IP당 1분에 30회 제한 - 2초에 1번 꼴)
 // ─────────────────────────────────────────────────────────────────
 const CACHE_MINUTES = 10;
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1분
-const MAX_REQUESTS_PER_IP = 30;      // 1분에 30회까지만 허용
+const MAX_REQUESTS_PER_IP = 30;      // 1분에 30회
 
-// 🛡️ [메모리 캐시] 서버가 켜져있는 동안 접속 기록을 저장 (DB 안 씀)
 const rateLimitMap = new Map<string, { count: number; lastTime: number }>();
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// ... (타입 정의는 그대로) ...
 interface ApiSibling {
     ServerName: string;
     CharacterName: string;
@@ -34,7 +30,8 @@ type RosterCharacter = {
     className: string;
     itemLevel: string;
     itemLevelNum: number;
-    image?: string;
+    image?: string;         // 추가됨
+    combatPower?: string;   // 추가됨
     profileUrl?: string;
 };
 
@@ -51,23 +48,43 @@ type CharacterSummary = {
     source: string;
 };
 
+// 🌟 개별 캐릭터 프로필 조회용 헬퍼 함수
+async function fetchCharacterProfile(charName: string, keys: string[]) {
+    // 요청마다 키를 랜덤으로 뽑아서 트래픽을 골고루 분산!
+    const randomKey = keys[Math.floor(Math.random() * keys.length)];
+    const url = `https://developer-lostark.game.onstove.com/armories/characters/${encodeURIComponent(charName)}/profiles`;
+
+    try {
+        const res = await fetch(url, {
+            method: "GET",
+            headers: { Authorization: `bearer ${randomKey}`, Accept: "application/json" },
+            cache: "no-store",
+        });
+
+        if (!res.ok) return null;
+        const data = await res.json();
+        return {
+            combatPower: data?.CombatPower || "0",
+            image: data?.CharacterImage || undefined,
+            guild: data?.GuildName || undefined,
+        };
+    } catch (error) {
+        console.error(`❌ Profile Fetch Error (${charName}):`, error);
+        return null;
+    }
+}
+
 export async function GET(
     _req: Request,
     ctx: { params: Promise<{ name: string }> }
 ) {
     try {
-        // ─────────────────────────────────────────────────────────────────
-        // 🛡️ [1. 도배 방지 로직] - DB 가기 전에 여기서 막음!
-        // ─────────────────────────────────────────────────────────────────
+        // 🛡️ 1. 도배 방지 로직
         const headerList = await headers();
-        // 실제 유저 IP 가져오기 (x-forwarded-for는 프록시 거칠 때 진짜 IP)
         const ip = headerList.get("x-forwarded-for") || "unknown";
         const nowTime = Date.now();
-
-        // 이 IP의 기록 가져오기
         const userHistory = rateLimitMap.get(ip) || { count: 0, lastTime: nowTime };
 
-        // 1분이 지났으면 카운트 초기화
         if (nowTime - userHistory.lastTime > RATE_LIMIT_WINDOW) {
             userHistory.count = 0;
             userHistory.lastTime = nowTime;
@@ -76,129 +93,125 @@ export async function GET(
         userHistory.count++;
         rateLimitMap.set(ip, userHistory);
 
-        // 🚨 제한 횟수 넘으면 바로 429 에러 리턴 (DB 접근 X, API 접근 X)
         if (userHistory.count > MAX_REQUESTS_PER_IP) {
-            console.warn(`🚨 [Rate Limit] IP(${ip}) 차단됨. (요청: ${userHistory.count}/${MAX_REQUESTS_PER_IP})`);
             return NextResponse.json(
-                { error: "TOO_MANY_REQUESTS", message: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
+                { error: "TOO_MANY_REQUESTS", message: "요청이 너무 많습니다." },
                 { status: 429 }
             );
         }
 
-        // ─────────────────────────────────────────────────────────────────
-        // 🔍 [2. 정상 로직 시작]
-        // ─────────────────────────────────────────────────────────────────
-
+        // 🔍 2. 정상 로직 시작
         const { name } = await ctx.params;
         const nickname = decodeURIComponent(name || "").trim();
 
         console.log(`\n──────────────────────────────────────────────`);
         console.log(`🔍 [System] 캐릭터 검색 요청: "${nickname}" (IP: ${ip})`);
 
-        // 1. DB 연결
         const db = await getDb();
         const collection = db.collection("characters");
-
-        // 2. DB 검색
         const dbCharacter = await collection.findOne({ name: nickname });
         const now = new Date();
 
-        // 3. 캐시 유효성 검사
         if (dbCharacter) {
             const lastUpdate = new Date(dbCharacter.updatedAt);
-            const diffMs = now.getTime() - lastUpdate.getTime();
-            const diffMinutes = diffMs / (1000 * 60);
-
-            console.log(`⏱️ [Time Check] 경과: ${diffMinutes.toFixed(2)}분 (기준: ${CACHE_MINUTES}분)`);
+            const diffMinutes = (now.getTime() - lastUpdate.getTime()) / (1000 * 60);
 
             if (diffMinutes < CACHE_MINUTES) {
-                console.log(`✅ [Cache Hit] DB 데이터 반환`);
-                const cachedData = { ...dbCharacter.data, source: `Database Cache (${diffMinutes.toFixed(0)}분 전)` };
-                return NextResponse.json(cachedData, { status: 200 });
-            } else {
-                console.log(`⌛ [Cache Expired] 갱신 필요`);
+                console.log(`✅ [Cache Hit] DB 데이터 반환 (${diffMinutes.toFixed(1)}분 경과)`);
+                return NextResponse.json(
+                    { ...dbCharacter.data, source: `Database Cache (${diffMinutes.toFixed(0)}분 전)` },
+                    { status: 200 }
+                );
             }
-        } else {
-            console.log(`🆕 [Cache Miss] DB 없음 -> API 호출`);
         }
 
-        // ─────────────────────────────────────────────────────────────────
-        // [API 호출 로직]
-        // ─────────────────────────────────────────────────────────────────
-
+        // 🔑 3. API 키 파싱 (엔터, 쉼표 모두 완벽 대응)
         const rawKeys = process.env.LOSTARK_OPENAPI_JWT || "";
         if (!rawKeys) {
-            console.error("❌ [Error] .env.local API Key 누락");
             return NextResponse.json({ error: "API_KEY_MISSING" }, { status: 500 });
         }
+        const API_KEYS = rawKeys.split(/[\n,]+/).map(k => k.trim().replace(/^Bearer\s+/i, "")).filter(k => k);
 
-        const API_KEYS = rawKeys.split(",").map(k => k.trim().replace(/^Bearer\s+/i, "")).filter(k => k);
-        const randomKey = API_KEYS[Math.floor(Math.random() * API_KEYS.length)];
+        // 📡 4. 형제(원정대) 캐릭터 목록 조회
+        const siblingsUrl = `https://developer-lostark.game.onstove.com/characters/${encodeURIComponent(nickname)}/siblings`;
+        const siblingsKey = API_KEYS[Math.floor(Math.random() * API_KEYS.length)];
 
-        console.log(`📡 [API Call] 로스트아크 서버 요청...`);
-        const url = `https://developer-lostark.game.onstove.com/characters/${encodeURIComponent(nickname)}/siblings`;
-
-        const res = await fetch(url, {
+        console.log(`📡 [API Call] Siblings 리스트 요청 중...`);
+        const siblingsRes = await fetch(siblingsUrl, {
             method: "GET",
-            headers: { Authorization: `bearer ${randomKey}`, Accept: "application/json" },
+            headers: { Authorization: `bearer ${siblingsKey}`, Accept: "application/json" },
             cache: "no-store",
         });
 
-        if (!res.ok) {
-            if (res.status === 404) return NextResponse.json({ error: "CHARACTER_NOT_FOUND" }, { status: 404 });
-            return NextResponse.json({ error: `API_ERROR_${res.status}` }, { status: res.status });
+        if (!siblingsRes.ok) {
+            return NextResponse.json({ error: `API_ERROR_${siblingsRes.status}` }, { status: siblingsRes.status });
         }
 
-        const siblingsData: ApiSibling[] = await res.json();
-
+        const siblingsData: ApiSibling[] = await siblingsRes.json();
         if (!siblingsData || siblingsData.length === 0) {
             return NextResponse.json({ error: "CHARACTER_NOT_FOUND" }, { status: 404 });
         }
 
-        const mainChar = siblingsData.find(c => c.CharacterName === nickname) || siblingsData[0];
-        const safeItemLevel = mainChar.ItemMaxLevel || mainChar.ItemAvgLevel || "0.00";
-        const mainItemLevelNum = parseFloat(safeItemLevel.replace(/,/g, ""));
+        // 🌟 5. 원정대 "모든" 캐릭터의 프로필(전투력/이미지) 병렬로 가져오기 (제한 없음!)
+        console.log(`📡 [API Call] 원정대 전체 캐릭터(${siblingsData.length}개) 프로필 요청 시작...`);
 
-        const roster: RosterCharacter[] = siblingsData.map((c) => {
-            const subSafeLevel = c.ItemMaxLevel || c.ItemAvgLevel || "0.00";
-            return {
+        const rosterPromises = siblingsData.map(async (c) => {
+            const itemLevelNum = parseFloat((c.ItemMaxLevel || c.ItemAvgLevel || "0").replace(/,/g, ""));
+
+            // 기본 세팅
+            const charData: RosterCharacter = {
                 name: c.CharacterName,
                 server: c.ServerName,
                 level: c.CharacterLevel,
                 className: c.CharacterClassName,
-                itemLevel: subSafeLevel,
-                itemLevelNum: parseFloat(subSafeLevel.replace(/,/g, "")),
-                image: undefined,
+                itemLevel: c.ItemMaxLevel || c.ItemAvgLevel || "0.00",
+                itemLevelNum: itemLevelNum,
                 profileUrl: `https://lostark.game.onstove.com/Profile/Character/${encodeURIComponent(c.CharacterName)}`
             };
+
+            // 무조건 모든 캐릭터 프로필 조회!
+            const profile = await fetchCharacterProfile(c.CharacterName, API_KEYS);
+            if (profile) {
+                charData.combatPower = profile.combatPower;
+                charData.image = profile.image;
+                // 메인 캐릭터 판별을 위해 길드명 임시 보관
+                (charData as any)._tempGuild = profile.guild;
+            } else {
+                charData.combatPower = "0";
+            }
+
+            return charData;
         });
 
+        // Promise.all로 동시에 쫙 긁어옴
+        const roster = await Promise.all(rosterPromises);
         roster.sort((a, b) => b.itemLevelNum - a.itemLevelNum);
 
+        // 본캐(검색한 캐릭터) 정보 뽑기
+        const mainChar = roster.find(c => c.name === nickname) || roster[0];
+
         const resultData: CharacterSummary = {
-            name: mainChar.CharacterName,
-            server: mainChar.ServerName,
-            itemLevel: safeItemLevel,
-            itemLevelNum: mainItemLevelNum,
-            className: mainChar.CharacterClassName,
-            combatPower: "0",
-            guild: undefined,
-            img: undefined,
-            roster: roster,
+            name: mainChar.name,
+            server: mainChar.server,
+            itemLevel: mainChar.itemLevel,
+            itemLevelNum: mainChar.itemLevelNum,
+            className: mainChar.className,
+            combatPower: mainChar.combatPower || "0",
+            guild: (mainChar as any)._tempGuild,
+            img: mainChar.image,
+            roster: roster.map(c => {
+                // 클라이언트 내려보낼때 임시데이터 삭제
+                const { _tempGuild, ...rest } = c as any;
+                return rest;
+            }),
             source: "Official API (Fresh)"
         };
 
-        // DB 저장
-        console.log(`💾 [DB Save] 데이터 저장`);
+        // 💾 6. DB 저장
+        console.log(`💾 [DB Save] 데이터 저장 완료`);
         await collection.updateOne(
             { name: nickname },
-            {
-                $set: {
-                    name: nickname,
-                    data: resultData,
-                    updatedAt: new Date()
-                }
-            },
+            { $set: { name: nickname, data: resultData, updatedAt: new Date() } },
             { upsert: true }
         );
 
