@@ -1,4 +1,3 @@
-// components/tasks/CharacterTaskStrip.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -18,7 +17,7 @@ import {
     arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronLeft, ChevronRight, GripVertical, SquarePen } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical, SquarePen, Plus } from "lucide-react"; // 🔥 Plus 추가
 
 export type RosterCharacter = {
     name: string;
@@ -27,15 +26,17 @@ export type RosterCharacter = {
     className?: string;
     itemLevel?: string;
     itemLevelNum?: number;
+    combatPower?: string;
+    jobEngraving?: string; // 🔥 추가
 };
 
 export type TaskItem = { id: string; element: React.ReactNode };
 
 export type Props = {
     character: RosterCharacter;
-    tasks: TaskItem[]; // ← TaskCarousel에 그대로 넘길 ReactNode 배열로 변환해서 사용
+    tasks: TaskItem[];
     onEdit?: (c: RosterCharacter) => void;
-    onReorder?: (c: RosterCharacter, newOrderIds: string[]) => void; // ← 드랍 후 순서 반영
+    onReorder?: (c: RosterCharacter, newOrderIds: string[]) => void;
     dragHandleProps?: Record<string, any>;
     isDragEnabled?: boolean;
 };
@@ -43,11 +44,11 @@ export type Props = {
 function SortableCard({
     id,
     children,
-    isDragEnabled, // 🔥 추가됨
+    isDragEnabled,
 }: {
     id: string;
     children: React.ReactNode;
-    isDragEnabled?: boolean; // 🔥 추가됨
+    isDragEnabled?: boolean;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id });
@@ -61,8 +62,8 @@ function SortableCard({
         <div
             ref={setNodeRef}
             style={style}
-            {...(isDragEnabled ? attributes : {})} // 🔥 자리이동 켜졌을때만 드래그 허용
-            {...(isDragEnabled ? listeners : {})}  // 🔥 자리이동 켜졌을때만 클릭 이벤트 허용
+            {...(isDragEnabled ? attributes : {})}
+            {...(isDragEnabled ? listeners : {})}
         >
             {children}
         </div>
@@ -87,24 +88,23 @@ export default function CharacterTaskStrip({
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
     );
+
     const carouselItems = useMemo(
         () => tasks.map(t => (
-            // 🔥 isDragEnabled 를 SortableCard로 넘겨줌
             <SortableCard key={t.id} id={t.id} isDragEnabled={isDragEnabled}>
                 {t.element}
             </SortableCard>
         )),
-        [tasks, isDragEnabled] // 🔥 의존성 배열에 isDragEnabled 추가
+        [tasks, isDragEnabled]
     );
 
     useEffect(() => {
         const max = Math.max(0, itemsCount - visibleCount);
         setMaxIndex(max);
         if (cur > max) {
-            // 현재 인덱스가 범위를 넘었으면 마지막 합법 위치로 이동
             carouselRef.current?.goTo?.(max);
         }
-    }, [itemsCount, visibleCount]); // ❗ cur를 의존성에 넣지 마 (루프 방지)
+    }, [itemsCount, visibleCount]);
 
     const handleDragEnd = (e: DragEndEvent) => {
         const { active, over } = e;
@@ -116,12 +116,11 @@ export default function CharacterTaskStrip({
         onReorder?.(character, newIds);
     };
 
-
-
     const hasTasks = tasks.length > 0;
     const levelText = character.itemLevel ? `Lv. ${character.itemLevel}` : "Lv. -";
 
-
+    const supporterEngravings = ["절실한 구원", "축복의 오라", "만개", "해방자"];
+    const isSupporter = supporterEngravings.includes(character.jobEngraving ?? "");
 
     return (
         <div className="bg-[#16181D] rounded-md px-5 py-4 space-y-2">
@@ -133,10 +132,9 @@ export default function CharacterTaskStrip({
                     style={isDragEnabled ? { touchAction: "none", cursor: "grab" } : {}}
                 >
                     <div className="flex items-center gap-2">
-                        {/* 닉네임 */}
                         <span
                             className={`
-                                block truncate max-w-[120px] sm:max-w-[220px] 
+                                block truncate max-w-[120px] sm:max-w-[220px]
                                 font-semibold text-base sm:text-xl
                                 ${isDragEnabled ? "hover:text-[#5B69FF] transition-colors" : ""}
                             `}
@@ -145,28 +143,53 @@ export default function CharacterTaskStrip({
                             {character.name}
                         </span>
 
-                        {/* 모바일 뷰: 레벨만 */}
-                        <span className="text-gray-400 text-[11px] sm:hidden">
-                            {levelText}
-                        </span>
-
-                        <div className="hidden sm:flex items-center gap-1.5 text-gray-400 text-sm font-medium">
+                        {/* 모바일 뷰: 레벨 / 전투력 */}
+                        <div className="flex sm:hidden items-center gap-1 text-gray-400 text-[11px] whitespace-nowrap">
                             <span>{levelText}</span>
+                            {character.combatPower && character.combatPower !== "0" && (
+                                <>
+                                    <span className="text-gray-600 text-[10px]">/</span>
+                                    <div className="flex items-center gap-[2px]">
+                                        {isSupporter ? (
+                                            <>
+                                                <Plus size={10} className="text-emerald-400 opacity-90 translate-y-[-1px]" strokeWidth={5} />
+                                                <span className="text-emerald-400 font-medium">{character.combatPower}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="text-[9px] grayscale opacity-50 translate-y-[-0.5px]">⚔️</span>
+                                                <span className="text-[#E57373] font-medium">{character.combatPower}</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
 
+                        {/* 데스크탑 뷰: 레벨 / 직업(각인) / 전투력 */}
+                        <div className="hidden sm:flex items-center text-gray-400 text-sm font-medium whitespace-nowrap">
+                            <span>{levelText}</span>
                             {character.className && (
                                 <>
-                                    <span className="text-gray-600 text-[15px] mx-0.5">/</span>
+                                    <span className="text-gray-600 text-[14px] mx-1.5">/</span>
                                     <span>{character.className}</span>
                                 </>
                             )}
-
-                            {/* 🔥 추가된 전투력 부분 */}
-                            {(character as any).combatPower && (character as any).combatPower !== "0" && (
+                            {character.combatPower && character.combatPower !== "0" && (
                                 <>
-                                    <span className="text-gray-600 text-[15px] mx-0.5">/</span>
-                                    <div className="flex items-center gap-0.5 text-[#8A95A5]">
-                                        <span className="text-[12px] translate-y-[-1px]">⚔️</span>
-                                        <span>{(character as any).combatPower}</span>
+                                    <span className="text-gray-600 text-[14px] mx-1.5">/</span>
+                                    <div className="flex items-center gap-1">
+                                        {isSupporter ? (
+                                            <>
+                                                <Plus size={14} className="text-emerald-400 opacity-90" strokeWidth={5} />
+                                                <span className="text-emerald-400 font-bold">{character.combatPower}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="text-[12px] grayscale opacity-50 translate-y-[1.5px]">⚔️</span>
+                                                <span className="text-[#E57373] font-bold">{character.combatPower}</span>
+                                            </>
+                                        )}
                                     </div>
                                 </>
                             )}

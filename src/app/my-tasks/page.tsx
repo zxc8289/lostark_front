@@ -758,12 +758,24 @@ export default function MyTasksPage() {
         }
       }
 
+      // 🔥 개별 카드의 골드 합산 (귀속 선 차감)
       const totalGold = (p.gates ?? []).reduce((sum: number, gi: number) => {
         const g = diff.gates.find((x: any) => x.index === gi);
         if (!g) return sum;
-        const gold = g.gold ?? 0;
-        const cost = p.isBonus ? (g.bonusCost ?? 0) : 0;
-        return sum + Math.max(0, gold - cost);
+
+        const baseGold = g.gold ?? 0;
+        const bGold = g.boundGold ?? 0;
+        let cost = p.isBonus ? (g.bonusCost ?? 0) : 0;
+
+        // 귀속 골드 우선 차감
+        const netBoundGold = Math.max(0, bGold - cost);
+        cost = Math.max(0, cost - bGold);
+
+        // 남은 비용 일반 골드에서 차감
+        const netGold = Math.max(0, baseGold - cost);
+
+        // UI 뱃지에는 (남은 일반 골드 + 남은 귀속 골드) 합산을 표시
+        return sum + netGold + netBoundGold;
       }, 0);
 
       const right = (
@@ -1079,11 +1091,19 @@ export default function MyTasksPage() {
 
   const visibleRoster = (currentActiveAccount?.summary?.roster ?? []).filter((c) => (effectiveVisibleByChar[c.name] ?? true)) ?? [];
 
-  const { totalRemainingTasks, remainingCharacters, totalRemainingGold, totalGold } = useMemo<RaidSummary>(() => {
-    return computeRaidSummaryForRoster(visibleRoster, effectivePrefsByChar);
+  const {
+    totalRemainingTasks,
+    remainingCharacters,
+    totalRemainingGold,
+    totalGold,
+    totalRemainingBoundGold = 0,
+    totalBoundGold = 0,
+  } = useMemo<RaidSummary & { totalRemainingBoundGold?: number; totalBoundGold?: number }>(() => {
+    return computeRaidSummaryForRoster(visibleRoster, effectivePrefsByChar) as any;
   }, [visibleRoster, effectivePrefsByChar]);
 
-  const isAllCleared = totalRemainingGold === 0 && totalGold > 0;
+  const isAllCleared = (totalRemainingGold === 0 && totalRemainingBoundGold === 0) && (totalGold > 0 || totalBoundGold > 0);
+
   const shouldShowAds = effectiveHasRoster && !usingDemo;
 
   const tablePrefsByChar = useMemo(() => {
@@ -1209,9 +1229,8 @@ export default function MyTasksPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)] gap-5 lg:items-start">
-          <div className="space-y-4">
-            {/* 🔥 데모일 땐 가짜 사이드바(배너), 아닐 땐 진짜 사이드바 렌더링하도록 분리된 로직 */}
+        <div className="relative w-full flex flex-col xl:flex-row gap-4 xl:gap-6">
+          <div className="flex flex-col gap-4 w-full xl:w-[220px] shrink-0 min-[1760px]:absolute min-[1760px]:top-0 min-[1760px]:-left-[240px] z-10">
             {usingDemo && (
               <section className="overflow-hidden rounded-none sm:rounded-lg bg-[#16181D] border border-white/5">
                 <div className="flex items-center gap-2 px-4 py-3 bg-white/5 border-b border-white/5">
@@ -1259,9 +1278,8 @@ export default function MyTasksPage() {
             {accountSearchErr && <p className="mt-2 text-[11px] text-red-400 px-1">에러: {accountSearchErr}</p>}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:gap-5">
-            {/* Stats Bar */}
-            <div className="bg-[#16181D] rounded-none sm:rounded-lg border-x-0 px-4 sm:px-5 py-3 sm:py-4">
+          <div className="flex-1 min-w-0 w-full flex flex-col gap-4 sm:gap-4.5">
+            <div className="bg-[#16181D] rounded-none sm:rounded-sm border-x-0 px-4 sm:px-5 py-3 sm:py-4">
               <div className="flex flex-wrap gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between max-[1246px]:flex-col max-[1246px]:items-start max-[1246px]:justify-start">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 text-sm sm:text-base">
                   <div className="flex items-baseline gap-1.5">
@@ -1274,8 +1292,9 @@ export default function MyTasksPage() {
                     <AnimatedNumber value={totalRemainingTasks} className="text-gray-400 text-xs sm:text-sm font-semibold" />
                   </div>
                   <span className="hidden sm:inline h-4 w-px bg-white/10" />
+                  {/* 🔥 기존 "남은 골드" -> "골드"로 텍스트 수정 */}
                   <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-lg pr-1">남은 골드</span>
+                    <span className="font-semibold text-sm sm:text-lg pr-1">골드</span>
                     <div
                       className={[
                         "inline-flex items-baseline justify-end",
@@ -1286,6 +1305,25 @@ export default function MyTasksPage() {
                       ].join(" ")}
                     >
                       <AnimatedNumber value={isAllCleared ? totalGold : totalRemainingGold} />
+                      <span className="ml-0.5 text-[0.75em]">g</span>
+                    </div>
+                  </div>
+
+                  {/* 🔥 구분선 및 귀속 골드 영역 추가 */}
+                  <span className="hidden sm:inline h-4 w-px bg-white/10" />
+
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="font-semibold text-sm sm:text-lg pr-1">귀속 골드</span>
+                    <div
+                      className={[
+                        "inline-flex items-baseline justify-end",
+                        "min-w-[50px]",
+                        "text-xs sm:text-sm font-semibold",
+                        "font-mono tabular-nums",
+                        isAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400",
+                      ].join(" ")}
+                    >
+                      <AnimatedNumber value={isAllCleared ? totalBoundGold : totalRemainingBoundGold} />
                       <span className="ml-0.5 text-[0.75em]">g</span>
                     </div>
                   </div>
@@ -1332,7 +1370,7 @@ export default function MyTasksPage() {
                             e.stopPropagation();
                             setShowAutoSetupSettings(!showAutoSetupSettings);
                           }}
-                          className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors duration-200 cursor-pointer z-10"
+                          className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors duration-200 cursor-pointer"
                           title="자동 세팅 설정"
                         >
                           <Settings className="w-3.5 h-3.5" />

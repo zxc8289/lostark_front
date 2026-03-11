@@ -97,11 +97,11 @@ export default function TaskSidebar({
             <section className="rounded-none sm:rounded-sm bg-[#16181D]">
                 <button
                     onClick={() => setIsAccountListOpen(!isAccountListOpen)}
-                    className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-white/5 transition-colors ${isAccountListOpen ? 'bg-white/5' : ''}`}
+                    className={`w-full flex items-center justify-between px-4 py-4 hover:bg-white/5 transition-colors ${isAccountListOpen ? 'bg-white/5' : ''}`}
                 >
                     <div className="flex flex-col items-start">
                         <span className="text-[10px] text-gray-400 font-medium">현재 계정</span>
-                        <span className="text-sm font-bold text-white">
+                        <span className="text-base font-bold text-white">
                             {currentAccount ? currentAccount.nickname : '계정 선택'}
                         </span>
                     </div>
@@ -169,12 +169,13 @@ export default function TaskSidebar({
                         초기화 ⟳
                     </button>
                 </header>
-                <div className="px-5 py-7 space-y-7 text-sm">
+                {/* 🔥 xl(1280px) 이상에서는 세로(flex-col), 그 미만에서는 가로(flex-row)로 배치 */}
+                <div className="flex flex-col xl:flex-col sm:flex-row flex-wrap px-5 py-7 gap-7 xl:space-y-0 text-sm">
 
-                    {/* ✅ 숙제/보상 체크박스 디자인 복구 */}
-                    <div className="space-y-3">
+                    {/* ✅ 숙제/보상 체크박스 */}
+                    <div className="space-y-3 flex-1 min-w-[140px]">
                         <div className="font-bold text-white">숙제/보상</div>
-                        <label className="flex items-center gap-2 cursor-pointer text-[#A2A3A5] relative group">
+                        <label className="flex items-center gap-2 cursor-pointer text-[#A2A3A5] relative group w-max">
                             <input
                                 type="checkbox"
                                 className="sr-only peer"
@@ -187,32 +188,13 @@ export default function TaskSidebar({
                                 </svg>
                             </span>
                             <span>남은 숙제만 보기</span>
-
-                            {/* <span className="w-3 h-3 rounded-full border border-white/20 text-[9px] font-bold flex items-center justify-center text-gray-400 bg-black/20 group-hover:text-white group-hover:border-white/40 transition-colors duration-200 cursor-help">
-                                ?
-                            </span>
-
-                            <div className="pointer-events-none absolute left-6 top-full mt-2.5 w-64 p-4 rounded-2xl bg-gray-900/95 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.4)] opacity-0 translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out z-[200]">
-                                <div className="flex flex-col gap-2 text-xs leading-relaxed text-left">
-                                    <p className="text-gray-200">
-                                        <span className="font-bold text-sky-400">카드 보기</span>에서만 적용됩니다.
-                                        <span className="block text-gray-400 font-normal mt-0.5">
-                                            마지막 관문까지 완료되지 않은 레이드만 필터링하여 보여줍니다.
-                                        </span>
-                                    </p>
-                                    <div className="w-full h-px bg-white/5 my-0.5" />
-                                    <p className="text-gray-400 font-medium">
-                                        ※ 테이블 보기에서는 이 옵션이 적용되지 않습니다.
-                                    </p>
-                                </div>
-                                <div className="absolute -top-[5px] left-6 w-2.5 h-2.5 bg-gray-900/95 border-t border-l border-white/[0.08] rotate-45 z-10" />
-                            </div> */}
                         </label>
                     </div>
 
-                    <div className="space-y-3">
+                    {/* ✅ 보기 설정 */}
+                    <div className="space-y-3 flex-1 min-w-[120px]">
                         <div className="font-semibold text-white">보기 설정</div>
-                        <label className="flex items-center gap-2 cursor-pointer text-[#A2A3A5]">
+                        <label className="flex items-center gap-2 cursor-pointer text-[#A2A3A5] w-max">
                             <input
                                 type="checkbox"
                                 className="sr-only peer"
@@ -228,15 +210,15 @@ export default function TaskSidebar({
                         </label>
                     </div>
 
-                    <div className="space-y-3">
+                    {/* ✅ 자리 이동 */}
+                    <div className="space-y-3 flex-1 min-w-[140px]">
                         <div className="font-semibold text-white">자리 이동</div>
-                        <label className="flex items-center gap-2 cursor-pointer text-[#A2A3A5]">
+                        <label className="flex items-center gap-2 cursor-pointer text-[#A2A3A5] w-max">
                             <input
                                 type="checkbox"
                                 className="sr-only peer"
                                 checked={isDragEnabled}
                                 onChange={(e) => setIsDragEnabled(e.target.checked)}
-                            // disabled={isCardView}  <-- 이 부분 삭제
                             />
                             <span className="grid place-items-center h-5 w-5 rounded-md border border-white/30 transition peer-checked:bg-[#5B69FF] peer-checked:border-[#5B69FF] peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-checked:[&_svg]:opacity-100">
                                 <svg className="h-4 w-4 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100" viewBox="0 0 20 20" fill="none">
@@ -246,7 +228,8 @@ export default function TaskSidebar({
                             <span>드래그로 자리 이동</span>
                         </label>
                     </div>
-                    <div className="space-y-3 pt-2">
+
+                    <div className="space-y-3 flex-[2] min-w-[140px] xl:w-full pt-0">
                         <div className="flex items-center justify-between">
                             <div className="font-semibold text-white">레이드 설정</div>
                             {selectedRaids.length > 0 && (
@@ -258,7 +241,6 @@ export default function TaskSidebar({
                                 </button>
                             )}
                         </div>
-
 
                         <div className="relative">
                             <button
@@ -272,7 +254,7 @@ export default function TaskSidebar({
                             </button>
 
                             {isRaidDropdownOpen && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-[#1E2128] border border-white/10 rounded-lg shadow-[0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[100]">
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[10]">
                                     <div className="flex flex-col gap-1 p-1.5 max-h-64 overflow-y-auto custom-scrollbar">
                                         {allRaidNames.map((raidName) => {
                                             const isActive = selectedRaids.includes(raidName);
@@ -294,16 +276,14 @@ export default function TaskSidebar({
                             )}
                         </div>
 
-
-
                         {selectedRaids.length > 0 && (
-                            <div className="grid grid-cols-2 gap-2 mt-3 animate-in fade-in duration-300">
+                            <div className="flex flex-wrap gap-2 mt-3 animate-in fade-in duration-300">
                                 {selectedRaids.map((raid) => (
                                     <div
                                         key={raid}
                                         className="flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-full bg-[#5B69FF]/10 border border-[#5B69FF]/30 text-[#A2A3A5] text-[10px] font-medium transition-all hover:border-[#5B69FF]/60 min-w-0"
                                     >
-                                        <span className="text-gray-200 truncate">{raid}</span>
+                                        <span className="text-gray-200 truncate max-w-[100px]">{raid}</span>
                                         <button
                                             onClick={() => removeRaidChip(raid)}
                                             className="p-0.5 hover:bg-[#5B69FF]/20 rounded-full transition-colors group shrink-0"
@@ -316,6 +296,9 @@ export default function TaskSidebar({
                         )}
                     </div>
                 </div>
+
+
+
             </section>
         </div>
     );

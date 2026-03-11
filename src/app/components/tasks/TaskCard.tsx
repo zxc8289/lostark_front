@@ -7,7 +7,7 @@ import { raidInformation, type DifficultyKey, type RaidKind } from "@/server/dat
 type Props = {
     kind: RaidKind;
     raidName: string;          // 예: "카멘" | "1막-에기르" | "서막-에키드나"
-    difficulty: DifficultyKey; // "노말" | "하드"
+    difficulty: DifficultyKey; // "노말" | "하드" | "나메" | "싱글"
     gates: number[];           // 현재 체크된 관문들 (ex. [1,2])
     allGates?: number[];       // 전체 관문들(선택). 없으면 데이터 파일에서 자동 추론
     right?: React.ReactNode;   // 우측 추가 요소
@@ -26,11 +26,16 @@ const DIFF = {
         check: "bg-[#5B69FF] text-white",
         hover: "hover:bg-[#5B69FF] hover:text-white",
     },
-
     나메: {
         badge: "bg-[#6D28D9]/20 text-[#D6BCFA] border border-none",
         check: "bg-[#6D28D9] text-white",
         hover: "hover:bg-[#6D28D9] hover:text-white",
+    },
+    // 🔥 싱글 추가: 거의 흰색(Off-White) 테마
+    싱글: {
+        badge: "bg-[#F1F5F9]/10 text-[#F1F5F9] border border-none",
+        check: "bg-[#F1F5F9] text-[#111217] font-bold",
+        hover: "hover:bg-[#F1F5F9] hover:text-[#111217]",
     },
 } as const;
 

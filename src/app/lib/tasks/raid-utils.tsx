@@ -36,9 +36,9 @@ function getDifficultyTotalGold(raidId: string, diff: DifficultyKey): number {
     const d = info?.difficulty?.[diff];
     if (!d) return 0;
 
-    // gold 필드가 있으면 그걸 쓰고, 없으면 gates 합으로 계산
-    if (typeof d.gold === "number") return d.gold;
-    return (d.gates ?? []).reduce((sum, g) => sum + (g.gold ?? 0), 0);
+    // 🔥 정렬용: 일반 골드와 귀속 골드를 합산해서 계산
+    if (typeof d.gold === "number") return d.gold + (d.boundGold ?? 0);
+    return (d.gates ?? []).reduce((sum, g) => sum + (g.gold ?? 0) + (g.boundGold ?? 0), 0);
 }
 
 export function getRaidColumnSortKeyForRoster(
@@ -129,12 +129,13 @@ export function calcNextGates(
     return sortedAll.slice(0, newMaxIdx + 1);
 }
 
-/** 남은 숙제/골드 요약 타입 */
 export type RaidSummary = {
     totalRemainingTasks: number;
     remainingCharacters: number;
     totalRemainingGold: number;
     totalGold: number;
+    totalRemainingBoundGold: number; // 🔥 추가
+    totalBoundGold: number;          // 🔥 추가
 };
 
 /**
@@ -152,6 +153,8 @@ export function computeRaidSummaryForRoster(
     let charCount = 0;
     let goldRemain = 0;
     let goldTotal = 0;
+    let boundGoldRemain = 0; // 🔥 추가
+    let boundGoldTotal = 0;  // 🔥 추가
 
     for (const char of roster) {
         const prefs = prefsByChar[char.name];
@@ -170,29 +173,52 @@ export function computeRaidSummaryForRoster(
             if (!diffInfo || !gatesDef.length) continue;
 
             const gates = p.gates ?? [];
-            const isBonus = p.isBonus ?? false; // 🔥 더보기 상태 확인
+            const isBonus = p.isBonus ?? false;
 
-            // 🔥 이 레이드의 "전체 골드" (더보기 ON이면 차감)
-            const totalGoldForRaid = gatesDef.reduce((sum, g) => {
+            // 🔥 전체 골드 계산 (귀속 골드 선 차감 로직 적용)
+            let totalGoldForRaid = 0;
+            let totalBoundGoldForRaid = 0;
+            gatesDef.forEach((g) => {
                 const baseGold = g.gold ?? 0;
-                const cost = isBonus ? (g.bonusCost ?? 0) : 0;
-                return sum + Math.max(0, baseGold - cost); // 마이너스 방지
-            }, 0);
+                const bGold = g.boundGold ?? 0;
+                let cost = isBonus ? (g.bonusCost ?? 0) : 0;
 
-            // 🔥 이 레이드에서 이미 체크된 관문 골드 (더보기 ON이면 차감)
-            const selectedGoldForRaid = gates.reduce((sum, gi) => {
+                // 1) 귀속 골드에서 먼저 차감
+                const netBoundGold = Math.max(0, bGold - cost);
+                cost = Math.max(0, cost - bGold); // 남은 더보기 비용
+
+                // 2) 남은 비용을 일반(거래) 골드에서 차감
+                const netGold = Math.max(0, baseGold - cost);
+
+                totalGoldForRaid += netGold;
+                totalBoundGoldForRaid += netBoundGold;
+            });
+
+            // 🔥 완료한 관문 골드 계산 (귀속 골드 선 차감 로직 적용)
+            let selectedGoldForRaid = 0;
+            let selectedBoundGoldForRaid = 0;
+            gates.forEach((gi) => {
                 const g = gatesDef.find((x) => x.index === gi);
-                if (!g) return sum;
+                if (!g) return;
                 const baseGold = g.gold ?? 0;
-                const cost = isBonus ? (g.bonusCost ?? 0) : 0;
-                return sum + Math.max(0, baseGold - cost); // 마이너스 방지
-            }, 0);
+                const bGold = g.boundGold ?? 0;
+                let cost = isBonus ? (g.bonusCost ?? 0) : 0;
 
-            // 남은 골드 = 전체 - 체크된
+                const netBoundGold = Math.max(0, bGold - cost);
+                cost = Math.max(0, cost - bGold);
+
+                const netGold = Math.max(0, baseGold - cost);
+
+                selectedGoldForRaid += netGold;
+                selectedBoundGoldForRaid += netBoundGold;
+            });
+
+            // 남은 골드 누적
             goldRemain += Math.max(0, totalGoldForRaid - selectedGoldForRaid);
-
-            // 전체 골드
             goldTotal += totalGoldForRaid;
+
+            boundGoldRemain += Math.max(0, totalBoundGoldForRaid - selectedBoundGoldForRaid);
+            boundGoldTotal += totalBoundGoldForRaid;
 
             // 남은 숙제 / 캐릭터 계산
             const lastGateIndex = gatesDef.reduce(
@@ -217,6 +243,8 @@ export function computeRaidSummaryForRoster(
         remainingCharacters: charCount,
         totalRemainingGold: goldRemain,
         totalGold: goldTotal,
+        totalRemainingBoundGold: boundGoldRemain, // 🔥 추가
+        totalBoundGold: boundGoldTotal,           // 🔥 추가
     };
 }
 

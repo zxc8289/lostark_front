@@ -1937,14 +1937,8 @@ export default function PartyDetailPage() {
                     </div>
                 </div>
 
-                <div
-                    className="
-                        grid grid-cols-1 
-                        lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)]
-                        gap-5 lg:items-start
-                    "
-                >
-                    <div className="space-y-4">
+                <div className="relative w-full flex flex-col xl:flex-row gap-4 xl:gap-6">
+                    <div className="flex flex-col gap-4 w-full xl:w-[220px] shrink-0 min-[1760px]:absolute min-[1760px]:top-0 min-[1760px]:-left-[240px] z-10">
                         <TaskSidebar
                             accounts={accounts}
                             activeAccountId={activeAccountId}
@@ -1956,8 +1950,8 @@ export default function PartyDetailPage() {
                             setIsCardView={setIsCardView}
                             selectedRaids={selectedRaids}
                             setSelectedRaids={setSelectedRaids}
-                            isDragEnabled={isDragEnabled} // 🔥 추가
-                            setIsDragEnabled={setIsDragEnabled} // 🔥 추가
+                            isDragEnabled={isDragEnabled}
+                            setIsDragEnabled={setIsDragEnabled}
                         />
 
                         {accountSearchErr && (
@@ -1967,8 +1961,8 @@ export default function PartyDetailPage() {
                         )}
                     </div>
 
-
-                    <div className="grid grid-cols-1 gap-4 sm:gap-5">
+                    {/* 🔥 메인 콘텐츠(파티원 목록 및 테이블) 영역: w-full로 꽉 채움 */}
+                    <div className="w-full grid grid-cols-1 gap-4 sm:gap-5">
                         {tasksLoading && (
                             <div className="w-full py-6">
                                 <div className="animate-pulse space-y-3">

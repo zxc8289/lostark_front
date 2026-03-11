@@ -7,11 +7,9 @@ import type { RosterCharacter } from "../AddAccount";
 import { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
 import { Lock, Swords } from "lucide-react";
 
-// 🎨 난이도별 색상 스타일 정의
 const DIFF_STYLES = {
     하드: {
         check: "bg-[#FF5252] text-white border-[#FF5252]",
-        // idle 상태는 아래에서 공통으로 처리하므로 hover만 정의해도 됨 (필요시 사용)
         hover: "hover:text-[#FF5252] hover:bg-[#FF5252]/10 hover:border-[#FF5252]/30",
     },
     노말: {
@@ -22,8 +20,11 @@ const DIFF_STYLES = {
         check: "bg-[#6D28D9] text-white border-[#6D28D9]",
         hover: "hover:text-[#6D28D9] hover:bg-[#6D28D9]/10 hover:border-[#6D28D9]/30",
     },
+    싱글: {
+        check: "bg-[#F1F5F9] text-[#111217] border-[#F1F5F9] font-bold",
+        hover: "hover:text-[#F1F5F9] hover:bg-[#F1F5F9]/10 hover:border-[#F1F5F9]/30",
+    },
 } as const;
-
 type Props = {
     open: boolean;
     onClose: () => void;
@@ -39,12 +40,15 @@ function makeDefaultPref(
     const nightmare = info.difficulty["나메"];
     const hard = info.difficulty["하드"];
     const normal = info.difficulty["노말"];
+    const single = info.difficulty["싱글"]; // 싱글 추가
 
     const nightmareOk = !!(nightmare && ilvl >= nightmare.level);
     const hardOk = !!(hard && ilvl >= hard.level);
     const normalOk = !!(normal && ilvl >= normal.level);
+    const singleOk = !!(single && ilvl >= single.level); // 싱글 추가
 
-    const picked: DifficultyKey = nightmareOk ? "나메" : hardOk ? "하드" : "노말";
+    // 싱글 로직 추가 (나메 > 하드 > 노말 > 싱글 순 우선순위)
+    const picked: DifficultyKey = nightmareOk ? "나메" : hardOk ? "하드" : normalOk ? "노말" : singleOk ? "싱글" : "노말";
 
     const enabled = false;
     const gates: number[] = [];
@@ -102,6 +106,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                     const nightmare = info.difficulty["나메"];
                     const hard = info.difficulty["하드"];
                     const normal = info.difficulty["노말"];
+                    const single = info.difficulty["싱글"]; // 싱글 추가
 
                     let pickedDiff: DifficultyKey | null = null;
                     let levelReq = 0;
@@ -119,6 +124,10 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                         pickedDiff = "노말";
                         levelReq = normal.level;
                         diffInfo = normal;
+                    } else if (single && ilvl >= single.level) { // 싱글 로직 추가
+                        pickedDiff = "싱글";
+                        levelReq = single.level;
+                        diffInfo = single;
                     } else {
                         continue;
                     }
@@ -239,17 +248,26 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                         const nightmare = info.difficulty["나메"];
                                         const hard = info.difficulty["하드"];
                                         const normal = info.difficulty["노말"];
+                                        const single = info.difficulty["싱글"]; // 싱글 추가
 
                                         const nightmareOk = !!(nightmare && ilvl >= nightmare.level);
                                         const hardOk = !!(hard && ilvl >= hard.level);
-                                        const normalOk = !!(normal && ilvl >= normal.level)
+                                        const normalOk = !!(normal && ilvl >= normal.level);
+                                        const singleOk = !!(single && ilvl >= single.level); // 싱글 추가
 
-                                        const curInfo = pref.difficulty === "나메" ? nightmare : pref.difficulty === "하드" ? hard : normal;
+                                        // 현재 선택된 난이도 정보 처리
+                                        const curInfo = pref.difficulty === "나메" ? nightmare
+                                            : pref.difficulty === "하드" ? hard
+                                                : pref.difficulty === "싱글" ? single
+                                                    : normal;
+
                                         const curText = pref.difficulty === "나메"
                                             ? (nightmare ? `나메 ${nightmare.level}` : "나메")
                                             : pref.difficulty === "하드"
                                                 ? (hard ? `하드 ${hard.level}` : "하드")
-                                                : (normal ? `노말 ${normal.level}` : "노말");
+                                                : pref.difficulty === "싱글"
+                                                    ? (single ? `싱글 ${single.level}` : "싱글")
+                                                    : (normal ? `노말 ${normal.level}` : "노말");
 
                                         return (
                                             <div
@@ -263,7 +281,6 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                     <div className="flex items-center gap-3">
                                                         <div className={`w-1 h-8 rounded-full ${pref.enabled ? "bg-[#5B69FF]" : "bg-gray-700"}`} />
                                                         <div>
-                                                            {/* 🔥 레이드 이름 & 더보기 버튼 영역 (디자인 개선) */}
                                                             <div className={`font-bold flex items-center gap-2.5 ${pref.enabled ? "text-white" : "text-gray-400"}`}>
                                                                 <span className="text-[14px] sm:text-[15px]">{raidName}</span>
                                                                 {pref.enabled && (
@@ -279,14 +296,13 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                                             }));
                                                                         }}
                                                                         className={`
-                                                                                flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-all duration-200 border
-                                                                                ${pref.isBonus
+                                                            flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-all duration-200 border
+                                                            ${pref.isBonus
                                                                                 ? "bg-[#5B69FF]/10 text-[#8eaaff] border-[#5B69FF]/30"
                                                                                 : "bg-[#121418] text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300 hover:border-white/10"
                                                                             }
-                                                                            `}
+                                                        `}
                                                                     >
-                                                                        {/* 상태 표시 LED 점 */}
                                                                         <div className={`w-1.5 h-1.5 rounded-full transition-colors ${pref.isBonus
                                                                             ? "bg-[#5B69FF] shadow-[0_0_4px_rgba(91,105,255,0.8)]"
                                                                             : "bg-gray-600"
@@ -327,9 +343,10 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                     </label>
                                                 </div>
 
-                                                {/* 난이도 선택 (Segmented Control) */}
-                                                <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-3 gap-1">
+                                                {/* 난이도 선택 (Segmented Control) grid-cols-4 로 변경 */}
+                                                <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-4 gap-1">
                                                     {[
+                                                        { key: "싱글", info: single, ok: singleOk }, // 싱글 추가
                                                         { key: "노말", info: normal, ok: normalOk },
                                                         { key: "하드", info: hard, ok: hardOk },
                                                         { key: "나메", info: nightmare, ok: nightmareOk },
@@ -338,9 +355,6 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                         const style = DIFF_STYLES[diffKey] || DIFF_STYLES["노말"];
 
                                                         const isSelected = pref.enabled && pref.difficulty === key;
-
-                                                        // (참고) 레이드가 꺼져있어도 내부적으로 어떤 난이도인지 알 수 있게 하려면 아래처럼 옅게 표시할 수도 있습니다.
-                                                        // 하지만 "선택 안 한 것처럼" 보이려면 위 조건이 맞습니다.
 
                                                         return (
                                                             <button
@@ -362,7 +376,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                                     })
                                                                 }
                                                                 className={`
-                                                                    relative flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-all
+                                                                    relative flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-md transition-all
                                                                     ${isSelected
                                                                         ? style.check // 켜져있고 선택됨: 화려한 색상
                                                                         : `bg-[#2A2E39]/50 text-gray-500 hover:text-gray-300 hover:bg-white/5` // 꺼져있거나 선택안됨: 회색
@@ -372,7 +386,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                             >
                                                                 {!ok && <Lock size={10} />}
                                                                 {key}
-                                                                {dInfo && <span className={`opacity-60 text-[10px] ${isSelected ? 'text-white/80' : ''}`}>{dInfo.level}</span>}
+                                                                {dInfo && <span className={`opacity-60 text-[9px] sm:text-[10px] `}>{dInfo.level}</span>}
                                                             </button>
                                                         );
                                                     })}
