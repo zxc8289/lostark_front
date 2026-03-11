@@ -172,6 +172,7 @@ type SavedAccount = {
 const FILTER_KEY = "raidTaskFilters";
 const LOCAL_KEY = "raidTaskLastAccount";
 const VISIBLE_KEY = "raidTaskVisibleByChar";
+const GOLD_KEY = "raidTaskGoldByChar";
 const TABLE_ORDER_KEY = "raidTaskTableOrder";
 const ROSTER_ORDER_KEY = "raidTaskRosterOrder";
 const CARD_ROSTER_ORDER_KEY = "raidTaskCardRosterOrder";
@@ -305,11 +306,13 @@ export default function MyTasksPage() {
   const [rosterOrder, setRosterOrder] = useState<string[]>([]);
   const [cardRosterOrder, setCardRosterOrder] = useState<string[]>([]);
   const [visibleByChar, setVisibleByChar] = useState<Record<string, boolean>>({});
+  const [goldDesignatedByChar, setGoldDesignatedByChar] = useState<Record<string, boolean>>({}); // 🔥 추가
 
   /* ✅ 데모 상태 */
   const [demoEnabled, setDemoEnabled] = useState(true);
   const [demoPrefsByChar, setDemoPrefsByChar] = useState<Record<string, CharacterTaskPrefs>>(() => DEMO_PREFS_BY_CHAR);
   const [demoVisibleByChar, setDemoVisibleByChar] = useState<Record<string, boolean>>(() => DEMO_VISIBLE_BY_CHAR);
+  const [demoGoldDesignatedByChar, setDemoGoldDesignatedByChar] = useState<Record<string, boolean>>(() => DEMO_VISIBLE_BY_CHAR); // 🔥 추가
 
   /* ──────────────────────────
    * 웹소켓 실시간 데이터 수신
@@ -360,6 +363,7 @@ export default function MyTasksPage() {
           if (msg.tableOrder) setTableOrder(msg.tableOrder);
           if (msg.rosterOrder) setRosterOrder(msg.rosterOrder);
           if (msg.cardRosterOrder) setCardRosterOrder(msg.cardRosterOrder);
+          if (msg.goldDesignatedByChar) setGoldDesignatedByChar(msg.goldDesignatedByChar); // 🔥 추가
         }
 
         if (msg.type === "activeAccountUpdated" && msg.userId === myUserId) {
@@ -449,6 +453,36 @@ export default function MyTasksPage() {
 
       setVisibleByChar(next);
       localStorage.setItem(VISIBLE_KEY, JSON.stringify(next));
+    } catch { }
+  }, [accounts, isAuthed]);
+
+  /* ──────────────────────────
+   * goldDesignatedByChar 초기 로드(비로그인)
+   * ────────────────────────── */
+  useEffect(() => {
+    if (isAuthed) return;
+    if (!accounts.length) return;
+
+    try {
+      const raw = localStorage.getItem(GOLD_KEY);
+      const saved = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+
+      const next: Record<string, boolean> = {};
+      let goldCount = 0;
+
+      for (const acc of accounts) {
+        for (const c of acc.summary?.roster ?? []) {
+          if (saved[c.name] !== undefined) {
+            next[c.name] = saved[c.name];
+          } else {
+            next[c.name] = goldCount < 6; // 최초면 상위 6개 자동 지정
+          }
+          if (next[c.name]) goldCount++;
+        }
+      }
+
+      setGoldDesignatedByChar(next);
+      localStorage.setItem(GOLD_KEY, JSON.stringify(next));
     } catch { }
   }, [accounts, isAuthed]);
 
@@ -597,6 +631,7 @@ export default function MyTasksPage() {
       rosterOrder,
       cardRosterOrder,
       activeAccountId,
+      goldDesignatedByChar,
     };
   }
 
@@ -621,6 +656,7 @@ export default function MyTasksPage() {
       if (state.rosterOrder) setRosterOrder(state.rosterOrder);
       if (state.cardRosterOrder) setCardRosterOrder(state.cardRosterOrder);
       if (state.activeAccountId) setActiveAccountId(state.activeAccountId);
+      if (state.goldDesignatedByChar) setGoldDesignatedByChar(state.goldDesignatedByChar); // 🔥 추가
     } catch { }
   }
 
@@ -758,23 +794,24 @@ export default function MyTasksPage() {
         }
       }
 
+      const isGoldEarn = safeGoldDesignatedByChar[c.name] ?? false;
+
       // 🔥 개별 카드의 골드 합산 (귀속 선 차감)
       const totalGold = (p.gates ?? []).reduce((sum: number, gi: number) => {
         const g = diff.gates.find((x: any) => x.index === gi);
         if (!g) return sum;
 
-        const baseGold = g.gold ?? 0;
-        const bGold = g.boundGold ?? 0;
+        // 골드 캐릭이 아니면 벌어들이는 수익은 0
+        const baseGold = isGoldEarn ? (g.gold ?? 0) : 0;
+        const bGold = isGoldEarn ? (g.boundGold ?? 0) : 0;
         let cost = p.isBonus ? (g.bonusCost ?? 0) : 0;
 
         // 귀속 골드 우선 차감
         const netBoundGold = Math.max(0, bGold - cost);
         cost = Math.max(0, cost - bGold);
-
         // 남은 비용 일반 골드에서 차감
         const netGold = Math.max(0, baseGold - cost);
 
-        // UI 뱃지에는 (남은 일반 골드 + 남은 귀속 골드) 합산을 표시
         return sum + netGold + netBoundGold;
       }, 0);
 
@@ -966,13 +1003,17 @@ export default function MyTasksPage() {
     if (!currentActiveAccount?.summary?.roster || currentActiveAccount.summary.roster.length === 0) return;
 
     const roster = currentActiveAccount.summary.roster;
-    const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(roster, effectivePrefsByChar, charCount);
+    // 🔥 반환값에 nextGoldByChar 추가
+    const { nextPrefsByChar, nextVisibleByChar, nextGoldByChar } = buildAutoSetupForRoster(roster, effectivePrefsByChar, charCount);
     const RESET_TABLE_ORDER = ["__empty_0"];
+
     const nextVisibleMerged: Record<string, boolean> = usingDemo ? { ...demoVisibleByChar } : { ...visibleByChar };
+    const nextGoldMerged: Record<string, boolean> = usingDemo ? { ...demoGoldDesignatedByChar } : { ...goldDesignatedByChar }; // 🔥 추가
 
     for (const c of roster) {
       const name = c.name;
       nextVisibleMerged[name] = nextVisibleByChar[name] ?? false;
+      nextGoldMerged[name] = nextGoldByChar[name] ?? false; // 🔥 추가
     }
 
     const nextPrefsMerged: Record<string, CharacterTaskPrefs> = usingDemo
@@ -982,18 +1023,21 @@ export default function MyTasksPage() {
     if (usingDemo) {
       setDemoPrefsByChar(nextPrefsMerged);
       setDemoVisibleByChar(nextVisibleMerged);
+      setDemoGoldDesignatedByChar(nextGoldMerged); // 🔥 추가
       setTableOrder(RESET_TABLE_ORDER);
       return;
     }
 
     setPrefsByChar(nextPrefsMerged);
     setVisibleByChar(nextVisibleMerged);
+    setGoldDesignatedByChar(nextGoldMerged); // 🔥 추가
     setTableOrder(RESET_TABLE_ORDER);
 
     if (!isAuthed) {
       try {
         for (const [name, prefs] of Object.entries(nextPrefsByChar)) writePrefs(name, prefs);
         localStorage.setItem(VISIBLE_KEY, JSON.stringify(nextVisibleMerged));
+        localStorage.setItem(GOLD_KEY, JSON.stringify(nextGoldMerged)); // 🔥 추가
         localStorage.setItem(TABLE_ORDER_KEY, JSON.stringify(RESET_TABLE_ORDER));
       } catch { }
       return;
@@ -1007,6 +1051,7 @@ export default function MyTasksPage() {
         userId,
         prefsByChar: nextPrefsMerged,
         visibleByChar: nextVisibleMerged,
+        goldDesignatedByChar: nextGoldMerged, // 🔥 추가
       });
 
       sendMessage({
@@ -1091,6 +1136,27 @@ export default function MyTasksPage() {
 
   const visibleRoster = (currentActiveAccount?.summary?.roster ?? []).filter((c) => (effectiveVisibleByChar[c.name] ?? true)) ?? [];
 
+  // 🔥 골드 지정 마이그레이션(Fallback) 로직
+  const safeGoldDesignatedByChar = useMemo(() => {
+    const baseGoldData = usingDemo ? demoGoldDesignatedByChar : goldDesignatedByChar;
+
+    // 데이터가 존재하면 그대로 사용
+    if (baseGoldData && Object.keys(baseGoldData).length > 0) {
+      return baseGoldData;
+    }
+
+    // 데이터가 아예 없다면 (기존 유저) 로스터 기준 아이템 레벨 상위 6캐릭을 임시로 켬
+    const fullRoster = currentActiveAccount?.summary?.roster ?? [];
+    const sorted = [...fullRoster].sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0));
+
+    const fallback: Record<string, boolean> = {};
+    sorted.forEach((c, index) => {
+      fallback[c.name] = index < 6;
+    });
+
+    return fallback;
+  }, [usingDemo, demoGoldDesignatedByChar, goldDesignatedByChar, currentActiveAccount]);
+
   const {
     totalRemainingTasks,
     remainingCharacters,
@@ -1099,8 +1165,9 @@ export default function MyTasksPage() {
     totalRemainingBoundGold = 0,
     totalBoundGold = 0,
   } = useMemo<RaidSummary & { totalRemainingBoundGold?: number; totalBoundGold?: number }>(() => {
-    return computeRaidSummaryForRoster(visibleRoster, effectivePrefsByChar) as any;
-  }, [visibleRoster, effectivePrefsByChar]);
+    // 🔥 effective 대신 safeGoldDesignatedByChar 사용
+    return computeRaidSummaryForRoster(visibleRoster, effectivePrefsByChar, safeGoldDesignatedByChar) as any;
+  }, [visibleRoster, effectivePrefsByChar, safeGoldDesignatedByChar]);
 
   const isAllCleared = (totalRemainingGold === 0 && totalRemainingBoundGold === 0) && (totalGold > 0 || totalBoundGold > 0);
 
@@ -1283,18 +1350,18 @@ export default function MyTasksPage() {
               <div className="flex flex-wrap gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between max-[1246px]:flex-col max-[1246px]:items-start max-[1246px]:justify-start">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 text-sm sm:text-base">
                   <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-lg pr-1">숙제 남은 캐릭터</span>
+                    <span className="font-semibold text-sm sm:text-[17px] pr-1">숙제 남은 캐릭터</span>
                     <AnimatedNumber value={remainingCharacters} className="text-gray-400 text-xs sm:text-sm font-semibold" />
                   </div>
                   <span className="hidden sm:inline h-4 w-px bg-white/10" />
                   <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-lg pr-1">남은 숙제</span>
+                    <span className="font-semibold text-sm sm:text-[17px] pr-1">남은 숙제</span>
                     <AnimatedNumber value={totalRemainingTasks} className="text-gray-400 text-xs sm:text-sm font-semibold" />
                   </div>
                   <span className="hidden sm:inline h-4 w-px bg-white/10" />
                   {/* 🔥 기존 "남은 골드" -> "골드"로 텍스트 수정 */}
                   <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-lg pr-1">골드</span>
+                    <span className="font-semibold text-sm sm:text-[17px] pr-1">골드</span>
                     <div
                       className={[
                         "inline-flex items-baseline justify-end",
@@ -1313,7 +1380,7 @@ export default function MyTasksPage() {
                   <span className="hidden sm:inline h-4 w-px bg-white/10" />
 
                   <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-lg pr-1">귀속 골드</span>
+                    <span className="font-semibold text-sm sm:text-[17px] pr-1">귀속 골드</span>
                     <div
                       className={[
                         "inline-flex items-baseline justify-end",
@@ -1798,35 +1865,44 @@ export default function MyTasksPage() {
             setIsCharSettingOpen(false);
             setAccountSearchErr(null);
           }}
+          goldDesignatedByChar={safeGoldDesignatedByChar}
           roster={effectiveAccount?.summary?.roster ?? []}
           onDeleteAccount={
             usingDemo || isAllView ? undefined : () => setDeleteConfirmOpen(true) // 🔥 모두 보기 상태일 때 삭제 막기
           }
+
           visibleByChar={effectiveVisibleByChar}
           refreshError={accountSearchErr}
           onRefreshAccount={isAllView ? undefined : handleMyRefreshAccount} // 🔥 모두 보기 상태일 때 갱신 막기
-          onChangeVisible={(partial) => {
+          onChangeSettings={(nextVisible, nextGold) => { // 🔥 onChangeVisible 대신 이거 사용
             if (usingDemo) {
-              setDemoVisibleByChar((prev) => ({ ...prev, ...partial }));
+              setDemoVisibleByChar((prev) => ({ ...prev, ...nextVisible }));
+              setDemoGoldDesignatedByChar((prev) => ({ ...prev, ...nextGold }));
               return;
             }
 
             setVisibleByChar((prev) => {
-              const merged = { ...prev, ...partial };
+              const mergedVisible = { ...prev, ...nextVisible };
+              const mergedGold = { ...goldDesignatedByChar, ...nextGold };
+
+              setGoldDesignatedByChar(mergedGold);
+
               try {
                 if (!isAuthed) {
-                  localStorage.setItem(VISIBLE_KEY, JSON.stringify(merged));
+                  localStorage.setItem(VISIBLE_KEY, JSON.stringify(mergedVisible));
+                  localStorage.setItem(GOLD_KEY, JSON.stringify(mergedGold));
                 } else if (session?.user && sendMessage) {
                   const userId = (session.user as any).id || (session.user as any).userId;
                   sendMessage({
                     type: "gateUpdate",
                     userId,
                     prefsByChar,
-                    visibleByChar: merged,
+                    visibleByChar: mergedVisible,
+                    goldDesignatedByChar: mergedGold, // 🔥 소켓으로 같이 쏴주기
                   });
                 }
               } catch { }
-              return merged;
+              return mergedVisible;
             });
           }}
         />

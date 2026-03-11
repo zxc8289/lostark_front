@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { RosterCharacter } from "../AddAccount";
-import { RefreshCcw, X, Trash2, Check, AlertCircle } from "lucide-react";
+import { RefreshCcw, X, Trash2, Check, AlertCircle, Eye, EyeOff, Coins } from "lucide-react";
 
 type ModalCharacter = {
     name: string;
@@ -10,6 +10,7 @@ type ModalCharacter = {
     itemLevel: string;
     itemLevelNum: number;
     isVisible: boolean;
+    isGoldEarn: boolean; // 🔥 추가: 골드 획득 지정 여부
 };
 
 const DUMMY_CHARACTERS: ModalCharacter[] = [];
@@ -31,8 +32,9 @@ type Props = {
     roster?: RosterCharacter[];
     onRefreshAccount?: () => Promise<void> | void;
     visibleByChar?: Record<string, boolean>;
-    onChangeVisible?: (next: Record<string, boolean>) => void;
-    refreshError?: string | null; // 🆕 추가
+    goldDesignatedByChar?: Record<string, boolean>;
+    onChangeSettings?: (nextVisible: Record<string, boolean>, nextGold: Record<string, boolean>) => void; // 🔥 통합된 콜백
+    refreshError?: string | null;
 };
 
 export default function CharacterSettingModal({
@@ -42,16 +44,16 @@ export default function CharacterSettingModal({
     onClose,
     roster,
     visibleByChar,
-    onChangeVisible,
+    goldDesignatedByChar,
+    onChangeSettings, // 🔥 수정됨
     refreshError
 }: Props) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [characters, setCharacters] = useState<ModalCharacter[]>([]);
-
+    const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
     useEffect(() => {
         if (!open) return;
-
         const originalStyle = window.getComputedStyle(document.body).overflow;
         document.body.style.overflow = "hidden";
 
@@ -66,6 +68,7 @@ export default function CharacterSettingModal({
                 .map((c) => ({
                     ...c,
                     isVisible: visibleByChar?.[c.name] ?? c.isVisible,
+                    isGoldEarn: false,
                 }))
                 .sort((a, b) => b.itemLevelNum - a.itemLevelNum);
 
@@ -78,7 +81,8 @@ export default function CharacterSettingModal({
             return;
         }
 
-        const mapped: ModalCharacter[] = roster
+        // 1차: 기본 정보 맵핑
+        let mapped: ModalCharacter[] = roster
             .map((c) => {
                 const levelNum =
                     c.itemLevelNum != null
@@ -91,25 +95,49 @@ export default function CharacterSettingModal({
                     itemLevelNum: levelNum,
                     itemLevel: levelNum ? levelNum.toLocaleString() : String(c.itemLevel ?? ""),
                     isVisible: visibleByChar?.[c.name] ?? true,
+                    isGoldEarn: false,
                 };
             })
-            .sort((a, b) => b.itemLevelNum - a.itemLevelNum); // 🔥 높은 레벨부터
+            .sort((a, b) => b.itemLevelNum - a.itemLevelNum); // 높은 레벨부터
+
+        // 2차: 골드 획득 지정 여부 처리
+        let tempGoldCount = 0;
+        mapped = mapped.map(c => {
+            let isGold = false;
+            if (goldDesignatedByChar && goldDesignatedByChar[c.name] !== undefined) {
+                isGold = goldDesignatedByChar[c.name];
+            } else {
+                if (tempGoldCount < 6) {
+                    isGold = true;
+                }
+            }
+            if (isGold) tempGoldCount++;
+
+            return { ...c, isGoldEarn: isGold };
+        });
 
         setCharacters(mapped);
-    }, [roster, visibleByChar]);
+    }, [roster, visibleByChar, goldDesignatedByChar]);
 
     const applyCharacters = (next: ModalCharacter[]) => {
         setCharacters(next);
     };
 
-    const commitVisible = () => {
-        if (!onChangeVisible) return;
+    const commitSettings = () => {
+        const nextVisible: Record<string, boolean> = {};
+        const nextGold: Record<string, boolean> = {};
 
-        const map: Record<string, boolean> = {};
         for (const c of characters) {
-            map[c.name] = c.isVisible;
+            nextVisible[c.name] = c.isVisible;
+            nextGold[c.name] = c.isGoldEarn;
         }
-        onChangeVisible(map);
+
+        // 🔥 수정됨: 내부에서도 통합된 함수 하나만 호출
+        if (onChangeSettings) {
+            onChangeSettings(nextVisible, nextGold);
+        }
+
+        onClose(); // 설정 완료 시 모달 닫기
     };
 
     const toggleVisibility = (index: number) => {
@@ -119,9 +147,27 @@ export default function CharacterSettingModal({
         applyCharacters(next);
     };
 
+    const toggleGoldEarn = (index: number) => {
+        setAlertMessage(null);
+        setCharacters(prev => {
+            const char = prev[index];
+
+            // 켜려고 할 때 6개 제한 검사
+            if (!char.isGoldEarn) {
+                const currentGoldCount = prev.filter(c => c.isGoldEarn).length;
+                if (currentGoldCount >= 6) {
+                    setAlertMessage("골드 획득 지정은 최대 6캐릭터까지만 가능합니다.");
+                    setTimeout(() => setAlertMessage(null), 3000);
+                    return prev;
+                }
+            }
+
+            return prev.map((c, i) => i === index ? { ...c, isGoldEarn: !c.isGoldEarn } : c);
+        });
+    };
+
     const handleRefreshClick = async () => {
         if (!onRefreshAccount) return;
-
         try {
             setIsRefreshing(true);
             await onRefreshAccount();
@@ -132,13 +178,12 @@ export default function CharacterSettingModal({
         }
     };
 
-    if (!open) return null;
-
     const handleAutoSelect = (mode: "top6" | "all" | "none") => {
         if (mode === "top6") {
             const next = characters.map((char, index) => ({
                 ...char,
                 isVisible: index < 6,
+                isGoldEarn: index < 6, // 상위 6캐릭 선택 시 골드 획득도 함께 켬
             }));
             applyCharacters(next);
         } else if (mode === "all" || mode === "none") {
@@ -146,12 +191,16 @@ export default function CharacterSettingModal({
             const next = characters.map((c) => ({
                 ...c,
                 isVisible: visible,
+                isGoldEarn: mode === "none" ? false : c.isGoldEarn
             }));
             applyCharacters(next);
         }
     };
 
+    if (!open) return null;
+
     const visibleCount = characters.filter((c) => c.isVisible).length;
+    const goldEarnCount = characters.filter((c) => c.isGoldEarn).length;
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-0">
@@ -168,12 +217,11 @@ export default function CharacterSettingModal({
                             캐릭터 관리
                         </h2>
                         <div className="text-sm text-gray-400 leading-snug">
-                            {/* 모바일: 짧은 설명 / PC: 풀 문구 */}
                             <p className="sm:hidden text-xs text-gray-500">
-                                표시할 캐릭터를 선택하세요.
+                                캐릭터 및 골드 지정을 설정하세요.
                             </p>
                             <p className="hidden sm:block">
-                                표시할 캐릭터를 선택하세요. (회색 처리된 캐릭터는 목록에서 숨겨집니다)
+                                화면에 표시할 캐릭터와 골드 획득 지정 캐릭터(최대 6개)를 설정하세요.
                             </p>
                         </div>
                     </div>
@@ -182,18 +230,17 @@ export default function CharacterSettingModal({
                         onClick={handleRefreshClick}
                         disabled={isRefreshing}
                         className={`
-                            flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-white/10 text-xs transition-colors whitespace-nowrap
-                            ${isRefreshing
+                                flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-white/10 text-xs transition-colors whitespace-nowrap
+                                ${isRefreshing
                                 ? "bg-white/5 text-gray-500 cursor-not-allowed"
                                 : "bg-white/5 hover:bg-white/10 text-gray-300"
                             }
-                        `}
+                            `}
                     >
                         <RefreshCcw
                             size={14}
                             className={isRefreshing ? "animate-spin text-indigo-400" : ""}
                         />
-                        {/* 모바일: "업데이트" / PC: "계정 정보 업데이트" */}
                         <span className="sm:hidden">
                             {isRefreshing ? "업데이트..." : "업데이트"}
                         </span>
@@ -204,20 +251,28 @@ export default function CharacterSettingModal({
                 </header>
 
                 {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto max-h-[55vh] p-4 sm:max-h-[65vh] sm:p-5 bg-[#121418] custom-scrollbar">
+                <div className="flex-1 overflow-y-auto max-h-[55vh] p-4 sm:max-h-[65vh] sm:p-5 bg-[#121418] custom-scrollbar relative">
+
+                    {/* 🔥 6캐릭 제한 알림 배너 (불투명하게 처리) */}
+                    {alertMessage && (
+                        <div className="sticky top-0 z-10 mb-4 flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-[#2A1616] border-2 border-red-500 text-red-400 text-sm font-bold shadow-xl shadow-black/50 animate-in slide-in-from-top-2 fade-in">
+                            <AlertCircle size={18} />
+                            {alertMessage}
+                        </div>
+                    )}
+
                     <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
                         <button
                             onClick={() => handleAutoSelect("top6")}
                             className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
                         >
-                            {/* 모바일: 짧게 / PC: 원래대로 */}
-                            <span className="sm:inline">상위 6캐릭</span>
+                            <span className="sm:inline">상위 6캐릭 세팅</span>
                         </button>
                         <button
                             onClick={() => handleAutoSelect("all")}
                             className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
                         >
-                            <span className="sm:inline">전체 선택</span>
+                            <span className="sm:inline">모두 표시</span>
                         </button>
                         <button
                             onClick={() => handleAutoSelect("none")}
@@ -233,41 +288,54 @@ export default function CharacterSettingModal({
                                 key={char.name}
                                 onClick={() => toggleVisibility(index)}
                                 className={`
-                                    relative flex flex-col items-center justify-center py-3 sm:py-4 px-2 rounded-lg cursor-pointer transition-all duration-200 select-none border
-                                    ${char.isVisible
-                                        ? "bg-[#5B69FF] border-[#5B69FF] text-white shadow-lg shadow-indigo-500/20 translate-y-0"
-                                        : "bg-[#1E222B] border-white/5 text-gray-500 hover:bg-[#252932] hover:border-white/10"
+                                        flex flex-col p-3 sm:p-4 rounded-xl transition-all duration-200 border cursor-pointer select-none
+                                        ${char.isVisible
+                                        ? "bg-[#1E222B] border-white/10 shadow-lg shadow-black/20"
+                                        : "bg-[#16181D] border-white/5 opacity-50 grayscale hover:bg-[#1a1c23]"
                                     }
-                                `}
-                            >
-                                <div
-                                    className={`
-                                        absolute top-2 right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[10px] transition-colors
-                                        ${char.isVisible ? "bg-white/20 text-white" : "bg-black/20 text-gray-600"}
                                     `}
-                                >
-                                    {char.isVisible ? (
-                                        <Check
-                                            className="w-2.5 h-2.5 sm:w-3 sm:h-3"
-                                            strokeWidth={3}
-                                        />
-                                    ) : (
-                                        <X
-                                            className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5"
-                                            strokeWidth={3}
-                                        />
-                                    )}
+                            >
+                                {/* 캐릭터 정보 영역 */}
+                                <div className="flex flex-col items-center text-center mb-3 pointer-events-none">
+                                    <div className={`font-bold text-[14px] sm:text-base mb-0.5 truncate w-full px-1 ${char.isVisible ? "text-white" : "text-gray-400"}`}>
+                                        {char.name}
+                                    </div>
+                                    <div className="text-[10px] sm:text-xs text-gray-500 font-medium">
+                                        {char.className} <span className="opacity-50 mx-1">|</span> {char.itemLevel}
+                                    </div>
                                 </div>
 
-                                <div className="font-bold text-[13px] sm:text-lg mb-1 truncate w-full text-center px-2">
-                                    {char.name}
-                                </div>
-                                <div
-                                    className={`text-[10px] sm:text-xs font-medium ${char.isVisible ? "text-indigo-100" : "text-gray-600"
-                                        }`}
-                                >
-                                    {char.className} <span className="opacity-50 mx-1">|</span>{" "}
-                                    {char.itemLevel}
+                                {/* 버튼 2개 영역 */}
+                                <div className="grid grid-cols-2 gap-2 mt-auto pt-3 border-t border-white/5">
+                                    {/* 1. 골드 획득 토글 */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation(); // 카드 클릭(표시 토글) 방지
+                                            toggleGoldEarn(index);
+                                        }}
+                                        className={`flex flex-col items-center justify-center py-2 rounded-lg transition-colors border ${char.isGoldEarn
+                                            ? "bg-[#F1F5F9] border-[#F1F5F9] text-[#111217] shadow-[0_0_10px_rgba(241,245,249,0.2)]"
+                                            : "bg-black/20 border-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300"
+                                            }`}
+                                    >
+                                        <Coins size={16} className="mb-1" strokeWidth={2.5} />
+                                        <span className="text-[9px] sm:text-[10px] font-bold">골드 지정</span>
+                                    </button>
+
+                                    {/* 2. 표시 토글 (시각적 피드백용) */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation(); // 중복 방지
+                                            toggleVisibility(index);
+                                        }}
+                                        className={`flex flex-col items-center justify-center py-2 rounded-lg transition-colors border ${char.isVisible
+                                            ? "bg-[#5B69FF] border-[#5B69FF] text-white shadow-[0_0_10px_rgba(91,105,255,0.2)]"
+                                            : "bg-black/20 border-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300"
+                                            }`}
+                                    >
+                                        {char.isVisible ? <Eye size={16} className="mb-1" /> : <EyeOff size={16} className="mb-1" />}
+                                        <span className="text-[9px] sm:text-[10px] font-bold">{char.isVisible ? "표시됨" : "숨김됨"}</span>
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -276,8 +344,6 @@ export default function CharacterSettingModal({
 
                 {/* Footer */}
                 <footer className="px-5 py-4 sm:px-8 bg-[#16181D] border-t border-white/10 flex flex-col gap-3">
-
-                    {/* 🚨 [추가됨] 에러 메시지 표시 영역 */}
                     {refreshError && (
                         <div className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-200 text-xs sm:text-sm animate-in slide-in-from-bottom-1 fade-in">
                             <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
@@ -285,7 +351,6 @@ export default function CharacterSettingModal({
                         </div>
                     )}
 
-                    {/* 기존 버튼 그룹 (flex-row로 감싸서 배치) */}
                     <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 w-full">
                         <div className="flex gap-2 w-full sm:w-auto">
                             <button
@@ -295,7 +360,6 @@ export default function CharacterSettingModal({
                                 취소
                             </button>
 
-                            {/* 삭제 버튼 (onDeleteAccount가 있을 때만 렌더링) */}
                             {onDeleteAccount && (
                                 <button
                                     className="flex-none px-4 h-10 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-medium hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
@@ -312,34 +376,37 @@ export default function CharacterSettingModal({
                         </div>
 
                         <button
-                            onClick={() => {
-                                commitVisible();
-                                onClose();
-                            }}
-                            className="w-full sm:w-auto px-6 h-10 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-white text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center"
+                            onClick={commitSettings}
+                            className="w-full sm:w-auto px-6 h-10 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-white text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                         >
-                            <span className="sm:hidden">완료 ({visibleCount})</span>
-                            <span className="hidden sm:inline">설정 완료 ({visibleCount})</span>
+                            {/* PC 화면용 텍스트 */}
+                            <span className="hidden sm:inline">
+                                설정 완료 (표시 {visibleCount}캐릭, 골드 {goldEarnCount}/6)
+                            </span>
+                            {/* 모바일 화면용 텍스트 (조금 더 짧게) */}
+                            <span className="sm:hidden">
+                                설정 완료 (표시 {visibleCount}, 골드 {goldEarnCount}/6)
+                            </span>
                         </button>
                     </div>
                 </footer>
             </div>
 
             <style jsx global>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 6px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: #16181d;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: #333;
-                    border-radius: 3px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: #444;
-                }
-            `}</style>
+                    .custom-scrollbar::-webkit-scrollbar {
+                        width: 6px;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-track {
+                        background: #16181d;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-thumb {
+                        background: #333;
+                        border-radius: 3px;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                        background: #444;
+                    }
+                `}</style>
         </div>
     );
 }

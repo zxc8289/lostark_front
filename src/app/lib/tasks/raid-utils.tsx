@@ -147,7 +147,8 @@ export type RaidSummary = {
  */
 export function computeRaidSummaryForRoster(
     roster: RosterCharacter[],
-    prefsByChar: Record<string, CharacterTaskPrefs>
+    prefsByChar: Record<string, CharacterTaskPrefs>,
+    goldDesignatedByChar?: Record<string, boolean>,
 ): RaidSummary {
     let taskCount = 0;
     let charCount = 0;
@@ -159,6 +160,7 @@ export function computeRaidSummaryForRoster(
     for (const char of roster) {
         const prefs = prefsByChar[char.name];
         if (!prefs) continue;
+        const isGoldEarn = goldDesignatedByChar ? (goldDesignatedByChar[char.name] ?? false) : true;
 
         let hasRemainingForChar = false;
 
@@ -175,45 +177,42 @@ export function computeRaidSummaryForRoster(
             const gates = p.gates ?? [];
             const isBonus = p.isBonus ?? false;
 
-            // 🔥 전체 골드 계산 (귀속 골드 선 차감 로직 적용)
+            // 전체 골드 계산
             let totalGoldForRaid = 0;
             let totalBoundGoldForRaid = 0;
             gatesDef.forEach((g) => {
-                const baseGold = g.gold ?? 0;
-                const bGold = g.boundGold ?? 0;
+                // 🔥 골드 지정 캐릭이 아니면 얻는 골드는 0, 하지만 더보기 비용은 차감됨!
+                const baseGold = isGoldEarn ? (g.gold ?? 0) : 0;
+                const bGold = isGoldEarn ? (g.boundGold ?? 0) : 0;
                 let cost = isBonus ? (g.bonusCost ?? 0) : 0;
 
-                // 1) 귀속 골드에서 먼저 차감
                 const netBoundGold = Math.max(0, bGold - cost);
-                cost = Math.max(0, cost - bGold); // 남은 더보기 비용
-
-                // 2) 남은 비용을 일반(거래) 골드에서 차감
+                cost = Math.max(0, cost - bGold);
                 const netGold = Math.max(0, baseGold - cost);
 
                 totalGoldForRaid += netGold;
                 totalBoundGoldForRaid += netBoundGold;
             });
 
-            // 🔥 완료한 관문 골드 계산 (귀속 골드 선 차감 로직 적용)
+            // 완료한 관문 골드 계산
             let selectedGoldForRaid = 0;
             let selectedBoundGoldForRaid = 0;
             gates.forEach((gi) => {
                 const g = gatesDef.find((x) => x.index === gi);
                 if (!g) return;
-                const baseGold = g.gold ?? 0;
-                const bGold = g.boundGold ?? 0;
+                const baseGold = isGoldEarn ? (g.gold ?? 0) : 0;
+                const bGold = isGoldEarn ? (g.boundGold ?? 0) : 0;
                 let cost = isBonus ? (g.bonusCost ?? 0) : 0;
 
                 const netBoundGold = Math.max(0, bGold - cost);
                 cost = Math.max(0, cost - bGold);
-
                 const netGold = Math.max(0, baseGold - cost);
 
                 selectedGoldForRaid += netGold;
                 selectedBoundGoldForRaid += netBoundGold;
             });
 
-            // 남은 골드 누적
+            // 누적 합산 (기존과 동일)
             goldRemain += Math.max(0, totalGoldForRaid - selectedGoldForRaid);
             goldTotal += totalGoldForRaid;
 
@@ -352,46 +351,55 @@ export function autoSelectTop3Raids(
 
 /* 여기부터 새로 추가된 자동 세팅 결과 타입 */
 
-export type AutoSetupResult = {
-    nextPrefsByChar: Record<string, CharacterTaskPrefs>;
-    nextVisibleByChar: Record<string, boolean>;
-};
 
 /**
  * 아이템 레벨 상위 N캐릭 + 각 캐릭터 Top3 레이드 자동 세팅
  * - 공통으로 MyTasks / Party 페이지 양쪽에서 사용
  */
+export type AutoSetupResult = {
+    nextPrefsByChar: Record<string, CharacterTaskPrefs>;
+    nextVisibleByChar: Record<string, boolean>;
+    nextGoldByChar: Record<string, boolean>; // 🔥 추가
+};
+
 export function buildAutoSetupForRoster(
     roster: RosterCharacter[],
     prevPrefsByChar: Record<string, CharacterTaskPrefs>,
-    charCount: number = 6 // 🔥 매개변수 추가 (기본값 6)
+    charCount: number = 6
 ): AutoSetupResult {
     if (!roster.length) {
         return {
             nextPrefsByChar: { ...prevPrefsByChar },
             nextVisibleByChar: {},
+            nextGoldByChar: {}, // 🔥 추가
         };
     }
 
-    // 1) 아이템 레벨 기준 상위 N캐릭 (기존 6캐릭 하드코딩에서 charCount로 변경)
     const sorted = [...roster].sort(
         (a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)
     );
-    const targetCharacters = sorted.slice(0, Math.max(0, charCount)); // 🔥 charCount 만큼만 자르기
+
+    // 1. 화면에 표시할 캐릭터 (예: 12개)
+    const targetCharacters = sorted.slice(0, Math.max(0, charCount));
     const targetNames = new Set(targetCharacters.map((c) => c.name));
 
-    // 2) visibleByChar: 설정한 개수만큼만 true
+    // 2. 골드 지정을 켤 캐릭터 (표시 대상 중 최대 6캐릭으로 제한)
+    const goldTargetCharacters = targetCharacters.slice(0, 6);
+    const goldTargetNames = new Set(goldTargetCharacters.map((c) => c.name));
+
     const nextVisibleByChar: Record<string, boolean> = {};
+    const nextGoldByChar: Record<string, boolean> = {}; // 🔥 추가
+
     for (const c of roster) {
         nextVisibleByChar[c.name] = targetNames.has(c.name);
+        nextGoldByChar[c.name] = goldTargetNames.has(c.name); // 🔥 자동 세팅 시 골드 지정은 최대 6캐릭만
     }
 
-    // 3) 각 설정된 캐릭터에 대해 Top3 레이드 자동 세팅
     const nextPrefsByChar: Record<string, CharacterTaskPrefs> = {
         ...prevPrefsByChar,
     };
 
-    for (const c of targetCharacters) { // 🔥 top6 대신 targetCharacters 순회
+    for (const c of targetCharacters) {
         const ilvlNum = c.itemLevelNum ?? 0;
         const prevPrefs = nextPrefsByChar[c.name] ?? { raids: {} };
         nextPrefsByChar[c.name] = autoSelectTop3Raids(ilvlNum, prevPrefs);
@@ -400,5 +408,6 @@ export function buildAutoSetupForRoster(
     return {
         nextPrefsByChar,
         nextVisibleByChar,
+        nextGoldByChar, // 🔥 추가
     };
 }

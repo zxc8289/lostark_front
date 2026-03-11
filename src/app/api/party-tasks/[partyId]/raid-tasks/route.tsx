@@ -45,6 +45,7 @@ type RaidStateJson = {
     tableOrder?: string[]; // 테이블 레이드 순서 저장용
     rosterOrder?: string[]; // ✅ 추가
     cardRosterOrder?: string[];
+    goldDesignatedByChar?: Record<string, boolean>; // ✅ 추가
 };
 
 type RaidTaskStateRow = {
@@ -65,6 +66,7 @@ type PartyMemberTasks = {
     canOthersEdit?: boolean; // 🔥 추가
     rosterOrder?: string[]; // ✅ 추가
     cardRosterOrder?: string[];
+    goldDesignatedByChar?: Record<string, boolean>; // ✅ 추가
 };
 
 type PartyRaidTasksResponse = {
@@ -311,6 +313,7 @@ export async function GET(
             canOthersEdit: m.canOthersEdit ?? true,
             rosterOrder: parsed?.rosterOrder ?? [],
             cardRosterOrder: parsed?.cardRosterOrder ?? [],
+            goldDesignatedByChar: parsed?.goldDesignatedByChar ?? {},
         });
     }
 
@@ -343,7 +346,7 @@ export async function POST(
         return NextResponse.json({ message: "Invalid JSON" }, { status: 400 });
     }
 
-    const { userId: targetUserId, prefsByChar, visibleByChar, tableOrder, nickname, summary, accounts, activeAccountId, activeAccountByParty, rosterOrder, cardRosterOrder } = body;
+    const { userId: targetUserId, prefsByChar, visibleByChar, tableOrder, nickname, summary, accounts, activeAccountId, activeAccountByParty, rosterOrder, cardRosterOrder, goldDesignatedByChar } = body;
     if (!targetUserId) {
         return NextResponse.json({ message: "userId required" }, { status: 400 });
     }
@@ -372,7 +375,9 @@ export async function POST(
     if (tableOrder) nextState.tableOrder = tableOrder;
     if (Array.isArray(rosterOrder)) nextState.rosterOrder = rosterOrder;
     if (Array.isArray(cardRosterOrder)) nextState.cardRosterOrder = cardRosterOrder; // 🔥 이 줄을 추가합니다.
+    if (goldDesignatedByChar) nextState.goldDesignatedByChar = goldDesignatedByChar;
     if (typeof nickname === "string") nextState.nickname = nickname;
+
 
     // 2. 핵심: summary(캐릭터 목록) 업데이트 로직
     if (summary !== undefined) {

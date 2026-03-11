@@ -93,7 +93,6 @@ export default function TaskSidebar({
 
     return (
         <div className="space-y-4">
-            {/* 1. 계정 선택 섹션 (기존 유지) */}
             <section className="rounded-none sm:rounded-sm bg-[#16181D]">
                 <button
                     onClick={() => setIsAccountListOpen(!isAccountListOpen)}

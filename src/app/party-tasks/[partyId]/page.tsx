@@ -99,6 +99,7 @@ type PartyMemberTasks = {
     canOthersEdit?: boolean;
     rosterOrder?: string[];        // ✅ 테이블(행)용
     cardRosterOrder?: string[];    // ✅ 카드(캐릭터 카드)용 ← 추가
+    goldDesignatedByChar?: Record<string, boolean>; // ✅ 추가
 };
 
 type PartyRaidTasksResponse = {
@@ -255,12 +256,20 @@ function buildTasksForCharacter(
             }
         }
 
+        // 🔥 개별 카드의 골드 합산 (귀속 선 차감 적용)
         const totalGold = (p.gates ?? []).reduce((sum, gi) => {
             const g = diff.gates.find((x) => x.index === gi);
             if (!g) return sum;
-            const gold = g.gold ?? 0;
-            const cost = p.isBonus ? (g.bonusCost ?? 0) : 0;
-            return sum + Math.max(0, gold - cost);
+
+            const baseGold = g.gold ?? 0;
+            const bGold = (g as any).boundGold ?? 0;
+            let cost = p.isBonus ? (g.bonusCost ?? 0) : 0;
+
+            const netBoundGold = Math.max(0, bGold - cost);
+            cost = Math.max(0, cost - bGold);
+            const netGold = Math.max(0, baseGold - cost);
+
+            return sum + netGold + netBoundGold;
         }, 0);
 
         const right = (
@@ -295,12 +304,32 @@ function buildTasksForCharacter(
 function computeMemberSummary(
     member: PartyMemberTasks & { summary: CharacterSummary | null }
 ): RaidSummary {
+    // 1. 화면에 표시 중인 캐릭터 목록
     const visibleRoster =
         member.summary?.roster?.filter(
             (c) => member.visibleByChar?.[c.name] ?? true
         ) ?? [];
 
-    return computeRaidSummaryForRoster(visibleRoster, member.prefsByChar ?? {});
+    // 🔥 2. 마이그레이션(Fallback) 로직: 골드 지정 데이터가 아예 없으면 상위 6캐릭을 임시로 설정
+    let effectiveGold = member.goldDesignatedByChar;
+    if (!effectiveGold || Object.keys(effectiveGold).length === 0) {
+        effectiveGold = {};
+        // 레벨 순으로 정렬
+        const sorted = [...visibleRoster].sort(
+            (a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)
+        );
+        // 상위 6명에게만 true 부여
+        sorted.forEach((c, index) => {
+            effectiveGold![c.name] = index < 6;
+        });
+    }
+
+    // 3. 임시 생성한 effectiveGold를 계산 함수로 넘김
+    return computeRaidSummaryForRoster(
+        visibleRoster,
+        member.prefsByChar ?? {},
+        effectiveGold
+    );
 }
 
 /* ─────────────────────────────
@@ -512,7 +541,8 @@ export default function PartyDetailPage() {
         visibleByChar?: Record<string, boolean>,
         tableOrder?: string[],
         rosterOrder?: string[],
-        cardRosterOrder?: string[]
+        cardRosterOrder?: string[],
+        goldDesignatedByChar?: Record<string, boolean>
     ) {
         if (sendGlobalMessage) {
             sendGlobalMessage({
@@ -524,6 +554,7 @@ export default function PartyDetailPage() {
                 tableOrder,
                 rosterOrder,
                 cardRosterOrder,
+                goldDesignatedByChar,
             });
         }
     }
@@ -814,9 +845,11 @@ export default function PartyDetailPage() {
         setShareModalOpen(false);
     };
 
-    const handleMemberChangeVisible = (
+    // 기존 handleMemberChangeVisible을 아래 코드로 덮어씌웁니다.
+    const handleMemberChangeSettings = (
         memberUserId: string,
-        partialVisibleByChar: Record<string, boolean>
+        partialVisibleByChar: Record<string, boolean>,
+        partialGoldByChar: Record<string, boolean> // ✅ 추가
     ) => {
         if (!party || !partyTasks) return;
         const partyIdNum = party.id;
@@ -824,14 +857,10 @@ export default function PartyDetailPage() {
         const next: PartyMemberTasks[] = partyTasks.map((m) => {
             if (m.userId !== memberUserId) return m;
 
-            const mergedVisible: Record<string, boolean> = {
-                ...(m.visibleByChar ?? {}),
-                ...partialVisibleByChar,
-            };
-
             return {
                 ...m,
-                visibleByChar: mergedVisible,
+                visibleByChar: { ...(m.visibleByChar ?? {}), ...partialVisibleByChar },
+                goldDesignatedByChar: { ...(m.goldDesignatedByChar ?? {}), ...partialGoldByChar }, // ✅ 추가
             };
         });
 
@@ -840,17 +869,14 @@ export default function PartyDetailPage() {
         const updated = next.find((m) => m.userId === memberUserId);
         if (updated) {
             sendMemberUpdateWS(
-                partyIdNum,
-                updated.userId,
-                updated.prefsByChar,
-                updated.visibleByChar
+                partyIdNum, updated.userId, updated.prefsByChar,
+                updated.visibleByChar, updated.tableOrder, updated.rosterOrder, updated.cardRosterOrder,
+                updated.goldDesignatedByChar // ✅ 추가
             );
-
             void saveMemberPrefsToServer(
-                partyIdNum,
-                updated.userId,
-                updated.prefsByChar,
-                updated.visibleByChar
+                partyIdNum, updated.userId, updated.prefsByChar,
+                updated.visibleByChar, updated.tableOrder, updated.rosterOrder, updated.cardRosterOrder,
+                updated.goldDesignatedByChar // ✅ 추가
             );
         }
     };
@@ -1108,7 +1134,8 @@ export default function PartyDetailPage() {
         visibleByChar?: Record<string, boolean>,
         tableOrder?: string[],
         rosterOrder?: string[],
-        cardRosterOrder?: string[]      // ✅ 추가
+        cardRosterOrder?: string[],
+        goldDesignatedByChar?: Record<string, boolean>
     ) {
         try {
             await fetch(`/api/party-tasks/${partyId}/raid-tasks`, {
@@ -1120,7 +1147,8 @@ export default function PartyDetailPage() {
                     visibleByChar,
                     tableOrder,
                     rosterOrder,
-                    cardRosterOrder,          // ✅ 추가
+                    cardRosterOrder,
+                    goldDesignatedByChar,
                 }),
             });
         } catch (e) {
@@ -1223,19 +1251,21 @@ export default function PartyDetailPage() {
             }
             if (!roster.length) return m;
 
-            const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(
-                roster,
-                m.prefsByChar ?? {},
-                charCount
+
+            const { nextPrefsByChar, nextVisibleByChar, nextGoldByChar } = buildAutoSetupForRoster(
+                roster, m.prefsByChar ?? {}, charCount
             );
 
 
             const nextVisibleMerged: Record<string, boolean> = {
                 ...(m.visibleByChar ?? {}),
             };
+            const nextGoldMerged: Record<string, boolean> = { ...(m.goldDesignatedByChar ?? {}) }; // ✅ 추가
+
             for (const c of roster) {
                 const name = c.name;
                 nextVisibleMerged[name] = nextVisibleByChar[name] ?? false;
+                nextGoldMerged[name] = nextGoldByChar[name] ?? false; // ✅ 추가
             }
 
             const nextPrefsMerged: Record<string, CharacterTaskPrefs> = {
@@ -1245,8 +1275,9 @@ export default function PartyDetailPage() {
 
             return {
                 ...m,
-                prefsByChar: nextPrefsMerged,
+                prefsByChar: { ...(m.prefsByChar ?? {}), ...nextPrefsByChar },
                 visibleByChar: nextVisibleMerged,
+                goldDesignatedByChar: nextGoldMerged, // ✅ 추가
                 tableOrder: RESET_TABLE_ORDER,
             };
         });
@@ -1260,7 +1291,10 @@ export default function PartyDetailPage() {
                 updated.userId,
                 updated.prefsByChar,
                 updated.visibleByChar,
-                updated.tableOrder
+                updated.tableOrder,
+                updated.rosterOrder,
+                updated.cardRosterOrder,
+                updated.goldDesignatedByChar
             );
 
             void saveMemberPrefsToServer(
@@ -1268,7 +1302,10 @@ export default function PartyDetailPage() {
                 updated.userId,
                 updated.prefsByChar,
                 updated.visibleByChar,
-                updated.tableOrder
+                updated.tableOrder,
+                updated.rosterOrder,
+                updated.cardRosterOrder,
+                updated.goldDesignatedByChar
             );
         }
     };
@@ -1636,6 +1673,7 @@ export default function PartyDetailPage() {
                                     ...m,
                                     prefsByChar: msg.prefsByChar ?? m.prefsByChar ?? {},
                                     visibleByChar: msg.visibleByChar ?? m.visibleByChar ?? {},
+                                    goldDesignatedByChar: msg.goldDesignatedByChar ?? m.goldDesignatedByChar ?? {},
                                     tableOrder: msg.tableOrder ?? m.tableOrder ?? [],
                                     rosterOrder: msg.rosterOrder ?? m.rosterOrder ?? [],
                                     cardRosterOrder: msg.cardRosterOrder ?? m.cardRosterOrder ?? [], // ✅ 추가
@@ -2124,8 +2162,9 @@ export default function PartyDetailPage() {
                                     refreshError={isMeTarget ? accountSearchErr : refreshErr}
                                     roster={roster}
                                     visibleByChar={modalVisibleByChar}
-                                    onChangeVisible={(next) => {
-                                        handleMemberChangeVisible(charSettingTarget.memberUserId, next);
+                                    goldDesignatedByChar={targetMember?.goldDesignatedByChar ?? {}} // ✅ 추가
+                                    onChangeSettings={(nextVisible, nextGold) => { // ✅ 수정
+                                        handleMemberChangeSettings(charSettingTarget.memberUserId, nextVisible, nextGold);
                                     }}
                                     onDeleteAccount={
                                         isMeTarget && activeAccountId !== "ALL" ? () => setDeleteConfirmOpen(true) : undefined
@@ -2988,7 +3027,7 @@ function PartyMemberSummaryBar({
                 <span className="hidden sm:inline h-4 w-px bg-white/10 " />
                 <div className="flex items-baseline gap-1.5">
                     <span className="font-semibold text-sm sm:text-base pr-1">
-                        남은 골드
+                        골드
                     </span>
                     <div
                         className={[
@@ -3006,6 +3045,34 @@ function PartyMemberSummaryBar({
                                 memberAllCleared
                                     ? summary.totalGold
                                     : summary.totalRemainingGold
+                            }
+                        />
+                        <span className="ml-0.5 text-[0.75em]">g</span>
+                    </div>
+                </div>
+
+                {/* 🔥 귀속 골드 영역 추가 */}
+                <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                <div className="flex items-baseline gap-1.5">
+                    <span className="font-semibold text-sm sm:text-base pr-1">
+                        귀속 골드
+                    </span>
+                    <div
+                        className={[
+                            "inline-flex items-baseline justify-end",
+                            "min-w-[50px]",
+                            "text-xs sm:text-sm font-semibold",
+                            "font-mono tabular-nums",
+                            memberAllCleared
+                                ? "line-through decoration-gray-300 decoration-1 text-gray-400"
+                                : "text-gray-400",
+                        ].join(" ")}
+                    >
+                        <AnimatedNumber
+                            value={
+                                memberAllCleared
+                                    ? (summary as any).totalBoundGold // raid-utils.ts 에서 넘겨준 값
+                                    : (summary as any).totalRemainingBoundGold
                             }
                         />
                         <span className="ml-0.5 text-[0.75em]">g</span>
