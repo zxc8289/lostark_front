@@ -201,45 +201,96 @@ export default async function HomePage() {
         </div>
       </div>
 
-      {/* 🔥 3. 텍스트가 화면 끝에 닿지 않도록 하단 가이드 섹션에만 모바일 여백(px-4) 추가 */}
       <section className="w-full border-t border-white/5 pt-8 md:pt-12 pb-16 md:pb-20 px-4 md:px-0">
         <h2 className="text-base md:text-lg font-bold text-gray-200 mb-6 md:mb-8 flex items-center gap-2">
           <span className="text-blue-500">GUIDE</span> 로아체크 이용 가이드
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10">
-          <div className="flex flex-col gap-2 md:gap-3">
-            <h3 className="text-sm font-bold text-gray-100">
-              로아체크의 숙제 관리 기능은 어떻게 사용하나요?
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+
+          {/* 카드 1: 숙제 관리 (내 숙제 & 파티 숙제) */}
+          <div className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
+            <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">
+              로아체크 숙제 관리 및 파티 동기화 시스템
             </h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              로아체크(Loacheck)에 접속하여 캐릭터 닉네임을 등록하면, 로스트아크 공식 API를 통해 자동으로 캐릭터 정보를 불러옵니다.
-              매일 오전 6시에 초기화되는 주간 숙제(군단장 레이드, 카제로스 레이드, 어비스 던전, 그림자 레이드)를 선택하여,
-              '내 숙제' 메뉴에서 체크박스를 클릭하여 완료 여부를 저장할 수 있습니다.
+            <p className="text-xs text-gray-400 leading-relaxed mb-4">
+              내 계정 연동부터 파티원과의 실시간 숙제 공유까지, 로아체크의 스마트한 스케줄 관리 기능을 확인해 보세요.
             </p>
+            <details className="group mt-auto">
+              <summary className="text-xs text-blue-400 hover:text-blue-300 font-bold cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center gap-1 transition-colors w-fit">
+                <span className="group-open:hidden">가이드 읽기</span>
+                <span className="hidden group-open:inline">가이드 접기</span>
+                <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+              </summary>
+              <div className="pt-4 mt-4 border-t border-white/5 text-xs text-gray-500 leading-relaxed space-y-3">
+                <p>
+                  <strong className="text-gray-300">개인 숙제 연동 및 세팅:</strong> '내 계정 불러오기'를 통해 대표 캐릭터 닉네임만 입력하면 원정대 전체 정보를 한 번에 가져옵니다. 이후 자동 세팅 기능을 통해 주력 캐릭터의 레이드를 구성하고, 클릭 한 번으로 각 관문별 클리어 여부와 획득 골드를 직관적으로 체크할 수 있습니다. 입력된 데이터는 비로그인 시 내 PC(웹) 로컬 환경에 자동 저장되며, 로그인 시에는 클라우드 서버에 안전하게 저장되어 모바일 등 어디서든 연동됩니다.
+                </p>
+                <p>
+                  <strong className="text-gray-300">파티 숙제 실시간 공유:</strong> 파티 숙제 메뉴에서는 생성된 공격대에 친구들을 초대하여 함께 일정을 관리할 수 있습니다. 레이드 관문을 클릭하면 골드와 남은 숙제 수가 파티원 전원에게 실시간으로 반영됩니다. 파티원별 수정 권한(수정 가능 여부 옵션)을 다르게 부여하여 관리의 안정성을 높일 수 있으며, 사이드바의 '모든 계정 통합 보기'나 레이드 필터링 같은 스마트 기능을 통해 다수 인원의 복잡한 스케줄도 한눈에 파악할 수 있습니다.
+                </p>
+              </div>
+            </details>
           </div>
 
-          <div className="flex flex-col gap-2 md:gap-3">
-            <h3 className="text-sm font-bold text-gray-100">
-              공격대 파티원들과 숙제를 공유할 수 있나요?
+          {/* 카드 2: 딜 지분 (DPS 계산기) */}
+          <div className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
+            <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">
+              로스트아크 딜 지분(DPS) 역산 분석기
             </h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              네, 가능합니다. '파티 숙제' 메뉴에서 공격대를 생성하고 친구들을 초대해보세요.
-              그다음 파티원들의 캐릭터 정보를 불러와 목표 레이드를 설정하면,
-              이번 주 주요 레이드(카멘, 에키드나, 카제로스 등)의 숙제 완료 여부를 표나 카드 형태로 한눈에 비교하고 관리할 수 있습니다.
+            <p className="text-xs text-gray-400 leading-relaxed mb-4">
+              게임 내 MVP 화면의 피해량을 바탕으로, 보스의 전체 체력 대비 실질적인 딜 기여도를 디테일하게 점검할 수 있습니다.
             </p>
+            <details className="group mt-auto">
+              <summary className="text-xs text-[#FF5252] hover:text-[#ff7474] font-bold cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center gap-1 transition-colors w-fit">
+                <span className="group-open:hidden">가이드 읽기</span>
+                <span className="hidden group-open:inline">가이드 접기</span>
+                <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+              </summary>
+              <div className="pt-4 mt-4 border-t border-white/5 text-xs text-gray-500 leading-relaxed space-y-3">
+                <p>
+                  로아체크의 딜 지분 계산기는 레이드 클리어 후 확인한 내 피해량(억 단위) 수치를 입력하여 퍼센트(%)를 역산하는 정밀 분석 도구입니다. 단순히 시스템이 부여하는 '투사', '강투', '잔혈' 칭호 확인에 그치지 않고, 내 캐릭터가 파티 내에서 정확히 어느 정도의 퍼포먼스를 내고 있는지 구체적인 지표로 확인할 수 있습니다.
+                </p>
+                <ul className="space-y-2 pl-2">
+                  <li>
+                    <strong className="text-gray-300">8인 레이드 (딜러 6명 기준):</strong> 1인분 평균 딜 지분은 약 16.6%로 산정됩니다. 15% 이상 달성 시 <span className="text-[#FF8585]">강직한 투사</span>, 20% 이상 달성 시 <span className="text-[#FF5252] font-bold">잔혹한 혈투사</span> 타이틀을 획득할 수 있습니다.
+                  </li>
+                  <li>
+                    <strong className="text-gray-300">4인 레이드 (딜러 3명 기준):</strong> 1인분 평균 딜 지분은 약 33.3%로 크게 상승합니다. 30% 이상 달성 시 <span className="text-[#FF8585]">강직한 투사</span>, 40% 이상 달성 시 <span className="text-[#FF5252] font-bold">잔혹한 혈투사</span> 타이틀을 획득하게 됩니다.
+                  </li>
+                </ul>
+              </div>
+            </details>
           </div>
 
-          <div className="flex flex-col gap-2 md:gap-3">
-            <h3 className="text-sm font-bold text-gray-100">
-              딜 지분 분석과 젬 세팅은 무엇인가요?
+          {/* 카드 3: 젬 세팅 (아크 그리드) */}
+          <div className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
+            <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">
+              아크 그리드 최적화 및 젬 세팅 가이드
             </h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              레이드 딜 지분 기능은 딜러 유저들이 자신의 데미지 비중을 확인하여,
-              <span className="text-gray-300 font-bold"> 강직한 투사(강투)</span> 혹은 <span className="text-gray-300 font-bold">잔혹한 혈투사(잔혈)</span> 달성 여부를 간편하게 판별할 수 있는 도구입니다.
-              또한 젬 세팅 기능은 보유 중인 젬을 기반으로 의지력을 정밀하게 계산하여 최적의 코어 포인트 구간을 찾아내며, 효율적인 스펙업을 돕습니다.
+            <p className="text-xs text-gray-400 leading-relaxed mb-4">
+              한정된 젬과 코어 포인트를 가장 효율적으로 분배하여 아크 그리드 시스템의 스펙업 성능을 극대화합니다.
             </p>
+            <details className="group mt-auto">
+              <summary className="text-xs text-[#5B69FF] hover:text-[#7f8aff] font-bold cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center gap-1 transition-colors w-fit">
+                <span className="group-open:hidden">가이드 읽기</span>
+                <span className="hidden group-open:inline">가이드 접기</span>
+                <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+              </summary>
+              <div className="pt-4 mt-4 border-t border-white/5 text-xs text-gray-500 leading-relaxed space-y-3">
+                <p>
+                  아크 그리드 시스템은 로스트아크 캐릭터의 한계를 돌파하는 핵심 스펙업 콘텐츠입니다. 로아체크의 최적화 도구는 유저가 현재 보유하고 있는 젬(질서/혼돈)의 의지력 효율과 옵션을 바탕으로 수만 가지의 배치 조합을 연산하여, 가장 이상적인 코어 포인트와 스탯 세팅을 도출해냅니다.
+                </p>
+                <p className="font-bold text-gray-400 mt-2">💡 로아체크 최적화 옵션 활용 팁</p>
+                <ul className="space-y-1.5 pl-2">
+                  <li><strong className="text-gray-300">• 포인트 우선:</strong> 전투 스탯보다는 핵심 코어 활성화에 필요한 '최소 포인트'를 맞추는 데 모든 연산을 집중합니다.</li>
+                  <li><strong className="text-gray-300">• 스탯 상위 (최대P):</strong> 현재 도달 가능한 가장 높은 코어 포인트를 유지하는 선에서, 전투 스탯(공격력/서포팅)이 가장 높게 산출되는 최적의 조합을 찾아냅니다.</li>
+                  <li><strong className="text-gray-300">• 스탯 우선:</strong> 도달 코어 포인트보다 실질적으로 체감되는 스탯 상승 효율을 최우선 목표로 두고 계산을 수행합니다.</li>
+                </ul>
+              </div>
+            </details>
           </div>
+
         </div>
       </section>
     </div>

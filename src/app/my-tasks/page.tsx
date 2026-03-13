@@ -1734,16 +1734,7 @@ export default function MyTasksPage() {
               )
             ) : null}
 
-            {shouldShowAds && (
-              <div className="block lg:hidden w-full">
-                <div
-                  className="w-full bg-[#1e2128]/30 border-x-0 sm:border border-white/5 rounded-none sm:rounded-2xl overflow-hidden flex items-center justify-center"
-                  style={{ height: "100px", minHeight: "100px", maxHeight: "100px" }}
-                >
-                  <GoogleAd slot={AD_SLOT_BOTTOM_BANNER} className="!my-0 w-full h-full" responsive={false} />
-                </div>
-              </div>
-            )}
+
           </div>
         </div>
       </div>
