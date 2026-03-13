@@ -67,19 +67,33 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const post = await db.collection("support_posts").findOne({ _id });
     if (!post) return NextResponse.json({ ok: false, error: "not found" }, { status: 404 });
 
+    const canEdit = await getPerm(req, post);
+    const session = await getServerSession(authOptions);
+    const currentUserId = (session?.user as any)?.id;
+
+    // ✨ 내 아이디와 글의 authorId가 일치하면 알림을 끕니다.
+    if (currentUserId && post.authorId && String(currentUserId) === String(post.authorId)) {
+        if (post.hasUnreadAdminReply) {
+            await db.collection("support_posts").updateOne(
+                { _id: _id },
+                { $set: { hasUnreadAdminReply: false } }
+            );
+        }
+    }
+
     const repliesRows = await db
         .collection("support_replies")
         .find({ postId: _id })
         .sort({ createdAt: 1 })
         .toArray();
 
-    const canEdit = await getPerm(req, post);
-
     const replies = repliesRows.map((r: any) => ({
         id: String(r._id),
         postId: String(r.postId),
+        parentId: r.parentId ? String(r.parentId) : null,
         content: r.content,
         author: r.author || "관리자",
+        authorImage: r.authorImage || null,
         isStaff: !!r.isStaff,
         createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : null,
     }));
@@ -105,8 +119,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     const db = await getDb();
+    // (기존 코드에서) post 정보를 찾은 직후, 이 유저가 작성자라면 알림을 읽음 처리합니다!
     const post = await db.collection("support_posts").findOne({ _id });
     if (!post) return NextResponse.json({ ok: false, error: "not found" }, { status: 404 });
+
+    const session = await getServerSession(authOptions);
+    // 현재 접속자가 글 작성자이고, 안 읽은 알림이 떠 있다면 읽음(false)으로 변경!
+    if (session?.user?.name === post.authorName && post.hasUnreadAdminReply) {
+        await db.collection("support_posts").updateOne(
+            { _id: _id },
+            { $set: { hasUnreadAdminReply: false } }
+        );
+    }
 
     const canEdit = await getPerm(req, post);
     if (!canEdit) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
