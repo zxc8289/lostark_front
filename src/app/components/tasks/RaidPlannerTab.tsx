@@ -102,7 +102,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
     const [groups, setGroups] = useState<RaidGroup[]>([]);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [selectedGroupName, setSelectedGroupName] = useState<string>("");
     const [selectedRaidName, setSelectedRaidName] = useState<string | null>(null);
     const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
 
@@ -238,8 +237,11 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         setActiveGroupId(null);
     };
 
+    const updateGroupName = (groupId: string, newName: string) => {
+        setGroups(prev => prev.map(g => g.id === groupId ? { ...g, groupName: newName } : g));
+    };
+
     const openAddModal = () => {
-        setSelectedGroupName("");
         setSelectedRaidName(null);
         setSelectedDifficulty(null);
         setIsAddModalOpen(true);
@@ -248,7 +250,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
     const closeAddModal = () => setIsAddModalOpen(false);
 
     const confirmAddGroup = () => {
-        if (!selectedRaidName || !selectedDifficulty || !selectedGroupName.trim()) return;
+        if (!selectedRaidName || !selectedDifficulty) return;
         const info = raidInformation[selectedRaidName];
 
         let max = 8;
@@ -265,7 +267,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         const newGroup: RaidGroup = {
             id: `group-${Date.now()}`,
             raidName: selectedRaidName,
-            groupName: selectedGroupName.trim(),
+            groupName: `그룹명을 수정해주세요`,
             difficulty: selectedDifficulty,
             maxMembers: max,
             slots: Array(max).fill(null),
@@ -315,9 +317,22 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         if (overId.startsWith("slot::")) {
             const [, groupId, slotIndexStr] = overId.split("::");
             const slotIndex = parseInt(slotIndexStr, 10);
-            const targetGroup = groups.find(g => g.id === groupId);
 
+            let sourceGroup = null;
+            let sourceSlotIndex = -1;
+            for (const g of groups) {
+                const idx = g.slots.findIndex(s => s?.uniqueId === char.uniqueId);
+                if (idx !== -1) {
+                    sourceGroup = g;
+                    sourceSlotIndex = idx;
+                    break;
+                }
+            }
+
+            const targetGroup = groups.find(g => g.id === groupId);
             if (!targetGroup) return;
+
+            const existingChar = targetGroup.slots[slotIndex];
 
             const reqLevel = raidInformation[targetGroup.raidName]?.difficulty[targetGroup.difficulty as DifficultyKey]?.level || 0;
             if ((char.itemLevelNum || 0) < reqLevel) {
@@ -325,22 +340,39 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 return;
             }
 
-            const hasSameOwnerInGroup = targetGroup.slots.some(s => s && s.ownerId === char.ownerId && s.uniqueId !== char.uniqueId);
+            const hasSameOwnerInGroup = targetGroup.slots.some((s, idx) => idx !== slotIndex && s && s.ownerId === char.ownerId && s.uniqueId !== char.uniqueId);
             if (hasSameOwnerInGroup) {
                 alert("한 레이드 파티에는 동일한 유저의 캐릭터를 중복으로 편성할 수 없습니다.");
                 return;
             }
 
+            if (sourceGroup && existingChar && sourceGroup.id !== targetGroup.id) {
+                const sourceReqLevel = raidInformation[sourceGroup.raidName]?.difficulty[sourceGroup.difficulty as DifficultyKey]?.level || 0;
+                if ((existingChar.itemLevelNum || 0) < sourceReqLevel) {
+                    alert("자리를 교체할 캐릭터의 레벨이 출발지 그룹의 요구 레벨보다 낮아 바꿀 수 없습니다.");
+                    return;
+                }
+                const existingHasSameOwnerInSource = sourceGroup.slots.some((s, idx) => idx !== sourceSlotIndex && s && s.ownerId === existingChar.ownerId);
+                if (existingHasSameOwnerInSource) {
+                    alert("자리 교체 시 출발지 파티에 동일 유저의 캐릭터가 중복 편성됩니다.");
+                    return;
+                }
+            }
+
             setGroups(prev => {
-                const next = [...prev];
-                for (const g of next) {
-                    for (let i = 0; i < g.slots.length; i++) {
-                        if (g.slots[i]?.uniqueId === char.uniqueId) g.slots[i] = null;
+                const nextGroups = prev.map(g => ({ ...g, slots: [...g.slots] }));
+                const tg = nextGroups.find(g => g.id === groupId);
+                if (!tg) return prev;
+
+                if (sourceGroup) {
+                    const sg = nextGroups.find(g => g.id === sourceGroup!.id);
+                    if (sg) {
+                        sg.slots[sourceSlotIndex] = existingChar;
                     }
                 }
-                const tg = next.find(g => g.id === groupId);
-                if (tg) tg.slots[slotIndex] = char;
-                return next;
+                tg.slots[slotIndex] = char;
+
+                return nextGroups;
             });
 
             setActiveGroupId(groupId);
@@ -429,8 +461,8 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                 <ReadOnlyGroupCard
                                     key={group.id}
                                     group={group}
-                                    partyTasks={partyTasks} // 🔥 추가: 숙제 정보 접근용
-                                    onBulkToggleGate={onBulkToggleGate} // 🔥 추가: 일괄 체크용
+                                    partyTasks={partyTasks}
+                                    onBulkToggleGate={onBulkToggleGate}
                                 />
                             ))}
                         </div>
@@ -438,7 +470,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 </div>
             ) : (
                 <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-                    {/* 1. 부모 div에 items-start, relative 추가 */}
                     <div className="flex flex-col xl:flex-row gap-6 items-start relative">
 
                         <div className="flex flex-col gap-3 w-full xl:w-80 shrink-0 xl:sticky xl:top-26 xl:z-20">
@@ -455,6 +486,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                         onClick={() => setActiveGroupId(group.id)}
                                         onRemove={() => removeGroup(group.id)}
                                         onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
+                                        onNameChange={(newName) => updateGroupName(group.id, newName)}
                                     />
                                 ))}
 
@@ -501,7 +533,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                 <div className="flex items-center gap-3 mb-1">
                                     <h2 className="text-xl font-bold text-white tracking-tight">새 레이드 그룹 생성</h2>
                                 </div>
-                                <p className="text-xs sm:text-sm text-gray-400 leading-snug">그룹 이름과 추가할 레이드를 선택해주세요.</p>
+                                <p className="text-xs sm:text-sm text-gray-400 leading-snug">추가할 레이드를 선택해주세요. (이름은 생성 후 바로 수정 가능합니다)</p>
                             </div>
                             <button onClick={closeAddModal} className="text-gray-400 hover:text-white transition-colors shrink-0">
                                 <X className="w-6 h-6" />
@@ -509,18 +541,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                         </header>
 
                         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#121418] custom-scrollbar space-y-8">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-300">그룹 이름</label>
-                                <input
-                                    type="text"
-                                    value={selectedGroupName}
-                                    onChange={(e) => setSelectedGroupName(e.target.value)}
-                                    placeholder="예: 토요일 저녁 8시 고정팟"
-                                    maxLength={20}
-                                    className="w-full bg-[#1E2028] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[#5B69FF] transition-colors"
-                                />
-                            </div>
-
                             {(["군단장", "카제로스", "어비스", "에픽", "그림자"] as const).map((kind) => {
                                 const entries = Object.entries(raidInformation).filter(([, v]) => v.kind === kind);
                                 if (!entries.length) return null;
@@ -606,7 +626,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                 취소
                             </button>
                             <button
-                                disabled={!selectedRaidName || !selectedDifficulty || !selectedGroupName.trim()}
+                                disabled={!selectedRaidName || !selectedDifficulty}
                                 onClick={confirmAddGroup}
                                 className="flex-[2] sm:flex-none sm:px-10 py-3 bg-[#5B69FF] hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-[#5B69FF]/20 ml-auto"
                             >
@@ -640,7 +660,6 @@ function ReadOnlyGroupCard({
     const diffInfo = info?.difficulty[group.difficulty as DifficultyKey];
     const allGates: number[] = diffInfo?.gates.map((g: any) => g.index) || [];
 
-    // 🔥 1. 그룹 내 캐릭터들의 숙제 상태 계산 (이름을 charStates로 통일)
     const charStates = useMemo(() => {
         return group.slots.map((slotChar) => {
             if (!slotChar) return null;
@@ -663,7 +682,7 @@ function ReadOnlyGroupCard({
 
     return (
         <div className="bg-[#1E2028] rounded-xl p-4 flex flex-col shadow-sm border-2 border-white/5 h-fit">
-            <span className="text-[13px] font-bold text-[#5B69FF] bg-[#5B69FF]/10 px-2 py-0.5 rounded-md self-start truncate max-w-[200px] mb-1.5">
+            <span className="text-[14px] font-bold text-[#5B69FF] rounded-md self-start truncate max-w-[200px] mb-1.5">
                 {group.groupName}
             </span>
             <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
@@ -675,11 +694,9 @@ function ReadOnlyGroupCard({
                         {group.difficulty}
                     </span>
 
-                    {/* 🔥 2. 관문 체크 버튼 영역 (크기 복구 및 오류 수정) */}
                     {allGates.length > 0 && (
                         <div className="flex items-center gap-1.5 ml-1">
                             {allGates.map(g => {
-                                // null이 아닌 실제 캐릭터들만 필터링
                                 const groupChars = charStates.filter((c): c is NonNullable<typeof c> => c !== null);
                                 const isAllChecked = groupChars.length > 0 && groupChars.every(c => c.currentGates.includes(g));
                                 const diffStyle = DIFF_STYLES[group.difficulty as keyof typeof DIFF_STYLES] || DIFF_STYLES["노말"];
@@ -692,7 +709,6 @@ function ReadOnlyGroupCard({
                                             e.stopPropagation();
                                             if (!onBulkToggleGate || groupChars.length === 0) return;
 
-                                            // targets 데이터 매핑
                                             const targets = groupChars.map(c => ({
                                                 userId: c.ownerId,
                                                 charName: c.name,
@@ -782,6 +798,7 @@ function ReadOnlyGroupCard({
 function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean }) {
     const iconFileName = classIconMap[char.className] || 'default.svg';
     const iconUrl = `/icons/classes/${iconFileName}`;
+    const isSupporter = SUPPORTER_ENGRAVINGS.includes(char.jobEngraving ?? "");
 
     return (
         <div className={`w-full h-full flex items-center gap-2 sm:gap-3 min-w-0 px-2 sm:px-3 transition-all ${isCompleted ? "opacity-90 grayscale brightness-75" : "opacity-100"}`}>
@@ -805,17 +822,26 @@ function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean 
                     <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
                     <span className="truncate text-gray-400">{char.ownerName}</span>
                 </div>
+                {char.combatPower && (
+                    <div className={`flex items-center gap-0.5 mt-0.5 text-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-400" : "text-red-400"}`}>
+                        <span className={!isSupporter ? "translate-y-[0.5px]" : ""}>
+                            {isSupporter ? "✚" : "⚔️"}
+                        </span>
+                        <span>{char.combatPower}</span>
+                    </div>
+                )}
             </div>
         </div>
     );
 }
-// ... 아래 GroupCard 등 DndKit 관련 수정 모드 컴포넌트는 기존 코드 유지 ...
-function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar }: {
+
+function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameChange }: {
     group: RaidGroup;
     isActive: boolean;
     onClick: () => void;
     onRemove: () => void;
     onRemoveChar: (idx: number) => void;
+    onNameChange: (newName: string) => void;
 }) {
     const [page, setPage] = useState(0);
     const colors = difficultyColors[group.difficulty] || difficultyColors["노말"];
@@ -829,9 +855,14 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar }: {
             onClick={onClick}
             className={`bg-[#1E2028] rounded-xl p-4 flex flex-col shadow-sm border-2 cursor-pointer transition-all ${isActive ? "border-[#5B69FF] shadow-[0_0_20px_rgba(91,105,255,0.15)]" : "border-white/5 hover:border-white/20"}`}
         >
-            <span className="text-[14px] font-bold text-[#5B69FF] rounded-md self-start truncate max-w-[200px] mb-1.5">
-                {group.groupName}
-            </span>
+            <input
+                type="text"
+                value={group.groupName}
+                onChange={(e) => onNameChange(e.target.value)}
+                onClick={(e) => { e.stopPropagation(); onClick(); }}
+                placeholder="그룹 이름 입력"
+                className="text-[14px] font-bold text-[#5B69FF] bg-transparent border-b border-transparent hover:border-[#5B69FF]/30 focus:border-[#5B69FF] focus:outline-none self-start truncate w-full max-w-[200px] mb-1.5 transition-colors px-1 -ml-1"
+            />
             <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
                 <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2 mt-1">
