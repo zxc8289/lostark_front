@@ -62,6 +62,7 @@ import TaskSidebar from "@/app/components/tasks/TaskSidebar";
 import { useGlobalWebSocket } from "@/app/components/WebSocketProvider";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import RaidPlannerTab from "@/app/components/tasks/RaidPlannerTab";
 
 /* ─────────────────────────────
  * 타입 정의
@@ -87,7 +88,7 @@ type PartyDetail = {
     raidState?: RaidStateFromServer;
 };
 
-type PartyMemberTasks = {
+export type PartyMemberTasks = {
     userId: string;
     name: string | null;
     image: string | null;
@@ -363,6 +364,8 @@ export default function PartyDetailPage() {
     const [isCardView, setIsCardView] = useState(false);
     const [isDragEnabled, setIsDragEnabled] = useState(false);
     const [orderTick, setOrderTick] = useState(0);
+
+    const [activeTab, setActiveTab] = useState<"tasks" | "planner">("tasks");
 
     const wsContext = useGlobalWebSocket();
     const ws = wsContext?.ws;
@@ -1233,6 +1236,81 @@ export default function PartyDetailPage() {
         );
     };
 
+    // src/app/party-tasks/[partyId]/page.tsx 내부
+
+    const handleBulkToggleGate = (
+        raidName: string,
+        difficulty: string,
+        gate: number,
+        allGates: number[],
+        targets: { userId: string; charName: string; currentGates: number[] }[],
+        targetState: boolean
+    ) => {
+        if (!party || !partyTasks) return;
+        const partyIdNum = party.id;
+
+        // 1. 타겟 유저 ID 목록 생성
+        const targetUserIds = new Set(targets.map(t => t.userId));
+
+        // 2. 전체 partyTasks를 순회하며 타겟 캐릭터 정보만 교체 (깊은 복사)
+        const nextTasks = partyTasks.map((member) => {
+            if (!targetUserIds.has(member.userId)) return member;
+
+            // 해당 유저의 캐릭터들 중 타겟에 포함된 캐릭터가 있는지 확인
+            const memberTargets = targets.filter(t => t.userId === member.userId);
+            if (memberTargets.length === 0) return member;
+
+            const newPrefsByChar = { ...member.prefsByChar };
+
+            memberTargets.forEach(t => {
+                const oldCharPref = newPrefsByChar[t.charName] || { raids: {} };
+                const oldRaidPref = oldCharPref.raids[raidName] || {
+                    enabled: true,
+                    difficulty: difficulty as any,
+                    gates: []
+                };
+
+                let nextGates = [...(oldRaidPref.gates || [])];
+                if (targetState) {
+                    // 체크 시: 해당 관문 포함 이전 관문 모두 추가
+                    const toAdd = allGates.filter(g => g <= gate);
+                    nextGates = Array.from(new Set([...nextGates, ...toAdd]));
+                } else {
+                    // 해제 시: 해당 관문 포함 이후 관문 모두 제거
+                    nextGates = nextGates.filter(g => g < gate);
+                }
+
+                newPrefsByChar[t.charName] = {
+                    ...oldCharPref,
+                    raids: {
+                        ...oldCharPref.raids,
+                        [raidName]: {
+                            ...oldRaidPref,
+                            enabled: true,
+                            difficulty: difficulty as any, // 타입 오류 방지
+                            gates: nextGates
+                        }
+                    }
+                };
+            });
+
+            return { ...member, prefsByChar: newPrefsByChar };
+        });
+
+        // 3. 상태 반영
+        setPartyTasks(nextTasks);
+
+        // 4. 서버 및 소켓 전송 (업데이트된 유저만)
+        nextTasks.forEach(m => {
+            if (targetUserIds.has(m.userId)) {
+                sendMemberUpdateWS(partyIdNum, m.userId, m.prefsByChar, m.visibleByChar);
+                saveMemberPrefsToServer(partyIdNum, m.userId, m.prefsByChar, m.visibleByChar);
+            }
+        });
+    };
+
+
+
     const handleMemberAutoSetup = (memberUserId: string, isMe: boolean) => {
         if (!party || !partyTasks) return;
 
@@ -1973,213 +2051,246 @@ export default function PartyDetailPage() {
                             <span>파티 코드 생성</span>
                         </button>
                     </div>
+
+
                 </div>
-
-                <div className="relative w-full flex flex-col xl:flex-row gap-4 xl:gap-6">
-                    <div className="flex flex-col gap-4 w-full xl:w-[220px] shrink-0 min-[1760px]:absolute min-[1760px]:top-0 min-[1760px]:-left-[240px] z-10">
-                        <TaskSidebar
-                            accounts={accounts}
-                            activeAccountId={activeAccountId}
-                            onSelectAccount={handleSelectAccount}
-                            onAddAccount={() => setIsAddAccountOpen(true)}
-                            onlyRemain={onlyRemain}
-                            setOnlyRemain={setOnlyRemain}
-                            isCardView={isCardView}
-                            setIsCardView={setIsCardView}
-                            selectedRaids={selectedRaids}
-                            setSelectedRaids={setSelectedRaids}
-                            isDragEnabled={isDragEnabled}
-                            setIsDragEnabled={setIsDragEnabled}
-                        />
-
-                        {accountSearchErr && (
-                            <p className="mt-2 text-[11px] text-red-400 px-1">
-                                에러: {accountSearchErr}
-                            </p>
+                <div className="flex gap-6 px-4 sm:px-0 mb-4">
+                    <button
+                        onClick={() => setActiveTab("tasks")}
+                        className={`pb-2 text-lg font-bold transition-colors relative ${activeTab === "tasks" ? "text-white" : "text-gray-500 hover:text-gray-300"
+                            }`}
+                    >
+                        숙제 현황
+                        {activeTab === "tasks" && (
+                            <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />
                         )}
-                    </div>
-
-                    {/* 🔥 메인 콘텐츠(파티원 목록 및 테이블) 영역: w-full로 꽉 채움 */}
-                    <div className="w-full grid grid-cols-1 gap-4 sm:gap-5">
-                        {tasksLoading && (
-                            <div className="w-full py-6">
-                                <div className="animate-pulse space-y-3">
-                                    <div className="h-4 w-40 rounded bg-white/5" />
-                                    <div className="space-y-2">
-                                        {Array.from({ length: 6 }).map((_, i) => (
-                                            <div key={i} className="flex items-center gap-3 rounded-none sm:rounded-xl border-x-0 sm:border border-white/5 bg-[#16181D] p-4">
-                                                <div className="h-9 w-9 rounded-full bg-white/5" />
-                                                <div className="flex-1 space-y-2">
-                                                    <div className="h-4 w-1/2 rounded bg-white/5" />
-                                                    <div className="h-3 w-1/3 rounded bg-white/5" />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("planner")}
+                        className={`pb-2 text-lg font-bold transition-colors relative ${activeTab === "planner" ? "text-white" : "text-gray-500 hover:text-gray-300"
+                            }`}
+                    >
+                        레이드 그룹 (테스트)
+                        {activeTab === "planner" && (
+                            <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />
                         )}
-
-                        {tasksErr && (
-                            <div className="w-full rounded-md border border-red-500/40 bg-red-900/20 px-4 py-3 text-xs text-red-200">
-                                {tasksErr}
-                            </div>
-                        )}
-
-                        {!tasksLoading && !tasksErr && sortedPartyTasks && sortedPartyTasks.length > 0 && (
-                            <div className="flex flex-col gap-6 sm:gap-10">
-                                {sortedPartyTasks.map((m) => {
-                                    const filteredPrefs = filterPrefsBySelectedRaids(m.prefsByChar, selectedRaids);
-
-                                    let filteredTableOrder = m.tableOrder ?? [];
-                                    if (selectedRaids.length > 0 && Array.isArray(m.tableOrder)) {
-                                        filteredTableOrder = m.tableOrder.filter(raidId => selectedRaids.includes(raidId));
-                                    }
-
-                                    // 🔥 양 끝에 불필요하게 쌓인 빈칸 제거 (테이블 무조건 왼쪽 정렬 보장)
-                                    let startIndex = 0;
-                                    let endIndex = filteredTableOrder.length - 1;
-
-                                    while (startIndex <= endIndex && filteredTableOrder[startIndex].startsWith("__empty_")) {
-                                        startIndex++;
-                                    }
-                                    while (endIndex >= startIndex && filteredTableOrder[endIndex].startsWith("__empty_")) {
-                                        endIndex--;
-                                    }
-
-                                    const finalTableOrder = startIndex <= endIndex
-                                        ? filteredTableOrder.slice(startIndex, endIndex + 1)
-                                        : [];
-
-                                    const isAllView = (myUserId === m.userId)
-                                        ? activeAccountId === "ALL"
-                                        : (m.summary?.name === "통합 원정대" || m.summary?.name === "모두 보기");
-
-                                    return (
-                                        <PartyMemberBlock
-                                            key={m.userId}
-                                            partyId={party.id}
-                                            member={m} // 🔥 원본 데이터 (통계 계산용)
-                                            filteredPrefs={filteredPrefs} // 🔥 필터링된 숙제 데이터 (화면 렌더링용)
-                                            viewTableOrder={finalTableOrder} // 🔥 필터 및 정렬된 테이블 순서 (화면 렌더링용)
-                                            selectedRaids={selectedRaids}
-                                            isMe={myUserId === m.userId}
-                                            isAllView={isAllView}
-                                            currentAccount={currentAccount}
-                                            onReorderTable={handleMemberTableReorder}
-                                            onlyRemain={onlyRemain}
-                                            isCardView={isCardView}
-                                            onAutoSetup={(isMe) => handleMemberAutoSetup(m.userId, isMe)}
-                                            onGateAllClear={() => handleMemberGateAllClear(m.userId)}
-                                            onOpenCharSetting={() => openMemberCharSetting(m)}
-                                            onRefreshAccount={myUserId === m.userId ? handleMyRefreshAccount : () => handleMemberRefreshAccount(m.userId)}
-                                            onToggleGate={handleMemberToggleGate}
-                                            onEdit={openEditModal}
-                                            onReorder={handleMemberReorder}
-                                            onSearch={handleCharacterSearch}
-                                            searchLoading={accountSearchLoading}
-                                            isDragEnabled={isDragEnabled} // 🔥 추가
-                                            searchError={accountSearchErr}
-                                            onReorderRoster={handleMemberRosterReorder}         // ✅ 테이블용 그대로
-                                            onReorderCardRoster={handleMemberCardRosterReorder} // ✅ 추가
-                                        />
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        {!tasksLoading && !tasksErr && partyTasks && partyTasks.length === 0 && (
-                            <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-none sm:rounded-2xl border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 bg-[#16181D]">
-                                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 mb-4">
-                                    <UsersRound className="h-8 w-8 text-gray-500" strokeWidth={1.5} />
-                                </div>
-                                <h3 className="text-lg font-bold text-gray-200">
-                                    아직 캐릭터를 등록한 파티원이 없습니다.
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500 leading-relaxed max-w-sm">
-                                    파티원들이 캐릭터를 설정하고 숙제를 등록하면<br className="hidden sm:block" />
-                                    이곳에서 실시간 진행 상황을 한눈에 볼 수 있어요.
-                                </p>
-                                {myUserId === party.ownerId && (
-                                    <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                                        <button
-                                            onClick={() => {
-                                                setIsAddAccountOpen(true);
-                                                setIsAccountListOpen(false);
-                                            }}
-                                            className="inline-flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-4 py-2.5 text-sm font-medium text-gray-200 hover:bg-white/10 hover:text-white transition-colors"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                            캐릭터 등록하기
-                                        </button>
-                                        <button
-                                            onClick={openInviteModal}
-                                            className="inline-flex items-center gap-2 rounded-lg bg-[#5B69FF]/10 border border-[#5B69FF]/20 px-4 py-2.5 text-sm font-medium text-[#5B69FF] hover:bg-[#5B69FF]/20 transition-colors"
-                                        >
-                                            <Link2 className="h-4 w-4" />
-                                            파티원 초대하기
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {editTarget && (
-                            <EditTasksModal
-                                open={editOpen}
-                                onClose={() => setEditOpen(false)}
-                                character={editTarget.character}
-                                initial={editInitial ?? undefined}
-                                onSave={handleSaveEdit}
+                    </button>
+                </div>
+                {activeTab === "tasks" ? (
+                    <div className="relative w-full flex flex-col xl:flex-row gap-4 xl:gap-6">
+                        <div className="flex flex-col gap-4 w-full xl:w-[220px] shrink-0 min-[1760px]:absolute min-[1760px]:top-0 min-[1760px]:-left-[240px] z-10">
+                            <TaskSidebar
+                                accounts={accounts}
+                                activeAccountId={activeAccountId}
+                                onSelectAccount={handleSelectAccount}
+                                onAddAccount={() => setIsAddAccountOpen(true)}
+                                onlyRemain={onlyRemain}
+                                setOnlyRemain={setOnlyRemain}
+                                isCardView={isCardView}
+                                setIsCardView={setIsCardView}
+                                selectedRaids={selectedRaids}
+                                setSelectedRaids={setSelectedRaids}
+                                isDragEnabled={isDragEnabled}
+                                setIsDragEnabled={setIsDragEnabled}
                             />
-                        )}
 
-                        {charSettingOpen && charSettingTarget && (() => {
-                            const targetMember = partyTasks?.find(
-                                (m) => m.userId === charSettingTarget.memberUserId
-                            );
-                            const isMeTarget =
-                                !!myUserId && charSettingTarget.memberUserId === myUserId;
-                            const baseSummary =
-                                (isMeTarget ? (currentAccount?.summary ?? null) : null) ??
-                                targetMember?.summary ??
-                                null;
-                            const roster = baseSummary?.roster ?? [];
-                            const rawVisible = targetMember?.visibleByChar ?? {};
-                            const modalVisibleByChar: Record<string, boolean> = {};
-                            for (const c of roster) {
-                                modalVisibleByChar[c.name] = rawVisible[c.name] ?? true;
-                            }
+                            {accountSearchErr && (
+                                <p className="mt-2 text-[11px] text-red-400 px-1">
+                                    에러: {accountSearchErr}
+                                </p>
+                            )}
+                        </div>
 
-                            return (
-                                <CharacterSettingModal
-                                    open
-                                    onClose={() => {
-                                        setCharSettingOpen(false);
-                                        setRefreshErr(null);
-                                        setAccountSearchErr(null);
-                                    }}
-                                    refreshError={isMeTarget ? accountSearchErr : refreshErr}
-                                    roster={roster}
-                                    visibleByChar={modalVisibleByChar}
-                                    goldDesignatedByChar={targetMember?.goldDesignatedByChar ?? {}} // ✅ 추가
-                                    onChangeSettings={(nextVisible, nextGold) => { // ✅ 수정
-                                        handleMemberChangeSettings(charSettingTarget.memberUserId, nextVisible, nextGold);
-                                    }}
-                                    onDeleteAccount={
-                                        isMeTarget && activeAccountId !== "ALL" ? () => setDeleteConfirmOpen(true) : undefined
-                                    }
-                                    onRefreshAccount={
-                                        isMeTarget
-                                            ? handleMyRefreshAccount
-                                            : () => handleMemberRefreshAccount(charSettingTarget.memberUserId)
-                                    }
+                        {/* 🔥 메인 콘텐츠(파티원 목록 및 테이블) 영역: w-full로 꽉 채움 */}
+                        <div className="w-full grid grid-cols-1 gap-4 sm:gap-5">
+                            {tasksLoading && (
+                                <div className="w-full py-6">
+                                    <div className="animate-pulse space-y-3">
+                                        <div className="h-4 w-40 rounded bg-white/5" />
+                                        <div className="space-y-2">
+                                            {Array.from({ length: 6 }).map((_, i) => (
+                                                <div key={i} className="flex items-center gap-3 rounded-none sm:rounded-xl border-x-0 sm:border border-white/5 bg-[#16181D] p-4">
+                                                    <div className="h-9 w-9 rounded-full bg-white/5" />
+                                                    <div className="flex-1 space-y-2">
+                                                        <div className="h-4 w-1/2 rounded bg-white/5" />
+                                                        <div className="h-3 w-1/3 rounded bg-white/5" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {tasksErr && (
+                                <div className="w-full rounded-md border border-red-500/40 bg-red-900/20 px-4 py-3 text-xs text-red-200">
+                                    {tasksErr}
+                                </div>
+                            )}
+
+                            {!tasksLoading && !tasksErr && sortedPartyTasks && sortedPartyTasks.length > 0 && (
+                                <div className="flex flex-col gap-6 sm:gap-10">
+                                    {sortedPartyTasks.map((m) => {
+                                        const filteredPrefs = filterPrefsBySelectedRaids(m.prefsByChar, selectedRaids);
+
+                                        let filteredTableOrder = m.tableOrder ?? [];
+                                        if (selectedRaids.length > 0 && Array.isArray(m.tableOrder)) {
+                                            filteredTableOrder = m.tableOrder.filter(raidId => selectedRaids.includes(raidId));
+                                        }
+
+                                        // 🔥 양 끝에 불필요하게 쌓인 빈칸 제거 (테이블 무조건 왼쪽 정렬 보장)
+                                        let startIndex = 0;
+                                        let endIndex = filteredTableOrder.length - 1;
+
+                                        while (startIndex <= endIndex && filteredTableOrder[startIndex].startsWith("__empty_")) {
+                                            startIndex++;
+                                        }
+                                        while (endIndex >= startIndex && filteredTableOrder[endIndex].startsWith("__empty_")) {
+                                            endIndex--;
+                                        }
+
+                                        const finalTableOrder = startIndex <= endIndex
+                                            ? filteredTableOrder.slice(startIndex, endIndex + 1)
+                                            : [];
+
+                                        const isAllView = (myUserId === m.userId)
+                                            ? activeAccountId === "ALL"
+                                            : (m.summary?.name === "통합 원정대" || m.summary?.name === "모두 보기");
+
+                                        return (
+                                            <PartyMemberBlock
+                                                key={m.userId}
+                                                partyId={party.id}
+                                                member={m} // 🔥 원본 데이터 (통계 계산용)
+                                                filteredPrefs={filteredPrefs} // 🔥 필터링된 숙제 데이터 (화면 렌더링용)
+                                                viewTableOrder={finalTableOrder} // 🔥 필터 및 정렬된 테이블 순서 (화면 렌더링용)
+                                                selectedRaids={selectedRaids}
+                                                isMe={myUserId === m.userId}
+                                                isAllView={isAllView}
+                                                currentAccount={currentAccount}
+                                                onReorderTable={handleMemberTableReorder}
+                                                onlyRemain={onlyRemain}
+                                                isCardView={isCardView}
+                                                onAutoSetup={(isMe) => handleMemberAutoSetup(m.userId, isMe)}
+                                                onGateAllClear={() => handleMemberGateAllClear(m.userId)}
+                                                onOpenCharSetting={() => openMemberCharSetting(m)}
+                                                onRefreshAccount={myUserId === m.userId ? handleMyRefreshAccount : () => handleMemberRefreshAccount(m.userId)}
+                                                onToggleGate={handleMemberToggleGate}
+                                                onEdit={openEditModal}
+                                                onReorder={handleMemberReorder}
+                                                onSearch={handleCharacterSearch}
+                                                searchLoading={accountSearchLoading}
+                                                isDragEnabled={isDragEnabled} // 🔥 추가
+                                                searchError={accountSearchErr}
+                                                onReorderRoster={handleMemberRosterReorder}         // ✅ 테이블용 그대로
+                                                onReorderCardRoster={handleMemberCardRosterReorder} // ✅ 추가
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {!tasksLoading && !tasksErr && partyTasks && partyTasks.length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-none sm:rounded-2xl border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 bg-[#16181D]">
+                                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 mb-4">
+                                        <UsersRound className="h-8 w-8 text-gray-500" strokeWidth={1.5} />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-gray-200">
+                                        아직 캐릭터를 등록한 파티원이 없습니다.
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500 leading-relaxed max-w-sm">
+                                        파티원들이 캐릭터를 설정하고 숙제를 등록하면<br className="hidden sm:block" />
+                                        이곳에서 실시간 진행 상황을 한눈에 볼 수 있어요.
+                                    </p>
+                                    {myUserId === party.ownerId && (
+                                        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                                            <button
+                                                onClick={() => {
+                                                    setIsAddAccountOpen(true);
+                                                    setIsAccountListOpen(false);
+                                                }}
+                                                className="inline-flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-4 py-2.5 text-sm font-medium text-gray-200 hover:bg-white/10 hover:text-white transition-colors"
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                                캐릭터 등록하기
+                                            </button>
+                                            <button
+                                                onClick={openInviteModal}
+                                                className="inline-flex items-center gap-2 rounded-lg bg-[#5B69FF]/10 border border-[#5B69FF]/20 px-4 py-2.5 text-sm font-medium text-[#5B69FF] hover:bg-[#5B69FF]/20 transition-colors"
+                                            >
+                                                <Link2 className="h-4 w-4" />
+                                                파티원 초대하기
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {editTarget && (
+                                <EditTasksModal
+                                    open={editOpen}
+                                    onClose={() => setEditOpen(false)}
+                                    character={editTarget.character}
+                                    initial={editInitial ?? undefined}
+                                    onSave={handleSaveEdit}
                                 />
-                            );
-                        })()}
-                    </div>
+                            )}
 
-                </div>
+                            {charSettingOpen && charSettingTarget && (() => {
+                                const targetMember = partyTasks?.find(
+                                    (m) => m.userId === charSettingTarget.memberUserId
+                                );
+                                const isMeTarget =
+                                    !!myUserId && charSettingTarget.memberUserId === myUserId;
+                                const baseSummary =
+                                    (isMeTarget ? (currentAccount?.summary ?? null) : null) ??
+                                    targetMember?.summary ??
+                                    null;
+                                const roster = baseSummary?.roster ?? [];
+                                const rawVisible = targetMember?.visibleByChar ?? {};
+                                const modalVisibleByChar: Record<string, boolean> = {};
+                                for (const c of roster) {
+                                    modalVisibleByChar[c.name] = rawVisible[c.name] ?? true;
+                                }
+
+                                return (
+                                    <CharacterSettingModal
+                                        open
+                                        onClose={() => {
+                                            setCharSettingOpen(false);
+                                            setRefreshErr(null);
+                                            setAccountSearchErr(null);
+                                        }}
+                                        refreshError={isMeTarget ? accountSearchErr : refreshErr}
+                                        roster={roster}
+                                        visibleByChar={modalVisibleByChar}
+                                        goldDesignatedByChar={targetMember?.goldDesignatedByChar ?? {}} // ✅ 추가
+                                        onChangeSettings={(nextVisible, nextGold) => { // ✅ 수정
+                                            handleMemberChangeSettings(charSettingTarget.memberUserId, nextVisible, nextGold);
+                                        }}
+                                        onDeleteAccount={
+                                            isMeTarget && activeAccountId !== "ALL" ? () => setDeleteConfirmOpen(true) : undefined
+                                        }
+                                        onRefreshAccount={
+                                            isMeTarget
+                                                ? handleMyRefreshAccount
+                                                : () => handleMemberRefreshAccount(charSettingTarget.memberUserId)
+                                        }
+                                    />
+                                );
+                            })()}
+                        </div>
+
+                    </div>
+                ) : (
+                    <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-300">
+                        <RaidPlannerTab
+                            partyId={party.id}
+                            partyTasks={partyTasks ?? []}
+                            onBulkToggleGate={handleBulkToggleGate} // 🔥 이 속성 추가
+                        />
+                    </div>
+                )}
             </div>
 
             {partySettingOpen && (
