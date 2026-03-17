@@ -9,6 +9,7 @@ export type CharacterTaskPrefs = {
             difficulty: DifficultyKey;
             gates: number[];
             isBonus?: boolean;
+            isGold?: boolean;
         }
     >;
     order?: string[];

@@ -60,7 +60,15 @@ export default function TaskCard({
     const diffStyle = DIFF[difficulty];
     const title = formatTitle(kind, raidName);
 
-
+    // 🔥 지평의 성당 텍스트 변환 로직 추가
+    const displayDifficulty = useMemo(() => {
+        if (raidName === "지평의 성당") {
+            if (difficulty === "노말") return "1단계";
+            if (difficulty === "하드") return "2단계";
+            if (difficulty === "나메") return "3단계";
+        }
+        return difficulty;
+    }, [raidName, difficulty]);
 
     // 전체 관문 목록 추론 (props 우선 → 데이터 파일 → 체크 목록)
     const all = useMemo(() => {
@@ -72,9 +80,6 @@ export default function TaskCard({
 
     const checked = useMemo(() => new Set(gates), [gates]);
 
-
-
-
     return (
         <div className="grid grid-cols-[1fr_auto] px-5 py-5 bg-[#222429] rounded-sm">
             <div className="min-w-0">
@@ -82,7 +87,8 @@ export default function TaskCard({
                 <div className="mt-1 flex items-center gap-2 min-w-0">
                     <div className="text-base truncate">{title}</div>
                     <span className={`text-[11px] px-2 py-0.5 rounded-sm ${diffStyle.badge}`}>
-                        {difficulty}
+                        {/* 🔥 렌더링 시 변환된 텍스트 사용 */}
+                        {displayDifficulty}
                     </span>
                 </div>
             </div>

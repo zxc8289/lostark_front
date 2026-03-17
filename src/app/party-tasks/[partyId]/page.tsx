@@ -51,6 +51,7 @@ import {
     calcNextGates,
     computeRaidSummaryForRoster,
     buildAutoSetupForRoster,
+    migrateLegacyPrefs,
     type RaidSummary,
 } from "@/app/lib/tasks/raid-utils";
 import AnimatedNumber from "@/app/components/tasks/AnimatedNumber";
@@ -213,6 +214,7 @@ function buildTasksForCharacter(
     prefsByChar: Record<string, CharacterTaskPrefs>,
     options?: {
         onlyRemain?: boolean;
+        isGoldEarn?: boolean;
         onToggleGate?: (
             raidName: string,
             gateIndex: number,
@@ -257,13 +259,14 @@ function buildTasksForCharacter(
             }
         }
 
-        // 🔥 개별 카드의 골드 합산 (귀속 선 차감 적용)
         const totalGold = (p.gates ?? []).reduce((sum, gi) => {
             const g = diff.gates.find((x) => x.index === gi);
             if (!g) return sum;
 
-            const baseGold = g.gold ?? 0;
-            const bGold = (g as any).boundGold ?? 0;
+            const isGoldEarn = options?.isGoldEarn ?? false;
+            // 🔥 isGoldEarn과 p.isGold 가 모두 true일 때만 골드 획득
+            const baseGold = (isGoldEarn && p.isGold) ? (g.gold ?? 0) : 0;
+            const bGold = (isGoldEarn && p.isGold) ? ((g as any).boundGold ?? 0) : 0;
             let cost = p.isBonus ? (g.bonusCost ?? 0) : 0;
 
             const netBoundGold = Math.max(0, bGold - cost);
@@ -459,7 +462,19 @@ export default function PartyDetailPage() {
                 }
 
                 const json = (await res.json()) as PartyRaidTasksResponse;
-                setPartyTasks(json.members ?? []);
+
+                // 🔥 서버에서 받아온 데이터에 과거 데이터 마이그레이션 적용
+                const migratedMembers = (json.members ?? []).map(m => {
+                    const migratedPrefs: Record<string, CharacterTaskPrefs> = {};
+                    if (m.prefsByChar) {
+                        for (const [char, pref] of Object.entries(m.prefsByChar)) {
+                            migratedPrefs[char] = migrateLegacyPrefs(pref);
+                        }
+                    }
+                    return { ...m, prefsByChar: migratedPrefs };
+                });
+
+                setPartyTasks(migratedMembers);
             } catch (e: any) {
                 setTasksErr(e?.message ?? "알 수 없는 오류가 발생했습니다.");
             } finally {
@@ -1749,7 +1764,9 @@ export default function PartyDetailPage() {
                             if (m.userId === msg.userId) {
                                 return {
                                     ...m,
-                                    prefsByChar: msg.prefsByChar ?? m.prefsByChar ?? {},
+                                    prefsByChar: msg.prefsByChar
+                                        ? Object.fromEntries(Object.entries(msg.prefsByChar).map(([char, pref]) => [char, migrateLegacyPrefs(pref as CharacterTaskPrefs)]))
+                                        : m.prefsByChar ?? {},
                                     visibleByChar: msg.visibleByChar ?? m.visibleByChar ?? {},
                                     goldDesignatedByChar: msg.goldDesignatedByChar ?? m.goldDesignatedByChar ?? {},
                                     tableOrder: msg.tableOrder ?? m.tableOrder ?? [],
@@ -2667,6 +2684,15 @@ function PartyMemberBlock({
         [visibleRoster]
     );
 
+    const effectiveGold = useMemo(() => {
+        const current = member.goldDesignatedByChar;
+        if (current && Object.keys(current).length > 0) return current;
+        const fallback: Record<string, boolean> = {};
+        const sorted = [...visibleRoster].sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0));
+        sorted.forEach((c, idx) => { fallback[c.name] = idx < 6; });
+        return fallback;
+    }, [member.goldDesignatedByChar, visibleRoster]);
+
 
     const tableOrderedRoster = useMemo(
         () => applyRosterOrder(defaultSortedRoster, member.rosterOrder),
@@ -2891,9 +2917,17 @@ function PartyMemberBlock({
                                         onToggleGate(member.userId, c.name, rName, gate, curG, allG)
                                     );
 
-                                    const tasksAll = buildTasksForCharacter(c, filteredPrefs, { onlyRemain: false, onToggleGate: toggleWrapper });
+                                    const tasksAll = buildTasksForCharacter(c, filteredPrefs, {
+                                        onlyRemain: false,
+                                        isGoldEarn: effectiveGold[c.name] ?? false, // 🔥 추가
+                                        onToggleGate: toggleWrapper
+                                    });
                                     const tasksShown = onlyRemain
-                                        ? buildTasksForCharacter(c, filteredPrefs, { onlyRemain: true, onToggleGate: toggleWrapper })
+                                        ? buildTasksForCharacter(c, filteredPrefs, {
+                                            onlyRemain: true,
+                                            isGoldEarn: effectiveGold[c.name] ?? false, // 🔥 추가
+                                            onToggleGate: toggleWrapper
+                                        })
                                         : tasksAll;
 
                                     return { c, tasksAllLen: tasksAll.length, tasks: tasksShown };
@@ -3114,37 +3148,46 @@ function PartyMemberSummaryBar({
                 </div>
             </div>
 
-            <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-4 text-sm sm:text-base min-w-0">
+            {/* 🔥 원래대로 복구 (모바일 1줄) + 텍스트 & 폰트 크기 조정 */}
+            <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-2.5 sm:gap-4 text-xs sm:text-base min-w-0">
                 <span className="hidden sm:inline h-4 w-px bg-white/10 " />
-                <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-base pr-1">
+
+                <div className="flex items-baseline gap-1 sm:gap-1.5">
+                    <span className="font-semibold text-xs sm:text-base pr-1">
                         남은 숙제
                     </span>
                     <AnimatedNumber
                         value={summary.totalRemainingTasks}
-                        className="text-gray-400 text-xs sm:text-sm font-semibold"
+                        className="text-gray-400 text-[11px] sm:text-sm font-semibold"
                     />
                 </div>
+
+                <span className="inline sm:hidden h-3 w-px bg-white/10 " />
                 <span className="hidden sm:inline h-4 w-px bg-white/10 " />
-                <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-base pr-1">
-                        숙제 남은 캐릭터
+
+                <div className="flex items-baseline gap-1 sm:gap-1.5">
+                    <span className="font-semibold text-xs sm:text-base pr-1">
+                        <span className="sm:hidden">남은 캐릭터</span>
+                        <span className="hidden sm:inline">숙제 남은 캐릭터</span>
                     </span>
                     <AnimatedNumber
                         value={summary.remainingCharacters}
-                        className="text-gray-400 text-xs sm:text-sm font-semibold"
+                        className="text-gray-400 text-[11px] sm:text-sm font-semibold"
                     />
                 </div>
+
+                <span className="inline sm:hidden h-3 w-px bg-white/10 " />
                 <span className="hidden sm:inline h-4 w-px bg-white/10 " />
-                <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-base pr-1">
+
+                <div className="flex items-baseline gap-1 sm:gap-1.5">
+                    <span className="font-semibold text-xs sm:text-base pr-1">
                         골드
                     </span>
                     <div
                         className={[
                             "inline-flex items-baseline justify-end",
-                            "min-w-[50px]",
-                            "text-xs sm:text-sm font-semibold",
+                            "min-w-[40px] sm:min-w-[50px]",
+                            "text-[11px] sm:text-sm font-semibold",
                             "font-mono tabular-nums",
                             memberAllCleared
                                 ? "line-through decoration-gray-300 decoration-1 text-gray-400"
@@ -3158,21 +3201,23 @@ function PartyMemberSummaryBar({
                                     : summary.totalRemainingGold
                             }
                         />
-                        <span className="ml-0.5 text-[0.75em]">g</span>
+                        <span className="ml-0.5 text-[0.7em] sm:text-[0.75em]">g</span>
                     </div>
                 </div>
 
-                {/* 🔥 귀속 골드 영역 추가 */}
+                {/* 🔥 귀속 골드 영역 */}
+                <span className="inline sm:hidden h-3 w-px bg-white/10 " />
                 <span className="hidden sm:inline h-4 w-px bg-white/10 " />
-                <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-base pr-1">
+
+                <div className="flex items-baseline gap-1 sm:gap-1.5">
+                    <span className="font-semibold text-xs sm:text-base pr-1">
                         귀속 골드
                     </span>
                     <div
                         className={[
                             "inline-flex items-baseline justify-end",
-                            "min-w-[50px]",
-                            "text-xs sm:text-sm font-semibold",
+                            "min-w-[40px] sm:min-w-[50px]",
+                            "text-[11px] sm:text-sm font-semibold",
                             "font-mono tabular-nums",
                             memberAllCleared
                                 ? "line-through decoration-gray-300 decoration-1 text-gray-400"
@@ -3182,11 +3227,11 @@ function PartyMemberSummaryBar({
                         <AnimatedNumber
                             value={
                                 memberAllCleared
-                                    ? (summary as any).totalBoundGold // raid-utils.ts 에서 넘겨준 값
+                                    ? (summary as any).totalBoundGold
                                     : (summary as any).totalRemainingBoundGold
                             }
                         />
-                        <span className="ml-0.5 text-[0.75em]">g</span>
+                        <span className="ml-0.5 text-[0.7em] sm:text-[0.75em]">g</span>
                     </div>
                 </div>
             </div>

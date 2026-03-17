@@ -565,4 +565,41 @@ export const raidInformation: Record<
             },
         },
     },
+
+
+    "지평의 성당": {
+        kind: "어비스",
+        releaseDate: "2026-03-18",
+        gates: 3,
+        difficulty: {
+            "노말": {
+                level: 1700,
+                gold: 0,
+                boundGold: 30000,
+                gates: [
+                    { index: 1, name: "1관문", gold: 0, boundGold: 13500, bonusCost: 0 },
+                    { index: 2, name: "2관문", gold: 0, boundGold: 16500, bonusCost: 0 },
+                ],
+            },
+            "하드": {
+                level: 1720,
+                gold: 0,
+                boundGold: 40000,
+                gates: [
+                    { index: 1, name: "1관문", gold: 0, boundGold: 16000, bonusCost: 0 },
+                    { index: 2, name: "2관문", gold: 0, boundGold: 24000, bonusCost: 0 },
+                ],
+            },
+            "나메": {
+                level: 1750,
+                gold: 0,
+                boundGold: 50000,
+                gates: [
+                    { index: 1, name: "1관문", gold: 0, boundGold: 20000, bonusCost: 0 },
+                    { index: 2, name: "2관문", gold: 0, boundGold: 30000, bonusCost: 0 },
+                ],
+            },
+        },
+    },
+
 };

@@ -154,8 +154,8 @@ export function computeRaidSummaryForRoster(
     let charCount = 0;
     let goldRemain = 0;
     let goldTotal = 0;
-    let boundGoldRemain = 0; // 🔥 추가
-    let boundGoldTotal = 0;  // 🔥 추가
+    let boundGoldRemain = 0;
+    let boundGoldTotal = 0;
 
     for (const char of roster) {
         const prefs = prefsByChar[char.name];
@@ -181,9 +181,9 @@ export function computeRaidSummaryForRoster(
             let totalGoldForRaid = 0;
             let totalBoundGoldForRaid = 0;
             gatesDef.forEach((g) => {
-                // 🔥 골드 지정 캐릭이 아니면 얻는 골드는 0, 하지만 더보기 비용은 차감됨!
-                const baseGold = isGoldEarn ? (g.gold ?? 0) : 0;
-                const bGold = isGoldEarn ? (g.boundGold ?? 0) : 0;
+                // 🔥 수정된 부분: (isGoldEarn && p.isGold) 로 체크
+                const baseGold = (isGoldEarn && p.isGold) ? (g.gold ?? 0) : 0;
+                const bGold = (isGoldEarn && p.isGold) ? (g.boundGold ?? 0) : 0;
                 let cost = isBonus ? (g.bonusCost ?? 0) : 0;
 
                 const netBoundGold = Math.max(0, bGold - cost);
@@ -200,8 +200,10 @@ export function computeRaidSummaryForRoster(
             gates.forEach((gi) => {
                 const g = gatesDef.find((x) => x.index === gi);
                 if (!g) return;
-                const baseGold = isGoldEarn ? (g.gold ?? 0) : 0;
-                const bGold = isGoldEarn ? (g.boundGold ?? 0) : 0;
+
+                // 🔥 수정된 부분: (isGoldEarn && p.isGold) 로 체크
+                const baseGold = (isGoldEarn && p.isGold) ? (g.gold ?? 0) : 0;
+                const bGold = (isGoldEarn && p.isGold) ? (g.boundGold ?? 0) : 0;
                 let cost = isBonus ? (g.bonusCost ?? 0) : 0;
 
                 const netBoundGold = Math.max(0, bGold - cost);
@@ -242,11 +244,10 @@ export function computeRaidSummaryForRoster(
         remainingCharacters: charCount,
         totalRemainingGold: goldRemain,
         totalGold: goldTotal,
-        totalRemainingBoundGold: boundGoldRemain, // 🔥 추가
-        totalBoundGold: boundGoldTotal,           // 🔥 추가
+        totalRemainingBoundGold: boundGoldRemain,
+        totalBoundGold: boundGoldTotal,
     };
 }
-
 /* ─────────────────────────────
  * 이미 있던 자동 세팅 유틸
  * ───────────────────────────── */
@@ -325,22 +326,24 @@ export function autoSelectTop3Raids(
         // [3순위] 그래도 같으면 레벨 높은 순
         return b.levelReq - a.levelReq;
     }).slice(0, 3);
-    // 기존 설정은 다 disable + gates 초기화
+    // 기존 설정은 다 disable + gates 초기화 + 골드 체크 해제
     for (const [raidName, pref] of Object.entries(updatedRaids)) {
         updatedRaids[raidName] = {
             ...pref,
             enabled: false,
             gates: [],
             isBonus: false,
+            isGold: false, // 🔥 초기화할 때 골드 지정도 함께 끕니다.
         };
     }
 
-    // 상위 3개만 enable
+    // 상위 3개만 enable & 골드 켜기
     for (const { raidName, difficulty } of top3) {
         updatedRaids[raidName] = {
             ...(updatedRaids[raidName] ?? { gates: [] }),
             enabled: true,
             difficulty,
+            isGold: true, // 🔥 자동으로 선택된 3개 레이드는 기본적으로 골드 지정(isGold)을 켜줍니다.
         };
     }
 
@@ -410,4 +413,45 @@ export function buildAutoSetupForRoster(
         nextVisibleByChar,
         nextGoldByChar, // 🔥 추가
     };
+}
+
+
+/**
+ * 기존 유저 데이터 호환(마이그레이션) 함수
+ * isGold 속성이 없는 과거 데이터인 경우, 켜져있는 레이드 중 상위 3개를 찾아 isGold: true로 맞춰줍니다.
+ */
+export function migrateLegacyPrefs(prefs: CharacterTaskPrefs): CharacterTaskPrefs {
+    if (!prefs || !prefs.raids) return prefs;
+
+    // 이미 isGold가 명시적으로 true인 레이드가 하나라도 있다면 최신 데이터이므로 그대로 통과
+    const hasGoldSet = Object.values(prefs.raids).some((r: any) => r.isGold === true);
+    if (hasGoldSet) return prefs;
+
+    // 과거 데이터 처리: 켜져있는(enabled) 레이드 중 골드량이 높은 상위 3개 추출
+    const nextRaids: any = { ...prefs.raids };
+    const enabledRaids = Object.entries(nextRaids)
+        .filter(([_, r]: [string, any]) => r.enabled)
+        .map(([raidName, r]: [string, any]) => {
+            const info = raidInformation[raidName];
+            const diffInfo = info?.difficulty[r.difficulty as DifficultyKey];
+            // 난이도별 총 획득 골드 계산
+            const totalGold = (diffInfo?.gates ?? []).reduce((sum: number, g: any) => sum + (g.gold || 0), 0);
+            return { raidName, totalGold };
+        })
+        .sort((a, b) => b.totalGold - a.totalGold) // 골드 높은 순 정렬
+        .slice(0, 3); // 최대 3개까지만 자르기
+
+    // 추출된 상위 3개는 isGold: true 부여
+    enabledRaids.forEach(({ raidName }) => {
+        nextRaids[raidName] = { ...nextRaids[raidName], isGold: true };
+    });
+
+    // 나머지는 명시적으로 isGold: false 부여하여 데이터 규격 통일
+    Object.keys(nextRaids).forEach((raidName) => {
+        if (nextRaids[raidName].isGold !== true) {
+            nextRaids[raidName] = { ...nextRaids[raidName], isGold: false };
+        }
+    });
+
+    return { ...prefs, raids: nextRaids };
 }

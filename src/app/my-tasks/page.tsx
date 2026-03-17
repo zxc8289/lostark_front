@@ -17,8 +17,10 @@ import {
   calcNextGates,
   computeRaidSummaryForRoster,
   buildAutoSetupForRoster,
+  migrateLegacyPrefs, // 🔥 이거 추가!
   type RaidSummary,
 } from "../lib/tasks/raid-utils";
+
 import AnimatedNumber from "../components/tasks/AnimatedNumber";
 import EmptyCharacterState from "../components/tasks/EmptyCharacterState";
 import { AlertTriangle, Check, Plus, RefreshCcw, Settings, X, Wand2 } from "lucide-react";
@@ -426,7 +428,9 @@ export default function MyTasksPage() {
       const next = { ...prev };
       for (const acc of accounts) {
         for (const c of acc.summary?.roster ?? []) {
-          next[c.name] = readPrefs(c.name) ?? next[c.name] ?? { raids: {} };
+          const loaded = readPrefs(c.name);
+          // 🔥 수정된 부분: 로컬에서 읽어온 데이터(loaded)나 기존 데이터에 마이그레이션 적용
+          next[c.name] = migrateLegacyPrefs(loaded ?? next[c.name] ?? { raids: {} });
         }
       }
       return next;
@@ -650,7 +654,13 @@ export default function MyTasksPage() {
         setAccounts([migrated]);
       }
 
-      if (state.prefsByChar) setPrefsByChar(state.prefsByChar);
+      if (state.prefsByChar) {
+        const migratedPrefs: Record<string, CharacterTaskPrefs> = {};
+        for (const [char, p] of Object.entries(state.prefsByChar)) {
+          migratedPrefs[char] = migrateLegacyPrefs(p as CharacterTaskPrefs);
+        }
+        setPrefsByChar(migratedPrefs);
+      }
       if (state.visibleByChar) setVisibleByChar(state.visibleByChar);
       if (state.tableOrder) setTableOrder(state.tableOrder);
       if (state.rosterOrder) setRosterOrder(state.rosterOrder);
@@ -802,8 +812,8 @@ export default function MyTasksPage() {
         if (!g) return sum;
 
         // 골드 캐릭이 아니면 벌어들이는 수익은 0
-        const baseGold = isGoldEarn ? (g.gold ?? 0) : 0;
-        const bGold = isGoldEarn ? (g.boundGold ?? 0) : 0;
+        const baseGold = (isGoldEarn && p.isGold) ? (g.gold ?? 0) : 0;
+        const bGold = (isGoldEarn && p.isGold) ? (g.boundGold ?? 0) : 0;
         let cost = p.isBonus ? (g.bonusCost ?? 0) : 0;
 
         // 귀속 골드 우선 차감

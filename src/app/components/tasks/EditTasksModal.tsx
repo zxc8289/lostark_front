@@ -25,6 +25,7 @@ const DIFF_STYLES = {
         hover: "hover:text-[#F1F5F9] hover:bg-[#F1F5F9]/10 hover:border-[#F1F5F9]/30",
     },
 } as const;
+
 type Props = {
     open: boolean;
     onClose: () => void;
@@ -33,27 +34,36 @@ type Props = {
     onSave: (prefs: CharacterTaskPrefs) => void;
 };
 
+// 1. isGold 기본값 추가
 function makeDefaultPref(
     info: (typeof raidInformation)[string],
     ilvl: number
-): { enabled: boolean; difficulty: DifficultyKey; gates: number[], isBonus: boolean } {
+): { enabled: boolean; difficulty: DifficultyKey; gates: number[]; isBonus: boolean; isGold: boolean } {
     const nightmare = info.difficulty["나메"];
     const hard = info.difficulty["하드"];
     const normal = info.difficulty["노말"];
-    const single = info.difficulty["싱글"]; // 싱글 추가
+    const single = info.difficulty["싱글"];
 
     const nightmareOk = !!(nightmare && ilvl >= nightmare.level);
     const hardOk = !!(hard && ilvl >= hard.level);
     const normalOk = !!(normal && ilvl >= normal.level);
-    const singleOk = !!(single && ilvl >= single.level); // 싱글 추가
+    const singleOk = !!(single && ilvl >= single.level);
 
-    // 싱글 로직 추가 (나메 > 하드 > 노말 > 싱글 순 우선순위)
     const picked: DifficultyKey = nightmareOk ? "나메" : hardOk ? "하드" : normalOk ? "노말" : singleOk ? "싱글" : "노말";
 
     const enabled = false;
     const gates: number[] = [];
 
-    return { enabled, difficulty: picked, gates, isBonus: false };
+    return { enabled, difficulty: picked, gates, isBonus: false, isGold: false };
+}
+
+function getDisplayDifficulty(raidName: string, difficulty: DifficultyKey | string) {
+    if (raidName === "지평의 성당") {
+        if (difficulty === "노말") return "1단계";
+        if (difficulty === "하드") return "2단계";
+        if (difficulty === "나메") return "3단계";
+    }
+    return difficulty;
 }
 
 export default function EditTasksModal({ open, onClose, character, initial, onSave }: Props) {
@@ -84,8 +94,13 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
     }, [open, initial, ilvl]);
 
     const enabledCount = useMemo(
-        () =>
-            Object.values(state.raids ?? {}).filter((raid) => raid.enabled).length,
+        () => Object.values(state.raids ?? {}).filter((raid) => raid.enabled).length,
+        [state.raids]
+    );
+
+    // 2. 현재 골드가 체크된 레이드 개수 계산
+    const goldCount = useMemo(
+        () => Object.values(state.raids ?? {}).filter((raid) => raid.isGold).length,
         [state.raids]
     );
 
@@ -106,7 +121,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                     const nightmare = info.difficulty["나메"];
                     const hard = info.difficulty["하드"];
                     const normal = info.difficulty["노말"];
-                    const single = info.difficulty["싱글"]; // 싱글 추가
+                    const single = info.difficulty["싱글"];
 
                     let pickedDiff: DifficultyKey | null = null;
                     let levelReq = 0;
@@ -124,7 +139,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                         pickedDiff = "노말";
                         levelReq = normal.level;
                         diffInfo = normal;
-                    } else if (single && ilvl >= single.level) { // 싱글 로직 추가
+                    } else if (single && ilvl >= single.level) {
                         pickedDiff = "싱글";
                         levelReq = single.level;
                         diffInfo = single;
@@ -137,35 +152,24 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                         0
                     );
 
-                    candidates.push({
-                        raidName,
-                        difficulty: pickedDiff,
-                        levelReq,
-                        gold: totalGold
-                    });
+                    candidates.push({ raidName, difficulty: pickedDiff, levelReq, gold: totalGold });
                 }
 
-                const top3 = candidates.sort((a, b) => {
-                    const infoA = raidInformation[a.raidName];
-                    const infoB = raidInformation[b.raidName];
-                    const dateA = infoA?.releaseDate || "2000-01-01";
-                    const dateB = infoB?.releaseDate || "2000-01-01";
+                const top3 = candidates
+                    .sort((a, b) => {
+                        const infoA = raidInformation[a.raidName];
+                        const infoB = raidInformation[b.raidName];
+                        const dateA = infoA?.releaseDate || "2000-01-01";
+                        const dateB = infoB?.releaseDate || "2000-01-01";
 
-                    if (dateA !== dateB) {
-                        return dateB.localeCompare(dateA);
-                    }
-                    if (b.gold !== a.gold) {
-                        return b.gold - a.gold;
-                    }
-                    return b.levelReq - a.levelReq;
-                }).slice(0, 3);
+                        if (dateA !== dateB) return dateB.localeCompare(dateA);
+                        if (b.gold !== a.gold) return b.gold - a.gold;
+                        return b.levelReq - a.levelReq;
+                    })
+                    .slice(0, 3);
 
                 for (const [raidName, pref] of Object.entries(updatedRaids)) {
-                    updatedRaids[raidName] = {
-                        ...pref,
-                        enabled: false,
-                        gates: [],
-                    };
+                    updatedRaids[raidName] = { ...pref, enabled: false, gates: [], isGold: false }; // 초기화 시 골드도 해제
                 }
 
                 for (const { raidName, difficulty } of top3) {
@@ -173,6 +177,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                         ...(updatedRaids[raidName] ?? { gates: [] }),
                         enabled: true,
                         difficulty,
+                        isGold: true, // 3. 상위 3개 자동 선택 시 골드도 자동 지정
                     };
                 }
             } else if (mode === "all" || mode === "none") {
@@ -181,6 +186,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                     updatedRaids[raidName] = {
                         ...updatedRaids[raidName],
                         enabled: visible,
+                        isGold: mode === "none" ? false : updatedRaids[raidName].isGold, // 전체 해제 시 골드 체크도 해제
                     };
                 }
             }
@@ -192,18 +198,13 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
-            <div
-                className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
-            />
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
             <div className="relative w-full max-w-[min(800px,92vw)] flex flex-col rounded-xl bg-[#16181D] shadow-2xl border border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 <header className="px-5 py-5 sm:px-8 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#16181D]">
                     <div>
                         <div className="flex items-center gap-3 mb-1">
-                            <h2 className="text-xl font-bold text-white tracking-tight">
-                                {character.name}
-                            </h2>
+                            <h2 className="text-xl font-bold text-white tracking-tight">{character.name}</h2>
                             <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-[#5B69FF]/20 text-[#8eaaff] border border-[#5B69FF]/30">
                                 Lv. {ilvl.toLocaleString()}
                             </span>
@@ -215,7 +216,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                 </header>
 
                 <div className="flex-1 overflow-y-auto max-h-[55vh] p-4 sm:max-h-[65vh] sm:p-5 bg-[#121418] custom-scrollbar">
-                    <div className="flex gap-2 mb-4 ">
+                    <div className="flex gap-2 mb-4">
                         <button onClick={() => handleAutoSelect("top3")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
                             상위 3개 레이드
                         </button>
@@ -228,9 +229,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                     </div>
 
                     {(["군단장", "카제로스", "어비스", "에픽", "그림자"] as const).map((kind) => {
-                        const entries = Object.entries(raidInformation).filter(
-                            ([, v]) => v.kind === kind
-                        );
+                        const entries = Object.entries(raidInformation).filter(([, v]) => v.kind === kind);
                         if (!entries.length) return null;
 
                         return (
@@ -248,34 +247,24 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                         const nightmare = info.difficulty["나메"];
                                         const hard = info.difficulty["하드"];
                                         const normal = info.difficulty["노말"];
-                                        const single = info.difficulty["싱글"]; // 싱글 추가
+                                        const single = info.difficulty["싱글"];
 
                                         const nightmareOk = !!(nightmare && ilvl >= nightmare.level);
                                         const hardOk = !!(hard && ilvl >= hard.level);
                                         const normalOk = !!(normal && ilvl >= normal.level);
-                                        const singleOk = !!(single && ilvl >= single.level); // 싱글 추가
+                                        const singleOk = !!(single && ilvl >= single.level);
 
-                                        // 현재 선택된 난이도 정보 처리
-                                        const curInfo = pref.difficulty === "나메" ? nightmare
-                                            : pref.difficulty === "하드" ? hard
-                                                : pref.difficulty === "싱글" ? single
-                                                    : normal;
-
-                                        const curText = pref.difficulty === "나메"
-                                            ? (nightmare ? `나메 ${nightmare.level}` : "나메")
-                                            : pref.difficulty === "하드"
-                                                ? (hard ? `하드 ${hard.level}` : "하드")
-                                                : pref.difficulty === "싱글"
-                                                    ? (single ? `싱글 ${single.level}` : "싱글")
-                                                    : (normal ? `노말 ${normal.level}` : "노말");
+                                        const curInfo = pref.difficulty === "나메" ? nightmare : pref.difficulty === "하드" ? hard : pref.difficulty === "싱글" ? single : normal;
+                                        const displayDiff = getDisplayDifficulty(raidName, pref.difficulty);
+                                        const curText = pref.difficulty === "나메" ? (nightmare ? `${displayDiff} ${nightmare.level}` : displayDiff)
+                                            : pref.difficulty === "하드" ? (hard ? `${displayDiff} ${hard.level}` : displayDiff)
+                                                : pref.difficulty === "싱글" ? (single ? `${displayDiff} ${single.level}` : displayDiff)
+                                                    : (normal ? `${displayDiff} ${normal.level}` : displayDiff);
 
                                         return (
                                             <div
                                                 key={raidName}
-                                                className={`group relative rounded-xl border p-4 transition-all duration-200 ${pref.enabled
-                                                    ? "bg-[#1E222B] border-white/10 shadow-lg shadow-black/20"
-                                                    : "bg-[#16181D] border-white/5 opacity-80 grayscale-[0.3]"
-                                                    }`}
+                                                className={`group relative rounded-xl border p-4 transition-all duration-200 ${pref.enabled ? "bg-[#1E222B] border-white/10 shadow-lg shadow-black/20" : "bg-[#16181D] border-white/5 opacity-80 grayscale-[0.3]"}`}
                                             >
                                                 <div className="flex items-center justify-between mb-4">
                                                     <div className="flex items-center gap-3">
@@ -283,37 +272,72 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                         <div>
                                                             <div className={`font-bold flex items-center gap-2.5 ${pref.enabled ? "text-white" : "text-gray-400"}`}>
                                                                 <span className="text-[14px] sm:text-[15px]">{raidName}</span>
+
                                                                 {pref.enabled && (
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setState((s) => ({
-                                                                                ...s,
-                                                                                raids: {
-                                                                                    ...s.raids,
-                                                                                    [raidName]: { ...pref, isBonus: !pref.isBonus },
-                                                                                },
-                                                                            }));
-                                                                        }}
-                                                                        className={`
-                                                            flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-all duration-200 border
-                                                            ${pref.isBonus
-                                                                                ? "bg-[#5B69FF]/10 text-[#8eaaff] border-[#5B69FF]/30"
-                                                                                : "bg-[#121418] text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300 hover:border-white/10"
-                                                                            }
-                                                        `}
-                                                                    >
-                                                                        <div className={`w-1.5 h-1.5 rounded-full transition-colors ${pref.isBonus
-                                                                            ? "bg-[#5B69FF] shadow-[0_0_4px_rgba(91,105,255,0.8)]"
-                                                                            : "bg-gray-600"
-                                                                            }`} />
-                                                                        더보기
-                                                                    </button>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {/* 4. 골드 체크 버튼 추가 */}
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                // 골드가 해제되어 있는데 이미 3개를 채웠다면 막기
+                                                                                if (!pref.isGold && goldCount >= 3) {
+                                                                                    alert("골드 획득은 캐릭터당 최대 3개까지만 지정할 수 있습니다.");
+                                                                                    return;
+                                                                                }
+                                                                                setState((s) => ({
+                                                                                    ...s,
+                                                                                    raids: {
+                                                                                        ...s.raids,
+                                                                                        [raidName]: { ...pref, isGold: !pref.isGold },
+                                                                                    },
+                                                                                }));
+                                                                            }}
+                                                                            className={`
+                                                                                flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-all duration-200 border
+                                                                                ${pref.isGold
+                                                                                    ? "bg-[#EAB308]/10 text-[#FDE047] border-[#EAB308]/30"
+                                                                                    : "bg-[#121418] text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300 hover:border-white/10"
+                                                                                }
+                                                                                ${!pref.isGold && goldCount >= 3 ? "opacity-50 cursor-not-allowed" : ""}
+                                                                            `}
+                                                                        >
+                                                                            <div className={`w-1.5 h-1.5 rounded-full transition-colors ${pref.isGold
+                                                                                ? "bg-[#EAB308] shadow-[0_0_4px_rgba(234,179,8,0.8)]"
+                                                                                : "bg-gray-600"
+                                                                                }`} />
+                                                                            골드
+                                                                        </button>
+
+                                                                        {/* 기존 더보기 버튼 */}
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setState((s) => ({
+                                                                                    ...s,
+                                                                                    raids: {
+                                                                                        ...s.raids,
+                                                                                        [raidName]: { ...pref, isBonus: !pref.isBonus },
+                                                                                    },
+                                                                                }));
+                                                                            }}
+                                                                            className={`
+                                                                                flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-all duration-200 border
+                                                                                ${pref.isBonus
+                                                                                    ? "bg-[#5B69FF]/10 text-[#8eaaff] border-[#5B69FF]/30"
+                                                                                    : "bg-[#121418] text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300 hover:border-white/10"
+                                                                                }
+                                                                            `}
+                                                                        >
+                                                                            <div className={`w-1.5 h-1.5 rounded-full transition-colors ${pref.isBonus
+                                                                                ? "bg-[#5B69FF] shadow-[0_0_4px_rgba(91,105,255,0.8)]"
+                                                                                : "bg-gray-600"
+                                                                                }`} />
+                                                                            더보기
+                                                                        </button>
+                                                                    </div>
                                                                 )}
                                                             </div>
-                                                            <div className="text-xs text-gray-500">
-                                                                {curText}
-                                                            </div>
+                                                            <div className="text-xs text-gray-500">{curText}</div>
                                                         </div>
                                                     </div>
 
@@ -343,17 +367,15 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                     </label>
                                                 </div>
 
-                                                {/* 난이도 선택 (Segmented Control) grid-cols-4 로 변경 */}
                                                 <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-4 gap-1">
                                                     {[
-                                                        { key: "싱글", info: single, ok: singleOk }, // 싱글 추가
+                                                        { key: "싱글", info: single, ok: singleOk },
                                                         { key: "노말", info: normal, ok: normalOk },
                                                         { key: "하드", info: hard, ok: hardOk },
                                                         { key: "나메", info: nightmare, ok: nightmareOk },
                                                     ].map(({ key, info: dInfo, ok }) => {
                                                         const diffKey = key as DifficultyKey;
                                                         const style = DIFF_STYLES[diffKey] || DIFF_STYLES["노말"];
-
                                                         const isSelected = pref.enabled && pref.difficulty === key;
 
                                                         return (
@@ -375,18 +397,11 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                                         };
                                                                     })
                                                                 }
-                                                                className={`
-                                                                    relative flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-md transition-all
-                                                                    ${isSelected
-                                                                        ? style.check // 켜져있고 선택됨: 화려한 색상
-                                                                        : `bg-[#2A2E39]/50 text-gray-500 hover:text-gray-300 hover:bg-white/5` // 꺼져있거나 선택안됨: 회색
-                                                                    }
-                                                                    ${!ok && "opacity-40 cursor-not-allowed"}
-                                                                `}
+                                                                className={`relative flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-md transition-all ${isSelected ? style.check : `bg-[#2A2E39]/50 text-gray-500 hover:text-gray-300 hover:bg-white/5`} ${!ok && "opacity-40 cursor-not-allowed"}`}
                                                             >
                                                                 {!ok && <Lock size={10} />}
-                                                                {key}
-                                                                {dInfo && <span className={`opacity-60 text-[9px] sm:text-[10px] `}>{dInfo.level}</span>}
+                                                                {getDisplayDifficulty(raidName, key)}
+                                                                {dInfo && <span className={`opacity-60 text-[9px] sm:text-[10px]`}>{dInfo.level}</span>}
                                                             </button>
                                                         );
                                                     })}
@@ -419,21 +434,12 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                 </footer>
 
                 <style jsx global>{`
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-track {
-            background: #16181d;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 3px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #444;
-          }
+          .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+          .custom-scrollbar::-webkit-scrollbar-track { background: #16181d; }
+          .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #444; }
         `}</style>
             </div>
-        </div >
+        </div>
     );
 }
