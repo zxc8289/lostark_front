@@ -523,6 +523,14 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         }
     };
 
+    const toggleRaid = (raidName: string) => {
+        if (selectedRaids.includes(raidName)) {
+            setSelectedRaids(selectedRaids.filter(r => r !== raidName));
+        } else {
+            setSelectedRaids([...selectedRaids, raidName]);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex flex-col gap-6 relative animate-in fade-in duration-300">
@@ -577,7 +585,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                 </p>
                             </div>
                         ) : (
-                            <div className="flex flex-wrap items-center gap-3 w-full">
+                            <div className="flex flex-wrap items-center gap-3 w-full ">
                                 {/* 남은 숙제만 보기 버튼 (내 숙제 스타일) */}
                                 <button
                                     onClick={() => setOnlyRemain(!onlyRemain)}
@@ -589,31 +597,47 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                     남은 숙제만 보기
                                 </button>
 
-                                <span className="hidden sm:inline h-4 w-px bg-white/10" />
 
-                                {/* 레이드 선택 칩 영역 */}
-                                <div className="flex flex-wrap items-center gap-2 flex-1">
-                                    {availableFilterRaids.length > 0 ? (
-                                        availableFilterRaids.map((raidName) => {
-                                            const isActive = selectedRaids.includes(raidName);
-                                            return (
-                                                <button
-                                                    key={raidName}
-                                                    onClick={() => {
-                                                        if (isActive) setSelectedRaids(selectedRaids.filter(r => r !== raidName));
-                                                        else setSelectedRaids([...selectedRaids, raidName]);
-                                                    }}
-                                                    className={`inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm transition-colors ${isActive
-                                                        ? "bg-[#5B69FF]/20 text-[#5B69FF] border border-[#5B69FF]/50"
-                                                        : "bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-gray-200"
-                                                        }`}
-                                                >
-                                                    {raidName}
-                                                </button>
-                                            );
-                                        })
-                                    ) : (
-                                        <span className="text-xs text-gray-500 py-2">생성된 레이드 그룹이 없습니다</span>
+                                {/* 레이드 선택 드롭다운 영역 */}
+                                <div className="flex flex-wrap items-center gap-2 flex-1 raid-filter-dropdown relative">
+                                    {/* 드롭다운 버튼 */}
+                                    <button
+                                        onClick={() => setIsFilterOpen(!isFilterOpen)}
+                                        className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-white/[.04] border border-white/10 rounded-md hover:bg-white/5 transition-all min-w-[140px] sm:min-w-[160px] ${isFilterOpen ? 'border-[#5B69FF]/50 ring-1 ring-[#5B69FF]/50' : ''}`}
+                                    >
+                                        <span className="text-xs sm:text-sm text-gray-200 truncate pr-1">
+                                            {selectedRaids.length > 0 ? `${selectedRaids.length}개 레이드 선택됨` : "모든 레이드"}
+                                        </span>
+                                        {isFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />}
+                                    </button>
+
+                                    {/* 드롭다운 메뉴 */}
+                                    {isFilterOpen && (
+                                        <div className="absolute top-full left-0 mt-2 w-56 bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50] shadow-xl">
+                                            <div className="flex flex-col gap-1 p-1.5 max-h-64 overflow-y-auto custom-scrollbar">
+                                                {availableFilterRaids.length > 0 ? (
+                                                    availableFilterRaids.map((raidName) => {
+                                                        const isActive = selectedRaids.includes(raidName);
+                                                        return (
+                                                            <button
+                                                                key={raidName}
+                                                                onClick={() => toggleRaid(raidName)}
+                                                                className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-white/5"}`}
+                                                            >
+                                                                <div className={`w-4 h-4 flex items-center justify-center transition-colors ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
+                                                                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                                                                </div>
+                                                                <span className="text-xs sm:text-sm font-medium">{raidName}</span>
+                                                            </button>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <div className="px-3 py-4 text-center text-xs text-gray-500">
+                                                        생성된 레이드 그룹이 없습니다
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     )}
 
                                     {/* 초기화 버튼 */}
@@ -624,6 +648,26 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                         >
                                             초기화 ⟳
                                         </button>
+                                    )}
+
+                                    {/* 선택된 레이드 칩 표시 (사이드바와 동일한 형태) */}
+                                    {selectedRaids.length > 0 && (
+                                        <div className="flex flex-wrap items-center gap-1.5 ml-1 sm:ml-2 sm:border-l border-white/10 sm:pl-3">
+                                            {selectedRaids.map((raid) => (
+                                                <div
+                                                    key={raid}
+                                                    className="flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-full bg-[#5B69FF]/10 border border-[#5B69FF]/30 text-[#A2A3A5] text-[10px] sm:text-xs font-medium transition-all hover:border-[#5B69FF]/60 min-w-0"
+                                                >
+                                                    <span className="text-gray-200 truncate max-w-[100px]">{raid}</span>
+                                                    <button
+                                                        onClick={() => toggleRaid(raid)}
+                                                        className="p-0.5 hover:bg-[#5B69FF]/20 rounded-full transition-colors group shrink-0"
+                                                    >
+                                                        <X className="w-3 h-3 text-gray-500 group-hover:text-white" strokeWidth={2.5} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -726,7 +770,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                 ))}
 
                                 {groups.length === 0 && (
-                                    <div className="col-span-full text-center text-gray-500 py-32 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-xl px-4">
+                                    <div className="col-span-full text-center text-gray-500 py-32 flex flex-col items-center justify-center bg-[#16181D]  rounded-xl px-4">
                                         <Swords className="w-12 h-12 mb-3 text-gray-600 opacity-50" />
                                         <p className="break-keep text-sm">생성된 레이드 그룹이 없습니다.<br />상단의 그룹 추가 버튼을 눌러 레이드를 만들어주세요.</p>
                                     </div>
@@ -916,7 +960,7 @@ function ReadOnlyGroupCard({
     }, [group.slots, partyTasks, group.raidName, group.difficulty, allGates]);
 
     return (
-        <div className="bg-[#16181D] rounded-xl p-5 flex flex-col border border-white/10 h-fit">
+        <div className="bg-[#16181D] rounded-lg p-5 flex flex-col h-fit">
             <span className="text-[14px] font-bold text-[#5B69FF] rounded-md self-start truncate max-w-[300px] mb-1.5">
                 {group.groupName}
             </span>
@@ -1079,7 +1123,7 @@ function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean 
                     <span className="truncate text-gray-400">{char.ownerName}</span>
                 </div>
                 {char.combatPower && (
-                    <div className={`flex items-center gap-0.5 mt-0.5 text-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-400" : "text-red-400"}`}>
+                    <div className={`flex items-center gap-0.5 text-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-400" : "text-red-400"}`}>
                         <span className={!isSupporter ? "translate-y-[0.5px]" : ""}>
                             {isSupporter ? "✚" : "⚔️"}
                         </span>
@@ -1116,7 +1160,7 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameCha
     return (
         <div
             onClick={onClick}
-            className={`bg-[#16181D] rounded-xl p-5 flex flex-col border cursor-pointer transition-all ${isActive ? "border-[#5B69FF] border-[1.5px] bg-[#5B69FF]/5" : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]"}`}
+            className={`bg-[#16181D] rounded-lg p-5 flex flex-col border cursor-pointer transition-all ${isActive ? "border-[#5B69FF] border-[1.5px] bg-[#5B69FF]/5" : "border-none"}`}
         >
             <div className="flex items-center gap-1 self-start mb-1.5 -ml-1">
                 <div className="relative inline-grid items-center">
@@ -1278,7 +1322,7 @@ function WaitlistDroppable({ characters, activeGroup }: { characters: any[], act
     return (
         <div
             ref={setNodeRef}
-            className={`w-full shrink-0 rounded-xl border p-4 h-[400px] xl:h-[600px] overflow-y-auto transition-colors flex flex-col custom-scrollbar ${isOver ? "bg-[#1E2028] border-[#5B69FF]/50" : "bg-[#16181D] border-white/10"
+            className={`w-full shrink-0 rounded-lg p-4 h-[400px] xl:h-[600px] overflow-y-auto transition-colors flex flex-col custom-scrollbar ${isOver ? "bg-[#1E2028] border-[#5B69FF]/50" : "bg-[#16181D] border-white/10"
                 }`}
         >
             {activeGroup ? (
@@ -1381,7 +1425,7 @@ function DraggableCharacter({ char }: { char: any }) {
                         <span className="text-yellow-400 ">Lv.{(char.itemLevelNum || 0).toFixed(2)}</span>
                     </div>
                     {char.combatPower && (
-                        <div className={`flex items-center gap-0.5 mt-0.5 text-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-400" : "text-red-400"}`}>
+                        <div className={`flex items-center gap-0.5 ext-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-400" : "text-red-400"}`}>
                             <span className={!isSupporter ? "translate-y-[0.5px]" : ""}>
                                 {isSupporter ? "✚" : "⚔️"}
                             </span>
