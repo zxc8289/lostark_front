@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Plus, Users, Swords, X, AlertTriangle, Check, ChevronLeft, ChevronRight, Edit2, Loader2, Filter, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Users, Swords, X, AlertTriangle, Check, ChevronLeft, ChevronRight, Edit2, Loader2, Filter, ChevronUp, ChevronDown, Search } from "lucide-react";
 import {
     DndContext,
     DragEndEvent,
@@ -115,9 +115,17 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
     const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
     const [activeDragChar, setActiveDragChar] = useState<any | null>(null);
 
+    const [guestSearchInput, setGuestSearchInput] = useState("");
+    const [isSearchingGuest, setIsSearchingGuest] = useState(false);
+    const [guestModalOpen, setGuestModalOpen] = useState(false);
+    const [guestTargetSlot, setGuestTargetSlot] = useState<{ groupId: string, slotIndex: number } | null>(null);
+    const [guestSearchResult, setGuestSearchResult] = useState<{ roster: any[], ownerId: string, ownerName: string } | null>(null);
+    const [guestSearchError, setGuestSearchError] = useState("");
+
     // 🔥 필터 관련 상태 추가 (로컬 스토리지 연동)
     const FILTER_KEY_REMAIN = "raidPlanner_onlyRemain";
     const FILTER_KEY_RAIDS = "raidPlanner_selectedRaids";
+    const FILTER_KEY_USERS = "raidPlanner_selectedUsers";
 
     const [onlyRemain, setOnlyRemain] = useState<boolean>(() => {
         if (typeof window === "undefined") return false;
@@ -139,36 +147,48 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         }
     });
 
-    const [isFilterOpen, setIsFilterOpen] = useState(false);
-
-    // 필터 상태가 변경될 때마다 로컬 스토리지에 저장
-    useEffect(() => {
+    const [selectedUsers, setSelectedUsers] = useState<string[]>(() => {
+        if (typeof window === "undefined") return [];
         try {
-            localStorage.setItem(FILTER_KEY_REMAIN, JSON.stringify(onlyRemain));
-        } catch { }
+            const saved = localStorage.getItem(FILTER_KEY_USERS);
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
+
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [isUserFilterOpen, setIsUserFilterOpen] = useState(false);
+
+    useEffect(() => {
+        try { localStorage.setItem(FILTER_KEY_REMAIN, JSON.stringify(onlyRemain)); } catch { }
     }, [onlyRemain]);
 
     useEffect(() => {
-        try {
-            localStorage.setItem(FILTER_KEY_RAIDS, JSON.stringify(selectedRaids));
-        } catch { }
+        try { localStorage.setItem(FILTER_KEY_RAIDS, JSON.stringify(selectedRaids)); } catch { }
     }, [selectedRaids]);
+
+    useEffect(() => {
+        try { localStorage.setItem(FILTER_KEY_USERS, JSON.stringify(selectedUsers)); } catch { }
+    }, [selectedUsers]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
         useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
     );
 
-    // 필터 드롭다운 외부 클릭 시 닫기
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (isFilterOpen && !(e.target as Element).closest('.raid-filter-dropdown')) {
                 setIsFilterOpen(false);
             }
+            if (isUserFilterOpen && !(e.target as Element).closest('.user-filter-dropdown')) {
+                setIsUserFilterOpen(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isFilterOpen]);
+    }, [isFilterOpen, isUserFilterOpen]);
 
     useEffect(() => {
         if (!partyId) return;
@@ -205,6 +225,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         }
     }, [selectedRaidName]);
 
+    // 🔥 baseCharacters에는 더 이상 용병 데이터를 합치지 않음!
     const baseCharacters = useMemo(() => {
         return partyTasks.flatMap(member => {
             const roster = member.summary?.roster ?? [];
@@ -214,45 +235,138 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                     ...char,
                     ownerName: member.nickname || member.name || "알 수 없음",
                     ownerId: member.userId,
-                    uniqueId: `${member.userId}-${char.name}`
+                    uniqueId: `${member.userId}-${char.name}`,
+                    isGuest: false
                 }));
         });
     }, [partyTasks]);
+
+    const handleOpenGuestModal = (groupId: string, slotIndex: number) => {
+        setGuestTargetSlot({ groupId, slotIndex });
+        setGuestSearchInput("");
+        setGuestSearchResult(null);
+        setGuestSearchError("");
+        setGuestModalOpen(true);
+    };
+
+    const handleSearchGuestApi = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmed = guestSearchInput.trim();
+        if (!trimmed) return;
+
+        setIsSearchingGuest(true);
+        setGuestSearchError("");
+        setGuestSearchResult(null);
+
+        try {
+            const res = await fetch(`/api/lostark/character/${encodeURIComponent(trimmed)}`);
+            if (!res.ok) throw new Error("캐릭터를 찾을 수 없습니다.");
+
+            const data = await res.json();
+            if (!data || !data.roster || data.roster.length === 0) {
+                throw new Error("원정대 정보가 없습니다.");
+            }
+
+            // 🔥 원정대 중복을 확실하게 방지하기 위해, 원정대 내 가장 레벨 높은 캐릭터 이름을 기준으로 ownerId 생성
+            const sortedRoster = [...data.roster].sort((a, b) => b.itemLevelNum - a.itemLevelNum);
+            const topCharName = sortedRoster.length > 0 ? sortedRoster[0].name : trimmed;
+            const guestOwnerId = `guest-${topCharName}`;
+
+            setGuestSearchResult({
+                roster: data.roster,
+                ownerId: guestOwnerId,
+                ownerName: trimmed
+            });
+        } catch (error: any) {
+            setGuestSearchError(error.message);
+        } finally {
+            setIsSearchingGuest(false);
+        }
+    };
+
+    const handleSelectGuestChar = (char: any) => {
+        if (!guestTargetSlot || !guestSearchResult) return;
+
+        const { ownerId, ownerName } = guestSearchResult;
+
+        const targetGroup = groups.find(g => g.id === guestTargetSlot.groupId);
+        if (targetGroup) {
+            const hasSameOwner = targetGroup.slots.some(s => s && s.ownerId === ownerId);
+            if (hasSameOwner) {
+                alert("해당 레이드 그룹에 이미 동일한 원정대의 캐릭터가 존재합니다.");
+                return;
+            }
+        }
+
+        const newGuestChar = {
+            ...char,
+            ownerName: ownerName,
+            ownerId: ownerId,
+            uniqueId: `${ownerId}-${char.name}`,
+            isGuest: true
+        };
+
+        // 그룹 슬롯에 용병 바로 꽂아넣기 (Waitlist에는 남지 않음)
+        setGroups(prev => prev.map(g => {
+            if (g.id === guestTargetSlot.groupId) {
+                const newSlots = [...g.slots];
+                newSlots[guestTargetSlot.slotIndex] = newGuestChar;
+                return { ...g, slots: newSlots };
+            }
+            return g;
+        }));
+
+        setGuestModalOpen(false);
+    };
 
     const syncedGroups = useMemo(() => {
         return groups.map(group => ({
             ...group,
             slots: group.slots.map(slotChar => {
                 if (!slotChar) return null;
+                // 🔥 용병은 파티원 목록(baseCharacters)에 없으므로 DB 스냅샷 그대로 유지
+                if (slotChar.isGuest) return slotChar;
+
                 const freshData = baseCharacters.find(c => c.uniqueId === slotChar.uniqueId);
-                return freshData ? { ...slotChar, ...freshData } : slotChar;
+                if (freshData) return { ...slotChar, ...freshData };
+
+                return null;
             })
         }));
     }, [groups, baseCharacters]);
 
-    // 🔥 현재 편성된 그룹들을 바탕으로 필터에 사용할 레이드 목록 추출
     const availableFilterRaids = useMemo(() => Array.from(new Set(groups.map(g => g.raidName))), [groups]);
 
-    // 🔥 필터가 적용된 그룹 목록 계산 (읽기 모드에서만 사용)
+    const availableFilterUsers = useMemo(() => {
+        const users = new Map<string, string>();
+        groups.forEach(g => {
+            g.slots.forEach(s => {
+                if (s && s.ownerId) users.set(s.ownerId, s.ownerName);
+            });
+        });
+        return Array.from(users.entries()).map(([id, name]) => ({ id, name }));
+    }, [groups]);
+
     const filteredGroups = useMemo(() => {
         return syncedGroups.filter(group => {
-            // 1. 레이드 이름 필터
             if (selectedRaids.length > 0 && !selectedRaids.includes(group.raidName)) {
                 return false;
             }
 
-            // 2. 남은 숙제만 보기 필터
+            if (selectedUsers.length > 0) {
+                const groupUserIds = group.slots.filter(Boolean).map(slot => slot.ownerId);
+                const hasAllSelectedUsers = selectedUsers.every(userId => groupUserIds.includes(userId));
+                if (!hasAllSelectedUsers) return false;
+            }
+
             if (onlyRemain) {
                 const info = raidInformation[group.raidName];
                 const diffInfo = info?.difficulty[group.difficulty as DifficultyKey];
                 const allGates = diffInfo?.gates.map((g: any) => g.index) || [];
+                const members = group.slots.filter(s => s !== null && !s.isGuest); // 파티원만
 
-                const members = group.slots.filter(s => s !== null);
-
-                // 그룹에 아무도 배정되지 않았다면(빈 파티) 남은 숙제로 취급
                 if (members.length === 0) return true;
 
-                // 그룹 내 배정된 '모든' 캐릭터가 숙제를 완료했는지 확인
                 const isGroupFullyCompleted = members.every(slotChar => {
                     const memberInfo = partyTasks.find(m => m.userId === slotChar.ownerId);
                     const charPref = memberInfo?.prefsByChar?.[slotChar.name]?.raids?.[group.raidName];
@@ -262,13 +376,12 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                     return allGates.length > 0 && allGates.every(g => currentGates.includes(g));
                 });
 
-                // 모두 완료된 그룹이라면 필터링(숨김)
                 if (isGroupFullyCompleted) return false;
             }
 
             return true;
         });
-    }, [syncedGroups, selectedRaids, onlyRemain, partyTasks]);
+    }, [syncedGroups, selectedRaids, selectedUsers, onlyRemain, partyTasks]);
 
     const activeGroup = syncedGroups.find(g => g.id === activeGroupId) || null;
 
@@ -311,7 +424,8 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                     className: char.className,
                     itemLevelNum: char.itemLevelNum,
                     combatPower: char.combatPower,
-                    jobEngraving: char.jobEngraving
+                    jobEngraving: char.jobEngraving,
+                    isGuest: char.isGuest,
                 } : null)
             }));
 
@@ -415,7 +529,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
             const sourceGroupId = active.data.current?.sourceGroupId;
             const sourceSlotIndex = active.data.current?.sourceSlotIndex;
 
-            // 슬롯에서 대기 명단으로 뺀 경우에만 원래 자리 비우기
             if (sourceGroupId) {
                 setGroups(prev => prev.map(g => {
                     if (g.id === sourceGroupId) {
@@ -438,7 +551,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
 
             const existingChar = targetGroup.slots[slotIndex];
 
-            // 🔥 출발지 꼬리표 읽어오기 (전체 순회 X)
             const sourceGroupId = active.data.current?.sourceGroupId;
             const sourceSlotIndex = active.data.current?.sourceSlotIndex;
             let sourceGroup = null;
@@ -452,23 +564,14 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 return;
             }
 
-            // 🔥 수정된 중복 검사 로직
             const isMovingWithinSameGroup = sourceGroup?.id === targetGroup.id;
 
             const hasSameOwnerInGroup = targetGroup.slots.some((s, idx) => {
                 if (!s) return false;
-
-                // 1. 타겟 슬롯 자체는 내가 덮어쓸(혹은 교체할) 자리이므로 중복 검사에서 제외
                 if (idx === slotIndex) return false;
-
-                // 2. 같은 그룹 내 이동일 경우, 내가 원래 있던 자리는 어차피 비워질 예정이므로 검사 제외
                 if (isMovingWithinSameGroup && idx === sourceSlotIndex) return false;
 
-                // 3. 기존 데이터 호환성을 위해 확실한 uniqueId에서 유저 식별자를 추출하여 비교
-                const sUserId = s.uniqueId.split('-')[0];
-                const charUserId = char.uniqueId.split('-')[0];
-
-                return sUserId === charUserId;
+                return s.ownerId === char.ownerId;
             });
 
             if (hasSameOwnerInGroup) {
@@ -476,7 +579,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 return;
             }
 
-            // 맞교환(Swap) 시 밀려나는 캐릭터에 대한 중복 검사
             if (sourceGroup && existingChar && sourceGroup.id !== targetGroup.id) {
                 const sourceReqLevel = raidInformation[sourceGroup.raidName]?.difficulty[sourceGroup.difficulty as DifficultyKey]?.level || 0;
                 if ((existingChar.itemLevelNum || 0) < sourceReqLevel) {
@@ -486,14 +588,9 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
 
                 const existingHasSameOwnerInSource = sourceGroup.slots.some((s, idx) => {
                     if (!s) return false;
-
-                    // 밀려나는 캐릭터가 들어갈 출발지 슬롯은 검사 제외
                     if (idx === sourceSlotIndex) return false;
 
-                    const sUserId = s.uniqueId.split('-')[0];
-                    const existingUserId = existingChar.uniqueId.split('-')[0];
-
-                    return sUserId === existingUserId;
+                    return s.ownerId === existingChar.ownerId;
                 });
 
                 if (existingHasSameOwnerInSource) {
@@ -502,7 +599,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 }
             }
 
-            // 실제 자리 덮어쓰기 및 맞교환(Swap) 적용
             setGroups(prev => {
                 const nextGroups = prev.map(g => ({ ...g, slots: [...g.slots] }));
                 const tg = nextGroups.find(g => g.id === groupId);
@@ -531,6 +627,19 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         }
     };
 
+    const toggleUser = (userId: string) => {
+        if (selectedUsers.includes(userId)) {
+            setSelectedUsers(selectedUsers.filter(id => id !== userId));
+        } else {
+            setSelectedUsers([...selectedUsers, userId]);
+        }
+    };
+
+    const guestTargetGroup = guestTargetSlot ? groups.find(g => g.id === guestTargetSlot.groupId) : null;
+    const guestReqLevel = guestTargetGroup
+        ? raidInformation[guestTargetGroup.raidName]?.difficulty[guestTargetGroup.difficulty as DifficultyKey]?.level || 0
+        : 0;
+
     if (isLoading) {
         return (
             <div className="flex flex-col gap-6 relative animate-in fade-in duration-300">
@@ -543,15 +652,15 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {[1, 2, 3].map((i) => (
-                        <div key={i} className="bg-[#1E2028] rounded-xl p-4 flex flex-col border-2 border-white/5 h-fit animate-pulse">
-                            <div className="h-4 w-20 bg-white/5 rounded mb-3" />
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div key={i} className="bg-[#16181D] rounded-lg p-5 flex flex-col border border-white/5 h-fit animate-pulse">
+                            <div className="h-4 w-24 bg-white/10 rounded mb-3" />
                             <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
                                 <div className="flex items-center gap-2">
-                                    <div className="h-6 w-24 bg-white/10 rounded" />
+                                    <div className="h-6 w-28 bg-white/10 rounded" />
                                     <div className="h-5 w-12 bg-white/5 rounded" />
                                 </div>
-                                <div className="h-6 w-10 bg-white/5 rounded" />
+                                <div className="h-6 w-16 bg-white/5 rounded-full" />
                             </div>
 
                             <div className="grid gap-2 sm:gap-3 grid-cols-2">
@@ -559,7 +668,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                     <div key={partyIdx} className="flex flex-col gap-1.5 sm:gap-2">
                                         <div className="h-3 w-8 bg-white/5 rounded mb-1" />
                                         {[...Array(4)].map((_, slotIdx) => (
-                                            <div key={slotIdx} className="h-14 sm:h-16 border-2 border-dashed border-white/10 bg-white/[0.02] rounded-lg" />
+                                            <div key={slotIdx} className="h-14 sm:h-16 border border-dashed border-white/10 bg-white/[0.02] rounded-lg" />
                                         ))}
                                     </div>
                                 ))}
@@ -571,12 +680,11 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         );
     }
     return (
-        <div className="flex flex-col gap-4 sm:gap-4.5 relative"> {/* 🔥 gap 간격을 내 숙제 탭과 맞춤 */}
-            {/* 🔥 내 숙제 탭과 완전히 동일한 스타일의 헤더 */}
+        <div className="flex flex-col gap-4 sm:gap-4.5 relative">
             <div className="bg-[#16181D] rounded-none sm:rounded-sm border-x-0 px-4 sm:px-5 py-3 sm:py-4">
                 <div className="flex flex-wrap gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between max-[1246px]:flex-col max-[1246px]:items-start max-[1246px]:justify-start">
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 text-sm sm:text-base flex-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 text-sm sm:text-base flex-1">
                         {isEditMode ? (
                             <div className="flex items-center">
                                 <p className="text-sm text-gray-400 break-keep font-medium">
@@ -585,8 +693,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                 </p>
                             </div>
                         ) : (
-                            <div className="flex flex-wrap items-center gap-3 w-full ">
-                                {/* 남은 숙제만 보기 버튼 (내 숙제 스타일) */}
+                            <div className="flex flex-wrap items-center gap-2 w-full ">
                                 <button
                                     onClick={() => setOnlyRemain(!onlyRemain)}
                                     className={`inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm transition-colors ${onlyRemain
@@ -597,84 +704,86 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                     남은 숙제만 보기
                                 </button>
 
-
-                                {/* 레이드 선택 드롭다운 영역 */}
-                                <div className="flex flex-wrap items-center gap-2 flex-1 raid-filter-dropdown relative">
-                                    {/* 드롭다운 버튼 */}
+                                <div className="raid-filter-dropdown relative">
                                     <button
                                         onClick={() => setIsFilterOpen(!isFilterOpen)}
                                         className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-white/[.04] border border-white/10 rounded-md hover:bg-white/5 transition-all min-w-[140px] sm:min-w-[160px] ${isFilterOpen ? 'border-[#5B69FF]/50 ring-1 ring-[#5B69FF]/50' : ''}`}
                                     >
                                         <span className="text-xs sm:text-sm text-gray-200 truncate pr-1">
-                                            {selectedRaids.length > 0 ? `${selectedRaids.length}개 레이드 선택됨` : "모든 레이드"}
+                                            {selectedRaids.length > 0 ? `${selectedRaids.length}개 레이드` : "모든 레이드"}
                                         </span>
                                         {isFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />}
                                     </button>
 
-                                    {/* 드롭다운 메뉴 */}
                                     {isFilterOpen && (
                                         <div className="absolute top-full left-0 mt-2 w-56 bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50] shadow-xl">
                                             <div className="flex flex-col gap-1 p-1.5 max-h-64 overflow-y-auto custom-scrollbar">
-                                                {availableFilterRaids.length > 0 ? (
-                                                    availableFilterRaids.map((raidName) => {
-                                                        const isActive = selectedRaids.includes(raidName);
-                                                        return (
-                                                            <button
-                                                                key={raidName}
-                                                                onClick={() => toggleRaid(raidName)}
-                                                                className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-white/5"}`}
-                                                            >
-                                                                <div className={`w-4 h-4 flex items-center justify-center transition-colors ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
-                                                                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                                                                </div>
-                                                                <span className="text-xs sm:text-sm font-medium">{raidName}</span>
-                                                            </button>
-                                                        );
-                                                    })
-                                                ) : (
-                                                    <div className="px-3 py-4 text-center text-xs text-gray-500">
-                                                        생성된 레이드 그룹이 없습니다
-                                                    </div>
-                                                )}
+                                                {availableFilterRaids.map((raidName) => {
+                                                    const isActive = selectedRaids.includes(raidName);
+                                                    return (
+                                                        <button
+                                                            key={raidName}
+                                                            onClick={() => toggleRaid(raidName)}
+                                                            className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-white/5"}`}
+                                                        >
+                                                            <div className={`w-4 h-4 flex items-center justify-center transition-colors ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
+                                                                <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                                                            </div>
+                                                            <span className="text-xs sm:text-sm font-medium">{raidName}</span>
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}
+                                </div>
 
-                                    {/* 초기화 버튼 */}
-                                    {selectedRaids.length > 0 && (
-                                        <button
-                                            onClick={() => setSelectedRaids([])}
-                                            className="inline-flex items-center justify-center py-2 px-2 text-[11px] sm:text-xs text-[#5B69FF] hover:text-[#4A57E6] transition-colors"
-                                        >
-                                            초기화 ⟳
-                                        </button>
-                                    )}
+                                <div className="user-filter-dropdown relative">
+                                    <button
+                                        onClick={() => setIsUserFilterOpen(!isUserFilterOpen)}
+                                        className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-white/[.04] border border-white/10 rounded-md hover:bg-white/5 transition-all min-w-[140px] sm:min-w-[160px] ${isUserFilterOpen ? 'border-[#5B69FF]/50 ring-1 ring-[#5B69FF]/50' : ''}`}
+                                    >
+                                        <span className="text-xs sm:text-sm text-gray-200 truncate pr-1">
+                                            {selectedUsers.length > 0 ? `${selectedUsers.length}명 참여` : "모든 파티원"}
+                                        </span>
+                                        {isUserFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />}
+                                    </button>
 
-                                    {/* 선택된 레이드 칩 표시 (사이드바와 동일한 형태) */}
-                                    {selectedRaids.length > 0 && (
-                                        <div className="flex flex-wrap items-center gap-1.5 ml-1 sm:ml-2 sm:border-l border-white/10 sm:pl-3">
-                                            {selectedRaids.map((raid) => (
-                                                <div
-                                                    key={raid}
-                                                    className="flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-full bg-[#5B69FF]/10 border border-[#5B69FF]/30 text-[#A2A3A5] text-[10px] sm:text-xs font-medium transition-all hover:border-[#5B69FF]/60 min-w-0"
-                                                >
-                                                    <span className="text-gray-200 truncate max-w-[100px]">{raid}</span>
-                                                    <button
-                                                        onClick={() => toggleRaid(raid)}
-                                                        className="p-0.5 hover:bg-[#5B69FF]/20 rounded-full transition-colors group shrink-0"
-                                                    >
-                                                        <X className="w-3 h-3 text-gray-500 group-hover:text-white" strokeWidth={2.5} />
-                                                    </button>
-                                                </div>
-                                            ))}
+                                    {isUserFilterOpen && (
+                                        <div className="absolute top-full left-0 mt-2 w-56 bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50] shadow-xl">
+                                            <div className="flex flex-col gap-1 p-1.5 max-h-64 overflow-y-auto custom-scrollbar">
+                                                {availableFilterUsers.map((user) => {
+                                                    const isActive = selectedUsers.includes(user.id);
+                                                    return (
+                                                        <button
+                                                            key={user.id}
+                                                            onClick={() => toggleUser(user.id)}
+                                                            className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-white/5"}`}
+                                                        >
+                                                            <div className={`w-4 h-4 flex items-center justify-center transition-colors ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
+                                                                <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                                                            </div>
+                                                            <span className="text-xs sm:text-sm font-medium">{user.name}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
+
+                                {(selectedRaids.length > 0 || selectedUsers.length > 0) && (
+                                    <button
+                                        onClick={() => { setSelectedRaids([]); setSelectedUsers([]); }}
+                                        className="inline-flex items-center justify-center py-2 px-3 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm text-[#5B69FF] hover:bg-white/5 transition-colors shrink-0"
+                                    >
+                                        초기화 ⟳
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
 
-                    {/* 액션 버튼 그룹 */}
                     <div className="flex flex-row flex-wrap gap-2 sm:gap-3 items-center w-full sm:w-auto mt-2 sm:mt-0 pt-3 border-t border-white/10 sm:pt-0 sm:border-none">
                         {isEditMode ? (
                             <>
@@ -766,6 +875,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                         onRemove={() => removeGroup(group.id)}
                                         onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
                                         onNameChange={(newName) => updateGroupName(group.id, newName)}
+                                        onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
                                     />
                                 ))}
 
@@ -790,8 +900,15 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                     />
                                 </div>
                                 <div className="flex flex-col justify-center min-w-0 flex-1">
-                                    <div className="text-[11px] sm:text-[13px] font-bold text-white truncate">
-                                        {activeDragChar.name}
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                        <div className="text-[11px] sm:text-[13px] font-bold text-white truncate">
+                                            {activeDragChar.name}
+                                        </div>
+                                        {activeDragChar.isGuest && (
+                                            <span className="shrink-0 px-1 py-0.5 rounded bg-[#FF5252]/15 text-[#FF5252] text-[9px] font-bold">
+                                                용병
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="text-[9px] sm:text-[11px] text-gray-400 flex gap-1 items-center truncate">
                                         <span className="text-yellow-400">Lv.{(activeDragChar.itemLevelNum || 0).toFixed(2)}</span>
@@ -915,6 +1032,125 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                     </div>
                 </div>
             )}
+
+            {/* 🔥 용병 검색 모달 */}
+            {guestModalOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center px-4">
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+                        onClick={() => setGuestModalOpen(false)}
+                    />
+
+                    <div
+                        className="relative w-full max-w-md p-6 sm:p-8 rounded-2xl bg-[#16181D] border border-white/5 text-center shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setGuestModalOpen(false)}
+                            className="absolute right-3 top-3 p-1.5 rounded-full bg-black/40 border border-white/10 text-gray-400 hover:text-white hover:bg-black/60 text-xs z-50 transition-colors"
+                        >
+                            <X size={16} />
+                        </button>
+
+                        <div className="absolute -top-10 -left-10 w-32 h-32 bg-[#5B69FF]/20 rounded-full blur-[50px] pointer-events-none" />
+                        <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-purple-500/10 rounded-full blur-[50px] pointer-events-none" />
+
+                        <div className="relative mx-auto mb-6 w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center rounded-full bg-[#5B69FF]/10 text-[#5B69FF] ring-1 ring-[#5B69FF]/30">
+                            <div className="relative z-10">
+                                <Users size={32} strokeWidth={1.5} className="sm:w-9 sm:h-9" />
+                            </div>
+                            <div className="absolute -right-1 -bottom-1 bg-[#16181D] rounded-full p-1.5 border border-white/10 z-20">
+                                <Search size={14} className="text-gray-400" />
+                            </div>
+                        </div>
+
+                        <h3 className="text-lg sm:text-xl font-bold text-white mb-2 relative z-10">
+                            용병 캐릭터를 추가하세요
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-400 mb-6 leading-relaxed relative z-10 break-keep">
+                            {guestTargetGroup?.raidName} {getDisplayDifficulty(guestTargetGroup?.raidName || "", guestTargetGroup?.difficulty || "")} (입장 레벨: {guestReqLevel})<br />
+                            레이드 그룹에 합류할 용병의 닉네임을 검색하세요.
+                        </p>
+
+                        <form onSubmit={handleSearchGuestApi} className="relative flex items-center z-10">
+                            <input
+                                type="text"
+                                placeholder="캐릭터 닉네임 입력"
+                                value={guestSearchInput}
+                                onChange={(e) => setGuestSearchInput(e.target.value)}
+                                disabled={isSearchingGuest}
+                                className={`
+                                    w-full h-11 sm:h-12 pl-4 pr-12 rounded-lg bg-[#0F1115] border 
+                                    text-white placeholder-gray-500 text-sm transition-all disabled:opacity-50
+                                    focus:outline-none focus:ring-1
+                                    ${guestSearchError
+                                        ? "border-red-500/50 focus:border-red-500 focus:ring-red-500"
+                                        : "border-white/10 focus:border-[#5B69FF] focus:ring-[#5B69FF]"
+                                    }
+                                `}
+                                autoFocus
+                            />
+                            <button
+                                type="submit"
+                                disabled={isSearchingGuest || !guestSearchInput.trim()}
+                                className="absolute right-1.5 p-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-500 transition-colors"
+                            >
+                                {isSearchingGuest ? (
+                                    <div className="w-4 h-4 sm:w-[18px] sm:h-[18px] border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <Search size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                )}
+                            </button>
+                        </form>
+
+                        {guestSearchError && (
+                            <div className="mt-3 flex items-center justify-center gap-2 text-red-400 text-xs font-medium animate-in slide-in-from-top-1 fade-in relative z-10">
+                                <AlertTriangle size={14} />
+                                <span>{guestSearchError}</span>
+                            </div>
+                        )}
+
+                        {guestSearchResult && (
+                            <div className="mt-5 flex flex-col gap-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-1 relative z-10 text-left animate-in slide-in-from-bottom-2 fade-in">
+                                <div className="text-xs font-bold text-gray-500 mb-1 px-1">추가할 캐릭터를 선택하세요</div>
+                                {(() => {
+                                    const filteredChars = guestSearchResult.roster.filter(char => char.itemLevelNum >= guestReqLevel);
+
+                                    if (filteredChars.length === 0) {
+                                        return (
+                                            <div className="text-center text-xs text-gray-400 py-6 bg-black/20 rounded-xl border border-white/5">
+                                                입장 레벨(Lv.{guestReqLevel})을 만족하는 캐릭터가 없습니다.
+                                            </div>
+                                        );
+                                    }
+
+                                    return filteredChars.map(char => (
+                                        <button
+                                            key={char.name}
+                                            type="button"
+                                            onClick={() => handleSelectGuestChar(char)}
+                                            className="flex items-center justify-between p-3 rounded-xl bg-[#0F1115] border border-white/5 hover:border-[#5B69FF]/50 hover:bg-[#5B69FF]/10 transition-all text-left group"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-8 h-8 rounded-md bg-black/40 border border-white/5 flex items-center justify-center shrink-0 group-hover:border-[#5B69FF]/30 transition-colors">
+                                                    <img src={`/icons/classes/${classIconMap[char.className] || 'default.svg'}`} alt="" className="w-5 h-5 filter brightness-0 invert opacity-80 group-hover:opacity-100" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                                                </div>
+                                                <div className="min-w-0 pr-2">
+                                                    <div className="text-sm font-bold text-gray-200 truncate group-hover:text-white transition-colors">{char.name}</div>
+                                                    <div className="text-[11px] text-gray-500 truncate">{char.className}</div>
+                                                </div>
+                                            </div>
+                                            <div className="text-sm font-bold text-yellow-500/90 shrink-0">
+                                                Lv.{char.itemLevelNum.toFixed(2)}
+                                            </div>
+                                        </button>
+                                    ));
+                                })()}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -942,6 +1178,15 @@ function ReadOnlyGroupCard({
     const charStates = useMemo(() => {
         return group.slots.map((slotChar) => {
             if (!slotChar) return null;
+
+            if (slotChar.isGuest) {
+                return {
+                    ...slotChar,
+                    currentGates: [],
+                    isFullyCompleted: false
+                };
+            }
+
             const member = partyTasks.find(m => m.userId === slotChar.ownerId);
             const charPref = member?.prefsByChar?.[slotChar.name]?.raids?.[group.raidName];
 
@@ -961,11 +1206,10 @@ function ReadOnlyGroupCard({
 
     return (
         <div className="bg-[#16181D] rounded-lg p-5 flex flex-col h-fit">
-            <span className="text-[14px] font-bold text-[#5B69FF] rounded-md self-start truncate max-w-[300px] mb-1.5">
+            <span className="text-[16px] font-bold text-[#5B69FF] rounded-md self-start truncate max-w-[300px] mb-1.5">
                 {group.groupName}
             </span>
             <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
-                {/* 좌측: 레이드 이름 및 난이도 */}
                 <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-bold text-lg text-white">
                         {group.raidName}
@@ -975,14 +1219,12 @@ function ReadOnlyGroupCard({
                     </span>
                 </div>
 
-                {/* 우측: 관문 체크 & 인원수 */}
                 <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-                    {/* 관문 체크 */}
                     {allGates.length > 0 && (
                         <div className="flex items-center gap-1.5">
                             {allGates.map(g => {
-                                const groupChars = charStates.filter((c): c is NonNullable<typeof c> => c !== null);
-                                const isAllChecked = groupChars.length > 0 && groupChars.every(c => c.currentGates.includes(g));
+                                const partyGroupChars = charStates.filter((c): c is NonNullable<typeof c> => c !== null && !c.isGuest);
+                                const isAllChecked = partyGroupChars.length > 0 && partyGroupChars.every(c => c.currentGates.includes(g));
                                 const diffStyle = DIFF_STYLES[group.difficulty as keyof typeof DIFF_STYLES] || DIFF_STYLES["노말"];
 
                                 return (
@@ -991,9 +1233,9 @@ function ReadOnlyGroupCard({
                                         type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            if (!onBulkToggleGate || groupChars.length === 0) return;
+                                            if (!onBulkToggleGate || partyGroupChars.length === 0) return;
 
-                                            const targets = groupChars.map(c => ({
+                                            const targets = partyGroupChars.map(c => ({
                                                 userId: c.ownerId,
                                                 charName: c.name,
                                                 currentGates: c.currentGates
@@ -1010,36 +1252,35 @@ function ReadOnlyGroupCard({
                             })}
                         </div>
                     )}
-
-
                 </div>
             </div>
 
             <div className="grid gap-2 sm:gap-3 grid-cols-2">
                 {[0, 1].map((partyOffset) => {
-                    const actualPartyNumber = (page * 2) + partyOffset + 1;
                     const startIndex = absoluteStartIndex + (partyOffset * 4);
-
-                    // 🔥 보기 모드에서도 파티별 인원수 동일하게 계산
+                    const actualPartyNumber = (page * 2) + partyOffset + 1;
                     const partySlots = group.slots.slice(startIndex, startIndex + 4);
                     const currentCount = partySlots.filter(Boolean).length;
                     const maxInParty = Math.min(4, Math.max(0, group.maxMembers - startIndex));
-
+                    const isPartyActive = startIndex < group.maxMembers;
                     return (
                         <div key={partyOffset} className="flex flex-col gap-1.5 sm:gap-2">
-                            {/* 🔥 파티 이름과 우측 개별 인원수(0/4) 표시 */}
-                            <div className="flex items-center justify-between px-1 pb-0.5 mb-[-2px]">
-                                <span className="text-[11px] font-bold text-gray-500">
-                                    {actualPartyNumber}파티
-                                </span>
-                                {maxInParty > 0 && (
-                                    <div className="text-[12px] font-mono font-bold tracking-wider">
-                                        <span className={currentCount === maxInParty ? "text-[#5B69FF]" : "text-gray-300"}>
-                                            {currentCount}
+                            <div className="flex items-center justify-between px-1 pb-0.5 mb-[-2px] h-[18px]">
+                                {isPartyActive ? (
+                                    <>
+                                        <span className="text-[11px] font-bold text-gray-500">
+                                            {actualPartyNumber}파티
                                         </span>
-                                        <span className="text-gray-600 mx-0.5">/</span>
-                                        <span className="text-gray-500">{maxInParty}</span>
-                                    </div>
+                                        <div className="text-[12px] font-mono font-bold tracking-wider">
+                                            <span className={currentCount === maxInParty ? "text-[#5B69FF]" : "text-gray-300"}>
+                                                {currentCount}
+                                            </span>
+                                            <span className="text-gray-600 mx-0.5">/</span>
+                                            <span className="text-gray-500">{maxInParty}</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex-1" />
                                 )}
                             </div>
 
@@ -1113,9 +1354,16 @@ function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean 
                 />
             </div>
             <div className="flex flex-col justify-center min-w-0 flex-1 pr-1">
-                <div className={`text-[11px] sm:text-[13px] font-bold truncate ${isCompleted ? "text-gray-400" : "text-white"}`}>
-                    {char.name}
-                    {isCompleted && <span className="ml-1 text-[9px] text-gray-400 font-normal">(완료)</span>}
+                <div className="flex items-center gap-1.5 min-w-0">
+                    <div className={`text-[11px] sm:text-[13px] font-bold truncate ${isCompleted ? "text-gray-400" : "text-white"}`}>
+                        {char.name}
+                    </div>
+                    {char.isGuest && (
+                        <span className="shrink-0 px-1 py-0.5 rounded bg-[#FF5252]/15 text-[#FF5252] text-[9px] font-bold">
+                            용병
+                        </span>
+                    )}
+                    {isCompleted && <span className="shrink-0 text-[9px] text-gray-400 font-normal">(완료)</span>}
                 </div>
                 <div className="text-[9px] sm:text-[11px] text-gray-400 truncate flex gap-1 items-center">
                     <span className={`${isCompleted ? "text-gray-400" : "text-yellow-400/80"}`}>Lv.{char.itemLevelNum || 0}</span>
@@ -1135,13 +1383,14 @@ function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean 
     );
 }
 
-function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameChange }: {
+function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameChange, onAddGuest }: {
     group: RaidGroup;
     isActive: boolean;
     onClick: () => void;
     onRemove: () => void;
     onRemoveChar: (idx: number) => void;
     onNameChange: (newName: string) => void;
+    onAddGuest: (idx: number) => void;
 }) {
     const [page, setPage] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -1160,11 +1409,11 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameCha
     return (
         <div
             onClick={onClick}
-            className={`bg-[#16181D] rounded-lg p-5 flex flex-col border cursor-pointer transition-all ${isActive ? "border-[#5B69FF] border-[1.5px] bg-[#5B69FF]/5" : "border-none"}`}
+            className={`bg-[#16181D] rounded-lg p-5 flex flex-col border-[1.5px] cursor-pointer transition-all ${isActive ? "border-[#5B69FF] bg-[#5B69FF]/5" : "border-transparent"}`}
         >
-            <div className="flex items-center gap-1 self-start mb-1.5 -ml-1">
-                <div className="relative inline-grid items-center">
-                    <span className="invisible whitespace-pre text-[14px] font-bold px-1 pointer-events-none">
+            <div className="flex items-center gap-1 self-start -ml-1">
+                <div className="relative inline-grid items-center h-7">
+                    <span className="invisible whitespace-pre text-[16px] font-bold px-1 pointer-events-none">
                         {group.groupName || "그룹 이름 입력"}
                     </span>
 
@@ -1176,7 +1425,7 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameCha
                         onChange={(e) => onNameChange(e.target.value)}
                         onClick={(e) => { e.stopPropagation(); onClick(); }}
                         placeholder="그룹 이름 입력"
-                        className="absolute inset-0 w-full h-full text-[14px] font-bold text-[#5B69FF] bg-transparent border-b border-transparent hover:border-[#5B69FF]/30 focus:border-[#5B69FF] focus:outline-none transition-colors px-1"
+                        className="absolute inset-0 w-full h-full text-[16px] font-bold text-[#5B69FF] bg-transparent border-b border-transparent hover:border-[#5B69FF]/30 focus:border-[#5B69FF] focus:outline-none transition-colors px-1 leading-none"
                     />
                 </div>
 
@@ -1185,7 +1434,7 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameCha
                     className="p-1 text-[#5B69FF] opacity-60 hover:opacity-100 transition-opacity shrink-0"
                     title="그룹 이름 수정"
                 >
-                    <Edit2 className="w-3.5 h-3.5" />
+                    <Edit2 className="w-4 h-4" />
                 </button>
             </div>
 
@@ -1218,14 +1467,12 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameCha
                     const actualPartyNumber = (page * 2) + partyOffset + 1;
                     const startIndex = absoluteStartIndex + (partyOffset * 4);
 
-                    // 🔥 추가: 해당 파티(최대 4칸)에 속한 인원수만 계산
                     const partySlots = group.slots.slice(startIndex, startIndex + 4);
                     const currentCount = partySlots.filter(Boolean).length;
                     const maxInParty = Math.min(4, Math.max(0, group.maxMembers - startIndex));
 
                     return (
                         <div key={partyOffset} className="flex flex-col gap-1.5 sm:gap-2">
-                            {/* 🔥 변경: 파티 이름 옆에 인원수(0/4) 표시 */}
                             <div className="flex items-center justify-between px-1 pb-0.5 mb-[-2px]">
                                 <span className="text-[11px] font-bold text-gray-500">
                                     {actualPartyNumber}파티
@@ -1241,7 +1488,6 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameCha
                                 )}
                             </div>
 
-                            {/* 기존 슬롯 렌더링 코드 그대로 유지 */}
                             {Array.from({ length: 4 }).map((_, slotOffset) => {
                                 const absoluteIndex = startIndex + slotOffset;
                                 const isBlocked = absoluteIndex >= group.maxMembers;
@@ -1260,6 +1506,7 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameCha
                                         slotIndex={absoluteIndex}
                                         char={group.slots[absoluteIndex]}
                                         onRemove={() => onRemoveChar(absoluteIndex)}
+                                        onAddGuest={() => onAddGuest(absoluteIndex)}
                                     />
                                 );
                             })}
@@ -1328,6 +1575,7 @@ function WaitlistDroppable({ characters, activeGroup }: { characters: any[], act
             {activeGroup ? (
                 <>
                     <h3 className="font-bold text-white mb-4 flex items-center gap-2 border-b border-white/5 pb-3 shrink-0">
+
                         <Users className="w-4 h-4 text-[#5B69FF]" />
                         <div className="flex-1 truncate flex items-center gap-1.5">
                             {activeGroup.raidName}
@@ -1339,6 +1587,7 @@ function WaitlistDroppable({ characters, activeGroup }: { characters: any[], act
                             {characters.length}개
                         </span>
                     </h3>
+
 
                     <div className="flex flex-col gap-5 pb-4">
                         {groupedCharacters.map((group) => (
@@ -1420,12 +1669,21 @@ function DraggableCharacter({ char }: { char: any }) {
                 </div>
 
                 <div className="flex flex-col justify-center min-w-0 flex-1">
-                    <div className="text-[11px] sm:text-[13px] font-bold text-white truncate group-hover:text-[#5B69FF] transition-colors">{char.name}</div>
-                    <div className="text-[9px] sm:text-[11px] text-gray-400 flex gap-1 items-center truncate">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="text-[11px] sm:text-[13px] font-bold text-white truncate group-hover:text-[#5B69FF] transition-colors">
+                            {char.name}
+                        </div>
+                        {char.isGuest && (
+                            <span className="shrink-0 px-1 py-0.5 rounded bg-[#FF5252]/15 text-[#FF5252] text-[9px] font-bold">
+                                용병
+                            </span>
+                        )}
+                    </div>
+                    <div className="text-[9px] sm:text-[11px] text-gray-400 truncate flex gap-1 items-center">
                         <span className="text-yellow-400 ">Lv.{(char.itemLevelNum || 0).toFixed(2)}</span>
                     </div>
                     {char.combatPower && (
-                        <div className={`flex items-center gap-0.5 ext-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-400" : "text-red-400"}`}>
+                        <div className={`flex items-center gap-0.5  text-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-400" : "text-red-400"}`}>
                             <span className={!isSupporter ? "translate-y-[0.5px]" : ""}>
                                 {isSupporter ? "✚" : "⚔️"}
                             </span>
@@ -1438,7 +1696,9 @@ function DraggableCharacter({ char }: { char: any }) {
     );
 }
 
-function DroppableSlot({ groupId, slotIndex, char, onRemove }: { groupId: string, slotIndex: number, char: any | null, onRemove: () => void }) {
+function DroppableSlot({ groupId, slotIndex, char, onRemove, onAddGuest }: {
+    groupId: string, slotIndex: number, char: any | null, onRemove: () => void, onAddGuest: () => void
+}) {
     const { setNodeRef, isOver } = useDroppable({
         id: `slot::${groupId}::${slotIndex}`,
     });
@@ -1462,9 +1722,13 @@ function DroppableSlot({ groupId, slotIndex, char, onRemove }: { groupId: string
                     </button>
                 </div>
             ) : (
-                <div className="w-full text-center text-[10px] sm:text-xs text-gray-600 font-medium">
-                    비어있음
-                </div>
+                // 🔥 비어있을 때 + 버튼 렌더링
+                <button
+                    onClick={(e) => { e.stopPropagation(); onAddGuest(); }}
+                    className="w-full h-full flex items-center justify-center gap-1.5 text-[11px] sm:text-xs text-gray-500 hover:text-[#5B69FF] hover:bg-[#5B69FF]/5 transition-colors"
+                >
+                    <Plus className="w-3.5 h-3.5" /> 용병 추가
+                </button>
             )}
         </div>
     );
@@ -1499,7 +1763,16 @@ function DraggableCharacterInSlot({ char, groupId, slotIndex }: { char: any, gro
             </div>
 
             <div className="flex flex-col justify-center min-w-0 flex-1 pr-4 sm:pr-5">
-                <div className="text-[11px] sm:text-[13px] font-bold text-white truncate">{char.name}</div>
+                <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="text-[11px] sm:text-[13px] font-bold text-white truncate group-hover:text-[#5B69FF] transition-colors">
+                        {char.name}
+                    </div>
+                    {char.isGuest && (
+                        <span className="shrink-0 px-1 py-0.5 rounded bg-[#FF5252]/15 text-[#FF5252] text-[9px] font-bold">
+                            용병
+                        </span>
+                    )}
+                </div>
                 <div className="text-[9px] sm:text-[11px] text-gray-400 truncate flex gap-1 items-center">
                     <span className="text-yellow-400/80 ">Lv.{char.itemLevelNum || 0}</span>
                     <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
@@ -1517,3 +1790,4 @@ function DraggableCharacterInSlot({ char, groupId, slotIndex }: { char: any, gro
         </div>
     );
 }
+

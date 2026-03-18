@@ -577,8 +577,8 @@ export const raidInformation: Record<
                 gold: 0,
                 boundGold: 30000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 0, boundGold: 13500, bonusCost: 0 },
-                    { index: 2, name: "2관문", gold: 0, boundGold: 16500, bonusCost: 0 },
+                    { index: 1, name: "1관문", gold: 0, boundGold: 13500, bonusCost: 4320 },
+                    { index: 2, name: "2관문", gold: 0, boundGold: 16500, bonusCost: 5280 },
                 ],
             },
             "하드": {
@@ -586,8 +586,8 @@ export const raidInformation: Record<
                 gold: 0,
                 boundGold: 40000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 0, boundGold: 16000, bonusCost: 0 },
-                    { index: 2, name: "2관문", gold: 0, boundGold: 24000, bonusCost: 0 },
+                    { index: 1, name: "1관문", gold: 0, boundGold: 16000, bonusCost: 5120 },
+                    { index: 2, name: "2관문", gold: 0, boundGold: 24000, bonusCost: 7680 },
                 ],
             },
             "나메": {
@@ -595,8 +595,8 @@ export const raidInformation: Record<
                 gold: 0,
                 boundGold: 50000,
                 gates: [
-                    { index: 1, name: "1관문", gold: 0, boundGold: 20000, bonusCost: 0 },
-                    { index: 2, name: "2관문", gold: 0, boundGold: 30000, bonusCost: 0 },
+                    { index: 1, name: "1관문", gold: 0, boundGold: 20000, bonusCost: 6400 },
+                    { index: 2, name: "2관문", gold: 0, boundGold: 30000, bonusCost: 9600 },
                 ],
             },
         },
