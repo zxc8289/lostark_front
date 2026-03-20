@@ -48,7 +48,27 @@ const Icons = {
     ChevronLeft: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>,
     ChevronRight: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>,
     ArrowLeft: () => <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>,
+    ReplyArrow: () => (
+        <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="opacity-40"
+        >
+            <path d="M9 22H7a2 2 0 0 1-2-2V4" />
+            <path d="M5 15h11" />
+            <path d="m13 18 3-3-3-3" />
+        </svg>
+    ),
+
 };
+
+
 
 // --- 유틸리티 함수 ---
 function fmtDate(iso: string | null) {
@@ -257,6 +277,8 @@ function SupportPageContent() {
         } finally { setDeleteSaving(false); }
     }
 
+
+
     async function submitReply() {
         if (!openId || !replyText.trim()) return;
         try {
@@ -384,7 +406,6 @@ function SupportPageContent() {
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                         <button onClick={closeDetail} className="text-[#5B69FF] hover:text-blue-400 flex items-center text-sm font-medium mb-8 transition-colors"><Icons.ArrowLeft /> 목록으로 돌아가기</button>
 
-                        {/* ✨ 상세 페이지 스케켈레톤 적용 */}
                         {openLoading || !openPost ? <DetailSkeleton /> : (
                             <>
                                 <div className="mb-10">
@@ -470,20 +491,47 @@ function SupportPageContent() {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="text-gray-300 pl-[52px]">{parent.content}</div>
+                                                <div className="text-gray-300 pl-[52px] whitespace-pre-wrap">{parent.content}</div>
                                             </div>
 
                                             {openReplies.filter(child => child.parentId === parent.id).map(child => (
                                                 <div key={child.id} className="flex gap-2 pl-4 sm:pl-10">
-                                                    <div className="flex-shrink-0 mt-4 text-gray-600">
-                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14l4 4 4-4" /><path d="M5 4v9a2 2 0 002 2h6" /></svg>
+                                                    {/* 화살표 아이콘 교체 및 위치 조정 */}
+                                                    <div className="flex-shrink-0 mt-2 text-gray-600">
+                                                        <svg
+                                                            width="18"
+                                                            height="18"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2.5"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            className="opacity-50"
+                                                        >
+                                                            <path d="M5 2v10a2 2 0 002 2h10" />
+                                                            <path d="M14 11l3 3-3 3" />
+                                                        </svg>
                                                     </div>
+
+                                                    {/* 대댓글 본문 박스 (기존 유지) */}
                                                     <div className={`flex-1 rounded-xl border p-4 transition-all ${child.isStaff ? "bg-[#16181D]/60 border-[#5B69FF]/30" : "bg-[#0E1015]/80 border-gray-800/80"}`}>
                                                         <div className="flex items-center gap-3 mb-2">
-                                                            {child.isStaff ? <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400"><Icons.Shield /></div> : <Avatar src={child.authorImage} alt={child.author} sizeClass="w-8 h-8" />}
-                                                            <div className="flex flex-col"><div className="font-semibold text-gray-300 text-sm">{child.author} {child.isStaff && <span className="text-[#5B69FF] ml-1 text-[10px] font-bold">공식 답변</span>}</div><div className="text-[10px] text-gray-600">{fmtDate(child.createdAt)}</div></div>
+                                                            {child.isStaff ? (
+                                                                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
+                                                                    <Icons.Shield />
+                                                                </div>
+                                                            ) : (
+                                                                <Avatar src={child.authorImage} alt={child.author} sizeClass="w-8 h-8" />
+                                                            )}
+                                                            <div className="flex flex-col">
+                                                                <div className="font-semibold text-gray-300 text-sm">
+                                                                    {child.author}
+                                                                </div>
+                                                                <div className="text-[10px] text-gray-600">{fmtDate(child.createdAt)}</div>
+                                                            </div>
                                                         </div>
-                                                        <div className="text-gray-400 text-sm pl-[44px]">{child.content}</div>
+                                                        <div className="text-gray-400 text-sm pl-[44px] leading-relaxed whitespace-pre-wrap">{child.content}</div>
                                                     </div>
                                                 </div>
                                             ))}

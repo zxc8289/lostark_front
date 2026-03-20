@@ -2059,38 +2059,42 @@ export default function PartyDetailPage() {
                             </div>
                         )}
 
-                        <button
-                            type="button"
-                            onClick={openInviteModal}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-[#5B69FF]/80 px-3 py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#4a57e0]"
-                        >
-                            <Link2 className="h-3.5 w-3.5" />
-                            <span>파티 코드 생성</span>
-                        </button>
                     </div>
 
 
                 </div>
-                <div className="flex gap-6 px-4 sm:px-0 mb-4">
+                <div className="flex items-center justify-between px-4 sm:px-0 mb-4 border-b border-white/5 sm:border-transparent">
+                    <div className="flex gap-6">
+                        <button
+                            onClick={() => setActiveTab("tasks")}
+                            className={`pb-2 text-lg font-bold transition-colors relative ${activeTab === "tasks" ? "text-white" : "text-gray-500 hover:text-gray-300"
+                                }`}
+                        >
+                            숙제 현황
+                            {activeTab === "tasks" && (
+                                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("planner")}
+                            className={`pb-2 text-lg font-bold transition-colors relative ${activeTab === "planner" ? "text-white" : "text-gray-500 hover:text-gray-300"
+                                }`}
+                        >
+                            레이드 그룹
+                            {activeTab === "planner" && (
+                                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />
+                            )}
+                        </button>
+                    </div>
+
+                    {/* 이쪽으로 이동된 파티 코드 생성 버튼 */}
                     <button
-                        onClick={() => setActiveTab("tasks")}
-                        className={`pb-2 text-lg font-bold transition-colors relative ${activeTab === "tasks" ? "text-white" : "text-gray-500 hover:text-gray-300"
-                            }`}
+                        type="button"
+                        onClick={openInviteModal}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-[#5B69FF]/80 px-3 py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#4a57e0]"
                     >
-                        숙제 현황
-                        {activeTab === "tasks" && (
-                            <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />
-                        )}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("planner")}
-                        className={`pb-2 text-lg font-bold transition-colors relative ${activeTab === "planner" ? "text-white" : "text-gray-500 hover:text-gray-300"
-                            }`}
-                    >
-                        레이드 그룹 (테스트)
-                        {activeTab === "planner" && (
-                            <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />
-                        )}
+                        <Link2 className="h-3.5 w-3.5" />
+                        <span>파티 코드 생성</span>
                     </button>
                 </div>
                 {activeTab === "tasks" ? (

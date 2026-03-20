@@ -566,7 +566,6 @@ export const raidInformation: Record<
         },
     },
 
-
     "지평의 성당": {
         kind: "어비스",
         releaseDate: "2026-03-18",

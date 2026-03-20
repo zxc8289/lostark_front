@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Plus, Users, Swords, X, AlertTriangle, Check, ChevronLeft, ChevronRight, Edit2, Loader2, Filter, ChevronUp, ChevronDown, Search } from "lucide-react";
+import { Plus, Users, Swords, X, AlertTriangle, Check, ChevronLeft, ChevronRight, Edit2, Loader2, Filter, ChevronUp, ChevronDown, Search, ArrowUpDown, Calendar } from "lucide-react";
 import {
     DndContext,
     DragEndEvent,
@@ -14,9 +14,12 @@ import {
     useSensors,
     useDraggable,
     useDroppable,
+    closestCenter,
 } from "@dnd-kit/core";
 import type { PartyMemberTasks } from "@/app/party-tasks/[partyId]/page";
 import { raidInformation } from "@/server/data/raids";
+import { CSS } from "@dnd-kit/utilities";
+import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from "@dnd-kit/sortable";
 
 type RaidPlannerTabProps = {
     partyId: number;
@@ -38,6 +41,8 @@ export type RaidGroup = {
     difficulty: string;
     maxMembers: number;
     slots: (any | null)[];
+    scheduleDay?: string;
+    scheduleTime?: string;
 };
 
 type DifficultyKey = "노말" | "하드" | "나메" | "싱글";
@@ -122,55 +127,41 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
     const [guestSearchResult, setGuestSearchResult] = useState<{ roster: any[], ownerId: string, ownerName: string } | null>(null);
     const [guestSearchError, setGuestSearchError] = useState("");
 
-    // 🔥 필터 관련 상태 추가 (로컬 스토리지 연동)
+    const [isReorderMode, setIsReorderMode] = useState(false);
+
+    // 🔥 필터 관련 상태들
     const FILTER_KEY_REMAIN = "raidPlanner_onlyRemain";
     const FILTER_KEY_RAIDS = "raidPlanner_selectedRaids";
     const FILTER_KEY_USERS = "raidPlanner_selectedUsers";
+    const FILTER_KEY_SCHEDULE = "raidPlanner_isScheduleView";
 
     const [onlyRemain, setOnlyRemain] = useState<boolean>(() => {
         if (typeof window === "undefined") return false;
-        try {
-            const saved = localStorage.getItem(FILTER_KEY_REMAIN);
-            return saved !== null ? JSON.parse(saved) : false;
-        } catch {
-            return false;
-        }
+        try { return JSON.parse(localStorage.getItem(FILTER_KEY_REMAIN) || "false"); } catch { return false; }
     });
 
     const [selectedRaids, setSelectedRaids] = useState<string[]>(() => {
         if (typeof window === "undefined") return [];
-        try {
-            const saved = localStorage.getItem(FILTER_KEY_RAIDS);
-            return saved ? JSON.parse(saved) : [];
-        } catch {
-            return [];
-        }
+        try { return JSON.parse(localStorage.getItem(FILTER_KEY_RAIDS) || "[]"); } catch { return []; }
     });
 
     const [selectedUsers, setSelectedUsers] = useState<string[]>(() => {
         if (typeof window === "undefined") return [];
-        try {
-            const saved = localStorage.getItem(FILTER_KEY_USERS);
-            return saved ? JSON.parse(saved) : [];
-        } catch {
-            return [];
-        }
+        try { return JSON.parse(localStorage.getItem(FILTER_KEY_USERS) || "[]"); } catch { return []; }
+    });
+
+    const [isScheduleView, setIsScheduleView] = useState<boolean>(() => {
+        if (typeof window === "undefined") return false;
+        try { return JSON.parse(localStorage.getItem(FILTER_KEY_SCHEDULE) || "false"); } catch { return false; }
     });
 
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [isUserFilterOpen, setIsUserFilterOpen] = useState(false);
 
-    useEffect(() => {
-        try { localStorage.setItem(FILTER_KEY_REMAIN, JSON.stringify(onlyRemain)); } catch { }
-    }, [onlyRemain]);
-
-    useEffect(() => {
-        try { localStorage.setItem(FILTER_KEY_RAIDS, JSON.stringify(selectedRaids)); } catch { }
-    }, [selectedRaids]);
-
-    useEffect(() => {
-        try { localStorage.setItem(FILTER_KEY_USERS, JSON.stringify(selectedUsers)); } catch { }
-    }, [selectedUsers]);
+    useEffect(() => { try { localStorage.setItem(FILTER_KEY_REMAIN, JSON.stringify(onlyRemain)); } catch { } }, [onlyRemain]);
+    useEffect(() => { try { localStorage.setItem(FILTER_KEY_RAIDS, JSON.stringify(selectedRaids)); } catch { } }, [selectedRaids]);
+    useEffect(() => { try { localStorage.setItem(FILTER_KEY_USERS, JSON.stringify(selectedUsers)); } catch { } }, [selectedUsers]);
+    useEffect(() => { try { localStorage.setItem(FILTER_KEY_SCHEDULE, JSON.stringify(isScheduleView)); } catch { } }, [isScheduleView]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -225,7 +216,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         }
     }, [selectedRaidName]);
 
-    // 🔥 baseCharacters에는 더 이상 용병 데이터를 합치지 않음!
     const baseCharacters = useMemo(() => {
         return partyTasks.flatMap(member => {
             const roster = member.summary?.roster ?? [];
@@ -267,7 +257,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 throw new Error("원정대 정보가 없습니다.");
             }
 
-            // 🔥 원정대 중복을 확실하게 방지하기 위해, 원정대 내 가장 레벨 높은 캐릭터 이름을 기준으로 ownerId 생성
             const sortedRoster = [...data.roster].sort((a, b) => b.itemLevelNum - a.itemLevelNum);
             const topCharName = sortedRoster.length > 0 ? sortedRoster[0].name : trimmed;
             const guestOwnerId = `guest-${topCharName}`;
@@ -288,8 +277,8 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         if (!guestTargetSlot || !guestSearchResult) return;
 
         const { ownerId, ownerName } = guestSearchResult;
-
         const targetGroup = groups.find(g => g.id === guestTargetSlot.groupId);
+
         if (targetGroup) {
             const hasSameOwner = targetGroup.slots.some(s => s && s.ownerId === ownerId);
             if (hasSameOwner) {
@@ -306,7 +295,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
             isGuest: true
         };
 
-        // 그룹 슬롯에 용병 바로 꽂아넣기 (Waitlist에는 남지 않음)
         setGroups(prev => prev.map(g => {
             if (g.id === guestTargetSlot.groupId) {
                 const newSlots = [...g.slots];
@@ -324,7 +312,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
             ...group,
             slots: group.slots.map(slotChar => {
                 if (!slotChar) return null;
-                // 🔥 용병은 파티원 목록(baseCharacters)에 없으므로 DB 스냅샷 그대로 유지
                 if (slotChar.isGuest) return slotChar;
 
                 const freshData = baseCharacters.find(c => c.uniqueId === slotChar.uniqueId);
@@ -359,11 +346,12 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 if (!hasAllSelectedUsers) return false;
             }
 
-            if (onlyRemain) {
+            // 🔥 수정 모드에서는 남은 숙제만 보기 필터를 무시합니다
+            if (onlyRemain && !isEditMode) {
                 const info = raidInformation[group.raidName];
                 const diffInfo = info?.difficulty[group.difficulty as DifficultyKey];
                 const allGates = diffInfo?.gates.map((g: any) => g.index) || [];
-                const members = group.slots.filter(s => s !== null && !s.isGuest); // 파티원만
+                const members = group.slots.filter(s => s !== null && !s.isGuest);
 
                 if (members.length === 0) return true;
 
@@ -381,7 +369,52 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
 
             return true;
         });
-    }, [syncedGroups, selectedRaids, selectedUsers, onlyRemain, partyTasks]);
+    }, [syncedGroups, selectedRaids, selectedUsers, onlyRemain, isEditMode, partyTasks]);
+
+    const dayOrderMap = useMemo(() => {
+        const days = ["일", "월", "화", "수", "목", "금", "토"];
+        const todayIdx = new Date().getDay();
+        const orderedDays = [];
+        for (let i = 0; i < 7; i++) {
+            orderedDays.push(days[(todayIdx + i) % 7]);
+        }
+        return orderedDays;
+    }, []);
+
+    const groupedBySchedule = useMemo(() => {
+        if (!isScheduleView) return null;
+
+        const groupsByDay: Record<string, RaidGroup[]> = {};
+        const unscheduled: RaidGroup[] = [];
+
+        dayOrderMap.forEach(day => {
+            groupsByDay[day] = [];
+        });
+
+        filteredGroups.forEach(g => {
+            if (g.scheduleDay && groupsByDay[g.scheduleDay]) {
+                groupsByDay[g.scheduleDay].push(g);
+            } else {
+                unscheduled.push(g);
+            }
+        });
+
+        dayOrderMap.forEach(day => {
+            groupsByDay[day].sort((a, b) => {
+                const timeA = a.scheduleTime || "24:00";
+                const timeB = b.scheduleTime || "24:00";
+                return timeA.localeCompare(timeB);
+            });
+        });
+
+        unscheduled.sort((a, b) => {
+            const timeA = a.scheduleTime || "24:00";
+            const timeB = b.scheduleTime || "24:00";
+            return timeA.localeCompare(timeB);
+        });
+
+        return { groupsByDay, unscheduled };
+    }, [filteredGroups, isScheduleView, dayOrderMap]);
 
     const activeGroup = syncedGroups.find(g => g.id === activeGroupId) || null;
 
@@ -405,6 +438,66 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         });
     }, [baseCharacters, syncedGroups, activeGroup]);
 
+    const handleGroupDragEnd = async (e: DragEndEvent) => {
+        const { active, over } = e;
+        if (over && active.id !== over.id) {
+            let newGroups = [...groups];
+            setGroups((items) => {
+                const oldIndex = items.findIndex((item) => item.id === active.id);
+                const newIndex = items.findIndex((item) => item.id === over.id);
+                newGroups = arrayMove(items, oldIndex, newIndex);
+                return newGroups;
+            });
+
+            if (!partyId) return;
+
+            try {
+                const payload = newGroups.map(g => ({
+                    id: g.id,
+                    raidName: g.raidName,
+                    groupName: g.groupName,
+                    difficulty: g.difficulty,
+                    maxMembers: g.maxMembers,
+                    scheduleDay: g.scheduleDay || "",
+                    scheduleTime: g.scheduleTime || "",
+                    slots: g.slots.map(char => char ? {
+                        uniqueId: char.uniqueId,
+                        ownerId: char.ownerId,
+                        ownerName: char.ownerName,
+                        name: char.name,
+                        className: char.className,
+                        itemLevelNum: char.itemLevelNum,
+                        combatPower: char.combatPower,
+                        jobEngraving: char.jobEngraving,
+                        isGuest: char.isGuest,
+                    } : null)
+                }));
+
+                const res = await fetch(`/api/party-tasks/${partyId}/planner`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ groups: payload }),
+                });
+
+                if (res.ok) {
+                    setOriginalGroups(payload);
+                }
+            } catch (error) {
+                console.error("Auto Save Order Error:", error);
+            }
+        }
+    };
+
+    const toggleReorderMode = () => {
+        if (!isReorderMode) {
+            setSelectedRaids([]);
+            setSelectedUsers([]);
+            setOnlyRemain(false);
+            setIsScheduleView(false);
+        }
+        setIsReorderMode(!isReorderMode);
+    };
+
     const handleSavePlanner = async () => {
         if (!partyId) return;
         setIsSaving(true);
@@ -416,6 +509,8 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 groupName: g.groupName,
                 difficulty: g.difficulty,
                 maxMembers: g.maxMembers,
+                scheduleDay: g.scheduleDay || "",
+                scheduleTime: g.scheduleTime || "",
                 slots: g.slots.map(char => char ? {
                     uniqueId: char.uniqueId,
                     ownerId: char.ownerId,
@@ -461,6 +556,10 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         setGroups(prev => prev.map(g => g.id === groupId ? { ...g, groupName: newName } : g));
     };
 
+    const updateGroupSchedule = (groupId: string, day: string, time: string) => {
+        setGroups(prev => prev.map(g => g.id === groupId ? { ...g, scheduleDay: day, scheduleTime: time } : g));
+    };
+
     const openAddModal = () => {
         setSelectedRaidName(null);
         setSelectedDifficulty(null);
@@ -491,6 +590,8 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
             difficulty: selectedDifficulty,
             maxMembers: max,
             slots: Array(max).fill(null),
+            scheduleDay: "",
+            scheduleTime: "",
         };
 
         setGroups([...groups, newGroup]);
@@ -684,104 +785,132 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
             <div className="bg-[#16181D] rounded-none sm:rounded-sm border-x-0 px-4 sm:px-5 py-3 sm:py-4">
                 <div className="flex flex-wrap gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between max-[1246px]:flex-col max-[1246px]:items-start max-[1246px]:justify-start">
 
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 text-sm sm:text-base flex-1">
-                        {isEditMode ? (
-                            <div className="flex items-center">
-                                <p className="text-sm text-gray-400 break-keep font-medium">
-                                    <span className="hidden sm:inline">우측에서 그룹을 선택하고, 좌측의 캐릭터를 드래그하여 배치하세요.</span>
-                                    <span className="sm:hidden">레이드 그룹을 수정하고 캐릭터를 배치하세요.</span>
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="flex flex-wrap items-center gap-2 w-full ">
+                    <div className="flex flex-col gap-2 min-w-0 flex-1 w-full">
+                        <div className="flex flex-wrap items-center gap-2 w-full text-sm sm:text-base">
+                            {/* 🔥 수정 모드가 아닐 때만 자리이동 버튼 노출 */}
+                            {!isEditMode && (
                                 <button
-                                    onClick={() => setOnlyRemain(!onlyRemain)}
-                                    className={`inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm transition-colors ${onlyRemain
+                                    onClick={toggleReorderMode}
+                                    className={`inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm transition-colors ${isReorderMode
                                         ? "bg-[#5B69FF]/20 text-[#5B69FF] border border-[#5B69FF]/50"
                                         : "bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-white"
                                         }`}
                                 >
+                                    <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5" />
+                                    자리 이동
+                                </button>
+                            )}
+
+                            {/* 🔥 남은 숙제만 보기 버튼: 수정 모드가 아닐 때만 노출 */}
+                            {!isEditMode && (
+                                <button
+                                    onClick={() => setOnlyRemain(!onlyRemain)}
+                                    disabled={isReorderMode}
+                                    className={`inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm transition-colors ${isReorderMode ? "opacity-50 cursor-not-allowed pointer-events-none " : ""
+                                        } ${onlyRemain
+                                            ? "bg-[#5B69FF]/20 text-[#5B69FF] border border-[#5B69FF]/50"
+                                            : "bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-white"
+                                        }`}
+                                >
                                     남은 숙제만 보기
                                 </button>
+                            )}
 
-                                <div className="raid-filter-dropdown relative">
-                                    <button
-                                        onClick={() => setIsFilterOpen(!isFilterOpen)}
-                                        className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-white/[.04] border border-white/10 rounded-md hover:bg-white/5 transition-all min-w-[140px] sm:min-w-[160px] ${isFilterOpen ? 'border-[#5B69FF]/50 ring-1 ring-[#5B69FF]/50' : ''}`}
-                                    >
-                                        <span className="text-xs sm:text-sm text-gray-200 truncate pr-1">
-                                            {selectedRaids.length > 0 ? `${selectedRaids.length}개 레이드` : "모든 레이드"}
-                                        </span>
-                                        {isFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />}
-                                    </button>
+                            {/* 🔥 아래 필터들은 수정 모드/보기 모드 관계없이 항상 노출 */}
+                            <button
+                                onClick={() => setIsScheduleView(!isScheduleView)}
+                                disabled={isReorderMode}
+                                className={`inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm transition-colors ${isReorderMode ? "opacity-50 cursor-not-allowed pointer-events-none " : ""
+                                    } ${isScheduleView
+                                        ? "bg-[#5B69FF]/20 text-[#5B69FF] border border-[#5B69FF]/50"
+                                        : "bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-white"
+                                    }`}
+                            >
+                                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5" />
+                                일정 보기
+                            </button>
 
-                                    {isFilterOpen && (
-                                        <div className="absolute top-full left-0 mt-2 w-56 bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50] shadow-xl">
-                                            <div className="flex flex-col gap-1 p-1.5 max-h-64 overflow-y-auto custom-scrollbar">
-                                                {availableFilterRaids.map((raidName) => {
-                                                    const isActive = selectedRaids.includes(raidName);
-                                                    return (
-                                                        <button
-                                                            key={raidName}
-                                                            onClick={() => toggleRaid(raidName)}
-                                                            className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-white/5"}`}
-                                                        >
-                                                            <div className={`w-4 h-4 flex items-center justify-center transition-colors ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
-                                                                <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                                                            </div>
-                                                            <span className="text-xs sm:text-sm font-medium">{raidName}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
+                            <div className="raid-filter-dropdown relative">
+                                <button
+                                    onClick={() => setIsFilterOpen(!isFilterOpen)}
+                                    disabled={isReorderMode}
+                                    className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-white/[.04] border border-white/10 rounded-md transition-all min-w-[140px] sm:min-w-[160px] ${isReorderMode ? "opacity-50 cursor-not-allowed pointer-events-none " : "hover:bg-white/5"
+                                        } ${isFilterOpen ? 'border-[#5B69FF]/50 ring-1 ring-[#5B69FF]/50' : ''}`}
+                                >
+                                    <span className="text-xs sm:text-sm text-gray-200 truncate pr-1">
+                                        {selectedRaids.length > 0 ? `${selectedRaids.length}개 레이드` : "모든 레이드"}
+                                    </span>
+                                    {isFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />}
+                                </button>
+
+                                {isFilterOpen && !isReorderMode && (
+                                    <div className="absolute top-full left-0 mt-2 w-56 bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50] shadow-xl">
+                                        <div className="flex flex-col gap-1 p-1.5 max-h-64 overflow-y-auto custom-scrollbar">
+                                            {availableFilterRaids.map((raidName) => {
+                                                const isActive = selectedRaids.includes(raidName);
+                                                return (
+                                                    <button
+                                                        key={raidName}
+                                                        onClick={() => toggleRaid(raidName)}
+                                                        className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-white/5"}`}
+                                                    >
+                                                        <div className={`w-4 h-4 flex items-center justify-center transition-colors ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
+                                                            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                                                        </div>
+                                                        <span className="text-xs sm:text-sm font-medium">{raidName}</span>
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
-                                    )}
-                                </div>
-
-                                <div className="user-filter-dropdown relative">
-                                    <button
-                                        onClick={() => setIsUserFilterOpen(!isUserFilterOpen)}
-                                        className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-white/[.04] border border-white/10 rounded-md hover:bg-white/5 transition-all min-w-[140px] sm:min-w-[160px] ${isUserFilterOpen ? 'border-[#5B69FF]/50 ring-1 ring-[#5B69FF]/50' : ''}`}
-                                    >
-                                        <span className="text-xs sm:text-sm text-gray-200 truncate pr-1">
-                                            {selectedUsers.length > 0 ? `${selectedUsers.length}명 참여` : "모든 파티원"}
-                                        </span>
-                                        {isUserFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />}
-                                    </button>
-
-                                    {isUserFilterOpen && (
-                                        <div className="absolute top-full left-0 mt-2 w-56 bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50] shadow-xl">
-                                            <div className="flex flex-col gap-1 p-1.5 max-h-64 overflow-y-auto custom-scrollbar">
-                                                {availableFilterUsers.map((user) => {
-                                                    const isActive = selectedUsers.includes(user.id);
-                                                    return (
-                                                        <button
-                                                            key={user.id}
-                                                            onClick={() => toggleUser(user.id)}
-                                                            className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-white/5"}`}
-                                                        >
-                                                            <div className={`w-4 h-4 flex items-center justify-center transition-colors ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
-                                                                <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                                                            </div>
-                                                            <span className="text-xs sm:text-sm font-medium">{user.name}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {(selectedRaids.length > 0 || selectedUsers.length > 0) && (
-                                    <button
-                                        onClick={() => { setSelectedRaids([]); setSelectedUsers([]); }}
-                                        className="inline-flex items-center justify-center py-2 px-3 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm text-[#5B69FF] hover:bg-white/5 transition-colors shrink-0"
-                                    >
-                                        초기화 ⟳
-                                    </button>
+                                    </div>
                                 )}
                             </div>
-                        )}
+
+                            <div className="user-filter-dropdown relative">
+                                <button
+                                    onClick={() => setIsUserFilterOpen(!isUserFilterOpen)}
+                                    disabled={isReorderMode}
+                                    className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-white/[.04] border border-white/10 rounded-md transition-all min-w-[140px] sm:min-w-[160px] ${isReorderMode ? "opacity-50 cursor-not-allowed pointer-events-none " : "hover:bg-white/5"
+                                        } ${isUserFilterOpen ? 'border-[#5B69FF]/50 ring-1 ring-[#5B69FF]/50' : ''}`}
+                                >
+                                    <span className="text-xs sm:text-sm text-gray-200 truncate pr-1">
+                                        {selectedUsers.length > 0 ? `${selectedUsers.length}명 참여` : "모든 파티원"}
+                                    </span>
+                                    {isUserFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />}
+                                </button>
+
+                                {isUserFilterOpen && !isReorderMode && (
+                                    <div className="absolute top-full left-0 mt-2 w-56 bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50] shadow-xl">
+                                        <div className="flex flex-col gap-1 p-1.5 max-h-64 overflow-y-auto custom-scrollbar">
+                                            {availableFilterUsers.map((user) => {
+                                                const isActive = selectedUsers.includes(user.id);
+                                                return (
+                                                    <button
+                                                        key={user.id}
+                                                        onClick={() => toggleUser(user.id)}
+                                                        className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-white/5"}`}
+                                                    >
+                                                        <div className={`w-4 h-4 flex items-center justify-center transition-colors ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
+                                                            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                                                        </div>
+                                                        <span className="text-xs sm:text-sm font-medium">{user.name}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {(selectedRaids.length > 0 || selectedUsers.length > 0) && !isReorderMode && (
+                                <button
+                                    onClick={() => { setSelectedRaids([]); setSelectedUsers([]); }}
+                                    className="inline-flex items-center justify-center py-2 px-3 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm text-[#5B69FF] hover:bg-white/5 transition-colors shrink-0"
+                                >
+                                    초기화 ⟳
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex flex-row flex-wrap gap-2 sm:gap-3 items-center w-full sm:w-auto mt-2 sm:mt-0 pt-3 border-t border-white/10 sm:pt-0 sm:border-none">
@@ -812,7 +941,11 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                             </>
                         ) : (
                             <button
-                                onClick={() => setIsEditMode(true)}
+                                onClick={() => {
+                                    setIsReorderMode(false);
+                                    setOnlyRemain(false); // 수정 모드 진입 시 남은 숙제만 보기 필터는 해제
+                                    setIsEditMode(true);
+                                }}
                                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-2 px-4 sm:px-5 rounded-md bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-white hover:bg-[#5B69FF]/20 text-xs sm:text-sm transition-colors"
                             >
                                 <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -837,11 +970,62 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                 그룹생성 시작하기
                             </button>
                         </div>
-                    ) : filteredGroups.length === 0 ? (
+                    ) : filteredGroups.length === 0 && !isReorderMode ? (
                         <div className="w-full text-center text-gray-500 py-32 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-xl px-4 bg-[#16181D]">
                             <Filter className="w-12 h-12 mb-4 text-gray-600 opacity-50" />
                             <h3 className="text-lg font-bold text-gray-300 mb-2">조건에 맞는 레이드 그룹이 없습니다.</h3>
                             <p className="break-keep text-sm">필터를 해제하거나 새로운 숙제가 있는 그룹을 추가해보세요.</p>
+                        </div>
+                    ) : isReorderMode ? (
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
+                            <SortableContext items={filteredGroups.map(g => g.id)} strategy={rectSortingStrategy}>
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                    {filteredGroups.map(group => (
+                                        <SortableGroupWrapper key={group.id} id={group.id}>
+                                            <ReadOnlyGroupCard
+                                                group={group}
+                                                partyTasks={partyTasks}
+                                                onBulkToggleGate={onBulkToggleGate}
+                                            />
+                                        </SortableGroupWrapper>
+                                    ))}
+                                </div>
+                            </SortableContext>
+                        </DndContext>
+                    ) : isScheduleView ? (
+                        <div className="flex flex-col gap-8 w-full animate-in fade-in duration-200">
+                            {dayOrderMap.map(day => {
+                                const dayGroups = groupedBySchedule!.groupsByDay[day];
+                                if (!dayGroups || dayGroups.length === 0) return null;
+                                return (
+                                    <div key={day} className="flex flex-col gap-3">
+                                        <div className="flex items-center gap-2 border-b border-white/10 pb-2 px-1">
+                                            <Calendar className="w-5 h-5 text-[#5B69FF]" />
+                                            <h3 className="text-base sm:text-lg font-bold text-white">{day}요일</h3>
+                                            <span className="text-xs sm:text-sm text-gray-500 font-medium bg-white/5 px-2 py-0.5 rounded-full">{dayGroups.length}개</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                            {dayGroups.map(group => (
+                                                <ReadOnlyGroupCard key={group.id} group={group} partyTasks={partyTasks} onBulkToggleGate={onBulkToggleGate} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {groupedBySchedule!.unscheduled.length > 0 && (
+                                <div className="flex flex-col gap-3 mt-2">
+                                    <div className="flex items-center gap-2 border-b border-white/10 pb-2 px-1">
+                                        <Calendar className="w-5 h-5 text-gray-500" />
+                                        <h3 className="text-base sm:text-lg font-bold text-gray-400">일정 미정</h3>
+                                        <span className="text-xs sm:text-sm text-gray-500 font-medium bg-white/5 px-2 py-0.5 rounded-full">{groupedBySchedule!.unscheduled.length}개</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                        {groupedBySchedule!.unscheduled.map(group => (
+                                            <ReadOnlyGroupCard key={group.id} group={group} partyTasks={partyTasks} onBulkToggleGate={onBulkToggleGate} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -858,34 +1042,105 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 </div>
             ) : (
                 <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                    {/* 🔥 화면이 넓어질 때 튀어나가는 부분 삭제 (기본 구조 유지) */}
                     <div className="flex flex-col xl:flex-row gap-6 items-start relative">
-
                         <div className="flex flex-col gap-3 w-full xl:w-80 shrink-0 xl:sticky xl:top-26 xl:z-20">
                             <WaitlistDroppable characters={waitlistCharacters} activeGroup={activeGroup} />
                         </div>
 
                         <div className="flex-1 w-full min-h-[600px]">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                {syncedGroups.map(group => (
-                                    <GroupCard
-                                        key={group.id}
-                                        group={group}
-                                        isActive={group.id === activeGroupId}
-                                        onClick={() => setActiveGroupId(group.id)}
-                                        onRemove={() => removeGroup(group.id)}
-                                        onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
-                                        onNameChange={(newName) => updateGroupName(group.id, newName)}
-                                        onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
-                                    />
-                                ))}
+                            {/* 🔥 수정 모드에서도 일정 보기 및 필터가 적용된 배열을 사용, 기존 디자인대로 2열(lg:grid-cols-2)로 롤백 */}
+                            {isScheduleView ? (
+                                <div className="flex flex-col gap-8 w-full animate-in fade-in duration-200">
+                                    {dayOrderMap.map(day => {
+                                        const dayGroups = groupedBySchedule!.groupsByDay[day];
+                                        if (!dayGroups || dayGroups.length === 0) return null;
+                                        return (
+                                            <div key={day} className="flex flex-col gap-3">
+                                                <div className="flex items-center gap-2 border-b border-white/10 pb-2 px-1">
+                                                    <Calendar className="w-5 h-5 text-[#5B69FF]" />
+                                                    <h3 className="text-base sm:text-lg font-bold text-white">{day}요일</h3>
+                                                    <span className="text-xs sm:text-sm text-gray-500 font-medium bg-white/5 px-2 py-0.5 rounded-full">{dayGroups.length}개</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                    {dayGroups.map(group => (
+                                                        <GroupCard
+                                                            key={group.id}
+                                                            group={group}
+                                                            isActive={group.id === activeGroupId}
+                                                            onClick={() => setActiveGroupId(group.id)}
+                                                            onRemove={() => removeGroup(group.id)}
+                                                            onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
+                                                            onNameChange={(newName) => updateGroupName(group.id, newName)}
+                                                            onScheduleChange={(day, time) => updateGroupSchedule(group.id, day, time)}
+                                                            onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {groupedBySchedule!.unscheduled.length > 0 && (
+                                        <div className="flex flex-col gap-3 mt-2">
+                                            <div className="flex items-center gap-2 border-b border-white/10 pb-2 px-1">
+                                                <Calendar className="w-5 h-5 text-gray-500" />
+                                                <h3 className="text-base sm:text-lg font-bold text-gray-400">일정 미정</h3>
+                                                <span className="text-xs sm:text-sm text-gray-500 font-medium bg-white/5 px-2 py-0.5 rounded-full">{groupedBySchedule!.unscheduled.length}개</span>
+                                            </div>
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                {groupedBySchedule!.unscheduled.map(group => (
+                                                    <GroupCard
+                                                        key={group.id}
+                                                        group={group}
+                                                        isActive={group.id === activeGroupId}
+                                                        onClick={() => setActiveGroupId(group.id)}
+                                                        onRemove={() => removeGroup(group.id)}
+                                                        onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
+                                                        onNameChange={(newName) => updateGroupName(group.id, newName)}
+                                                        onScheduleChange={(day, time) => updateGroupSchedule(group.id, day, time)}
+                                                        onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {filteredGroups.length === 0 && groups.length > 0 && (
+                                        <div className="col-span-full text-center text-gray-500 py-32 flex flex-col items-center justify-center bg-[#16181D] rounded-xl px-4">
+                                            <Filter className="w-12 h-12 mb-3 text-gray-600 opacity-50" />
+                                            <p className="break-keep text-sm">조건에 맞는 레이드 그룹이 없습니다.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {filteredGroups.map(group => (
+                                        <GroupCard
+                                            key={group.id}
+                                            group={group}
+                                            isActive={group.id === activeGroupId}
+                                            onClick={() => setActiveGroupId(group.id)}
+                                            onRemove={() => removeGroup(group.id)}
+                                            onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
+                                            onNameChange={(newName) => updateGroupName(group.id, newName)}
+                                            onScheduleChange={(day, time) => updateGroupSchedule(group.id, day, time)}
+                                            onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
+                                        />
+                                    ))}
 
-                                {groups.length === 0 && (
-                                    <div className="col-span-full text-center text-gray-500 py-32 flex flex-col items-center justify-center bg-[#16181D]  rounded-xl px-4">
-                                        <Swords className="w-12 h-12 mb-3 text-gray-600 opacity-50" />
-                                        <p className="break-keep text-sm">생성된 레이드 그룹이 없습니다.<br />상단의 그룹 추가 버튼을 눌러 레이드를 만들어주세요.</p>
-                                    </div>
-                                )}
-                            </div>
+                                    {filteredGroups.length === 0 && groups.length > 0 && (
+                                        <div className="col-span-full text-center text-gray-500 py-32 flex flex-col items-center justify-center bg-[#16181D] rounded-xl px-4">
+                                            <Filter className="w-12 h-12 mb-3 text-gray-600 opacity-50" />
+                                            <p className="break-keep text-sm">조건에 맞는 레이드 그룹이 없습니다.</p>
+                                        </div>
+                                    )}
+                                    {groups.length === 0 && (
+                                        <div className="col-span-full text-center text-gray-500 py-32 flex flex-col items-center justify-center bg-[#16181D] rounded-xl px-4">
+                                            <Swords className="w-12 h-12 mb-3 text-gray-600 opacity-50" />
+                                            <p className="break-keep text-sm">생성된 레이드 그룹이 없습니다.<br />상단의 그룹 추가 버튼을 눌러 레이드를 만들어주세요.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -918,119 +1173,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                         ) : null}
                     </DragOverlay>
                 </DndContext>
-            )}
-
-            {isAddModalOpen && isEditMode && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-0 animate-in fade-in duration-200">
-                    <div className="absolute inset-0 transition-opacity" onClick={closeAddModal} />
-                    <div className="relative w-full max-w-[min(800px,92vw)] flex flex-col rounded-2xl bg-[#16181D] border border-white/10 overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh]">
-                        <header className="px-5 py-5 sm:px-8 border-b border-white/10 flex items-center justify-between gap-4 bg-[#16181D] shrink-0">
-                            <div>
-                                <div className="flex items-center gap-3 mb-1">
-                                    <h2 className="text-xl font-bold text-white tracking-tight">새 레이드 그룹 생성</h2>
-                                </div>
-                                <p className="text-xs sm:text-sm text-gray-400 leading-snug">추가할 레이드를 선택해주세요. (이름은 생성 후 바로 수정 가능합니다)</p>
-                            </div>
-                            <button onClick={closeAddModal} className="text-gray-400 hover:text-white transition-colors shrink-0">
-                                <X className="w-6 h-6" />
-                            </button>
-                        </header>
-
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#121418] custom-scrollbar space-y-8">
-                            {(["군단장", "카제로스", "어비스", "에픽", "그림자"] as const).map((kind) => {
-                                const entries = Object.entries(raidInformation).filter(([, v]) => v.kind === kind);
-                                if (!entries.length) return null;
-
-                                return (
-                                    <section key={kind} className="space-y-3">
-                                        <div className="py-2 -mx-2 px-2 border-b border-white/5">
-                                            <h4 className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-[0.18em]">
-                                                <Swords size={14} className="text-[#5B69FF]" />
-                                                {kind}
-                                            </h4>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {entries.map(([raidName, info]) => {
-                                                const isRaidSelected = selectedRaidName === raidName;
-
-                                                return (
-                                                    <div
-                                                        key={raidName}
-                                                        onClick={() => setSelectedRaidName(raidName)}
-                                                        className={`group relative rounded-xl border p-4 transition-all duration-200 cursor-pointer ${isRaidSelected
-                                                            ? "bg-[#1E222B] border-[#5B69FF]"
-                                                            : "bg-[#16181D] border-white/5 hover:border-white/20 hover:bg-[#1E222B]"
-                                                            }`}
-                                                    >
-                                                        <div className="flex items-center justify-between mb-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`w-1 h-8 rounded-full ${isRaidSelected ? "bg-[#5B69FF]" : "bg-gray-700"}`} />
-                                                                <div className={`font-bold flex items-center gap-2.5 ${isRaidSelected ? "text-white" : "text-gray-300"}`}>
-                                                                    <span className="text-[14px] sm:text-[15px]">{raidName}</span>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isRaidSelected ? "border-[#5B69FF] bg-[#5B69FF]" : "border-gray-500"}`}>
-                                                                {isRaidSelected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-4 gap-1">
-                                                            {Object.entries(info.difficulty)
-                                                                .filter(([diff]) => diff !== "싱글")
-                                                                .map(([diff, diffInfo]) => {
-                                                                    const dKey = diff as DifficultyKey;
-                                                                    const style = difficultyColors[dKey] || difficultyColors["노말"];
-                                                                    const isDiffSelected = isRaidSelected && selectedDifficulty === diff;
-
-                                                                    return (
-                                                                        <button
-                                                                            key={diff}
-                                                                            disabled={!isRaidSelected}
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setSelectedDifficulty(diff);
-                                                                            }}
-                                                                            className={`
-                                                                                relative flex flex-col xl:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-medium rounded-md transition-all
-                                                                                ${!isRaidSelected ? "opacity-30 cursor-not-allowed bg-[#2A2E39]/30 text-gray-600" :
-                                                                                    isDiffSelected ? style.check : `bg-[#2A2E39]/50 text-gray-400 ${style.hover}`
-                                                                                }
-                                                                            `}
-                                                                        >
-                                                                            <span>{getDisplayDifficulty(raidName, diff)}</span>
-                                                                            {diffInfo && <span className="opacity-60 text-[8px] sm:text-[9px]">{diffInfo.level}</span>}
-                                                                        </button>
-                                                                    );
-                                                                })}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </section>
-                                );
-                            })}
-                        </div>
-
-                        <footer className="px-5 py-4 sm:px-8 bg-[#16181D] border-t border-white/10 flex gap-3 shrink-0">
-                            <button
-                                onClick={closeAddModal}
-                                className="flex-[1] py-3 bg-white/5 hover:bg-white/10 text-gray-300 font-bold rounded-xl transition-colors text-sm"
-                            >
-                                취소
-                            </button>
-                            <button
-                                disabled={!selectedRaidName || !selectedDifficulty}
-                                onClick={confirmAddGroup}
-                                className="flex-[2] sm:flex-none sm:px-10 py-3 bg-[#5B69FF] hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-all ml-auto"
-                            >
-                                그룹 만들기
-                            </button>
-                        </footer>
-                    </div>
-                </div>
             )}
 
             {/* 🔥 용병 검색 모달 */}
@@ -1151,6 +1293,120 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                     </div>
                 </div>
             )}
+
+            {/* 🔥 그룹 추가 모달 */}
+            {isAddModalOpen && isEditMode && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-0 animate-in fade-in duration-200">
+                    <div className="absolute inset-0 transition-opacity" onClick={closeAddModal} />
+                    <div className="relative w-full max-w-[min(800px,92vw)] flex flex-col rounded-2xl bg-[#16181D] border border-white/10 overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh]">
+                        <header className="px-5 py-5 sm:px-8 border-b border-white/10 flex items-center justify-between gap-4 bg-[#16181D] shrink-0">
+                            <div>
+                                <div className="flex items-center gap-3 mb-1">
+                                    <h2 className="text-xl font-bold text-white tracking-tight">새 레이드 그룹 생성</h2>
+                                </div>
+                                <p className="text-xs sm:text-sm text-gray-400 leading-snug">추가할 레이드를 선택해주세요. (이름은 생성 후 바로 수정 가능합니다)</p>
+                            </div>
+                            <button onClick={closeAddModal} className="text-gray-400 hover:text-white transition-colors shrink-0">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </header>
+
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#121418] custom-scrollbar space-y-8">
+                            {(["군단장", "카제로스", "어비스", "에픽", "그림자"] as const).map((kind) => {
+                                const entries = Object.entries(raidInformation).filter(([, v]) => v.kind === kind);
+                                if (!entries.length) return null;
+
+                                return (
+                                    <section key={kind} className="space-y-3">
+                                        <div className="py-2 -mx-2 px-2 border-b border-white/5">
+                                            <h4 className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-[0.18em]">
+                                                <Swords size={14} className="text-[#5B69FF]" />
+                                                {kind}
+                                            </h4>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {entries.map(([raidName, info]) => {
+                                                const isRaidSelected = selectedRaidName === raidName;
+
+                                                return (
+                                                    <div
+                                                        key={raidName}
+                                                        onClick={() => setSelectedRaidName(raidName)}
+                                                        className={`group relative rounded-xl border p-4 transition-all duration-200 cursor-pointer ${isRaidSelected
+                                                            ? "bg-[#1E222B] border-[#5B69FF]"
+                                                            : "bg-[#16181D] border-white/5 hover:border-white/20 hover:bg-[#1E222B]"
+                                                            }`}
+                                                    >
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-1 h-8 rounded-full ${isRaidSelected ? "bg-[#5B69FF]" : "bg-gray-700"}`} />
+                                                                <div className={`font-bold flex items-center gap-2.5 ${isRaidSelected ? "text-white" : "text-gray-300"}`}>
+                                                                    <span className="text-[14px] sm:text-[15px]">{raidName}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isRaidSelected ? "border-[#5B69FF] bg-[#5B69FF]" : "border-gray-500"}`}>
+                                                                {isRaidSelected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-4 gap-1">
+                                                            {Object.entries(info.difficulty)
+                                                                .filter(([diff]) => diff !== "싱글")
+                                                                .map(([diff, diffInfo]) => {
+                                                                    const dKey = diff as DifficultyKey;
+                                                                    const style = difficultyColors[dKey] || difficultyColors["노말"];
+                                                                    const isDiffSelected = isRaidSelected && selectedDifficulty === diff;
+
+                                                                    return (
+                                                                        <button
+                                                                            key={diff}
+                                                                            disabled={!isRaidSelected}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setSelectedDifficulty(diff);
+                                                                            }}
+                                                                            className={`
+                                                                                relative flex flex-col xl:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-medium rounded-md transition-all
+                                                                                ${!isRaidSelected ? "opacity-30 cursor-not-allowed bg-[#2A2E39]/30 text-gray-600" :
+                                                                                    isDiffSelected ? style.check : `bg-[#2A2E39]/50 text-gray-400 ${style.hover}`
+                                                                                }
+                                                                            `}
+                                                                        >
+                                                                            <span>{getDisplayDifficulty(raidName, diff)}</span>
+                                                                            {diffInfo && <span className="opacity-60 text-[8px] sm:text-[9px]">{diffInfo.level}</span>}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </section>
+                                );
+                            })}
+                        </div>
+
+                        <footer className="px-5 py-4 sm:px-8 bg-[#16181D] border-t border-white/10 flex gap-3 shrink-0">
+                            <button
+                                onClick={closeAddModal}
+                                className="flex-[1] py-3 bg-white/5 hover:bg-white/10 text-gray-300 font-bold rounded-xl transition-colors text-sm"
+                            >
+                                취소
+                            </button>
+                            <button
+                                disabled={!selectedRaidName || !selectedDifficulty}
+                                onClick={confirmAddGroup}
+                                className="flex-[2] sm:flex-none sm:px-10 py-3 bg-[#5B69FF] hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-all ml-auto"
+                            >
+                                그룹 만들기
+                            </button>
+                        </footer>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -1206,22 +1462,33 @@ function ReadOnlyGroupCard({
 
     return (
         <div className="bg-[#16181D] rounded-lg p-5 flex flex-col h-fit">
-            <span className="text-[16px] font-bold text-[#5B69FF] rounded-md self-start truncate max-w-[300px] mb-1.5">
-                {group.groupName}
-            </span>
-            <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="font-bold text-lg text-white">
-                        {group.raidName}
-                    </h4>
-                    <span className={`text-xs px-2 py-0.5 rounded font-bold ${colors.badge}`}>
-                        {getDisplayDifficulty(group.raidName, group.difficulty)}
-                    </span>
+            <div className="flex justify-between items-center w-full mb-1.5 gap-2">
+                <span className="text-[16px] font-bold text-[#5B69FF] rounded-md truncate">
+                    {group.groupName}
+                </span>
+                {(group.scheduleDay || group.scheduleTime) && (
+                    <div className="flex items-center gap-1.5 px-1.5 py-0.5 shrink-0 rounded bg-[#5B69FF]/10 text-[#5B69FF] text-[11px] font-bold">
+                        <Calendar className="w-3 h-3" />
+                        {group.scheduleDay ? `${group.scheduleDay}요일` : ""} {group.scheduleTime || ""}
+                    </div>
+                )}
+            </div>
+
+            <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                        <h4 className="font-bold text-lg text-white">
+                            {group.raidName}
+                        </h4>
+                        <span className={`text-xs px-2 py-0.5 rounded font-bold ${colors.badge}`}>
+                            {getDisplayDifficulty(group.raidName, group.difficulty)}
+                        </span>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-3 sm:gap-4 shrink-0">
                     {allGates.length > 0 && (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 mt-1">
                             {allGates.map(g => {
                                 const partyGroupChars = charStates.filter((c): c is NonNullable<typeof c> => c !== null && !c.isGuest);
                                 const isAllChecked = partyGroupChars.length > 0 && partyGroupChars.every(c => c.currentGates.includes(g));
@@ -1334,8 +1601,6 @@ function ReadOnlyGroupCard({
     );
 }
 
-
-
 function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean }) {
     const iconFileName = classIconMap[char.className] || 'default.svg';
     const iconUrl = `/icons/classes/${iconFileName}`;
@@ -1383,22 +1648,52 @@ function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean 
     );
 }
 
-function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameChange, onAddGuest }: {
+function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameChange, onScheduleChange, onAddGuest }: {
     group: RaidGroup;
     isActive: boolean;
     onClick: () => void;
     onRemove: () => void;
     onRemoveChar: (idx: number) => void;
     onNameChange: (newName: string) => void;
+    onScheduleChange: (day: string, time: string) => void;
     onAddGuest: (idx: number) => void;
 }) {
     const [page, setPage] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
-    const colors = difficultyColors[group.difficulty] || difficultyColors["노말"];
 
+    const [isDayDropdownOpen, setIsDayDropdownOpen] = useState(false);
+    const dayDropdownRef = useRef<HTMLDivElement>(null);
+    const days = ["수", "목", "금", "토", "일", "월", "화"];
+
+    const [isTimeDropdownOpen, setIsTimeDropdownOpen] = useState(false);
+    const timeDropdownRef = useRef<HTMLDivElement>(null);
+    const timeOptions = useMemo(() => {
+        const times = [];
+        for (let h = 0; h < 24; h++) {
+            const hour = h.toString().padStart(2, '0');
+            times.push(`${hour}:00`);
+            times.push(`${hour}:30`);
+        }
+        return times;
+    }, []);
+
+    const colors = difficultyColors[group.difficulty] || difficultyColors["노말"];
     const isEpic = group.maxMembers > 8;
     const totalPages = Math.ceil(group.maxMembers / 8) || 1;
     const absoluteStartIndex = page * 8;
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (dayDropdownRef.current && !dayDropdownRef.current.contains(e.target as Node)) {
+                setIsDayDropdownOpen(false);
+            }
+            if (timeDropdownRef.current && !timeDropdownRef.current.contains(e.target as Node)) {
+                setIsTimeDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const handleEditClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -1411,31 +1706,110 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameCha
             onClick={onClick}
             className={`bg-[#16181D] rounded-lg p-5 flex flex-col border-[1.5px] cursor-pointer transition-all ${isActive ? "border-[#5B69FF] bg-[#5B69FF]/5" : "border-transparent"}`}
         >
-            <div className="flex items-center gap-1 self-start -ml-1">
-                <div className="relative inline-grid items-center h-7">
-                    <span className="invisible whitespace-pre text-[16px] font-bold px-1 pointer-events-none">
-                        {group.groupName || "그룹 이름 입력"}
-                    </span>
+            <div className="flex justify-between items-center w-full mb-1.5 gap-2">
+                <div className="flex items-center gap-1 -ml-1 min-w-0 flex-1">
+                    <div className="relative inline-grid items-center h-7 max-w-full">
+                        {/* 🔥 span에 overflow-hidden truncate 추가 */}
+                        <span className="invisible whitespace-pre text-[16px] font-bold px-1 pointer-events-none overflow-hidden truncate">
+                            {group.groupName || "그룹 이름 입력"}
+                        </span>
+                        {/* 🔥 input 태그 끝부분에 text-ellipsis 추가 */}
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={group.groupName}
+                            maxLength={25}
+                            onChange={(e) => onNameChange(e.target.value)}
+                            onClick={(e) => { e.stopPropagation(); onClick(); }}
+                            placeholder="그룹 이름 입력"
+                            className="absolute inset-0 w-full h-full text-[16px] font-bold text-[#5B69FF] bg-transparent border-b border-transparent hover:border-[#5B69FF]/30 focus:border-[#5B69FF] focus:outline-none transition-colors px-1 leading-none text-ellipsis"
+                        />
+                    </div>
 
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        value={group.groupName}
-                        maxLength={25}
-                        onChange={(e) => onNameChange(e.target.value)}
-                        onClick={(e) => { e.stopPropagation(); onClick(); }}
-                        placeholder="그룹 이름 입력"
-                        className="absolute inset-0 w-full h-full text-[16px] font-bold text-[#5B69FF] bg-transparent border-b border-transparent hover:border-[#5B69FF]/30 focus:border-[#5B69FF] focus:outline-none transition-colors px-1 leading-none"
-                    />
+                    <button
+                        onClick={handleEditClick}
+                        className="p-1 text-[#5B69FF] opacity-60 hover:opacity-100 transition-opacity shrink-0"
+                        title="그룹 이름 수정"
+                    >
+                        <Edit2 className="w-4 h-4" />
+                    </button>
                 </div>
 
-                <button
-                    onClick={handleEditClick}
-                    className="p-1 text-[#5B69FF] opacity-60 hover:opacity-100 transition-opacity shrink-0"
-                    title="그룹 이름 수정"
-                >
-                    <Edit2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <Calendar className="w-4 h-4 text-gray-500 hidden sm:block mr-0.5" />
+
+                    <div className="relative" ref={dayDropdownRef}>
+                        <button
+                            type="button"
+                            onClick={() => { setIsDayDropdownOpen(!isDayDropdownOpen); setIsTimeDropdownOpen(false); }}
+                            className={`flex items-center justify-between gap-1.5 min-w-[72px] bg-[#0F1115] border text-xs font-medium rounded-md px-2.5 py-1.5 transition-all ${isDayDropdownOpen
+                                ? "border-[#5B69FF] text-[#5B69FF] ring-1 ring-[#5B69FF]/50"
+                                : "border-white/10 text-gray-300 hover:border-white/20 hover:bg-white/5"
+                                }`}
+                        >
+                            <span>{group.scheduleDay ? `${group.scheduleDay}요일` : "요일"}</span>
+                            {isDayDropdownOpen ? <ChevronUp className="w-3 h-3 opacity-60 shrink-0" /> : <ChevronDown className="w-3 h-3 opacity-60 shrink-0" />}
+                        </button>
+
+                        {isDayDropdownOpen && (
+                            <div className="absolute top-full right-0 mt-1.5 w-[100px] bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[60] shadow-xl">
+                                <div className="flex flex-col p-1.5 max-h-48 overflow-y-auto custom-scrollbar gap-0.5">
+                                    <button
+                                        onClick={() => { onScheduleChange("", group.scheduleTime || ""); setIsDayDropdownOpen(false); }}
+                                        className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${!group.scheduleDay ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+                                    >
+                                        선택 안함
+                                    </button>
+                                    {days.map(day => (
+                                        <button
+                                            key={day}
+                                            onClick={() => { onScheduleChange(day, group.scheduleTime || ""); setIsDayDropdownOpen(false); }}
+                                            className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${group.scheduleDay === day ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+                                        >
+                                            {day}요일
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="relative" ref={timeDropdownRef}>
+                        <button
+                            type="button"
+                            onClick={() => { setIsTimeDropdownOpen(!isTimeDropdownOpen); setIsDayDropdownOpen(false); }}
+                            className={`flex items-center justify-between gap-1.5 min-w-[72px] bg-[#0F1115] border text-xs font-medium rounded-md px-2.5 py-1.5 transition-all ${isTimeDropdownOpen
+                                ? "border-[#5B69FF] text-[#5B69FF] ring-1 ring-[#5B69FF]/50"
+                                : "border-white/10 text-gray-300 hover:border-white/20 hover:bg-white/5"
+                                }`}
+                        >
+                            <span>{group.scheduleTime || "시간"}</span>
+                            {isTimeDropdownOpen ? <ChevronUp className="w-3 h-3 opacity-60 shrink-0" /> : <ChevronDown className="w-3 h-3 opacity-60 shrink-0" />}
+                        </button>
+
+                        {isTimeDropdownOpen && (
+                            <div className="absolute top-full right-0 mt-1.5 w-[90px] bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[60] shadow-xl">
+                                <div className="flex flex-col p-1.5 max-h-48 overflow-y-auto custom-scrollbar gap-0.5">
+                                    <button
+                                        onClick={() => { onScheduleChange(group.scheduleDay || "", ""); setIsTimeDropdownOpen(false); }}
+                                        className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${!group.scheduleTime ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+                                    >
+                                        선택 안함
+                                    </button>
+                                    {timeOptions.map(time => (
+                                        <button
+                                            key={time}
+                                            onClick={() => { onScheduleChange(group.scheduleDay || "", time); setIsTimeDropdownOpen(false); }}
+                                            className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${group.scheduleTime === time ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+                                        >
+                                            {time}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
 
             <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
@@ -1450,7 +1824,6 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameCha
                     </div>
                 </div>
                 <div className="flex items-center gap-3 mt-1">
-
                     <button
                         onClick={(e) => { e.stopPropagation(); onRemove(); }}
                         className="text-gray-500 hover:text-red-400 transition-colors p-1"
@@ -1459,8 +1832,6 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameCha
                     </button>
                 </div>
             </div>
-
-
 
             <div className="grid gap-2 sm:gap-3 grid-cols-2">
                 {[0, 1].map((partyOffset) => {
@@ -1722,7 +2093,6 @@ function DroppableSlot({ groupId, slotIndex, char, onRemove, onAddGuest }: {
                     </button>
                 </div>
             ) : (
-                // 🔥 비어있을 때 + 버튼 렌더링
                 <button
                     onClick={(e) => { e.stopPropagation(); onAddGuest(); }}
                     className="w-full h-full flex items-center justify-center gap-1.5 text-[11px] sm:text-xs text-gray-500 hover:text-[#5B69FF] hover:bg-[#5B69FF]/5 transition-colors"
@@ -1791,3 +2161,26 @@ function DraggableCharacterInSlot({ char, groupId, slotIndex }: { char: any, gro
     );
 }
 
+function SortableGroupWrapper({ id, children }: { id: string, children: React.ReactNode }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 10 : 1,
+    };
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing touch-none"
+        >
+            <div className="pointer-events-none">
+                {/* 드래그 중 내부 체크박스나 버튼 클릭을 방지하기 위해 pointer-events-none 처리 */}
+                {children}
+            </div>
+        </div>
+    );
+}

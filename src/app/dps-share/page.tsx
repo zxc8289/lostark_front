@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Check, Info } from "lucide-react";
 import GoogleAd from "../components/GoogleAd";
 
-type RaidCategory = "카제로스" | "그림자";
+type RaidCategory = "카제로스" | "그림자" | "어비스 던전";
 type DiffKey = "노말" | "하드" | "나메";
 
 type GateRow = {
@@ -32,7 +32,7 @@ const DIFF = {
 } as const;
 
 // 8인 레이드: 잔혈 20% / 강투 15%
-// 4인 레이드(세르카): 잔혈 40% / 강투 30%
+// 4인 레이드(세르카, 지평의 성당): 잔혈 40% / 강투 30%
 const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>> = {
     "카제로스": {
         "1막": {
@@ -52,7 +52,7 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
         },
         "4막": {
             노말: [{ gate: 1, hp: 4750, range: [740, 990] }, { gate: 2, hp: 5250, range: [950, 1270] }],
-            하드: [{ gate: 1, hp: 9500, range: [1425, 1900] }, { gate: 2, hp: 10500, range: [1575, 2100] }],
+            하드: [{ gate: 1, hp: 9500, range: [1425, 1900] }, { gate: 2, hp: 10500, range: [1575, 2250] }],
             나메: [],
         },
         "종막": {
@@ -66,6 +66,14 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
             노말: [{ gate: 1, hp: 3699, range: [1100, 1480] }, { gate: 2, hp: 4768, range: [1430, 1900] }],
             하드: [{ gate: 1, hp: 7695, range: [2300, 3070] }, { gate: 2, hp: 9919, range: [2980, 3970] }],
             나메: [{ gate: 1, hp: 11941, range: [3580, 4770] }, { gate: 2, hp: 15392, range: [4620, 6160] }],
+        }
+    },
+    "어비스 던전": {
+        "지평의 성당": {
+            // 내부적으로는 노말=1단계, 하드=2단계, 나메=3단계로 사용
+            노말: [{ gate: 1, hp: 3112, range: [934, 1245] }, { gate: 2, hp: 3125, range: [938, 1250] }],
+            하드: [{ gate: 1, hp: 7434, range: [2230, 2974] }, { gate: 2, hp: 7653, range: [2296, 3061] }],
+            나메: [{ gate: 1, hp: 12025, range: [3608, 4810] }, { gate: 2, hp: 12610, range: [3783, 5044] }],
         }
     }
 };
@@ -87,11 +95,21 @@ export default function DpsSharePage() {
         }
     };
 
-    // 4인 레이드(세르카)인지 8인 레이드인지 판별
-    const is4PlayerRaid = category === "그림자";
+    // 4인 레이드인지 8인 레이드인지 판별
+    const is4PlayerRaid = category === "그림자" || category === "어비스 던전";
     // 칭호 기준 퍼센트
     const strongCut = is4PlayerRaid ? 30 : 15;
     const bleedCut = is4PlayerRaid ? 40 : 20;
+
+    // 단계/난이도 텍스트 변환 헬퍼 (지평의 성당인 경우 1단계, 2단계, 3단계로 표시)
+    const getDiffLabel = (cat: RaidCategory, d: DiffKey) => {
+        if (cat === "어비스 던전") {
+            if (d === "노말") return "1단계";
+            if (d === "하드") return "2단계";
+            if (d === "나메") return "3단계";
+        }
+        return d;
+    };
 
     // 전체 요약 계산 (보스 체력 기반이 아닌, 잔혈 컷을 역산한 "실질 총 피해량" 기준)
     const { totalHp, totalShare } = useMemo(() => {
@@ -166,7 +184,7 @@ export default function DpsSharePage() {
                                     <div className="space-y-2">
                                         <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">카테고리</label>
                                         <div className="flex flex-col border border-white/5 rounded-lg overflow-hidden">
-                                            {(["카제로스", "그림자"] as RaidCategory[]).map((cat) => (
+                                            {(["카제로스", "그림자", "어비스 던전"] as RaidCategory[]).map((cat) => (
                                                 <button
                                                     key={cat}
                                                     onClick={() => handleCategoryChange(cat)}
@@ -178,7 +196,7 @@ export default function DpsSharePage() {
                                                     <div className={`flex items-center justify-center w-4 h-4 ${category === cat ? 'text-[#5B69FF]' : 'text-transparent'}`}>
                                                         <Check className="h-4 w-4" strokeWidth={3} />
                                                     </div>
-                                                    <span className="text-sm font-bold">{cat} 레이드</span>
+                                                    <span className="text-sm font-bold">{cat}</span>
                                                 </button>
                                             ))}
                                         </div>
@@ -196,7 +214,7 @@ export default function DpsSharePage() {
                                                         className={`py-2 rounded-md text-sm font-bold transition-all border ${diff === d ? DIFF[d].check : `bg-[#1B222D] text-gray-400 border-transparent ${DIFF[d].hover}`
                                                             }`}
                                                     >
-                                                        {d}
+                                                        {getDiffLabel(category, d)}
                                                     </button>
                                                 ))}
                                         </div>
@@ -216,9 +234,6 @@ export default function DpsSharePage() {
                                                             : "bg-transparent border-white/5 text-gray-500 hover:bg-white/5 hover:text-gray-300"
                                                             }`}
                                                     >
-                                                        <div className={`absolute left-3 flex items-center justify-center w-3.5 h-3.5 ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
-                                                            <Check className="w-full h-full" strokeWidth={3} />
-                                                        </div>
 
                                                         <span className="truncate">{a}</span>
                                                     </button>
@@ -228,8 +243,6 @@ export default function DpsSharePage() {
                                     </div>
                                 </div>
                             </section>
-
-
                         </div>
 
                         {/* [우측] 결과 영역 */}
@@ -237,7 +250,7 @@ export default function DpsSharePage() {
                             <div className="bg-[#16181D] rounded-none sm:rounded-xl border-y sm:border border-white/5 px-5 py-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
                                 <div className="flex items-center gap-3">
                                     <div className={`px-3 py-2 rounded-lg flex items-center justify-center text-sm font-bold ${DIFF[diff].badge}`}>
-                                        {diff}
+                                        {getDiffLabel(category, diff)}
                                     </div>
                                     <div>
                                         <div className="text-sm text-gray-400">{act} 종합 분석</div>
@@ -366,15 +379,6 @@ export default function DpsSharePage() {
                     </div>
                 </div>
             </div>
-
-            {/* <div className="w-full">
-                <div
-                    className="w-full bg-[#1e2128]/30 border-y sm:border border-white/5 rounded-none sm:rounded-lg overflow-hidden flex items-center justify-center"
-                    style={{ height: '130px', minHeight: '130px', maxHeight: '130px' }}
-                >
-                    <GoogleAd slot={AD_SLOT_BOTTOM_BANNER} className="!my-0 w-full h-full" responsive={false} />
-                </div>
-            </div> */}
         </>
     );
 }
