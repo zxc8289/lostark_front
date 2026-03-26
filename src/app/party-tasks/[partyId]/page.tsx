@@ -99,9 +99,9 @@ export type PartyMemberTasks = {
     visibleByChar: Record<string, boolean>;
     tableOrder?: string[];
     canOthersEdit?: boolean;
-    rosterOrder?: string[];        // ✅ 테이블(행)용
-    cardRosterOrder?: string[];    // ✅ 카드(캐릭터 카드)용 ← 추가
-    goldDesignatedByChar?: Record<string, boolean>; // ✅ 추가
+    rosterOrder?: string[];       
+    cardRosterOrder?: string[];    
+    goldDesignatedByChar?: Record<string, boolean>; 
 };
 
 type PartyRaidTasksResponse = {
@@ -291,6 +291,7 @@ function buildTasksForCharacter(
                     raidName={raidName}
                     difficulty={p.difficulty}
                     gates={p.gates}
+                    isBonus={p.isBonus}
                     right={right}
                     onToggleGate={(gate) => {
                         if (!options?.onToggleGate) return;

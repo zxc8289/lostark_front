@@ -53,10 +53,11 @@ const items: NavItem[] = [
     { href: "/dps-share", label: "딜 지분" },
     { href: "/gem-setup", label: "젬 세팅" },
     {
-        href: "/calculator",
+        href: "/calculator/auction",
         label: "계산기",
         subItems: [
-            { href: "/calculator", label: "경매 계산기" },
+            { href: "/calculator/auction", label: "경매 계산기" },
+            { href: "/calculator/more-reward", label: "다른 계산기" },
         ]
     },
     { href: "/support", label: "문의하기" },

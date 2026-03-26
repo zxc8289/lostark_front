@@ -344,6 +344,8 @@ function SortableCharacterRow({
                                 p.difficulty as keyof typeof DIFF_STYLES
                                 ] ?? DIFF_STYLES["노말"];
 
+                            const isBonus = !!p.isBonus;
+
                             return (
                                 <td
                                     key={raidId}
@@ -352,6 +354,7 @@ function SortableCharacterRow({
                                     <div className="flex items-center justify-center gap-[4px] sm:gap-[5px]">
                                         {allGates.map((g: number) => {
                                             const isChecked = checkedSet.has(g);
+
                                             return (
                                                 <button
                                                     key={g}
@@ -369,6 +372,7 @@ function SortableCharacterRow({
                                                     }
                                                     className={[
                                                         GATE_BTN_BASE,
+                                                        "relative", // ✨ 내부 뱃지 배치를 위해 기준점 설정
                                                         "hover:scale-[1.1]",
                                                         isChecked
                                                             ? `${diffStyle.check} border-transparent`
@@ -395,6 +399,19 @@ function SortableCharacterRow({
                                                         </svg>
                                                     ) : (
                                                         g
+                                                    )}
+
+                                                    {isBonus && (
+                                                        <span
+                                                            className="absolute -top-[3px] -right-[3px] sm:-top-1 sm:-right-1 
+                                                                flex items-center justify-center 
+                                                                w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] 
+                                                                bg-[#111217] text-gray-300 
+                                                                text-[10px] sm:text-[12px] font-medium leading-none
+                                                                rounded-full border border-gray-500/60 z-10"
+                                                        >
+                                                            <span className="relative bottom-[0.5px]">+</span>
+                                                        </span>
                                                     )}
                                                 </button>
                                             );

@@ -10,10 +10,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function AuctionCalculatorLayout({
+export default function CalculatorRootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <div className="w-full text-white py-8 sm:py-12">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-0">
+        {children}
+      </div>
+    </div>
+  );
 }

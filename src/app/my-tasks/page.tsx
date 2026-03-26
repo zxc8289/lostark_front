@@ -839,6 +839,7 @@ export default function MyTasksPage() {
             kind={info.kind}
             raidName={raidName}
             difficulty={p.difficulty}
+            isBonus={p.isBonus}
             gates={p.gates}
             right={right}
             onToggleGate={(gate) => {

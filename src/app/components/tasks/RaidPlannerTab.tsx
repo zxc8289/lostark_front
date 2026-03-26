@@ -1709,11 +1709,9 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameCha
             <div className="flex justify-between items-center w-full mb-1.5 gap-2">
                 <div className="flex items-center gap-1 -ml-1 min-w-0 flex-1">
                     <div className="relative inline-grid items-center h-7 max-w-full">
-                        {/* 🔥 span에 overflow-hidden truncate 추가 */}
                         <span className="invisible whitespace-pre text-[16px] font-bold px-1 pointer-events-none overflow-hidden truncate">
                             {group.groupName || "그룹 이름 입력"}
                         </span>
-                        {/* 🔥 input 태그 끝부분에 text-ellipsis 추가 */}
                         <input
                             ref={inputRef}
                             type="text"
@@ -2178,7 +2176,6 @@ function SortableGroupWrapper({ id, children }: { id: string, children: React.Re
             className="cursor-grab active:cursor-grabbing touch-none"
         >
             <div className="pointer-events-none">
-                {/* 드래그 중 내부 체크박스나 버튼 클릭을 방지하기 위해 pointer-events-none 처리 */}
                 {children}
             </div>
         </div>
