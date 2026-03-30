@@ -35,8 +35,6 @@ type Reply = {
 
 // --- Icons ---
 const Icons = {
-    Grid: () => <svg className="w-5 h-5 relative -top-[1.5px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h6v6H4V6zm10 0h6v6h-6V6zM4 16h6v6H4v-6zm10 0h6v6h-6v-6z" /></svg>,
-    List: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>,
     Anonymous: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
     Lock: () => <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>,
     Pencil: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>,
@@ -65,10 +63,7 @@ const Icons = {
             <path d="m13 18 3-3-3-3" />
         </svg>
     ),
-
 };
-
-
 
 // --- 유틸리티 함수 ---
 function fmtDate(iso: string | null) {
@@ -91,20 +86,6 @@ function setGuestKey(postId: string, key: string) {
 }
 
 // --- ✨ 스켈레톤 UI 컴포넌트 ---
-const ListSkeleton = () => (
-    <div className="bg-[#16181D] border border-gray-700 rounded-xl overflow-hidden divide-y divide-gray-700 animate-pulse">
-        {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-5 bg-gray-800 rounded" />
-                    <div className="w-48 h-5 bg-gray-800 rounded" />
-                </div>
-                <div className="w-20 h-4 bg-gray-800 rounded" />
-            </div>
-        ))}
-    </div>
-);
-
 const CardSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
         {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -134,7 +115,6 @@ const DetailSkeleton = () => (
 
 // --- 메인 페이지 본문 ---
 function SupportPageContent() {
-    const [viewMode, setViewMode] = useState<"card" | "list">("card");
     const [isAnonymous, setIsAnonymous] = useState(false);
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
@@ -146,7 +126,6 @@ function SupportPageContent() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [errMsg, setErrMsg] = useState<string | null>(null);
-    const [infoMsg, setInfoMsg] = useState<string | null>(null);
 
     const [openId, setOpenId] = useState<string | null>(null);
     const [openPost, setOpenPost] = useState<Post | null>(null);
@@ -277,8 +256,6 @@ function SupportPageContent() {
         } finally { setDeleteSaving(false); }
     }
 
-
-
     async function submitReply() {
         if (!openId || !replyText.trim()) return;
         try {
@@ -319,10 +296,6 @@ function SupportPageContent() {
                                     <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">문의 게시판</h1>
                                     <p className="text-sm text-gray-400 max-w-lg leading-relaxed">자유롭게 건의사항이나 문의를 남겨주세요.</p>
                                 </div>
-                                <div className="flex items-center bg-gray-800 rounded-lg p-1 border border-gray-700">
-                                    <button onClick={() => setViewMode("card")} className={`w-9 h-9 rounded-md transition-all flex items-center justify-center ${viewMode === "card" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"}`}><Icons.Grid /></button>
-                                    <button onClick={() => setViewMode("list")} className={`w-9 h-9 rounded-md transition-all flex items-center justify-center ${viewMode === "list" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"}`}><Icons.List /></button>
-                                </div>
                             </div>
                         </div>
 
@@ -345,46 +318,30 @@ function SupportPageContent() {
                             </div>
                         </div>
 
-                        {/* ✨ 목록 스케켈레톤 적용 */}
+                        {/* ✨ 목록 부분 (카드형으로 고정) */}
                         <div>
                             {loading ? (
-                                viewMode === "card" ? <CardSkeleton /> : <ListSkeleton />
+                                <CardSkeleton />
                             ) : (
                                 <>
-                                    {viewMode === "card" ? (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {currentPosts.map((post) => (
-                                                <button key={post.id} onClick={() => openDetail(post.id)} className="text-left bg-[#16181D] border border-white/5 rounded-xl p-5 hover:border-gray-600 transition-colors flex flex-col gap-3 group">
-                                                    <div className="flex justify-between items-start w-full">
-                                                        <span className={`text-xs px-2 py-0.5 rounded border ${statusBadgeClass(post.status)}`}>{post.status}</span>
-                                                        <span className="text-xs text-gray-500">{fmtDate(post.createdAt)}</span>
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-bold text-white mb-1 line-clamp-1 group-hover:text-blue-400 transition-colors">{post.title}</h3>
-                                                        <p className="text-sm text-gray-400 line-clamp-2">{post.content}</p>
-                                                    </div>
-                                                    <div className="mt-auto pt-3 border-t border-gray-700 flex items-center gap-2 text-xs text-gray-500 w-full">
-                                                        {post.isAnonymous ? <><Icons.Lock /> <span>비공개 회원</span></> : <><Avatar src={post.authorImage} alt={post.author} /> <span>{post.author}</span></>}
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="bg-[#16181D] border border-gray-700 rounded-xl overflow-hidden divide-y divide-gray-700">
-                                            {currentPosts.map((post) => (
-                                                <div key={post.id} onClick={() => openDetail(post.id)} className="px-6 py-4 hover:bg-gray-800/30 flex items-center justify-between cursor-pointer group">
-                                                    <div className="flex items-center gap-4">
-                                                        <span className={`text-xs px-2 py-0.5 rounded border ${statusBadgeClass(post.status)}`}>{post.status}</span>
-                                                        <span className="text-sm text-gray-200 group-hover:text-blue-400 transition-colors">{post.title}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="flex items-center gap-2 text-xs text-gray-500">{post.isAnonymous ? <Icons.Lock /> : <Avatar src={post.authorImage} alt={post.author} />} {post.author}</div>
-                                                        <div className="text-xs text-gray-500">{fmtDate(post.createdAt)}</div>
-                                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {currentPosts.map((post) => (
+                                            <button key={post.id} onClick={() => openDetail(post.id)} className="text-left bg-[#16181D] border border-white/5 rounded-xl p-5 hover:border-gray-600 transition-colors flex flex-col gap-3 group">
+                                                <div className="flex justify-between items-start w-full">
+                                                    <span className={`text-xs px-2 py-0.5 rounded border ${statusBadgeClass(post.status)}`}>{post.status}</span>
+                                                    <span className="text-xs text-gray-500">{fmtDate(post.createdAt)}</span>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                                <div>
+                                                    <h3 className="font-bold text-white mb-1 line-clamp-1 group-hover:text-blue-400 transition-colors">{post.title}</h3>
+                                                    <p className="text-sm text-gray-400 line-clamp-2">{post.content}</p>
+                                                </div>
+                                                <div className="mt-auto pt-3 border-t border-gray-700 flex items-center gap-2 text-xs text-gray-500 w-full">
+                                                    {post.isAnonymous ? <><Icons.Lock /> <span>비공개 회원</span></> : <><Avatar src={post.authorImage} alt={post.author} /> <span>{post.author}</span></>}
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+
                                     {totalPages > 1 && (
                                         <div className="flex justify-center mt-10 mb-4">
                                             <div className="flex items-center bg-gray-800 rounded-lg p-1 border border-gray-700 shadow-sm">
@@ -496,7 +453,7 @@ function SupportPageContent() {
 
                                             {openReplies.filter(child => child.parentId === parent.id).map(child => (
                                                 <div key={child.id} className="flex gap-2 pl-4 sm:pl-10">
-                                                    {/* 화살표 아이콘 교체 및 위치 조정 */}
+                                                    {/* 화살표 아이콘 */}
                                                     <div className="flex-shrink-0 mt-2 text-gray-600">
                                                         <svg
                                                             width="18"
@@ -514,7 +471,7 @@ function SupportPageContent() {
                                                         </svg>
                                                     </div>
 
-                                                    {/* 대댓글 본문 박스 (기존 유지) */}
+                                                    {/* 대댓글 본문 박스 */}
                                                     <div className={`flex-1 rounded-xl border p-4 transition-all ${child.isStaff ? "bg-[#16181D]/60 border-[#5B69FF]/30" : "bg-[#0E1015]/80 border-gray-800/80"}`}>
                                                         <div className="flex items-center gap-3 mb-2">
                                                             {child.isStaff ? (

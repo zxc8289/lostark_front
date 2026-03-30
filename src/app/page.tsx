@@ -2,8 +2,6 @@ import { ChevronRight, ChevronDown, ExternalLink, Megaphone, Diamond, Calculator
 import Card from "./components/Card";
 import HomeMyTasksSummary, { HomeMyTasksHeader, HomeMyTasksDetails, HomeMyTasksGuard } from "./components/HomeMyTasksSummary";
 import HomePartySummaryProvider, { HomePartyGuard, HomePartyHeader, HomePartyDetails } from "./components/HomePartySummary";
-
-import GoogleAd from "./components/GoogleAd";
 import TodaySchedule from "./components/TodaySchedule";
 import ClientOnly from "./components/ClientOnly";
 
@@ -28,13 +26,39 @@ export default async function HomePage() {
     }
   } catch (e) { console.error("[HomePage] fetch error:", e); }
 
-  const AD_SLOT_MAIN_TOP_RIGHT = "4951318932";
-  const AD_SLOT_MAIN_LEFT = "6052642414";
-
   const toggleBtnClass = "order-2 w-full list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center justify-center gap-2 py-2.5 md:py-3 rounded-xl bg-[#131519] border border-white/5 hover:bg-[#1A1D24] hover:border-white/10 hover:text-gray-200 transition-all text-xs font-bold text-gray-500 mt-3 md:mt-4";
+
+  const faqList = [
+    {
+      q: "로아체크는 어떤 데이터를 기준으로 동작하나요?",
+      a: "캐릭터와 기본 정보는 로스트아크 오픈 API를 참고하고, 숙제 체크/파티 진행 상태/일부 계산 입력값은 사용자가 직접 관리하는 구조입니다.",
+    },
+    {
+      q: "비로그인 상태에서도 사용할 수 있나요?",
+      a: "일부 기능은 웹 브라우저 로컬 저장을 통해 사용할 수 있고, 로그인하면 여러 기기에서 같은 데이터를 더 안정적으로 이어서 볼 수 있습니다.",
+    },
+    {
+      q: "딜 지분 계산 결과는 100% 정확한가요?",
+      a: "실전에서 시너지, 기믹 수행, 서포터 구성, 관문 편차 같은 요소가 있기 때문에 참고용 분석 지표로 보는 것이 가장 적절합니다.",
+    },
+    {
+      q: "젬 세팅 결과가 여러 개 나오면 무엇을 기준으로 고르면 되나요?",
+      a: "최소 포인트 충족이 목적이면 포인트 우선, 도달 가능한 최고 포인트를 유지하면서 스탯을 챙기고 싶다면 스탯 상위, 체감 성능을 우선하면 스탯 우선 기준으로 보면 됩니다.",
+    },
+    {
+      q: "파티 숙제는 어떻게 활용하면 좋나요?",
+      a: "고정 파티나 지인 파티처럼 매주 반복되는 레이드 일정에서 관문 진행 상황과 남은 숙제를 한 번에 공유하는 용도로 가장 편합니다.",
+    },
+    {
+      q: "로아체크의 계산 결과는 어떤 사람에게 도움이 되나요?",
+      a: "여러 캐릭터를 동시에 관리하는 유저, 파티 일정을 자주 맞추는 유저, 딜 분석이나 경매 손익을 빠르게 판단하고 싶은 유저에게 특히 유용합니다.",
+    },
+  ];
 
   return (
     <div className="pt-6 md:pt-17 pb-10 px-0 md:px-4 xl:px-0 text-gray-300 w-full max-w-7xl mx-auto space-y-5 lg:space-y-8">
+
+      {/* 상단 섹션: 스케줄 + 우측 광고 자리 */}
       <section className="w-full grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-6">
         <div className="lg:col-span-7 w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-2xl p-4 md:p-6 relative overflow-hidden flex flex-col justify-center">
           <ClientOnly fallback={<div className="w-full h-full bg-white/5 animate-pulse rounded-2xl" />}>
@@ -42,18 +66,19 @@ export default async function HomePage() {
           </ClientOnly>
         </div>
 
+        {/* 상단 우측 광고 자리 빈칸 */}
         <div className="lg:col-span-3 w-full h-full min-h-[120px] md:min-h-[180px] bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-2xl overflow-hidden flex items-center justify-center relative">
-          <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-xs z-0">AD Area</div>
+          <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-xs z-0 select-none"></div>
           <div className="relative z-10 w-full h-full">
-            <ClientOnly fallback={<div className="w-full h-full bg-white/5 animate-pulse" />}>
-              <GoogleAd slot={AD_SLOT_MAIN_TOP_RIGHT} className="!my-0 w-full h-full" />
-            </ClientOnly>
+            {/* 나중에 이곳에 구글 애드센스 컴포넌트를 다시 넣으시면 됩니다 */}
           </div>
         </div>
       </section>
 
+      {/* 중단 섹션: 공지사항과 주요 기능 카드 */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-6">
         <div className="lg:col-span-3 flex flex-col gap-4 lg:gap-6 h-full">
+          {/* 공지사항 */}
           <div className="bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex flex-col shrink-0">
             <div className="px-4 md:px-5 py-3 md:py-4 border-b border-white/5 flex items-center justify-between bg-[#16181D]">
               <span className="text-sm md:text-base font-bold text-gray-200 flex items-center gap-2">
@@ -88,25 +113,21 @@ export default async function HomePage() {
             </div>
           </div>
 
+          {/* 공지사항 하단 광고 자리 빈칸 */}
           <div className="w-full flex-1 bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex items-center justify-center relative min-h-[180px] md:min-h-[300px]">
-            <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-xs z-0"></div>
+            <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-xs z-0 select-none"></div>
             <div className="relative z-10 w-full h-full">
-              <ClientOnly fallback={<div className="w-full h-full bg-white/5 animate-pulse" />}>
-                <GoogleAd slot={AD_SLOT_MAIN_LEFT} className="!my-0 w-full h-full" />
-              </ClientOnly>
+              {/* 나중에 이곳에 구글 애드센스 컴포넌트를 다시 넣으시면 됩니다 */}
             </div>
           </div>
         </div>
 
         <div className="lg:col-span-7 flex flex-col gap-4 lg:gap-6 h-full">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 w-full items-start">
-
-            {/* 🔥 Card 컴포넌트들에도 모바일 직각 디자인 적용 */}
             <Card className="border border-x-0 md:border-x border-white/5 bg-[#16181D] w-full flex flex-col rounded-none md:rounded-2xl" contentPadding="lg">
               <HomeMyTasksSummary>
                 <div className="w-full flex flex-col min-h-[300px] md:min-h-[340px]">
                   <div className="w-full mb-auto">
-                    {/* 🔥 a 태그를 바깥으로 빼서 전체 영역을 감싸도록 수정 */}
                     <a href="/my-tasks" className="group w-full flex items-center justify-between gap-3 mb-3 md:mb-4 cursor-pointer">
                       <div className="flex items-center gap-2">
                         <div className="w-1 md:w-1.5 h-5 md:h-6 bg-blue-500 rounded-r-md transition-colors group-hover:bg-blue-400" />
@@ -137,7 +158,6 @@ export default async function HomePage() {
             <Card className="border border-x-0 md:border-x border-white/5 bg-[#16181D] w-full flex flex-col rounded-none md:rounded-2xl" contentPadding="lg">
               <HomePartySummaryProvider>
                 <div className="w-full flex flex-col min-h-[300px] md:min-h-[340px]">
-                  {/* 🔥 a 태그를 바깥으로 빼서 전체 영역을 감싸도록 수정 */}
                   <a href="/party-tasks" className="group w-full flex items-center justify-between gap-3 mb-3 md:mb-4 cursor-pointer">
                     <div className="flex items-center gap-2">
                       <div className="w-1 md:w-1.5 h-5 md:h-6 bg-blue-500 rounded-r-md transition-colors group-hover:bg-blue-400" />
@@ -201,21 +221,21 @@ export default async function HomePage() {
         </div>
       </div>
 
-      <section className="w-full border-t border-white/5 pt-8 md:pt-12 pb-16 md:pb-20 px-4 md:px-0">
-        <h2 className="text-base md:text-lg font-bold text-gray-200 mb-6 md:mb-8 flex items-center gap-2">
-          <span className="text-blue-500">GUIDE</span> 로아체크 이용 가이드
-        </h2>
+      {/* 하단 섹션: 가이드 */}
+      <section id="home-guide" className="w-full border-t border-white/5 pt-8 md:pt-12 pb-4 px-4 md:px-0 mt-8 md:mt-12">
+        <div className="mb-6 md:mb-8">
+          <h2 className="text-base md:text-lg font-bold text-gray-200 mb-2 flex items-center gap-2">
+            <span className="text-blue-500">GUIDE</span> 로아체크 이용 가이드
+          </h2>
+          <p className="text-sm text-gray-500 leading-relaxed max-w-3xl">
+            로아체크는 단순 링크 모음이 아니라, 숙제 관리와 파티 공유, 딜 분석, 젬 세팅, 경매 판단처럼 실제 플레이 도중 반복되는 계산과 확인 과정을 줄이기 위해 만든 보조 도구입니다. 아래 설명에서 각 기능이 어떤 상황에서 도움이 되는지 확인할 수 있습니다.
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-
-          {/* 카드 1: 숙제 관리 (내 숙제 & 파티 숙제) */}
           <div className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
-            <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">
-              로아체크 숙제 관리 및 파티 동기화 시스템
-            </h3>
-            <p className="text-xs text-gray-400 leading-relaxed mb-4">
-              내 계정 연동부터 파티원과의 실시간 숙제 공유까지, 로아체크의 스마트한 스케줄 관리 기능을 확인해 보세요.
-            </p>
+            <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">로아체크 숙제 관리 및 파티 동기화 시스템</h3>
+            <p className="text-xs text-gray-400 leading-relaxed mb-4">내 계정 연동부터 파티원과의 실시간 숙제 공유까지, 매주 반복되는 레이드 일정을 더 편하게 정리할 수 있도록 구성했습니다.</p>
             <details className="group mt-auto">
               <summary className="text-xs text-blue-400 hover:text-blue-300 font-bold cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center gap-1 transition-colors w-fit">
                 <span className="group-open:hidden">가이드 읽기</span>
@@ -223,24 +243,15 @@ export default async function HomePage() {
                 <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
               </summary>
               <div className="pt-4 mt-4 border-t border-white/5 text-xs text-gray-500 leading-relaxed space-y-3">
-                <p>
-                  <strong className="text-gray-300">개인 숙제 연동 및 세팅:</strong> '내 계정 불러오기'를 통해 대표 캐릭터 닉네임만 입력하면 원정대 전체 정보를 한 번에 가져옵니다. 이후 자동 세팅 기능을 통해 주력 캐릭터의 레이드를 구성하고, 클릭 한 번으로 각 관문별 클리어 여부와 획득 골드를 직관적으로 체크할 수 있습니다. 입력된 데이터는 비로그인 시 내 PC(웹) 로컬 환경에 자동 저장되며, 로그인 시에는 클라우드 서버에 안전하게 저장되어 모바일 등 어디서든 연동됩니다.
-                </p>
-                <p>
-                  <strong className="text-gray-300">파티 숙제 실시간 공유:</strong> 파티 숙제 메뉴에서는 생성된 공격대에 친구들을 초대하여 함께 일정을 관리할 수 있습니다. 레이드 관문을 클릭하면 골드와 남은 숙제 수가 파티원 전원에게 실시간으로 반영됩니다. 파티원별 수정 권한(수정 가능 여부 옵션)을 다르게 부여하여 관리의 안정성을 높일 수 있으며, 사이드바의 '모든 계정 통합 보기'나 레이드 필터링 같은 스마트 기능을 통해 다수 인원의 복잡한 스케줄도 한눈에 파악할 수 있습니다.
-                </p>
+                <p><strong className="text-gray-300">개인 숙제 정리:</strong> 대표 캐릭터 기준으로 원정대 정보를 가져오고, 캐릭터별 레이드와 골드 획득 현황을 빠르게 체크할 수 있습니다. 숙제 누락을 줄이고, 어떤 캐릭터가 이번 주에 무엇을 남겨뒀는지 한눈에 보기 쉽게 정리하는 데 적합합니다.</p>
+                <p><strong className="text-gray-300">파티 동기화:</strong> 파티 숙제 메뉴에서는 여러 명이 같은 진행 상태를 공유할 수 있어, 고정 공대나 지인팟처럼 매주 비슷한 구성을 유지하는 경우 특히 편리합니다.</p>
               </div>
             </details>
           </div>
 
-          {/* 카드 2: 딜 지분 (DPS 계산기) */}
           <div className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
-            <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">
-              로스트아크 딜 지분(DPS) 역산 분석기
-            </h3>
-            <p className="text-xs text-gray-400 leading-relaxed mb-4">
-              게임 내 MVP 화면의 피해량을 바탕으로, 보스의 전체 체력 대비 실질적인 딜 기여도를 디테일하게 점검할 수 있습니다.
-            </p>
+            <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">로스트아크 딜 지분(DPS) 역산 분석기</h3>
+            <p className="text-xs text-gray-400 leading-relaxed mb-4">게임 내 MVP 화면의 피해량을 기반으로 보스 전체 체력 대비 내 기여도를 역산해, 퍼포먼스를 수치로 확인할 수 있습니다.</p>
             <details className="group mt-auto">
               <summary className="text-xs text-[#FF5252] hover:text-[#ff7474] font-bold cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center gap-1 transition-colors w-fit">
                 <span className="group-open:hidden">가이드 읽기</span>
@@ -248,29 +259,18 @@ export default async function HomePage() {
                 <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
               </summary>
               <div className="pt-4 mt-4 border-t border-white/5 text-xs text-gray-500 leading-relaxed space-y-3">
-                <p>
-                  로아체크의 딜 지분 계산기는 레이드 클리어 후 확인한 내 피해량(억 단위) 수치를 입력하여 퍼센트(%)를 역산하는 정밀 분석 도구입니다. 단순히 시스템이 부여하는 '투사', '강투', '잔혈' 칭호 확인에 그치지 않고, 내 캐릭터가 파티 내에서 정확히 어느 정도의 퍼포먼스를 내고 있는지 구체적인 지표로 확인할 수 있습니다.
-                </p>
+                <p>딜 지분 계산기는 단순히 MVP 화면의 피해량을 다시 보여주는 것이 아니라, 레이드와 관문별 체력을 기준으로 내 딜 기여도를 퍼센트로 환산해 줍니다. 같은 피해량이라도 레이드에 따라 체감 의미가 달라질 수 있어, 비교 기준을 정리하는 데 도움이 됩니다.</p>
                 <ul className="space-y-2 pl-2">
-                  <li>
-                    <strong className="text-gray-300">8인 레이드 (딜러 6명 기준):</strong> 1인분 평균 딜 지분은 약 16.6%로 산정됩니다. 15% 이상 달성 시 <span className="text-[#FF8585]">강직한 투사</span>, 20% 이상 달성 시 <span className="text-[#FF5252] font-bold">잔혹한 혈투사</span> 타이틀을 획득할 수 있습니다.
-                  </li>
-                  <li>
-                    <strong className="text-gray-300">4인 레이드 (딜러 3명 기준):</strong> 1인분 평균 딜 지분은 약 33.3%로 크게 상승합니다. 30% 이상 달성 시 <span className="text-[#FF8585]">강직한 투사</span>, 40% 이상 달성 시 <span className="text-[#FF5252] font-bold">잔혹한 혈투사</span> 타이틀을 획득하게 됩니다.
-                  </li>
+                  <li><strong className="text-gray-300">8인 레이드:</strong> 평균 1인분 기준을 참고해 강투/잔혈 여부를 보다 직관적으로 판단할 수 있습니다.</li>
+                  <li><strong className="text-gray-300">4인 레이드:</strong> 딜러 수가 적기 때문에 한 명의 기여도 차이가 크게 나타나며, 실전 해석 시 관문별 편차도 함께 보는 기 좋습니.</li>
                 </ul>
               </div>
             </details>
           </div>
 
-          {/* 카드 3: 젬 세팅 (아크 그리드) */}
           <div className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
-            <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">
-              아크 그리드 최적화 및 젬 세팅 가이드
-            </h3>
-            <p className="text-xs text-gray-400 leading-relaxed mb-4">
-              한정된 젬과 코어 포인트를 가장 효율적으로 분배하여 아크 그리드 시스템의 스펙업 성능을 극대화합니다.
-            </p>
+            <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">아크 그리드 최적화 및 젬 세팅 가이드</h3>
+            <p className="text-xs text-gray-400 leading-relaxed mb-4">한정된 젬과 코어 포인트를 효율적으로 배치해 도달 가능한 포인트와 스탯 효율을 함께 살피는 데 초점을 맞췄습니다.</p>
             <details className="group mt-auto">
               <summary className="text-xs text-[#5B69FF] hover:text-[#7f8aff] font-bold cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center gap-1 transition-colors w-fit">
                 <span className="group-open:hidden">가이드 읽기</span>
@@ -278,19 +278,62 @@ export default async function HomePage() {
                 <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
               </summary>
               <div className="pt-4 mt-4 border-t border-white/5 text-xs text-gray-500 leading-relaxed space-y-3">
-                <p>
-                  아크 그리드 시스템은 로스트아크 캐릭터의 한계를 돌파하는 핵심 스펙업 콘텐츠입니다. 로아체크의 최적화 도구는 유저가 현재 보유하고 있는 젬(질서/혼돈)의 의지력 효율과 옵션을 바탕으로 수만 가지의 배치 조합을 연산하여, 가장 이상적인 코어 포인트와 스탯 세팅을 도출해냅니다.
-                </p>
-                <p className="font-bold text-gray-400 mt-2">💡 로아체크 최적화 옵션 활용 팁</p>
+                <p>로아체크의 젬 세팅 최적화는 현재 보유 중인 젬 상태를 바탕으로, 어떤 방식으로 배치해야 원하는 포인트와 스탯을 가장 효율적으로 맞출 수 있는지 계산하는 도구입니다.</p>
                 <ul className="space-y-1.5 pl-2">
-                  <li><strong className="text-gray-300">• 포인트 우선:</strong> 전투 스탯보다는 핵심 코어 활성화에 필요한 '최소 포인트'를 맞추는 데 모든 연산을 집중합니다.</li>
-                  <li><strong className="text-gray-300">• 스탯 상위 (최대P):</strong> 현재 도달 가능한 가장 높은 코어 포인트를 유지하는 선에서, 전투 스탯(공격력/서포팅)이 가장 높게 산출되는 최적의 조합을 찾아냅니다.</li>
-                  <li><strong className="text-gray-300">• 스탯 우선:</strong> 도달 코어 포인트보다 실질적으로 체감되는 스탯 상승 효율을 최우선 목표로 두고 계산을 수행합니다.</li>
+                  <li><strong className="text-gray-300">• 포인트 우선:</strong> 핵심 코어 활성화에 필요한 최소 조건 충족에 집중합니다.</li>
+                  <li><strong className="text-gray-300">• 스탯 상위:</strong> 도달 가능한 높은 포인트를 유지하면서 전투 스탯 효율을 함께 끌어올리는 방식입니다.</li>
+                  <li><strong className="text-gray-300">• 스탯 우선:</strong> 실제 체감 성능과 수치 효율을 더 중시하는 방향입니다.</li>
                 </ul>
               </div>
             </details>
           </div>
+        </div>
+      </section>
 
+      {/* 하단 섹션: 추가 설명 */}
+      <section className="px-4 md:px-0 grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+        <div className="bg-[#16181D] border border-white/5 rounded-2xl p-5 md:p-6">
+          <h2 className="text-base md:text-lg font-bold text-gray-100 mb-3">로아체크를 이렇게 활용하면 좋습니다</h2>
+          <div className="space-y-3 text-sm text-gray-400 leading-relaxed">
+            <p>여러 캐릭터를 운영하는 유저라면 주간 초기화 후 내 숙제 메뉴에서 빠르게 전체 현황을 확인하고, 파티 플레이가 잦다면 파티 숙제 메뉴를 통해 공대 진행 상태를 함께 보는 식으로 활용할 수 있습니다.</p>
+            <p>여기에 딜 지분 계산기와 경매 계산기를 더하면 레이드 종료 후 결과 해석까지 한 번에 이어서 볼 수 있어, 단순 체크용을 넘어 플레이 기록 정리 도구로도 활용하기 좋습니다.</p>
+          </div>
+        </div>
+
+        <div className="bg-[#16181D] border border-white/5 rounded-2xl p-5 md:p-6">
+          <h2 className="text-base md:text-lg font-bold text-gray-100 mb-3">결과 해석 시 참고할 점</h2>
+          <div className="space-y-3 text-sm text-gray-400 leading-relaxed">
+            <p>계산 도구는 빠른 판단을 돕기 위한 참고용 지표입니다. 시너지 조합, 서포터 숙련도, 기믹 수행, 관문 구조, 패턴 운 같은 실전 요소까지 완전히 고정된 형태로 반영되지는 않습니다.</p>
+            <p>따라서 로아체크의 수치는 절대적인 정답이라기보다, 여러 플레이 기록과 비교하며 반복적으로 참고할 때 가장 가치가 큽니다.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* 하단 섹션: FAQ */}
+      <section id="home-faq" className="px-4 md:px-0 pb-10">
+        <div className="mb-5">
+          <h2 className="text-base md:text-lg font-bold text-gray-200 mb-2 flex items-center gap-2">
+            <span className="text-blue-500">FAQ</span> 자주 묻는 질문
+          </h2>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            로아체크를 처음 사용하는 유저가 가장 많이 궁금해하는 내용을 홈에서 바로 확인할 수 있게 정리했습니다.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 items-start">
+          {faqList.map((item, idx) => (
+            <details key={idx} className="group bg-[#16181D] border border-white/5 rounded-2xl p-5 md:p-6">
+              <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-gray-100 leading-relaxed">{item.q}</p>
+                </div>
+                <ChevronDown className="w-4 h-4 mt-0.5 text-gray-500 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="pt-4 mt-4 border-t border-white/5">
+                <p className="text-sm text-gray-400 leading-relaxed">{item.a}</p>
+              </div>
+            </details>
+          ))}
         </div>
       </section>
     </div>

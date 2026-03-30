@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Info } from "lucide-react";
+import { Check, ChevronDown, Info } from "lucide-react";
 import GoogleAd from "../components/GoogleAd";
 
 type RaidCategory = "카제로스" | "그림자" | "어비스 던전";
@@ -327,53 +327,109 @@ export default function DpsSharePage() {
                                 </div>
                             )}
 
-                            <section className="block lg:hidden rounded-none bg-gradient-to-b from-[#16181D] to-[#121318] border-y border-white/5 p-5 mt-6">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Info className="w-4 h-4 text-indigo-400" />
-                                    <h4 className="text-sm font-bold text-gray-200">딜 지분 계산기 활용법</h4>
-                                </div>
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        <strong>로스트아크 딜 지분 계산기</strong>는 게임 내 MVP 화면에서 확인한 내 피해량(억 단위)을 바탕으로, <strong className="text-gray-300 font-medium">보스의 정확한 전체 체력 대비 내 실질적인 딜 기여도(%)를 역산해 주는 분석 도구</strong>입니다.
-                                    </p>
-                                    <p>
-                                        단순히 '투사', '강투', '잔혈' 같은 칭호 확인에 그치지 않고, 내 캐릭터가 파티 내에서 어느 정도의 퍼포먼스를 내고 있는지 디테일하게 점검할 수 있습니다.
-                                        아래의 레이드 인원별 커트라인을 참고해보세요.
-                                    </p>
-                                </div>
+                            <div className="space-y-4 mt-6">
+                                <section className="rounded-none sm:rounded-xl bg-gradient-to-b from-[#16181D] to-[#121318] border-y sm:border border-white/5 p-5">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Info className="w-4 h-4 text-indigo-400" />
+                                        <h4 className="text-sm font-bold text-gray-200">딜 지분 계산기란?</h4>
+                                    </div>
 
-                            </section>
+                                    <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
+                                        <p>
+                                            <strong>로스트아크 딜 지분 계산기</strong>는 게임 내 MVP 화면에서 확인한 내 피해량(억 단위)을 바탕으로,
+                                            <strong className="text-gray-300 font-medium"> 보스 체력과 관문별 기준값을 참고해 내 실질적인 딜 기여도(%)를 확인하는 분석 도구</strong>
+                                            입니다.
+                                        </p>
+                                        <p>
+                                            단순히 MVP 칭호만 보는 것이 아니라, 내가 이번 레이드에서 어느 정도의 퍼포먼스를 냈는지 수치로 빠르게
+                                            확인할 수 있도록 구성했습니다. 특히 관문별 입력값을 따로 넣을 수 있어서, 특정 관문에서 유독 강했는지
+                                            혹은 전체적으로 고르게 기여했는지도 함께 판단할 수 있습니다.
+                                        </p>
 
-                            <section className="hidden lg:block rounded-xl bg-gradient-to-b from-[#16181D] to-[#121318] border border-white/5 p-5 mt-4">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Info className="w-4 h-4 text-indigo-400" />
-                                    <h4 className="text-sm font-bold text-gray-200">딜 지분 계산기란?</h4>
-                                </div>
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        <strong>로스트아크 딜 지분 계산기</strong>는 게임 내 MVP 화면에서 확인한 내 피해량(억 단위)을 바탕으로, <strong className="text-gray-300 font-medium">보스의 정확한 전체 체력 대비 내 실질적인 딜 기여도(%)를 역산해 주는 분석 도구</strong>입니다.
-                                    </p>
-                                    <p>
-                                        단순히 '투사', '강투', '잔혈' 같은 칭호 확인에 그치지 않고, 내 캐릭터가 파티 내에서 어느 정도의 퍼포먼스를 내고 있는지 디테일하게 점검할 수 있습니다.
-                                        아래의 레이드 인원별 커트라인을 참고해보세요.
-                                    </p>
-                                    <div className="w-full h-px bg-white/5 my-3" />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <strong className="text-gray-300 font-medium block mb-1">8인 레이드 (딜러 6명 기준)</strong>
-                                            • 1인분 평균: <strong className="text-white">약 16.6%</strong><br />
-                                            • <span className="text-[#7C88FF]">강직한 투사:</span> 15% 이상<br />
-                                            • <span className="text-[#FF8585]">잔혹한 혈투사:</span> 20% 이상
-                                        </div>
-                                        <div>
-                                            <strong className="text-gray-300 font-medium block mb-1">4인 레이드 (딜러 3명 기준)</strong>
-                                            • 1인분 평균: <strong className="text-white">약 33.3%</strong><br />
-                                            • <span className="text-[#7C88FF]">강직한 투사:</span> 30% 이상<br />
-                                            • <span className="text-[#FF8585]">잔혹한 혈투사:</span> 40% 이상
+                                        <div className="w-full h-px bg-white/5 my-3" />
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <strong className="text-gray-300 font-medium block mb-1">
+                                                    8인 레이드 (딜러 6명 기준)
+                                                </strong>
+                                                • 1인분 평균: <strong className="text-white">약 16.6%</strong>
+                                                <br />
+                                                • <span className="text-[#7C88FF]">강직한 투사:</span> 15% 이상
+                                                <br />
+                                                • <span className="text-[#FF8585]">잔혹한 혈투사:</span> 20% 이상
+                                            </div>
+                                            <div>
+                                                <strong className="text-gray-300 font-medium block mb-1">
+                                                    4인 레이드 (딜러 3명 기준)
+                                                </strong>
+                                                • 1인분 평균: <strong className="text-white">약 33.3%</strong>
+                                                <br />
+                                                • <span className="text-[#7C88FF]">강직한 투사:</span> 30% 이상
+                                                <br />
+                                                • <span className="text-[#FF8585]">잔혹한 혈투사:</span> 40% 이상
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </section>
+                                </section>
+
+                                <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                                    <h4 className="text-sm font-bold text-gray-200 mb-3">계산 원리</h4>
+                                    <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
+                                        <p>
+                                            이 페이지는 단순히 입력한 피해량을 바로 퍼센트로 바꾸는 방식이 아닙니다. 관문별 기준표에 들어 있는
+                                            <strong className="text-gray-300"> 강투/잔혈 컷 수치</strong>를 참고해서 레이드별 실질적인 전체 딜량을
+                                            추정하고, 그 안에서 내가 차지하는 비율을 보여주는 방식입니다.
+                                        </p>
+                                        <p>
+                                            그래서 같은 500억을 넣더라도 8인 레이드인지 4인 레이드인지, 어떤 막과 어떤 난이도인지에 따라 의미가
+                                            달라질 수 있습니다. 이 점 때문에 단순 피해량보다 <strong className="text-gray-300">지분율</strong>로
+                                            보는 것이 훨씬 해석하기 편합니다.
+                                        </p>
+                                        <div className="rounded-lg bg-[#0F1014] border border-white/5 p-4 text-xs text-gray-500">
+                                            예시) 2관문 레이드에서 1관문 320억, 2관문 410억을 기록했다면 각 관문 입력칸에 그대로 넣으면 됩니다.
+                                            로아체크는 관문별 입력값을 합산해 전체 지분과 각 관문 컷 달성 여부를 함께 보여줍니다.
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                                    <h4 className="text-sm font-bold text-gray-200 mb-3">결과 해석 방법</h4>
+                                    <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
+                                        <p>
+                                            현재 지분이 <span className="text-[#7C88FF] font-semibold">{strongCut}%</span> 이상이면 강투 기준,
+                                            <span className="text-[#FF8585] font-semibold"> {bleedCut}%</span> 이상이면 잔혈 기준을 충족하는 것으로
+                                            볼 수 있습니다.
+                                        </p>
+                                        <p>
+                                            다만 이 수치는 레이드 인원 수에 따라 해석이 달라집니다. 8인 레이드는 평균 1인분 기준이 낮고, 4인
+                                            레이드는 한 명의 기여 비중이 커지기 때문에 같은 퍼센트라도 체감 의미가 다를 수 있습니다.
+                                        </p>
+                                        <p>
+                                            따라서 한 번의 결과만 보기보다, 비슷한 레이드와 비슷한 파티 구성에서 반복적으로 비교해 보는 것이 더
+                                            유용합니다. 특정 관문에서만 지분이 높았는지, 전체적으로 안정적으로 유지됐는지도 같이 보는 편이 좋습니다.
+                                        </p>
+                                    </div>
+                                </section>
+
+                                <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                                    <h4 className="text-sm font-bold text-gray-200 mb-3">주의사항</h4>
+                                    <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
+                                        <p>
+                                            딜 지분은 실제 퍼포먼스를 정리하는 데 유용한 참고 지표이지만, 모든 요소를 완전히 반영하는 절대값은
+                                            아닙니다.
+                                        </p>
+                                        <ul className="space-y-2 text-[13px] text-gray-400 leading-relaxed">
+                                            <li>• 시너지 조합, 서포터 숙련도, 기믹 수행 비중은 숫자만으로 완전히 드러나지 않을 수 있습니다.</li>
+                                            <li>• 무력, 카운터, 패턴 처리처럼 공략 기여도는 지분 수치와 별개로 중요할 수 있습니다.</li>
+                                            <li>• 관문 구조나 파티 딜 편차가 큰 레이드는 단순 평균보다 관문별 수치를 함께 보는 것이 좋습니다.</li>
+                                            <li>• 따라서 이 계산 결과는 실전 기록을 정리하고 비교하는 참고 자료로 활용하는 것이 가장 적절합니다.</li>
+                                        </ul>
+                                    </div>
+                                </section>
+
+
+                            </div>
 
                         </div>
                     </div>

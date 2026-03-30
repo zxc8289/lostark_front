@@ -767,45 +767,108 @@ export default function ArcGridPage() {
         )}
       </div>
 
-      {/* 🔥 가이드 & 설명글 영역 (애드센스 SEO 강화) */}
-      <section className="rounded-2xl bg-gradient-to-b from-[#16181D] to-[#121318] border border-white/5 p-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <Info className="w-5 h-5 text-indigo-400" />
-          <h3 className="text-base font-bold text-gray-200">아크 그리드 최적화 가이드</h3>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6 text-sm text-gray-400 leading-relaxed break-keep">
-          <div className="space-y-4">
-            <p>
-              <strong className="text-gray-300">아크 그리드 시스템</strong>은 로스트아크의 핵심 스펙업 콘텐츠입니다. 한정된 젬과 코어 포인트를 어떻게 분배하느냐에 따라 캐릭터의 성능이 크게 달라집니다.
-            </p>
-            <p>
-              이 최적화 도구는 유저가 보유한 젬(질서/혼돈)의 의지력 효율과 옵션을 바탕으로, <strong className="text-indigo-400">수만 가지의 조합 중 가장 이상적인 코어 포인트와 스탯 조합</strong>을 계산해냅니다.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <h4 className="text-gray-300 font-semibold mb-2">💡 활용 팁</h4>
-            <ul className="space-y-2">
-              <li className="flex items-start gap-2">
-                <span className="text-[#5B69FF] mt-0.5">•</span>
-                <span><strong>포인트 우선:</strong> 코어 활성화에 필요한 최소 포인트를 맞추는 데 집중합니다.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-[#5B69FF] mt-0.5">•</span>
-                <span><strong>스탯 상위 (최대P):</strong> 도달 가능한 최대 포인트를 유지하면서 전투 스탯(공격력/서포팅)이 가장 높은 조합을 찾습니다.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-[#5B69FF] mt-0.5">•</span>
-                <span><strong>스탯 우선:</strong> 포인트보다 실질적인 스탯 효율을 최우선으로 계산해줍니다.</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
       {/* 기존 하단 액션바 유지 */}
       <ActionBar coreCount={selectedCoreCount} invCount={invCount} onRun={runPoints} />
+      <div className="space-y-4">
+        <section className="rounded-2xl bg-gradient-to-b from-[#16181D] to-[#121318] border border-white/5 p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <Info className="w-5 h-5 text-indigo-400" />
+            <h3 className="text-base font-bold text-gray-200">아크 그리드 최적화란?</h3>
+          </div>
+
+          <div className="space-y-4 text-sm text-gray-400 leading-relaxed break-keep">
+            <p>
+              <strong className="text-gray-300">아크 그리드 최적화</strong>는 보유 중인 질서/혼돈 젬의
+              의지력 효율, 코어 포인트, 추가 옵션을 바탕으로 현재 조건에서 가장 효율적인 조합을 찾는 기능입니다.
+              단순히 점수가 높은 젬만 고르는 것이 아니라, 어떤 코어를 얼마나 활성화할지, 어떤 기준으로
+              포인트와 스탯을 가져갈지를 함께 계산합니다.
+            </p>
+            <p>
+              같은 인벤토리라도 목표가 무엇인지에 따라 결과는 달라질 수 있습니다. 어떤 유저는 핵심 코어를 먼저
+              켜는 것이 중요하고, 어떤 유저는 도달 가능한 최고 포인트를 유지하면서 스탯을 더 챙기는 것이 중요할 수
+              있습니다. 로아체크는 이런 차이를 반영해 여러 최적화 기준을 따로 제공합니다.
+            </p>
+          </div>
+        </section>
+
+        <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
+          <h3 className="text-base font-bold text-gray-200 mb-4">최적화 옵션 설명</h3>
+
+          <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-400 leading-relaxed">
+            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+              <h4 className="text-gray-200 font-semibold mb-2">포인트 우선</h4>
+              <p>
+                선택한 코어의 최소 포인트 조건을 맞추는 데 우선순위를 둡니다. 핵심 코어를 먼저 안정적으로
+                활성화하고 싶은 경우에 적합합니다.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+              <h4 className="text-gray-200 font-semibold mb-2">스탯 상위 (최대P)</h4>
+              <p>
+                현재 인벤토리로 도달 가능한 가장 높은 코어 포인트를 유지한 상태에서, 그 안에서 가장 높은 전투
+                스탯 효율이 나오는 조합을 찾습니다.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+              <h4 className="text-gray-200 font-semibold mb-2">스탯 우선</h4>
+              <p>
+                최대 포인트 달성보다 실제 체감되는 스탯 효율을 더 중요하게 보는 방식입니다. 포인트를 조금
+                양보하더라도 결과적으로 더 좋은 조합이 나올 수 있습니다.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
+          <h3 className="text-base font-bold text-gray-200 mb-4">이 페이지를 사용하는 방법</h3>
+
+          <div className="space-y-4 text-sm text-gray-400 leading-relaxed">
+            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+              <strong className="text-gray-200 block mb-2">1. 코어 설정</strong>
+              원하는 코어를 켜고, 각 코어의 최소 포인트와 최대 포인트를 정합니다. 여기서 어떤 코어를 활성화할지에
+              따라 이후 최적화 방향이 달라집니다.
+            </div>
+
+            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+              <strong className="text-gray-200 block mb-2">2. 보유 젬 입력</strong>
+              질서/혼돈 젬을 현재 보유 상태대로 입력합니다. 의지력 효율과 포인트, 옵션 레벨이 실제 결과에 직접
+              반영되므로 가능한 한 정확하게 입력하는 것이 좋습니다.
+            </div>
+
+            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+              <strong className="text-gray-200 block mb-2">3. 결과 비교</strong>
+              포인트 우선, 스탯 상위, 스탯 우선 결과를 각각 확인해 보고, 내 목적에 맞는 조합을 선택하면 됩니다.
+              단순히 숫자가 가장 큰 결과 하나만 보는 것보다, 어떤 기준으로 좋은 결과인지 같이 해석하는 것이
+              중요합니다.
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
+          <h3 className="text-base font-bold text-gray-200 mb-4">결과 해석 팁</h3>
+
+          <div className="space-y-3 text-sm text-gray-400 leading-relaxed">
+            <p>
+              같은 젬 인벤토리라도 어떤 코어를 선택했는지, 딜러인지 서포터인지, 최소 포인트를 얼마나 높게 잡았는지에
+              따라 결과가 크게 달라질 수 있습니다. 따라서 결과는 한 번만 보기보다, 코어 구성과 조건을 조금씩
+              바꿔보며 비교하는 것이 좋습니다.
+            </p>
+            <p>
+              특히 <strong className="text-gray-300">“스탯 상위 (최대P)”</strong>와
+              <strong className="text-gray-300"> “스탯 우선”</strong> 결과가 다르게 나오는 경우,
+              무조건 최대 포인트가 정답은 아니라는 뜻일 수 있습니다. 실제 세팅 목적에 맞는 선택이 더 중요합니다.
+            </p>
+            <p>
+              로아체크는 계산 결과를 빠르게 비교하고 판단하기 위한 도구이며, 최종 선택은 캐릭터 세팅 방향과
+              플레이 스타일을 함께 고려하는 것이 가장 좋습니다.
+            </p>
+          </div>
+        </section>
+
+      </div>
+
 
       {/* Quick Add Modal */}
       {showQuick && (
