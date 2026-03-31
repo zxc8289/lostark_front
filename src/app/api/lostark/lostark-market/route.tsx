@@ -1,93 +1,81 @@
-// src/app/api/lostark/lostark-market/route.ts
-import { NextResponse } from "next/server";
-import { getDb } from "@/db/client";
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const revalidate = 600;
 
-type MarketCacheDoc = {
-    _id: string;
-    query: any;
-    data: any;
-    updatedAt: string;
-};
+export async function GET() {
+    const rawToken = process.env.LOSTARK_OPENAPI_JWT;
 
-type WatchDoc = {
-    _id: string;
-    query: any;
-    createdAt: string;
-    lastSeenAt: string;
-    enabled?: boolean;
-    lastOkAt?: string;
-    lastRunAt?: string;
-    lastError?: string;
-    seeded?: boolean;
-};
-
-function stableKey(obj: Record<string, any>) {
-    const sorted = Object.fromEntries(
-        Object.entries(obj).sort(([a], [b]) => a.localeCompare(b))
-    );
-    return JSON.stringify(sorted);
-}
-
-export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url);
-
-    // ✅ 프론트는 읽기 전용: watch=1일 때만 watchlist 기록
-    const watch = searchParams.get("watch") === "1";
-
-    // ✅ 전체(생활 재료 전체) 기본값 90000
-    const CategoryCode = Number(searchParams.get("categoryCode") || "90000");
-    const ItemName = (searchParams.get("itemName") || "").trim();
-    const PageNo = Number(searchParams.get("pageNo") || "1");
-    const Sort = (searchParams.get("sort") || "RECENT_PRICE").trim();
-    const SortCondition = (searchParams.get("sortCondition") || "DESC").trim();
-
-    const queryBody: Record<string, any> = { PageNo };
-
-    // (0이나 NaN 방어)
-    if (Number.isFinite(CategoryCode) && CategoryCode > 0) queryBody.CategoryCode = CategoryCode;
-    if (ItemName) queryBody.ItemName = ItemName;
-    if (Sort) queryBody.Sort = Sort;
-    if (SortCondition) queryBody.SortCondition = SortCondition;
-
-    const key = stableKey(queryBody);
-    const nowIso = new Date().toISOString();
-
-    const db = await getDb();
-    const cacheCol = db.collection<MarketCacheDoc>("loa_market_items_cache");
-    const watchCol = db.collection<WatchDoc>("loa_market_watchlist");
-
-    // ✅ watch=1일 때만 기록 (기본은 프론트가 절대 수집 파이프라인에 영향 X)
-    if (watch) {
-        await watchCol.updateOne(
-            { _id: key },
-            {
-                $setOnInsert: { createdAt: nowIso, enabled: true },
-                $set: { query: queryBody, lastSeenAt: nowIso },
-            },
-            { upsert: true }
-        );
+    if (!rawToken) {
+        console.error("❌ [서버 에러] 환경변수가 설정되지 않았습니다.");
+        return NextResponse.json({ error: "API Key is missing" }, { status: 500 });
     }
 
-    const doc = await cacheCol.findOne({ _id: key });
+    // 1. 쉼표나 줄바꿈으로 구분된 토큰들을 깔끔한 배열로 만듭니다.
+    const tokenArray = rawToken
+        .split(',')
+        .map(t => t.replace(/[\r\n\s]/g, '').trim())
+        .filter(t => t.length > 0);
 
-    if (!doc) {
-        return NextResponse.json(
-            {
-                error: "cache_miss",
-                hint: "해당 조건 캐시가 아직 없습니다. (크론이 저장한 조건만 조회 가능합니다)",
-                query: queryBody,
+    // 2. 배열 중 하나를 무작위로 선택하여 API 호출 부하를 분산시킵니다.
+    const randomIndex = Math.floor(Math.random() * tokenArray.length);
+    const selectedToken = tokenArray[randomIndex];
+
+    const fetchPrices = async (itemName: string) => {
+        const res = await fetch('https://developer-lostark.game.onstove.com/markets/items', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${selectedToken}`, // 선택된 단일 키 사용
+                'Content-Type': 'application/json',
             },
-            { status: 404 }
-        );
-    }
+            body: JSON.stringify({
+                Sort: "CURRENT_MIN_PRICE",
+                CategoryCode: 50000,
+                ItemName: itemName,
+                PageNo: 1,
+                SortCondition: "DESC"
+            })
+        });
 
-    return NextResponse.json({
-        cached: true,
-        updatedAt: doc.updatedAt,
-        query: doc.query,
-        data: doc.data,
-    });
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error(`❌ [로아 API 에러] ${itemName} 검색 실패 - 상태 코드: ${res.status}, 내용: ${errorText}`);
+            throw new Error(`LostArk API Request Failed: ${res.status}`);
+        }
+
+        const data = await res.json();
+        return data.Items || [];
+    };
+
+    try {
+        // ✨ 파편 주머니(대) 검색 추가
+        const [destRes, guardRes, leapRes, shardRes] = await Promise.all([
+            fetchPrices("파괴"),
+            fetchPrices("수호"),
+            fetchPrices("돌파"),
+            fetchPrices("파편 주머니(대)")
+        ]);
+
+        const allItems = [...destRes, ...guardRes, ...leapRes];
+        const priceMap: Record<string, number> = {};
+
+        // 일반 재료들 1개당 가격 계산 (보통 번들 10개 단위)
+        allItems.forEach((item: any) => {
+            const pricePerOne = item.CurrentMinPrice / item.BundleCount;
+            priceMap[item.Name] = pricePerOne;
+        });
+
+        shardRes.forEach((item: any) => {
+            if (item.Name === "명예의 파편 주머니(대)") {
+                priceMap["명예의 파편"] = item.CurrentMinPrice / 1500;
+            } else if (item.Name === "운명의 파편 주머니(대)") {
+                priceMap["운명의 파편"] = item.CurrentMinPrice / 3000;
+            }
+        });
+
+        return NextResponse.json(priceMap);
+
+    } catch (error) {
+        console.error("❌ [서버 내부 에러] API 통신 중 문제가 발생했습니다:", error);
+        return NextResponse.json({ error: "Failed to fetch market prices" }, { status: 500 });
+    }
 }

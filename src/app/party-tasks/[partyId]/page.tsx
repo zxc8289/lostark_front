@@ -99,9 +99,9 @@ export type PartyMemberTasks = {
     visibleByChar: Record<string, boolean>;
     tableOrder?: string[];
     canOthersEdit?: boolean;
-    rosterOrder?: string[];       
-    cardRosterOrder?: string[];    
-    goldDesignatedByChar?: Record<string, boolean>; 
+    rosterOrder?: string[];
+    cardRosterOrder?: string[];
+    goldDesignatedByChar?: Record<string, boolean>;
 };
 
 type PartyRaidTasksResponse = {
@@ -1252,7 +1252,67 @@ export default function PartyDetailPage() {
         );
     };
 
-    // src/app/party-tasks/[partyId]/page.tsx 내부
+    const handleMemberCharacterAllClear = (memberUserId: string, charName: string) => {
+        if (!party || !partyTasks) return;
+        const partyIdNum = party.id;
+
+        const next: PartyMemberTasks[] = partyTasks.map((m) => {
+            if (m.userId !== memberUserId) return m;
+
+            const memberPrefsByChar = { ...(m.prefsByChar ?? {}) };
+            const charPrefs = memberPrefsByChar[charName] ?? { raids: {} };
+
+            // 1. 현재 모든 레이드가 이미 완료 상태인지 체크
+            let isAllCurrentlyCleared = true;
+            for (const [raidName, raidPref] of Object.entries(charPrefs.raids ?? {})) {
+                if (!raidPref || !(raidPref as any).enabled) continue;
+
+                const info = raidInformation[raidName];
+                const diff = (info?.difficulty as any)?.[(raidPref as any).difficulty];
+                const allGateIndices = (diff?.gates ?? []).map((g: any) => g.index);
+                const currentGates = (raidPref as any).gates ?? [];
+
+                // 하나라도 모든 관문이 체크되어 있지 않다면 false
+                if (allGateIndices.length !== currentGates.length) {
+                    isAllCurrentlyCleared = false;
+                    break;
+                }
+            }
+
+            // 2. 토글 결과 계산 (다 깨져있으면 비우고, 아니면 다 채움)
+            const nextRaids: any = {};
+            for (const [raidName, raidPref] of Object.entries(charPrefs.raids ?? {})) {
+                if (!raidPref || !(raidPref as any).enabled) {
+                    nextRaids[raidName] = raidPref;
+                    continue;
+                }
+
+                if (isAllCurrentlyCleared) {
+                    // 전체 취소
+                    nextRaids[raidName] = { ...(raidPref as any), gates: [] };
+                } else {
+                    // 전체 완료
+                    const info = raidInformation[raidName];
+                    const diff = (info?.difficulty as any)?.[(raidPref as any).difficulty];
+                    const allGateIndices = (diff?.gates ?? []).map((g: any) => g.index);
+                    nextRaids[raidName] = { ...(raidPref as any), gates: allGateIndices };
+                }
+            }
+
+            memberPrefsByChar[charName] = { ...charPrefs, raids: nextRaids };
+            return { ...m, prefsByChar: memberPrefsByChar };
+        });
+
+        setPartyTasks(next);
+
+        const updated = next.find((m) => m.userId === memberUserId);
+        if (updated) {
+            sendMemberUpdateWS(partyIdNum, updated.userId, updated.prefsByChar, updated.visibleByChar);
+            void saveMemberPrefsToServer(partyIdNum, updated.userId, updated.prefsByChar, updated.visibleByChar);
+        }
+    };
+
+
 
     const handleBulkToggleGate = (
         raidName: string,
@@ -1327,7 +1387,7 @@ export default function PartyDetailPage() {
 
 
 
-    const handleMemberAutoSetup = (memberUserId: string, isMe: boolean) => {
+    const handleMemberAutoSetup = (memberUserId: string, isMe: boolean, sortType: "latest" | "gold" = "latest") => {
         if (!party || !partyTasks) return;
 
         const partyIdNum = party.id;
@@ -1347,7 +1407,7 @@ export default function PartyDetailPage() {
 
 
             const { nextPrefsByChar, nextVisibleByChar, nextGoldByChar } = buildAutoSetupForRoster(
-                roster, m.prefsByChar ?? {}, charCount
+                roster, m.prefsByChar ?? {}, charCount, sortType // ✨ sortType 인자 추가
             );
 
 
@@ -2193,7 +2253,7 @@ export default function PartyDetailPage() {
                                                 onReorderTable={handleMemberTableReorder}
                                                 onlyRemain={onlyRemain}
                                                 isCardView={isCardView}
-                                                onAutoSetup={(isMe) => handleMemberAutoSetup(m.userId, isMe)}
+                                                onAutoSetup={(isMe, sortType) => handleMemberAutoSetup(m.userId, isMe, sortType)}
                                                 onGateAllClear={() => handleMemberGateAllClear(m.userId)}
                                                 onOpenCharSetting={() => openMemberCharSetting(m)}
                                                 onRefreshAccount={myUserId === m.userId ? handleMyRefreshAccount : () => handleMemberRefreshAccount(m.userId)}
@@ -2202,10 +2262,11 @@ export default function PartyDetailPage() {
                                                 onReorder={handleMemberReorder}
                                                 onSearch={handleCharacterSearch}
                                                 searchLoading={accountSearchLoading}
-                                                isDragEnabled={isDragEnabled} // 🔥 추가
+                                                isDragEnabled={isDragEnabled}
                                                 searchError={accountSearchErr}
-                                                onReorderRoster={handleMemberRosterReorder}         // ✅ 테이블용 그대로
-                                                onReorderCardRoster={handleMemberCardRosterReorder} // ✅ 추가
+                                                onReorderRoster={handleMemberRosterReorder}
+                                                onReorderCardRoster={handleMemberCardRosterReorder}
+                                                onCharacterAllClear={handleMemberCharacterAllClear}
                                             />
                                         );
                                     })}
@@ -2602,7 +2663,7 @@ function PartyMemberBlock({
     isDragEnabled,
     onReorderCardRoster,
     isAllView,
-
+    onCharacterAllClear,
 }: {
     partyId: number;
     member: PartyMemberTasks;
@@ -2613,7 +2674,7 @@ function PartyMemberBlock({
     currentAccount: SavedAccount | null;
     onlyRemain: boolean;
     isCardView: boolean;
-    onAutoSetup: (isMe: boolean) => void;
+    onAutoSetup: (isMe: boolean, sortType: "latest" | "gold") => void;
     onGateAllClear: () => void;
     onOpenCharSetting: () => void;
     onToggleGate: (userId: string, charName: string, raidName: string, gate: number, currentGates: number[], allGates: number[]) => void;
@@ -2626,8 +2687,9 @@ function PartyMemberBlock({
     selectedRaids: string[];
     onReorderRoster: (userId: string, mergedRosterOrder: string[]) => void;
     isDragEnabled: boolean;
-    onReorderCardRoster: (userId: string, mergedCardOrder: string[]) => void; // ✅ 추가
-    isAllView: boolean; // 🔥 이 줄 추가
+    onReorderCardRoster: (userId: string, mergedCardOrder: string[]) => void;
+    isAllView: boolean;
+    onCharacterAllClear: (userId: string, charName: string) => void;
 }) {
     const [isExpanded, setIsExpanded] = useState(true);
     const [searchInput, setSearchInput] = useState("");
@@ -2902,7 +2964,7 @@ function PartyMemberBlock({
         <div className="grid grid-cols-1 gap-4 sm:gap-1 rounded-none sm:rounded-lg border-x-0 sm:border border-y sm:border-y border-white/10 px-3 sm:px-4 py-3 sm:py-4 relative">
             <PartyMemberSummaryBar member={member} summary={memberSummary}>
                 <PartyMemberActions
-                    onAutoSetup={withEditAuth(() => onAutoSetup(isMe))}
+                    onAutoSetup={withEditAuth((sortType: "latest" | "gold") => onAutoSetup(isMe, sortType))}
                     onGateAllClear={withEditAuth(onGateAllClear)}
                     onOpenCharSetting={withEditAuth(onOpenCharSetting)}
                     onRefreshAccount={withEditAuth(async () => { await onRefreshAccount(); })}
@@ -2994,6 +3056,7 @@ function PartyMemberBlock({
                                             tasks={tasks}
                                             isDragEnabled={isDragEnabled}
                                             onEdit={withEditAuth(() => onEdit(member, c))}
+                                            onAllClear={withEditAuth(() => onCharacterAllClear(member.userId, c.name))}
                                             onReorder={withEditAuth((char, newOrder) => {
                                                 if (selectedRaids.length > 0) return;
                                                 onReorder(member.userId, char.name, newOrder);
@@ -3019,6 +3082,7 @@ function PartyMemberBlock({
                                                                 isDragEnabled={isDragEnabled}
                                                                 dragHandleProps={dragHandleProps} // ✅ 이름 영역이 캐릭터 드래그 핸들
                                                                 onEdit={withEditAuth(() => onEdit(member, c))}
+
                                                                 onReorder={withEditAuth((char, newOrder) => {
                                                                     if (selectedRaids.length > 0) return;
                                                                     onReorder(member.userId, char.name, newOrder);
@@ -3250,7 +3314,7 @@ function PartyMemberSummaryBar({
 }
 
 type PartyMemberActionsProps = {
-    onAutoSetup: () => void;
+    onAutoSetup: (sortType: "latest" | "gold") => void;
     onGateAllClear: () => void;
     onOpenCharSetting: () => void;
     onRefreshAccount: () => Promise<void> | void;
@@ -3284,6 +3348,19 @@ function PartyMemberActions({
             return 6;
         }
     });
+    const [autoSetupSortType, setAutoSetupSortType] = useState<"latest" | "gold">(() => {
+        if (typeof window === "undefined") return "latest";
+        try {
+            const saved = localStorage.getItem("raidTaskAutoSetupSortType");
+            return saved === "gold" ? "gold" : "latest";
+        } catch {
+            return "latest";
+        }
+    });
+
+    useEffect(() => {
+        try { localStorage.setItem("raidTaskAutoSetupSortType", autoSetupSortType); } catch { }
+    }, [autoSetupSortType]);
 
     useEffect(() => {
         try {
@@ -3385,32 +3462,45 @@ function PartyMemberActions({
                                     </div>
                                 )}
 
-                                {/* 설정 팝업창 */}
                                 {showAutoSetupSettings && (
                                     <div className="absolute top-[80%] right-2 mt-2 w-56 p-4 rounded-xl bg-[#1E2028] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.7)] z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
                                         <div className="flex items-center justify-between mb-3">
                                             <h4 className="text-xs font-bold text-white">자동 세팅 설정</h4>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setShowAutoSetupSettings(false);
-                                                }}
-                                                className="text-gray-400 hover:text-white"
-                                            >
+                                            <button onClick={(e) => { e.stopPropagation(); setShowAutoSetupSettings(false); }} className="text-gray-400 hover:text-white">
                                                 <X className="w-4 h-4" />
                                             </button>
                                         </div>
                                         <div className="flex items-center justify-between gap-4 mb-4">
                                             <span className="text-[11px] text-gray-400">적용할 캐릭터 수</span>
+
                                             <input
-                                                type="number"
-                                                min={1}
-                                                max={24}
+                                                type="number" min={1} max={24}
                                                 value={autoSetupCharCount}
                                                 onChange={(e) => setAutoSetupCharCount(Number(e.target.value))}
                                                 className="w-12 h-7 bg-[#0F1115] border border-white/10 rounded-md px-1 text-xs text-center text-white focus:outline-none focus:border-[#5B69FF] appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                             />
                                         </div>
+
+                                        {/* ✨ 새롭게 추가된 정렬 기준 선택 UI */}
+                                        <div className="space-y-1.5 mb-5">
+                                            <span className="text-[11px] text-gray-400 block">레이드 우선순위</span>
+                                            <div className="grid grid-cols-2 gap-1 p-1 bg-[#0F1115] rounded-lg border border-white/5">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setAutoSetupSortType("latest"); }}
+                                                    className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "latest" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}
+                                                >
+                                                    최신순
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setAutoSetupSortType("gold"); }}
+                                                    className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "gold" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}
+                                                >
+                                                    골드순
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* 적용하기 버튼 */}
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -3508,7 +3598,7 @@ function PartyMemberActions({
                                 </button>
                                 <button
                                     onClick={() => {
-                                        onAutoSetup();
+                                        onAutoSetup(autoSetupSortType);
                                         setAutoSetupConfirmOpen(false);
                                     }}
                                     className="flex-1 py-3 rounded-xl bg-[#5B69FF] hover:bg-[#4A57E6] text-white font-bold transition-colors text-sm"

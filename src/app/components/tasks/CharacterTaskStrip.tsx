@@ -17,7 +17,7 @@ import {
     arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronLeft, ChevronRight, GripVertical, SquarePen, Plus } from "lucide-react"; // 🔥 Plus 추가
+import { ChevronLeft, ChevronRight, GripVertical, SquarePen, Plus, Check } from "lucide-react"; // 🔥 Plus 추가
 
 export type RosterCharacter = {
     name: string;
@@ -37,6 +37,7 @@ export type Props = {
     tasks: TaskItem[];
     onEdit?: (c: RosterCharacter) => void;
     onReorder?: (c: RosterCharacter, newOrderIds: string[]) => void;
+    onAllClear?: (c: RosterCharacter) => void;
     dragHandleProps?: Record<string, any>;
     isDragEnabled?: boolean;
 };
@@ -75,6 +76,7 @@ export default function CharacterTaskStrip({
     tasks,
     onEdit,
     onReorder,
+    onAllClear,
     dragHandleProps,
     isDragEnabled,
 }: Props) {
@@ -221,17 +223,29 @@ export default function CharacterTaskStrip({
                     </button>
                 </div>
 
-                <button
-                    className="inline-flex items-center gap-1.5 py-[5px] px-[10px] sm:py-2 sm:px-3 rounded-md
-                     bg-white/[.04] border border-white/10  text-xs text-white hover:bg-white/5"
-                    onClick={() => onEdit?.(character)}
-                >
-                    숙제 편집
-                    <SquarePen
-                        className="inline-block align-middle w-3 h-3 sm:w-4 sm:h-4  text-[#FFFFFF]/50"
-                        strokeWidth={1.75}
-                    />
-                </button>
+                <div className="flex items-center gap-2">
+                    {hasTasks && (
+                        <button
+                            className="inline-flex items-center gap-1.5 py-[5px] px-[10px] sm:py-2 sm:px-3 rounded-md
+                         bg-white/[.04] border border-white/10  text-xs text-white hover:bg-white/5 transition-colors"
+                            onClick={() => onAllClear?.(character)}
+                        >
+                            <span className="hidden sm:inline">일괄 완료</span>
+                        </button>
+                    )}
+
+                    <button
+                        className="inline-flex items-center gap-1.5 py-[5px] px-[10px] sm:py-2 sm:px-3 rounded-md
+                         bg-white/[.04] border border-white/10  text-xs text-white hover:bg-white/5 transition-colors"
+                        onClick={() => onEdit?.(character)}
+                    >
+                        숙제 편집
+                        <SquarePen
+                            className="inline-block align-middle w-3 h-3 sm:w-4 sm:h-4  text-[#FFFFFF]/50"
+                            strokeWidth={1.75}
+                        />
+                    </button>
+                </div>
             </div>
 
             {hasTasks ? (

@@ -52,12 +52,13 @@ const items: NavItem[] = [
     { href: "/party-tasks", label: "파티 숙제" },
     { href: "/dps-share", label: "딜 지분" },
     { href: "/gem-setup", label: "젬 세팅" },
+    { href: "/raid-info", label: "레이드 정보" },
     {
         href: "/calculator/auction",
         label: "계산기",
         subItems: [
             { href: "/calculator/auction", label: "경매 계산기" },
-            { href: "/calculator/more-reward", label: "다른 계산기" },
+            { href: "/calculator/more-reward", label: "더보기 계산기" },
         ]
     },
     { href: "/support", label: "문의하기" },

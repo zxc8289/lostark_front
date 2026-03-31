@@ -248,14 +248,12 @@ export function computeRaidSummaryForRoster(
         totalBoundGold: boundGoldTotal,
     };
 }
-/* ─────────────────────────────
- * 이미 있던 자동 세팅 유틸
- * ───────────────────────────── */
 
-/** 단일 캐릭터 기준 Top3 레이드 자동 선택 */
+
 export function autoSelectTop3Raids(
     ilvl: number,
-    prev?: CharacterTaskPrefs
+    prev?: CharacterTaskPrefs,
+    sortType: "latest" | "gold" = "latest" // ✨ 정렬 기준 추가
 ): CharacterTaskPrefs {
     const raidEntries = Object.entries(raidInformation);
     const updatedRaids: CharacterTaskPrefs["raids"] = { ...(prev?.raids ?? {}) };
@@ -264,11 +262,10 @@ export function autoSelectTop3Raids(
         raidName: string;
         difficulty: DifficultyKey;
         levelReq: number;
-        gold: number; // 💰 골드 정보 추가
+        gold: number;
     }[] = [];
 
     for (const [raidName, info] of raidEntries) {
-
         const nightmare = info.difficulty["나메"];
         const hard = info.difficulty["하드"];
         const normal = info.difficulty["노말"];
@@ -277,7 +274,6 @@ export function autoSelectTop3Raids(
         let levelReq = 0;
         let diffInfo = null;
 
-        // 입장 가능한 가장 높은 난이도 선택
         if (nightmare && ilvl >= nightmare.level) {
             pickedDiff = "나메";
             levelReq = nightmare.level;
@@ -294,8 +290,8 @@ export function autoSelectTop3Raids(
             continue;
         }
 
-        // 💰 해당 난이도의 총 골드 계산
-        const totalGold = (diffInfo.gates ?? []).reduce((sum, g) => sum + (g.gold || 0), 0);
+        // 💰 일반 골드와 귀속 골드를 합산하여 비교 기준 생성
+        const totalGold = (diffInfo.gates ?? []).reduce((sum, g) => sum + (g.gold || 0) + ((g as any).boundGold || 0), 0);
 
         candidates.push({
             raidName,
@@ -305,45 +301,43 @@ export function autoSelectTop3Raids(
         });
     }
 
+    // ✨ 사용자가 선택한 정렬 방식(sortType)에 따라 상위 3개 추출
     const top3 = candidates.sort((a, b) => {
         const infoA = raidInformation[a.raidName];
         const infoB = raidInformation[b.raidName];
 
-        // 1. 출시일 데이터 가져오기 (없으면 아주 옛날로 취급)
         const dateA = infoA?.releaseDate || "2000-01-01";
         const dateB = infoB?.releaseDate || "2000-01-01";
 
-        if (dateA !== dateB) {
-            return dateB.localeCompare(dateA);
+        if (sortType === "gold") {
+            // 골드 최우선
+            if (b.gold !== a.gold) return b.gold - a.gold;
+            if (dateA !== dateB) return dateB.localeCompare(dateA);
+            return b.levelReq - a.levelReq;
+        } else {
+            // 최신(출시일) 최우선 (기존 로직)
+            if (dateA !== dateB) return dateB.localeCompare(dateA);
+            if (b.gold !== a.gold) return b.gold - a.gold;
+            return b.levelReq - a.levelReq;
         }
-
-
-        // [2순위] 골드 비교 (돈 많이 주는 순)
-        if (b.gold !== a.gold) {
-            return b.gold - a.gold;
-        }
-
-        // [3순위] 그래도 같으면 레벨 높은 순
-        return b.levelReq - a.levelReq;
     }).slice(0, 3);
-    // 기존 설정은 다 disable + gates 초기화 + 골드 체크 해제
+
     for (const [raidName, pref] of Object.entries(updatedRaids)) {
         updatedRaids[raidName] = {
             ...pref,
             enabled: false,
             gates: [],
             isBonus: false,
-            isGold: false, // 🔥 초기화할 때 골드 지정도 함께 끕니다.
+            isGold: false,
         };
     }
 
-    // 상위 3개만 enable & 골드 켜기
     for (const { raidName, difficulty } of top3) {
         updatedRaids[raidName] = {
             ...(updatedRaids[raidName] ?? { gates: [] }),
             enabled: true,
             difficulty,
-            isGold: true, // 🔥 자동으로 선택된 3개 레이드는 기본적으로 골드 지정(isGold)을 켜줍니다.
+            isGold: true,
         };
     }
 
@@ -352,29 +346,23 @@ export function autoSelectTop3Raids(
     return { raids: updatedRaids, order };
 }
 
-/* 여기부터 새로 추가된 자동 세팅 결과 타입 */
-
-
-/**
- * 아이템 레벨 상위 N캐릭 + 각 캐릭터 Top3 레이드 자동 세팅
- * - 공통으로 MyTasks / Party 페이지 양쪽에서 사용
- */
 export type AutoSetupResult = {
     nextPrefsByChar: Record<string, CharacterTaskPrefs>;
     nextVisibleByChar: Record<string, boolean>;
-    nextGoldByChar: Record<string, boolean>; // 🔥 추가
+    nextGoldByChar: Record<string, boolean>;
 };
 
 export function buildAutoSetupForRoster(
     roster: RosterCharacter[],
     prevPrefsByChar: Record<string, CharacterTaskPrefs>,
-    charCount: number = 6
+    charCount: number = 6,
+    sortType: "latest" | "gold" = "latest" // ✨ 파라미터 전달 받음
 ): AutoSetupResult {
     if (!roster.length) {
         return {
             nextPrefsByChar: { ...prevPrefsByChar },
             nextVisibleByChar: {},
-            nextGoldByChar: {}, // 🔥 추가
+            nextGoldByChar: {},
         };
     }
 
@@ -382,20 +370,17 @@ export function buildAutoSetupForRoster(
         (a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)
     );
 
-    // 1. 화면에 표시할 캐릭터 (예: 12개)
     const targetCharacters = sorted.slice(0, Math.max(0, charCount));
     const targetNames = new Set(targetCharacters.map((c) => c.name));
-
-    // 2. 골드 지정을 켤 캐릭터 (표시 대상 중 최대 6캐릭으로 제한)
     const goldTargetCharacters = targetCharacters.slice(0, 6);
     const goldTargetNames = new Set(goldTargetCharacters.map((c) => c.name));
 
     const nextVisibleByChar: Record<string, boolean> = {};
-    const nextGoldByChar: Record<string, boolean> = {}; // 🔥 추가
+    const nextGoldByChar: Record<string, boolean> = {};
 
     for (const c of roster) {
         nextVisibleByChar[c.name] = targetNames.has(c.name);
-        nextGoldByChar[c.name] = goldTargetNames.has(c.name); // 🔥 자동 세팅 시 골드 지정은 최대 6캐릭만
+        nextGoldByChar[c.name] = goldTargetNames.has(c.name);
     }
 
     const nextPrefsByChar: Record<string, CharacterTaskPrefs> = {
@@ -405,13 +390,14 @@ export function buildAutoSetupForRoster(
     for (const c of targetCharacters) {
         const ilvlNum = c.itemLevelNum ?? 0;
         const prevPrefs = nextPrefsByChar[c.name] ?? { raids: {} };
-        nextPrefsByChar[c.name] = autoSelectTop3Raids(ilvlNum, prevPrefs);
+        // ✨ sortType을 인자로 넘겨줌
+        nextPrefsByChar[c.name] = autoSelectTop3Raids(ilvlNum, prevPrefs, sortType);
     }
 
     return {
         nextPrefsByChar,
         nextVisibleByChar,
-        nextGoldByChar, // 🔥 추가
+        nextGoldByChar,
     };
 }
 
