@@ -416,6 +416,39 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         return { groupsByDay, unscheduled };
     }, [filteredGroups, isScheduleView, dayOrderMap]);
 
+    const groupedByRaid = useMemo(() => {
+        if (isScheduleView || isReorderMode) return null;
+
+        const map = new Map<string, RaidGroup[]>();
+        filteredGroups.forEach(g => {
+            if (!map.has(g.raidName)) map.set(g.raidName, []);
+            map.get(g.raidName)!.push(g);
+        });
+
+        // 입장 레벨이 가장 높은(최신) 레이드부터 내림차순 정렬
+        const sortedRaidNames = Array.from(map.keys()).sort((a, b) => {
+            const infoA = raidInformation[a];
+            let maxA = 0;
+            if (infoA?.difficulty) {
+                Object.values(infoA.difficulty).forEach((d: any) => {
+                    if (d.level > maxA) maxA = d.level;
+                });
+            }
+
+            const infoB = raidInformation[b];
+            let maxB = 0;
+            if (infoB?.difficulty) {
+                Object.values(infoB.difficulty).forEach((d: any) => {
+                    if (d.level > maxB) maxB = d.level;
+                });
+            }
+
+            return maxB - maxA;
+        });
+
+        return { map, sortedRaidNames };
+    }, [filteredGroups, isScheduleView, isReorderMode]);
+
     const activeGroup = syncedGroups.find(g => g.id === activeGroupId) || null;
 
     const waitlistCharacters = useMemo(() => {
@@ -1028,15 +1061,29 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                             )}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                            {filteredGroups.map(group => (
-                                <ReadOnlyGroupCard
-                                    key={group.id}
-                                    group={group}
-                                    partyTasks={partyTasks}
-                                    onBulkToggleGate={onBulkToggleGate}
-                                />
-                            ))}
+                        <div className="flex flex-col gap-8 w-full animate-in fade-in duration-200">
+                            {groupedByRaid?.sortedRaidNames.map(raidName => {
+                                const raidGroups = groupedByRaid.map.get(raidName)!;
+                                return (
+                                    <div key={raidName} className="flex flex-col gap-3">
+                                        <div className="flex items-center gap-2 border-b border-white/10 pb-2 px-1">
+                                            <Swords className="w-5 h-5 text-[#5B69FF]" />
+                                            <h3 className="text-base sm:text-lg font-bold text-white">{raidName}</h3>
+                                            <span className="text-xs sm:text-sm text-gray-500 font-medium bg-white/5 px-2 py-0.5 rounded-full">{raidGroups.length}개</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                            {raidGroups.map(group => (
+                                                <ReadOnlyGroupCard
+                                                    key={group.id}
+                                                    group={group}
+                                                    partyTasks={partyTasks}
+                                                    onBulkToggleGate={onBulkToggleGate}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -1112,20 +1159,34 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                     )}
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                    {filteredGroups.map(group => (
-                                        <GroupCard
-                                            key={group.id}
-                                            group={group}
-                                            isActive={group.id === activeGroupId}
-                                            onClick={() => setActiveGroupId(group.id)}
-                                            onRemove={() => removeGroup(group.id)}
-                                            onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
-                                            onNameChange={(newName) => updateGroupName(group.id, newName)}
-                                            onScheduleChange={(day, time) => updateGroupSchedule(group.id, day, time)}
-                                            onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
-                                        />
-                                    ))}
+                                <div className="flex flex-col gap-8 w-full animate-in fade-in duration-200">
+                                    {groupedByRaid?.sortedRaidNames.map(raidName => {
+                                        const raidGroups = groupedByRaid.map.get(raidName)!;
+                                        return (
+                                            <div key={raidName} className="flex flex-col gap-3">
+                                                <div className="flex items-center gap-2 border-b border-white/10 pb-2 px-1">
+                                                    <Swords className="w-5 h-5 text-[#5B69FF]" />
+                                                    <h3 className="text-base sm:text-lg font-bold text-white">{raidName}</h3>
+                                                    <span className="text-xs sm:text-sm text-gray-500 font-medium bg-white/5 px-2 py-0.5 rounded-full">{raidGroups.length}개</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                    {raidGroups.map(group => (
+                                                        <GroupCard
+                                                            key={group.id}
+                                                            group={group}
+                                                            isActive={group.id === activeGroupId}
+                                                            onClick={() => setActiveGroupId(group.id)}
+                                                            onRemove={() => removeGroup(group.id)}
+                                                            onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
+                                                            onNameChange={(newName) => updateGroupName(group.id, newName)}
+                                                            onScheduleChange={(day, time) => updateGroupSchedule(group.id, day, time)}
+                                                            onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
 
                                     {filteredGroups.length === 0 && groups.length > 0 && (
                                         <div className="col-span-full text-center text-gray-500 py-32 flex flex-col items-center justify-center bg-[#16181D] rounded-xl px-4">
