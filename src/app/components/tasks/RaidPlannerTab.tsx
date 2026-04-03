@@ -1,7 +1,7 @@
 // src/app/components/tasks/RaidPlannerTab.tsx
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Plus, Users, Swords, X, AlertTriangle, Check, ChevronLeft, ChevronRight, Edit2, Loader2, Filter, ChevronUp, ChevronDown, Search, ArrowUpDown, Calendar } from "lucide-react";
 import {
     DndContext,
@@ -21,19 +21,6 @@ import { raidInformation } from "@/server/data/raids";
 import { CSS } from "@dnd-kit/utilities";
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from "@dnd-kit/sortable";
 
-type RaidPlannerTabProps = {
-    partyId: number;
-    partyTasks: PartyMemberTasks[];
-    onBulkToggleGate?: (
-        raidName: string,
-        difficulty: string,
-        gate: number,
-        allGates: number[],
-        targets: { userId: string; charName: string; currentGates: number[] }[],
-        targetState: boolean
-    ) => void;
-};
-
 export type RaidGroup = {
     id: string;
     raidName: string;
@@ -43,6 +30,21 @@ export type RaidGroup = {
     slots: (any | null)[];
     scheduleDay?: string;
     scheduleTime?: string;
+    expiresAt?: number;
+};
+
+type RaidPlannerTabProps = {
+    partyId: number;
+    partyTasks: PartyMemberTasks[];
+    isTemporaryMode?: boolean; // 🔥 임시 파티 여부 플래그 추가
+    onBulkToggleGate?: (
+        raidName: string,
+        difficulty: string,
+        gate: number,
+        allGates: number[],
+        targets: { userId: string; charName: string; currentGates: number[] }[],
+        targetState: boolean
+    ) => void;
 };
 
 type DifficultyKey = "노말" | "하드" | "나메" | "싱글";
@@ -105,7 +107,7 @@ function getDisplayDifficulty(raidName: string, difficulty: string) {
     return difficulty;
 }
 
-export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }: RaidPlannerTabProps) {
+export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = false, onBulkToggleGate }: RaidPlannerTabProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isEditMode, setIsEditMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -129,11 +131,14 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
 
     const [isReorderMode, setIsReorderMode] = useState(false);
 
-    // 🔥 필터 관련 상태들
-    const FILTER_KEY_REMAIN = "raidPlanner_onlyRemain";
-    const FILTER_KEY_RAIDS = "raidPlanner_selectedRaids";
-    const FILTER_KEY_USERS = "raidPlanner_selectedUsers";
-    const FILTER_KEY_SCHEDULE = "raidPlanner_isScheduleView";
+
+    // API 엔드포인트 분기
+    const apiEndpoint = isTemporaryMode ? `/api/party-tasks/${partyId}/temp-planner` : `/api/party-tasks/${partyId}/planner`;
+
+    const FILTER_KEY_REMAIN = `raidPlanner_onlyRemain_${isTemporaryMode ? 'temp' : 'fixed'}`;
+    const FILTER_KEY_RAIDS = `raidPlanner_selectedRaids_${isTemporaryMode ? 'temp' : 'fixed'}`;
+    const FILTER_KEY_USERS = `raidPlanner_selectedUsers_${isTemporaryMode ? 'temp' : 'fixed'}`;
+    const FILTER_KEY_SCHEDULE = `raidPlanner_isScheduleView_${isTemporaryMode ? 'temp' : 'fixed'}`;
 
     const [onlyRemain, setOnlyRemain] = useState<boolean>(() => {
         if (typeof window === "undefined") return false;
@@ -157,6 +162,8 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
 
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [isUserFilterOpen, setIsUserFilterOpen] = useState(false);
+
+    const [now, setNow] = useState(Date.now());
 
     useEffect(() => { try { localStorage.setItem(FILTER_KEY_REMAIN, JSON.stringify(onlyRemain)); } catch { } }, [onlyRemain]);
     useEffect(() => { try { localStorage.setItem(FILTER_KEY_RAIDS, JSON.stringify(selectedRaids)); } catch { } }, [selectedRaids]);
@@ -186,7 +193,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
 
         const loadPlanner = async () => {
             try {
-                const res = await fetch(`/api/party-tasks/${partyId}/planner`);
+                const res = await fetch(apiEndpoint);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.groups && data.groups.length > 0) {
@@ -205,7 +212,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
         };
 
         loadPlanner();
-    }, [partyId]);
+    }, [partyId, apiEndpoint]);
 
     useEffect(() => {
         if (selectedRaidName && raidInformation[selectedRaidName]) {
@@ -215,6 +222,64 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
             }
         }
     }, [selectedRaidName]);
+
+
+
+    useEffect(() => {
+        if (!isTemporaryMode) return;
+        const interval = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(interval);
+    }, [isTemporaryMode]);
+
+    // 🔥 그룹 완료 상태 감지 및 DB에 expiresAt 저장 (또는 취소)
+    useEffect(() => {
+        if (!isTemporaryMode || isLoading || isEditMode) return;
+
+        let hasChanges = false;
+        const nextGroups = groups.map(group => {
+            const info = raidInformation[group.raidName];
+            const diffInfo = info?.difficulty[group.difficulty as DifficultyKey];
+            const allGates = diffInfo?.gates.map((g: any) => g.index) || [];
+            const members = group.slots.filter(s => s !== null && !s.isGuest);
+
+            let isFullyCompleted = false;
+            if (members.length > 0 && allGates.length > 0) {
+                isFullyCompleted = members.every(slotChar => {
+                    const memberInfo = partyTasks.find(m => m.userId === slotChar!.ownerId);
+                    const charPref = memberInfo?.prefsByChar?.[slotChar!.name]?.raids?.[group.raidName];
+                    const currentGates = (charPref && charPref.enabled && charPref.difficulty === group.difficulty) ? (charPref.gates || []) : [];
+                    return allGates.every(g => currentGates.includes(g));
+                });
+            }
+
+            if (isFullyCompleted) {
+                if (!group.expiresAt) {
+                    hasChanges = true;
+                    return { ...group, expiresAt: Date.now() + 60000 }; // 60초 뒤 폭파 설정
+                }
+            } else {
+                if (group.expiresAt) {
+                    hasChanges = true;
+                    const { expiresAt, ...rest } = group; // 체크 풀리면 폭파 타이머 제거
+                    return rest;
+                }
+            }
+            return group;
+        });
+
+        // 변경사항이 생겼을 때만 DB에 업데이트 쏘기
+        if (hasChanges) {
+            setGroups(nextGroups);
+            setOriginalGroups(nextGroups);
+            fetch(apiEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ groups: nextGroups }),
+            }).catch(console.error);
+        }
+    }, [groups, partyTasks, isTemporaryMode, isLoading, isEditMode, apiEndpoint]);
+
+
 
     const baseCharacters = useMemo(() => {
         return partyTasks.flatMap(member => {
@@ -336,6 +401,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
 
     const filteredGroups = useMemo(() => {
         return syncedGroups.filter(group => {
+            if (group.expiresAt && group.expiresAt <= now) return false;
             if (selectedRaids.length > 0 && !selectedRaids.includes(group.raidName)) {
                 return false;
             }
@@ -346,7 +412,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 if (!hasAllSelectedUsers) return false;
             }
 
-            // 🔥 수정 모드에서는 남은 숙제만 보기 필터를 무시합니다
             if (onlyRemain && !isEditMode) {
                 const info = raidInformation[group.raidName];
                 const diffInfo = info?.difficulty[group.difficulty as DifficultyKey];
@@ -425,7 +490,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
             map.get(g.raidName)!.push(g);
         });
 
-        // 입장 레벨이 가장 높은(최신) 레이드부터 내림차순 정렬
         const sortedRaidNames = Array.from(map.keys()).sort((a, b) => {
             const infoA = raidInformation[a];
             let maxA = 0;
@@ -506,7 +570,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                     } : null)
                 }));
 
-                const res = await fetch(`/api/party-tasks/${partyId}/planner`, {
+                const res = await fetch(apiEndpoint, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ groups: payload }),
@@ -557,7 +621,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 } : null)
             }));
 
-            const res = await fetch(`/api/party-tasks/${partyId}/planner`, {
+            const res = await fetch(apiEndpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ groups: payload }),
@@ -820,7 +884,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
 
                     <div className="flex flex-col gap-2 min-w-0 flex-1 w-full">
                         <div className="flex flex-wrap items-center gap-2 w-full text-sm sm:text-base">
-                            {/* 🔥 수정 모드가 아닐 때만 자리이동 버튼 노출 */}
                             {!isEditMode && (
                                 <button
                                     onClick={toggleReorderMode}
@@ -834,7 +897,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                 </button>
                             )}
 
-                            {/* 🔥 남은 숙제만 보기 버튼: 수정 모드가 아닐 때만 노출 */}
                             {!isEditMode && (
                                 <button
                                     onClick={() => setOnlyRemain(!onlyRemain)}
@@ -849,7 +911,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                 </button>
                             )}
 
-                            {/* 🔥 아래 필터들은 수정 모드/보기 모드 관계없이 항상 노출 */}
                             <button
                                 onClick={() => setIsScheduleView(!isScheduleView)}
                                 disabled={isReorderMode}
@@ -976,7 +1037,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                             <button
                                 onClick={() => {
                                     setIsReorderMode(false);
-                                    setOnlyRemain(false); // 수정 모드 진입 시 남은 숙제만 보기 필터는 해제
+                                    setOnlyRemain(false);
                                     setIsEditMode(true);
                                 }}
                                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-2 px-4 sm:px-5 rounded-md bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-white hover:bg-[#5B69FF]/20 text-xs sm:text-sm transition-colors"
@@ -1018,6 +1079,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                             <ReadOnlyGroupCard
                                                 group={group}
                                                 partyTasks={partyTasks}
+                                                countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined}
                                                 onBulkToggleGate={onBulkToggleGate}
                                             />
                                         </SortableGroupWrapper>
@@ -1039,7 +1101,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                             {dayGroups.map(group => (
-                                                <ReadOnlyGroupCard key={group.id} group={group} partyTasks={partyTasks} onBulkToggleGate={onBulkToggleGate} />
+                                                <ReadOnlyGroupCard key={group.id} group={group} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} />
                                             ))}
                                         </div>
                                     </div>
@@ -1054,7 +1116,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                         {groupedBySchedule!.unscheduled.map(group => (
-                                            <ReadOnlyGroupCard key={group.id} group={group} partyTasks={partyTasks} onBulkToggleGate={onBulkToggleGate} />
+                                            <ReadOnlyGroupCard key={group.id} group={group} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} />
                                         ))}
                                     </div>
                                 </div>
@@ -1077,6 +1139,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                                     key={group.id}
                                                     group={group}
                                                     partyTasks={partyTasks}
+                                                    countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} // 🔥 카운트다운 프롭스 전달
                                                     onBulkToggleGate={onBulkToggleGate}
                                                 />
                                             ))}
@@ -1089,14 +1152,12 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 </div>
             ) : (
                 <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-                    {/* 🔥 화면이 넓어질 때 튀어나가는 부분 삭제 (기본 구조 유지) */}
                     <div className="flex flex-col xl:flex-row gap-6 items-start relative">
                         <div className="flex flex-col gap-3 w-full xl:w-80 shrink-0 xl:sticky xl:top-26 xl:z-20">
                             <WaitlistDroppable characters={waitlistCharacters} activeGroup={activeGroup} />
                         </div>
 
                         <div className="flex-1 w-full min-h-[600px]">
-                            {/* 🔥 수정 모드에서도 일정 보기 및 필터가 적용된 배열을 사용, 기존 디자인대로 2열(lg:grid-cols-2)로 롤백 */}
                             {isScheduleView ? (
                                 <div className="flex flex-col gap-8 w-full animate-in fade-in duration-200">
                                     {dayOrderMap.map(day => {
@@ -1115,6 +1176,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                                             key={group.id}
                                                             group={group}
                                                             isActive={group.id === activeGroupId}
+                                                            countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} // 🔥 카운트다운 프롭스
                                                             onClick={() => setActiveGroupId(group.id)}
                                                             onRemove={() => removeGroup(group.id)}
                                                             onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
@@ -1140,6 +1202,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                                         key={group.id}
                                                         group={group}
                                                         isActive={group.id === activeGroupId}
+                                                        countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} // 🔥 카운트다운 프롭스
                                                         onClick={() => setActiveGroupId(group.id)}
                                                         onRemove={() => removeGroup(group.id)}
                                                         onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
@@ -1149,12 +1212,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                                     />
                                                 ))}
                                             </div>
-                                        </div>
-                                    )}
-                                    {filteredGroups.length === 0 && groups.length > 0 && (
-                                        <div className="col-span-full text-center text-gray-500 py-32 flex flex-col items-center justify-center bg-[#16181D] rounded-xl px-4">
-                                            <Filter className="w-12 h-12 mb-3 text-gray-600 opacity-50" />
-                                            <p className="break-keep text-sm">조건에 맞는 레이드 그룹이 없습니다.</p>
                                         </div>
                                     )}
                                 </div>
@@ -1175,6 +1232,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                                             key={group.id}
                                                             group={group}
                                                             isActive={group.id === activeGroupId}
+                                                            countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} // 🔥 카운트다운 프롭스 전달
                                                             onClick={() => setActiveGroupId(group.id)}
                                                             onRemove={() => removeGroup(group.id)}
                                                             onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
@@ -1187,19 +1245,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                                             </div>
                                         );
                                     })}
-
-                                    {filteredGroups.length === 0 && groups.length > 0 && (
-                                        <div className="col-span-full text-center text-gray-500 py-32 flex flex-col items-center justify-center bg-[#16181D] rounded-xl px-4">
-                                            <Filter className="w-12 h-12 mb-3 text-gray-600 opacity-50" />
-                                            <p className="break-keep text-sm">조건에 맞는 레이드 그룹이 없습니다.</p>
-                                        </div>
-                                    )}
-                                    {groups.length === 0 && (
-                                        <div className="col-span-full text-center text-gray-500 py-32 flex flex-col items-center justify-center bg-[#16181D] rounded-xl px-4">
-                                            <Swords className="w-12 h-12 mb-3 text-gray-600 opacity-50" />
-                                            <p className="break-keep text-sm">생성된 레이드 그룹이 없습니다.<br />상단의 그룹 추가 버튼을 눌러 레이드를 만들어주세요.</p>
-                                        </div>
-                                    )}
                                 </div>
                             )}
                         </div>
@@ -1236,7 +1281,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 </DndContext>
             )}
 
-            {/* 🔥 용병 검색 모달 */}
             {guestModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center px-4">
                     <div
@@ -1355,7 +1399,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
                 </div>
             )}
 
-            {/* 🔥 그룹 추가 모달 */}
             {isAddModalOpen && isEditMode && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-0 animate-in fade-in duration-200">
                     <div className="absolute inset-0 transition-opacity" onClick={closeAddModal} />
@@ -1475,10 +1518,12 @@ export default function RaidPlannerTab({ partyId, partyTasks, onBulkToggleGate }
 function ReadOnlyGroupCard({
     group,
     partyTasks,
+    countdown,
     onBulkToggleGate
 }: {
     group: RaidGroup,
     partyTasks: PartyMemberTasks[],
+    countdown?: number,
     onBulkToggleGate?: RaidPlannerTabProps["onBulkToggleGate"]
 }) {
     const [page, setPage] = useState(0);
@@ -1522,142 +1567,150 @@ function ReadOnlyGroupCard({
     }, [group.slots, partyTasks, group.raidName, group.difficulty, allGates]);
 
     return (
-        <div className="bg-[#16181D] rounded-lg p-5 flex flex-col h-fit">
-            <div className="flex justify-between items-center w-full mb-1.5 gap-2">
-                <span className="text-[16px] font-bold text-[#5B69FF] rounded-md truncate">
-                    {group.groupName}
-                </span>
-                {(group.scheduleDay || group.scheduleTime) && (
-                    <div className="flex items-center gap-1.5 px-1.5 py-0.5 shrink-0 rounded bg-[#5B69FF]/10 text-[#5B69FF] text-[11px] font-bold">
-                        <Calendar className="w-3 h-3" />
-                        {group.scheduleDay ? `${group.scheduleDay}요일` : ""} {group.scheduleTime || ""}
-                    </div>
-                )}
-            </div>
-
-            <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2 flex-wrap mt-1">
-                        <h4 className="font-bold text-lg text-white">
-                            {group.raidName}
-                        </h4>
-                        <span className={`text-xs px-2 py-0.5 rounded font-bold ${colors.badge}`}>
-                            {getDisplayDifficulty(group.raidName, group.difficulty)}
-                        </span>
-                    </div>
+        <div className={`bg-[#16181D] rounded-lg flex flex-col h-fit border-[1.5px] border-transparent relative overflow-hidden transition-all`}>
+            {countdown !== undefined && (
+                <div className="bg-red-500/20 text-red-400 text-xs font-bold text-center py-1.5 border-b border-red-500/20 animate-pulse shadow-sm">
+                    그룹이 {countdown}초 뒤 자동 삭제됩니다
                 </div>
+            )}
 
-                <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-                    {allGates.length > 0 && (
-                        <div className="flex items-center gap-1.5 mt-1">
-                            {allGates.map(g => {
-                                const partyGroupChars = charStates.filter((c): c is NonNullable<typeof c> => c !== null && !c.isGuest);
-                                const isAllChecked = partyGroupChars.length > 0 && partyGroupChars.every(c => c.currentGates.includes(g));
-                                const diffStyle = DIFF_STYLES[group.difficulty as keyof typeof DIFF_STYLES] || DIFF_STYLES["노말"];
-
-                                return (
-                                    <button
-                                        key={g}
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (!onBulkToggleGate || partyGroupChars.length === 0) return;
-
-                                            const targets = partyGroupChars.map(c => ({
-                                                userId: c.ownerId,
-                                                charName: c.name,
-                                                currentGates: c.currentGates
-                                            }));
-
-                                            onBulkToggleGate(group.raidName, group.difficulty, g, allGates, targets, !isAllChecked);
-                                        }}
-                                        className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border transition-all duration-150 ${isAllChecked ? `${diffStyle.check} border-transparent hover:scale-110` : `${diffStyle.idle} ${diffStyle.hover}`
-                                            }`}
-                                    >
-                                        {isAllChecked ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : g}
-                                    </button>
-                                )
-                            })}
+            <div className="p-5">
+                <div className="flex justify-between items-center w-full mb-1.5 gap-2">
+                    <span className="text-[16px] font-bold text-[#5B69FF] rounded-md truncate">
+                        {group.groupName}
+                    </span>
+                    {(group.scheduleDay || group.scheduleTime) && (
+                        <div className="flex items-center gap-1.5 px-1.5 py-0.5 shrink-0 rounded bg-[#5B69FF]/10 text-[#5B69FF] text-[11px] font-bold">
+                            <Calendar className="w-3 h-3" />
+                            {group.scheduleDay ? `${group.scheduleDay}요일` : ""} {group.scheduleTime || ""}
                         </div>
                     )}
                 </div>
-            </div>
 
-            <div className="grid gap-2 sm:gap-3 grid-cols-2">
-                {[0, 1].map((partyOffset) => {
-                    const startIndex = absoluteStartIndex + (partyOffset * 4);
-                    const actualPartyNumber = (page * 2) + partyOffset + 1;
-                    const partySlots = group.slots.slice(startIndex, startIndex + 4);
-                    const currentCount = partySlots.filter(Boolean).length;
-                    const maxInParty = Math.min(4, Math.max(0, group.maxMembers - startIndex));
-                    const isPartyActive = startIndex < group.maxMembers;
-                    return (
-                        <div key={partyOffset} className="flex flex-col gap-1.5 sm:gap-2">
-                            <div className="flex items-center justify-between px-1 pb-0.5 mb-[-2px] h-[18px]">
-                                {isPartyActive ? (
-                                    <>
-                                        <span className="text-[11px] font-bold text-gray-500">
-                                            {actualPartyNumber}파티
-                                        </span>
-                                        <div className="text-[12px] font-mono font-bold tracking-wider">
-                                            <span className={currentCount === maxInParty ? "text-[#5B69FF]" : "text-gray-300"}>
-                                                {currentCount}
-                                            </span>
-                                            <span className="text-gray-600 mx-0.5">/</span>
-                                            <span className="text-gray-500">{maxInParty}</span>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="flex-1" />
-                                )}
-                            </div>
+                <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 flex-wrap mt-1">
+                            <h4 className="font-bold text-lg text-white">
+                                {group.raidName}
+                            </h4>
+                            <span className={`text-xs px-2 py-0.5 rounded font-bold ${colors.badge}`}>
+                                {getDisplayDifficulty(group.raidName, group.difficulty)}
+                            </span>
+                        </div>
+                    </div>
 
-                            {Array.from({ length: 4 }).map((_, slotOffset) => {
-                                const absoluteIndex = startIndex + slotOffset;
-                                const isBlocked = absoluteIndex >= group.maxMembers;
+                    <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+                        {allGates.length > 0 && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                                {allGates.map(g => {
+                                    const partyGroupChars = charStates.filter((c): c is NonNullable<typeof c> => c !== null && !c.isGuest);
+                                    const isAllChecked = partyGroupChars.length > 0 && partyGroupChars.every(c => c.currentGates.includes(g));
+                                    const diffStyle = DIFF_STYLES[group.difficulty as keyof typeof DIFF_STYLES] || DIFF_STYLES["노말"];
 
-                                if (isBlocked) {
                                     return (
-                                        <div key={`blocked-${absoluteIndex}`} className="h-14 sm:h-16 border border-transparent bg-white/[0.02] rounded-lg flex items-center justify-center pointer-events-none">
-                                            <X className="w-5 h-5 text-gray-600/30" />
+                                        <button
+                                            key={g}
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (!onBulkToggleGate || partyGroupChars.length === 0) return;
+
+                                                const targets = partyGroupChars.map(c => ({
+                                                    userId: c.ownerId,
+                                                    charName: c.name,
+                                                    currentGates: c.currentGates
+                                                }));
+
+                                                onBulkToggleGate(group.raidName, group.difficulty, g, allGates, targets, !isAllChecked);
+                                            }}
+                                            className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border transition-all duration-150 ${isAllChecked ? `${diffStyle.check} border-transparent hover:scale-110` : `${diffStyle.idle} ${diffStyle.hover}`
+                                                }`}
+                                        >
+                                            {isAllChecked ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : g}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="grid gap-2 sm:gap-3 grid-cols-2">
+                    {[0, 1].map((partyOffset) => {
+                        const startIndex = absoluteStartIndex + (partyOffset * 4);
+                        const actualPartyNumber = (page * 2) + partyOffset + 1;
+                        const partySlots = group.slots.slice(startIndex, startIndex + 4);
+                        const currentCount = partySlots.filter(Boolean).length;
+                        const maxInParty = Math.min(4, Math.max(0, group.maxMembers - startIndex));
+                        const isPartyActive = startIndex < group.maxMembers;
+                        return (
+                            <div key={partyOffset} className="flex flex-col gap-1.5 sm:gap-2">
+                                <div className="flex items-center justify-between px-1 pb-0.5 mb-[-2px] h-[18px]">
+                                    {isPartyActive ? (
+                                        <>
+                                            <span className="text-[11px] font-bold text-gray-500">
+                                                {actualPartyNumber}파티
+                                            </span>
+                                            <div className="text-[12px] font-mono font-bold tracking-wider">
+                                                <span className={currentCount === maxInParty ? "text-[#5B69FF]" : "text-gray-300"}>
+                                                    {currentCount}
+                                                </span>
+                                                <span className="text-gray-600 mx-0.5">/</span>
+                                                <span className="text-gray-500">{maxInParty}</span>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="flex-1" />
+                                    )}
+                                </div>
+
+                                {Array.from({ length: 4 }).map((_, slotOffset) => {
+                                    const absoluteIndex = startIndex + slotOffset;
+                                    const isBlocked = absoluteIndex >= group.maxMembers;
+
+                                    if (isBlocked) {
+                                        return (
+                                            <div key={`blocked-${absoluteIndex}`} className="h-14 sm:h-16 border border-transparent bg-white/[0.02] rounded-lg flex items-center justify-center pointer-events-none">
+                                                <X className="w-5 h-5 text-gray-600/30" />
+                                            </div>
+                                        );
+                                    }
+
+                                    const char = charStates[absoluteIndex];
+                                    return (
+                                        <div key={absoluteIndex} className={`h-14 sm:h-16 border rounded-lg flex items-center overflow-hidden transition-all ${char ? "border-white/5 bg-[#1E2028]" : "border-dashed border-white/10 bg-white/[0.02]"}`}>
+                                            {char ? (
+                                                <ReadOnlyChar
+                                                    char={char}
+                                                    isCompleted={char.isFullyCompleted}
+                                                />
+                                            ) : (
+                                                <div className="w-full text-center text-[10px] sm:text-xs text-gray-600 font-medium">비어있음</div>
+                                            )}
                                         </div>
                                     );
-                                }
-
-                                const char = charStates[absoluteIndex];
-                                return (
-                                    <div key={absoluteIndex} className={`h-14 sm:h-16 border rounded-lg flex items-center overflow-hidden transition-all ${char ? "border-white/5 bg-[#1E2028]" : "border-dashed border-white/10 bg-white/[0.02]"}`}>
-                                        {char ? (
-                                            <ReadOnlyChar
-                                                char={char}
-                                                isCompleted={char.isFullyCompleted}
-                                            />
-                                        ) : (
-                                            <div className="w-full text-center text-[10px] sm:text-xs text-gray-600 font-medium">비어있음</div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    );
-                })}
-            </div>
-
-            {isEpic && (
-                <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-white/5">
-                    <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} className="p-1 text-gray-400 hover:text-white disabled:opacity-30">
-                        <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <div className="flex gap-2">
-                        {Array.from({ length: totalPages }).map((_, idx) => (
-                            <button key={idx} onClick={() => setPage(idx)} className={`w-2 h-2 rounded-full transition-colors ${page === idx ? 'bg-[#5B69FF]' : 'bg-gray-600'}`} />
-                        ))}
-                    </div>
-                    <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page === totalPages - 1} className="p-1 text-gray-400 hover:text-white disabled:opacity-30">
-                        <ChevronRight className="w-5 h-5" />
-                    </button>
+                                })}
+                            </div>
+                        );
+                    })}
                 </div>
-            )}
+
+                {isEpic && (
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-white/5">
+                        <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} className="p-1 text-gray-400 hover:text-white disabled:opacity-30">
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <div className="flex gap-2">
+                            {Array.from({ length: totalPages }).map((_, idx) => (
+                                <button key={idx} onClick={() => setPage(idx)} className={`w-2 h-2 rounded-full transition-colors ${page === idx ? 'bg-[#5B69FF]' : 'bg-gray-600'}`} />
+                            ))}
+                        </div>
+                        <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page === totalPages - 1} className="p-1 text-gray-400 hover:text-white disabled:opacity-30">
+                            <ChevronRight className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
@@ -1709,9 +1762,10 @@ function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean 
     );
 }
 
-function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameChange, onScheduleChange, onAddGuest }: {
+function GroupCard({ group, isActive, countdown, onClick, onRemove, onRemoveChar, onNameChange, onScheduleChange, onAddGuest }: {
     group: RaidGroup;
     isActive: boolean;
+    countdown?: number; // 🔥 카운트다운 프롭스
     onClick: () => void;
     onRemove: () => void;
     onRemoveChar: (idx: number) => void;
@@ -1765,215 +1819,224 @@ function GroupCard({ group, isActive, onClick, onRemove, onRemoveChar, onNameCha
     return (
         <div
             onClick={onClick}
-            className={`bg-[#16181D] rounded-lg p-5 flex flex-col border-[1.5px] cursor-pointer transition-all ${isActive ? "border-[#5B69FF] bg-[#5B69FF]/5" : "border-transparent"}`}
+            className={`bg-[#16181D] rounded-lg flex flex-col border-[1.5px] cursor-pointer transition-all relative overflow-hidden ${isActive ? "border-[#5B69FF] bg-[#5B69FF]/5" : "border-transparent"}`}
         >
-            <div className="flex justify-between items-center w-full mb-1.5 gap-2">
-                <div className="flex items-center gap-1 -ml-1 min-w-0 flex-1">
-                    <div className="relative inline-grid items-center h-7 max-w-full">
-                        <span className="invisible whitespace-pre text-[16px] font-bold px-1 pointer-events-none overflow-hidden truncate">
-                            {group.groupName || "그룹 이름 입력"}
-                        </span>
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={group.groupName}
-                            maxLength={25}
-                            onChange={(e) => onNameChange(e.target.value)}
-                            onClick={(e) => { e.stopPropagation(); onClick(); }}
-                            placeholder="그룹 이름 입력"
-                            className="absolute inset-0 w-full h-full text-[16px] font-bold text-[#5B69FF] bg-transparent border-b border-transparent hover:border-[#5B69FF]/30 focus:border-[#5B69FF] focus:outline-none transition-colors px-1 leading-none text-ellipsis"
-                        />
-                    </div>
-
-                    <button
-                        onClick={handleEditClick}
-                        className="p-1 text-[#5B69FF] opacity-60 hover:opacity-100 transition-opacity shrink-0"
-                        title="그룹 이름 수정"
-                    >
-                        <Edit2 className="w-4 h-4" />
-                    </button>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <Calendar className="w-4 h-4 text-gray-500 hidden sm:block mr-0.5" />
-
-                    <div className="relative" ref={dayDropdownRef}>
-                        <button
-                            type="button"
-                            onClick={() => { setIsDayDropdownOpen(!isDayDropdownOpen); setIsTimeDropdownOpen(false); }}
-                            className={`flex items-center justify-between gap-1.5 min-w-[72px] bg-[#0F1115] border text-xs font-medium rounded-md px-2.5 py-1.5 transition-all ${isDayDropdownOpen
-                                ? "border-[#5B69FF] text-[#5B69FF] ring-1 ring-[#5B69FF]/50"
-                                : "border-white/10 text-gray-300 hover:border-white/20 hover:bg-white/5"
-                                }`}
-                        >
-                            <span>{group.scheduleDay ? `${group.scheduleDay}요일` : "요일"}</span>
-                            {isDayDropdownOpen ? <ChevronUp className="w-3 h-3 opacity-60 shrink-0" /> : <ChevronDown className="w-3 h-3 opacity-60 shrink-0" />}
-                        </button>
-
-                        {isDayDropdownOpen && (
-                            <div className="absolute top-full right-0 mt-1.5 w-[100px] bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[60] shadow-xl">
-                                <div className="flex flex-col p-1.5 max-h-48 overflow-y-auto custom-scrollbar gap-0.5">
-                                    <button
-                                        onClick={() => { onScheduleChange("", group.scheduleTime || ""); setIsDayDropdownOpen(false); }}
-                                        className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${!group.scheduleDay ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
-                                    >
-                                        선택 안함
-                                    </button>
-                                    {days.map(day => (
-                                        <button
-                                            key={day}
-                                            onClick={() => { onScheduleChange(day, group.scheduleTime || ""); setIsDayDropdownOpen(false); }}
-                                            className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${group.scheduleDay === day ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
-                                        >
-                                            {day}요일
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="relative" ref={timeDropdownRef}>
-                        <button
-                            type="button"
-                            onClick={() => { setIsTimeDropdownOpen(!isTimeDropdownOpen); setIsDayDropdownOpen(false); }}
-                            className={`flex items-center justify-between gap-1.5 min-w-[72px] bg-[#0F1115] border text-xs font-medium rounded-md px-2.5 py-1.5 transition-all ${isTimeDropdownOpen
-                                ? "border-[#5B69FF] text-[#5B69FF] ring-1 ring-[#5B69FF]/50"
-                                : "border-white/10 text-gray-300 hover:border-white/20 hover:bg-white/5"
-                                }`}
-                        >
-                            <span>{group.scheduleTime || "시간"}</span>
-                            {isTimeDropdownOpen ? <ChevronUp className="w-3 h-3 opacity-60 shrink-0" /> : <ChevronDown className="w-3 h-3 opacity-60 shrink-0" />}
-                        </button>
-
-                        {isTimeDropdownOpen && (
-                            <div className="absolute top-full right-0 mt-1.5 w-[90px] bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[60] shadow-xl">
-                                <div className="flex flex-col p-1.5 max-h-48 overflow-y-auto custom-scrollbar gap-0.5">
-                                    <button
-                                        onClick={() => { onScheduleChange(group.scheduleDay || "", ""); setIsTimeDropdownOpen(false); }}
-                                        className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${!group.scheduleTime ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
-                                    >
-                                        선택 안함
-                                    </button>
-                                    {timeOptions.map(time => (
-                                        <button
-                                            key={time}
-                                            onClick={() => { onScheduleChange(group.scheduleDay || "", time); setIsTimeDropdownOpen(false); }}
-                                            className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${group.scheduleTime === time ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
-                                        >
-                                            {time}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
-                <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 mt-1">
-                        <h4 className={`font-bold text-lg ${isActive ? "text-white" : "text-gray-300"}`}>
-                            {group.raidName}
-                        </h4>
-                        <span className={`text-xs px-2 py-0.5 rounded font-bold ${isActive ? colors.badge : "bg-gray-700/50 text-gray-500"}`}>
-                            {getDisplayDifficulty(group.raidName, group.difficulty)}
-                        </span>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3 mt-1">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onRemove(); }}
-                        className="text-gray-500 hover:text-red-400 transition-colors p-1"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="grid gap-2 sm:gap-3 grid-cols-2">
-                {[0, 1].map((partyOffset) => {
-                    const actualPartyNumber = (page * 2) + partyOffset + 1;
-                    const startIndex = absoluteStartIndex + (partyOffset * 4);
-
-                    const partySlots = group.slots.slice(startIndex, startIndex + 4);
-                    const currentCount = partySlots.filter(Boolean).length;
-                    const maxInParty = Math.min(4, Math.max(0, group.maxMembers - startIndex));
-
-                    return (
-                        <div key={partyOffset} className="flex flex-col gap-1.5 sm:gap-2">
-                            <div className="flex items-center justify-between px-1 pb-0.5 mb-[-2px]">
-                                <span className="text-[11px] font-bold text-gray-500">
-                                    {actualPartyNumber}파티
-                                </span>
-                                {maxInParty > 0 && (
-                                    <div className="text-[12px] font-mono font-bold tracking-wider">
-                                        <span className={currentCount === maxInParty ? "text-[#5B69FF]" : "text-gray-300"}>
-                                            {currentCount}
-                                        </span>
-                                        <span className="text-gray-600 mx-0.5">/</span>
-                                        <span className="text-gray-500">{maxInParty}</span>
-                                    </div>
-                                )}
-                            </div>
-
-                            {Array.from({ length: 4 }).map((_, slotOffset) => {
-                                const absoluteIndex = startIndex + slotOffset;
-                                const isBlocked = absoluteIndex >= group.maxMembers;
-                                if (isBlocked) {
-                                    return (
-                                        <div key={`blocked-${absoluteIndex}`} className="h-14 sm:h-16 border border-transparent bg-white/[0.02] rounded-lg flex items-center justify-center pointer-events-none">
-                                            <X className="w-5 h-5 text-gray-600/30" />
-                                        </div>
-                                    );
-                                }
-
-                                return (
-                                    <DroppableSlot
-                                        key={absoluteIndex}
-                                        groupId={group.id}
-                                        slotIndex={absoluteIndex}
-                                        char={group.slots[absoluteIndex]}
-                                        onRemove={() => onRemoveChar(absoluteIndex)}
-                                        onAddGuest={() => onAddGuest(absoluteIndex)}
-                                    />
-                                );
-                            })}
-                        </div>
-                    );
-                })}
-            </div>
-
-            {isEpic && (
-                <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-white/5">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); setPage(Math.max(0, page - 1)); }}
-                        disabled={page === 0}
-                        className="p-1 text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400"
-                    >
-                        <ChevronLeft className="w-5 h-5" />
-                    </button>
-
-                    <div className="flex gap-2">
-                        {Array.from({ length: totalPages }).map((_, idx) => (
-                            <button
-                                key={idx}
-                                onClick={(e) => { e.stopPropagation(); setPage(idx); }}
-                                className={`w-2 h-2 rounded-full transition-colors ${page === idx ? 'bg-[#5B69FF]' : 'bg-gray-600 hover:bg-gray-400'}`}
-                            />
-                        ))}
-                    </div>
-
-                    <button
-                        onClick={(e) => { e.stopPropagation(); setPage(Math.min(totalPages - 1, page + 1)); }}
-                        disabled={page === totalPages - 1}
-                        className="p-1 text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400"
-                    >
-                        <ChevronRight className="w-5 h-5" />
-                    </button>
+            {/* 🔥 타이머 카운트다운 표시 */}
+            {countdown !== undefined && (
+                <div className="bg-red-500/20 text-red-400 text-xs font-bold text-center py-1.5 border-b border-red-500/20 animate-pulse shadow-sm">
+                    🔥 이 임시 파티는 {countdown}초 뒤 자동 삭제됩니다 (체크 해제 시 취소)
                 </div>
             )}
+
+            <div className="p-5">
+                <div className="flex justify-between items-center w-full mb-1.5 gap-2">
+                    <div className="flex items-center gap-1 -ml-1 min-w-0 flex-1">
+                        <div className="relative inline-grid items-center h-7 max-w-full">
+                            <span className="invisible whitespace-pre text-[16px] font-bold px-1 pointer-events-none overflow-hidden truncate">
+                                {group.groupName || "그룹 이름 입력"}
+                            </span>
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                value={group.groupName}
+                                maxLength={25}
+                                onChange={(e) => onNameChange(e.target.value)}
+                                onClick={(e) => { e.stopPropagation(); onClick(); }}
+                                placeholder="그룹 이름 입력"
+                                className="absolute inset-0 w-full h-full text-[16px] font-bold text-[#5B69FF] bg-transparent border-b border-transparent hover:border-[#5B69FF]/30 focus:border-[#5B69FF] focus:outline-none transition-colors px-1 leading-none text-ellipsis"
+                            />
+                        </div>
+
+                        <button
+                            onClick={handleEditClick}
+                            className="p-1 text-[#5B69FF] opacity-60 hover:opacity-100 transition-opacity shrink-0"
+                            title="그룹 이름 수정"
+                        >
+                            <Edit2 className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <Calendar className="w-4 h-4 text-gray-500 hidden sm:block mr-0.5" />
+
+                        <div className="relative" ref={dayDropdownRef}>
+                            <button
+                                type="button"
+                                onClick={() => { setIsDayDropdownOpen(!isDayDropdownOpen); setIsTimeDropdownOpen(false); }}
+                                className={`flex items-center justify-between gap-1.5 min-w-[72px] bg-[#0F1115] border text-xs font-medium rounded-md px-2.5 py-1.5 transition-all ${isDayDropdownOpen
+                                    ? "border-[#5B69FF] text-[#5B69FF] ring-1 ring-[#5B69FF]/50"
+                                    : "border-white/10 text-gray-300 hover:border-white/20 hover:bg-white/5"
+                                    }`}
+                            >
+                                <span>{group.scheduleDay ? `${group.scheduleDay}요일` : "요일"}</span>
+                                {isDayDropdownOpen ? <ChevronUp className="w-3 h-3 opacity-60 shrink-0" /> : <ChevronDown className="w-3 h-3 opacity-60 shrink-0" />}
+                            </button>
+
+                            {isDayDropdownOpen && (
+                                <div className="absolute top-full right-0 mt-1.5 w-[100px] bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[60] shadow-xl">
+                                    <div className="flex flex-col p-1.5 max-h-48 overflow-y-auto custom-scrollbar gap-0.5">
+                                        <button
+                                            onClick={() => { onScheduleChange("", group.scheduleTime || ""); setIsDayDropdownOpen(false); }}
+                                            className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${!group.scheduleDay ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+                                        >
+                                            선택 안함
+                                        </button>
+                                        {days.map(day => (
+                                            <button
+                                                key={day}
+                                                onClick={() => { onScheduleChange(day, group.scheduleTime || ""); setIsDayDropdownOpen(false); }}
+                                                className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${group.scheduleDay === day ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+                                            >
+                                                {day}요일
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="relative" ref={timeDropdownRef}>
+                            <button
+                                type="button"
+                                onClick={() => { setIsTimeDropdownOpen(!isTimeDropdownOpen); setIsDayDropdownOpen(false); }}
+                                className={`flex items-center justify-between gap-1.5 min-w-[72px] bg-[#0F1115] border text-xs font-medium rounded-md px-2.5 py-1.5 transition-all ${isTimeDropdownOpen
+                                    ? "border-[#5B69FF] text-[#5B69FF] ring-1 ring-[#5B69FF]/50"
+                                    : "border-white/10 text-gray-300 hover:border-white/20 hover:bg-white/5"
+                                    }`}
+                            >
+                                <span>{group.scheduleTime || "시간"}</span>
+                                {isTimeDropdownOpen ? <ChevronUp className="w-3 h-3 opacity-60 shrink-0" /> : <ChevronDown className="w-3 h-3 opacity-60 shrink-0" />}
+                            </button>
+
+                            {isTimeDropdownOpen && (
+                                <div className="absolute top-full right-0 mt-1.5 w-[90px] bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[60] shadow-xl">
+                                    <div className="flex flex-col p-1.5 max-h-48 overflow-y-auto custom-scrollbar gap-0.5">
+                                        <button
+                                            onClick={() => { onScheduleChange(group.scheduleDay || "", ""); setIsTimeDropdownOpen(false); }}
+                                            className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${!group.scheduleTime ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+                                        >
+                                            선택 안함
+                                        </button>
+                                        {timeOptions.map(time => (
+                                            <button
+                                                key={time}
+                                                onClick={() => { onScheduleChange(group.scheduleDay || "", time); setIsTimeDropdownOpen(false); }}
+                                                className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${group.scheduleTime === time ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+                                            >
+                                                {time}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
+                    <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2 mt-1">
+                            <h4 className={`font-bold text-lg ${isActive ? "text-white" : "text-gray-300"}`}>
+                                {group.raidName}
+                            </h4>
+                            <span className={`text-xs px-2 py-0.5 rounded font-bold ${isActive ? colors.badge : "bg-gray-700/50 text-gray-500"}`}>
+                                {getDisplayDifficulty(group.raidName, group.difficulty)}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                            className="text-gray-500 hover:text-red-400 transition-colors p-1"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid gap-2 sm:gap-3 grid-cols-2">
+                    {[0, 1].map((partyOffset) => {
+                        const actualPartyNumber = (page * 2) + partyOffset + 1;
+                        const startIndex = absoluteStartIndex + (partyOffset * 4);
+
+                        const partySlots = group.slots.slice(startIndex, startIndex + 4);
+                        const currentCount = partySlots.filter(Boolean).length;
+                        const maxInParty = Math.min(4, Math.max(0, group.maxMembers - startIndex));
+
+                        return (
+                            <div key={partyOffset} className="flex flex-col gap-1.5 sm:gap-2">
+                                <div className="flex items-center justify-between px-1 pb-0.5 mb-[-2px]">
+                                    <span className="text-[11px] font-bold text-gray-500">
+                                        {actualPartyNumber}파티
+                                    </span>
+                                    {maxInParty > 0 && (
+                                        <div className="text-[12px] font-mono font-bold tracking-wider">
+                                            <span className={currentCount === maxInParty ? "text-[#5B69FF]" : "text-gray-300"}>
+                                                {currentCount}
+                                            </span>
+                                            <span className="text-gray-600 mx-0.5">/</span>
+                                            <span className="text-gray-500">{maxInParty}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {Array.from({ length: 4 }).map((_, slotOffset) => {
+                                    const absoluteIndex = startIndex + slotOffset;
+                                    const isBlocked = absoluteIndex >= group.maxMembers;
+                                    if (isBlocked) {
+                                        return (
+                                            <div key={`blocked-${absoluteIndex}`} className="h-14 sm:h-16 border border-transparent bg-white/[0.02] rounded-lg flex items-center justify-center pointer-events-none">
+                                                <X className="w-5 h-5 text-gray-600/30" />
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <DroppableSlot
+                                            key={absoluteIndex}
+                                            groupId={group.id}
+                                            slotIndex={absoluteIndex}
+                                            char={group.slots[absoluteIndex]}
+                                            onRemove={() => onRemoveChar(absoluteIndex)}
+                                            onAddGuest={() => onAddGuest(absoluteIndex)}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {isEpic && (
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-white/5">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setPage(Math.max(0, page - 1)); }}
+                            disabled={page === 0}
+                            className="p-1 text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+
+                        <div className="flex gap-2">
+                            {Array.from({ length: totalPages }).map((_, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={(e) => { e.stopPropagation(); setPage(idx); }}
+                                    className={`w-2 h-2 rounded-full transition-colors ${page === idx ? 'bg-[#5B69FF]' : 'bg-gray-600 hover:bg-gray-400'}`}
+                                />
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setPage(Math.min(totalPages - 1, page + 1)); }}
+                            disabled={page === totalPages - 1}
+                            className="p-1 text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400"
+                        >
+                            <ChevronRight className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

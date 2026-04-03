@@ -369,7 +369,7 @@ export default function PartyDetailPage() {
     const [isDragEnabled, setIsDragEnabled] = useState(false);
     const [orderTick, setOrderTick] = useState(0);
 
-    const [activeTab, setActiveTab] = useState<"tasks" | "planner">("tasks");
+    const [activeTab, setActiveTab] = useState<"tasks" | "planner" | "temp_planner">("tasks");
 
     const wsContext = useGlobalWebSocket();
     const ws = wsContext?.ws;
@@ -2146,6 +2146,13 @@ export default function PartyDetailPage() {
                                 <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />
                             )}
                         </button>
+                        <button
+                            onClick={() => setActiveTab("temp_planner")}
+                            className={`pb-2 text-lg font-bold transition-colors relative ${activeTab === "temp_planner" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+                        >
+                            단발성 그룹
+                            {activeTab === "temp_planner" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
+                        </button>
                     </div>
 
                     {/* 이쪽으로 이동된 파티 코드 생성 버튼 */}
@@ -2325,10 +2332,10 @@ export default function PartyDetailPage() {
                                 );
                                 const isMeTarget =
                                     !!myUserId && charSettingTarget.memberUserId === myUserId;
-                                const baseSummary =
-                                    (isMeTarget ? (currentAccount?.summary ?? null) : null) ??
-                                    targetMember?.summary ??
-                                    null;
+                                let baseSummary = targetMember?.summary ?? null;
+                                if (isMeTarget && currentAccount?.summary) {
+                                    baseSummary = currentAccount.summary;
+                                }
                                 const roster = baseSummary?.roster ?? [];
                                 const rawVisible = targetMember?.visibleByChar ?? {};
                                 const modalVisibleByChar: Record<string, boolean> = {};
@@ -2365,12 +2372,26 @@ export default function PartyDetailPage() {
                         </div>
 
                     </div>
-                ) : (
+                ) : activeTab === "planner" ? (
                     <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-300">
+                        {/* 🔥 key="planner" 를 추가해서 완전히 독립된 컴포넌트로 인식시킵니다 */}
                         <RaidPlannerTab
+                            key="planner"
                             partyId={party.id}
                             partyTasks={partyTasks ?? []}
-                            onBulkToggleGate={handleBulkToggleGate} // 🔥 이 속성 추가
+                            onBulkToggleGate={handleBulkToggleGate}
+                            isTemporaryMode={false}
+                        />
+                    </div>
+                ) : (
+                    <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-300">
+                        {/* 🔥 key="temp_planner" 를 추가합니다 */}
+                        <RaidPlannerTab
+                            key="temp_planner"
+                            partyId={party.id}
+                            partyTasks={partyTasks ?? []}
+                            onBulkToggleGate={handleBulkToggleGate}
+                            isTemporaryMode={true}
                         />
                     </div>
                 )}
