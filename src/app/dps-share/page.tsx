@@ -70,10 +70,9 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
     },
     "어비스 던전": {
         "지평의 성당": {
-            // 내부적으로는 노말=1단계, 하드=2단계, 나메=3단계로 사용
-            노말: [{ gate: 1, hp: 3112, range: [934, 1245] }, { gate: 2, hp: 3125, range: [938, 1250] }],
-            하드: [{ gate: 1, hp: 7434, range: [2230, 2974] }, { gate: 2, hp: 7653, range: [2296, 3061] }],
-            나메: [{ gate: 1, hp: 12025, range: [3608, 4810] }, { gate: 2, hp: 12610, range: [3783, 5044] }],
+            노말: [{ gate: 1, hp: 3112, range: [990, 1330] }, { gate: 2, hp: 3125, range: [938, 1250] }],
+            하드: [{ gate: 1, hp: 7434, range: [2370, 3160] }, { gate: 2, hp: 7653, range: [2296, 3061] }],
+            나메: [{ gate: 1, hp: 12025, range: [3800, 5120] }, { gate: 2, hp: 12610, range: [3783, 5044] }],
         }
     }
 };
