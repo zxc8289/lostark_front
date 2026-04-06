@@ -477,7 +477,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         });
     }, [partyTasks]);
 
-    // 💡 모든 가능한 숙제 목록을 뽑아 필터링 메뉴에 표시
+
     const allAvailableRaids = useMemo(() => {
         const raids = new Set<string>();
         baseCharacters.forEach(char => {
@@ -727,9 +727,24 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
             if ((char.itemLevelNum || 0) < reqLevel) return false;
             if (assignedUniqueIdsForThisRaid.has(char.uniqueId)) return false;
             if (ownersInActiveGroup.has(char.ownerId)) return false;
+
+            const memberInfo = partyTasks.find(m => m.userId === char.ownerId);
+            const charPref = memberInfo?.prefsByChar?.[char.name]?.raids?.[activeGroup.raidName];
+
+            if (!charPref || !charPref.enabled || charPref.difficulty !== activeGroup.difficulty) {
+                return false;
+            }
+
+            const diffInfo = raidInformation[activeGroup.raidName]?.difficulty[activeGroup.difficulty as DifficultyKey];
+            const allGates = diffInfo?.gates.map((g: any) => g.index) || [];
+            const currentGates = charPref.gates || [];
+            const isFullyCompleted = allGates.length > 0 && allGates.every((g: number) => currentGates.includes(g));
+
+            if (isFullyCompleted) return false;
+
             return true;
         });
-    }, [baseCharacters, syncedGroups, otherGroups, activeGroup]);
+    }, [baseCharacters, syncedGroups, otherGroups, activeGroup, partyTasks]); // 💡 의존성 배열에 partyTasks 추가
 
     const handleGroupDragEnd = async (e: DragEndEvent) => {
         const { active, over } = e;
@@ -923,24 +938,16 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                     if (posType === "BACK_HEAD" || posType === "QUASI") backHeadCount++;
                 });
 
+
+
                 let bestCandidate = null;
                 let bestScore = -Infinity;
 
                 for (const candidate of candidates) {
                     const candidateCP = parseCP(candidate.combatPower);
-                    let score = 0;
+                    let score = 0; // 👈 여기서 score가 만들어집니다.
 
-                    // 💡 [옵션 반영] CP 매칭 페널티
-                    if (targetCP > 0 && candidateCP > 0) {
-                        const cpDiffRatio = Math.abs(targetCP - candidateCP) / targetCP;
-                        // CP 우선이면 오차에 대해 엄청나게 깎고, 시너지 우선이면 살짝만 깎음
-                        const cpPenaltyMultiplier = autoSetupSortType === "cp" ? 30000 : 10000;
-                        score = 10000 - (cpDiffRatio * cpPenaltyMultiplier);
-                    } else {
-                        score = candidate.itemLevelNum || 0;
-                    }
-
-                    const cClassName = candidate.className || "";
+                    const cClassName = candidate.className || ""; // 👈 여기서 cClassName이 만들어집니다.
                     const cEngraving = candidate.jobEngraving || "";
 
                     const isSupp = isSupporterChar(cClassName, cEngraving);
@@ -950,6 +957,14 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                     if (!isSupporterSlot && isSupp) continue; // 1~3번 자리는 딜러만 배치 가능
                     if (partyClasses.includes(cClassName)) continue; // 직업 중복 금지
 
+                    // 💡 [옵션 반영] CP 매칭 페널티
+                    if (targetCP > 0 && candidateCP > 0) {
+                        const cpDiffRatio = Math.abs(targetCP - candidateCP) / targetCP;
+                        const cpPenaltyMultiplier = autoSetupSortType === "cp" ? 30000 : 10000;
+                        score = 10000 - (cpDiffRatio * cpPenaltyMultiplier);
+                    } else {
+                        score = candidate.itemLevelNum || 0;
+                    }
 
                     const cSyns = getCharSynergies(cClassName, cEngraving);
                     let overlapCount = 0;
@@ -977,6 +992,28 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                         score += (backHeadCount * 3000 * posBonusMultiplier);
                     }
 
+                    // =====================================================================
+                    // 💡 [여기에 추가!] 기존 계산이 다 끝난 후, 마지막에 드림 시너지 보너스를 얹어줍니다.
+                    // =====================================================================
+                    const isBlade = cClassName === "블레이드";
+                    const isWarlord = cClassName === "워로드";
+                    let dreamSynergyBonus = 0;
+
+                    const hasWarlordInParty = partyClasses.includes("워로드");
+                    const hasBladeInParty = partyClasses.includes("블레이드");
+
+                    const dreamBonusValue = autoSetupSortType === "synergy" ? 20000 : 8000;
+
+                    if (isBlade && hasWarlordInParty) {
+                        dreamSynergyBonus += dreamBonusValue;
+                    } else if (isWarlord && hasBladeInParty) {
+                        dreamSynergyBonus += dreamBonusValue;
+                    }
+
+                    score += dreamSynergyBonus;
+
+
+                    // 최고 점수 갱신 확인
                     if (score > bestScore) {
                         bestScore = score;
                         bestCandidate = candidate;
@@ -1040,6 +1077,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                 });
             });
 
+
             if (neededAssignments.length === 0) {
                 alert("선택하신 조건에 맞는 편성 가능한 남은 숙제가 없습니다.");
                 return prevGroups;
@@ -1063,13 +1101,31 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                     if (info.kind === "어비스" || info.kind === "그림자" || raidName.includes("쿠크") || raidName.includes("세르카") || raidName.includes("카양겔") || raidName.includes("상아탑")) maxMembers = 4;
                     else if (info.kind === "에픽") maxMembers = 16;
                 }
-
                 const ownerCounts = new Map<string, number>();
+                let dpsCount = 0;
+                let suppCount = 0;
+
                 chars.forEach(c => {
                     ownerCounts.set(c.ownerId, (ownerCounts.get(c.ownerId) || 0) + 1);
+
+                    // 💡 딜러와 서포터가 각각 몇 명인지 카운트
+                    const isSupp = isSupporterChar(c.className || "", c.jobEngraving || "");
+                    if (isSupp) suppCount++;
+                    else dpsCount++;
                 });
+
                 const maxFromOneOwner = Math.max(0, ...Array.from(ownerCounts.values()));
-                const numGroups = Math.max(Math.ceil(chars.length / maxMembers), maxFromOneOwner);
+
+                // 💡 4인 파티(서폿 1자리/딜러 3자리)와 8인 파티(서폿 2자리/딜러 6자리) 비율 자동 계산
+                const suppSlotsPerGroup = maxMembers / 4;
+                const dpsSlotsPerGroup = maxMembers - suppSlotsPerGroup;
+
+                // 💡 딜러를 다 넣으려면 몇 파티가 필요한지, 서포터를 다 넣으려면 몇 파티가 필요한지 각각 계산
+                const groupsNeededForDps = Math.ceil(dpsCount / dpsSlotsPerGroup);
+                const groupsNeededForSupp = Math.ceil(suppCount / suppSlotsPerGroup);
+
+                // 💡 딜러/서포터 필요 파티 수, 그리고 본배럭 중복 방지 제한 중 가장 큰 값을 파티 개수로 확정!
+                const numGroups = Math.max(groupsNeededForDps, groupsNeededForSupp, maxFromOneOwner);
 
                 for (let i = 0; i < numGroups; i++) {
                     newlyCreatedGroups.push({
@@ -1135,23 +1191,14 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                         if (posType === "BACK_HEAD" || posType === "QUASI") backHeadCount++;
                     });
 
+
                     let bestCandidate = null;
                     let bestScore = -Infinity;
-
                     for (const candidate of candidates) {
                         const candidateCP = parseCP(candidate.combatPower);
-                        let score = 0;
+                        let score = 0; // 👈 여기서 score가 만들어집니다.
 
-                        // 💡 [옵션 반영]
-                        if (targetCP > 0 && candidateCP > 0) {
-                            const cpDiffRatio = Math.abs(targetCP - candidateCP) / targetCP;
-                            const cpPenaltyMultiplier = autoSetupSortType === "cp" ? 30000 : 10000;
-                            score = 10000 - (cpDiffRatio * cpPenaltyMultiplier);
-                        } else {
-                            score = candidate.itemLevelNum || 0;
-                        }
-
-                        const cClassName = candidate.className || "";
+                        const cClassName = candidate.className || ""; // 👈 여기서 cClassName이 만들어집니다.
                         const cEngraving = candidate.jobEngraving || "";
 
                         const isSupp = isSupporterChar(cClassName, cEngraving);
@@ -1161,6 +1208,15 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                         if (!isSupporterSlot && isSupp) continue; // 1~3번 자리는 딜러만 배치 가능
                         if (partyClasses.includes(cClassName)) continue; // 직업 중복 금지
 
+                        // 💡 [옵션 반영] CP 매칭 페널티
+                        if (targetCP > 0 && candidateCP > 0) {
+                            const cpDiffRatio = Math.abs(targetCP - candidateCP) / targetCP;
+                            const cpPenaltyMultiplier = autoSetupSortType === "cp" ? 30000 : 10000;
+                            score = 10000 - (cpDiffRatio * cpPenaltyMultiplier);
+                        } else {
+                            score = candidate.itemLevelNum || 0;
+                        }
+
                         const cSyns = getCharSynergies(cClassName, cEngraving);
                         let overlapCount = 0;
                         cSyns.forEach(s => {
@@ -1169,14 +1225,14 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                             }
                         });
 
-                        // 💡 [옵션 반영]
+                        // 💡 [옵션 반영] 시너지 겹침 페널티
                         const overlapPenalty = autoSetupSortType === "synergy" ? 15000 : 5000;
                         score -= (overlapCount * overlapPenalty);
 
                         const posType = getCharPositionalType(cClassName, cEngraving);
                         const bringsBackHeadSynergy = cSyns.includes("백헤드 피증");
 
-                        // 💡 [옵션 반영]
+                        // 💡 [옵션 반영] 백헤드 가점 보너스
                         const posBonusMultiplier = autoSetupSortType === "synergy" ? 1 : 0.4;
                         if (hasBackHeadSynergy) {
                             if (posType === "BACK_HEAD") score += (5000 * posBonusMultiplier);
@@ -1187,12 +1243,30 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                             score += (backHeadCount * 3000 * posBonusMultiplier);
                         }
 
+
+                        const isBlade = cClassName === "블레이드";
+                        const isWarlord = cClassName === "워로드";
+                        let dreamSynergyBonus = 0;
+
+                        const hasWarlordInParty = partyClasses.includes("워로드");
+                        const hasBladeInParty = partyClasses.includes("블레이드");
+
+                        const dreamBonusValue = autoSetupSortType === "synergy" ? 20000 : 8000;
+
+                        if (isBlade && hasWarlordInParty) {
+                            dreamSynergyBonus += dreamBonusValue;
+                        } else if (isWarlord && hasBladeInParty) {
+                            dreamSynergyBonus += dreamBonusValue;
+                        }
+
+                        score += dreamSynergyBonus;
+
+
                         if (score > bestScore) {
                             bestScore = score;
                             bestCandidate = candidate;
                         }
                     }
-
                     if (bestCandidate) {
                         targetGroup.slots[i] = bestCandidate;
                         ownersInThisGroup.add(bestCandidate.ownerId);

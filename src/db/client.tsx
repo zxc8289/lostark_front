@@ -8,7 +8,6 @@ if (!uri) {
   throw new Error("MONGODB_URI 환경변수가 설정되어 있지 않습니다.");
 }
 
-// Next.js 개발모드에서 핫리로드 때문에 global에 캐시
 let clientPromise: Promise<MongoClient>;
 
 const globalWithMongo = global as typeof globalThis & {
