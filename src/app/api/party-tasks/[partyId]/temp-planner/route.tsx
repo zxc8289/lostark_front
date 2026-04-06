@@ -7,10 +7,28 @@ export const runtime = "nodejs";
 
 type RouteParams = Promise<{ partyId: string }>;
 
-// 🔥 만료된 그룹 필터링 함수
-function filterExpiredGroups(groups: any[]) {
+/**
+ * 🔥 플래너 데이터 통합 처리 함수
+ * 1. 일반 그룹: expiresAt이 지났으면 삭제
+ * 2. 고정 그룹: resetAt이 지났으면 파티원(slots) 초기화
+ */
+function processPlannerData(groups: any[]) {
     const now = Date.now();
-    return groups.filter((g) => !g.expiresAt || g.expiresAt > now);
+
+    // 1. 만료된 일반 그룹 필터링 (기존 로직)
+    const validGroups = groups.filter((g) => !g.expiresAt || g.expiresAt > now);
+
+    // 2. 고정 그룹의 파티원 초기화 체크 (새 로직)
+    return validGroups.map((g) => {
+        if (g.isPinned && g.resetAt && g.resetAt <= now) {
+            return {
+                ...g,
+                slots: Array(g.maxMembers).fill(null), // 모든 슬롯 비우기
+                resetAt: undefined, // 초기화 완료 후 타이머 제거
+            };
+        }
+        return g;
+    });
 }
 
 export async function GET(
@@ -34,15 +52,19 @@ export async function GET(
 
         if (!partyRow) return NextResponse.json({ message: "Not found" }, { status: 404 });
 
-        let groups = partyRow.temp_planner_data || [];
-        const validGroups = filterExpiredGroups(groups);
+        const originalGroups = partyRow.temp_planner_data || [];
+        // 🔥 통합 처리 로직 적용
+        const processedGroups = processPlannerData(originalGroups);
 
-        // 🔥 만료된 그룹이 있었다면 DB 조용히 업데이트
-        if (groups.length !== validGroups.length) {
-            await partiesCol.updateOne({ id: partyIdNum }, { $set: { temp_planner_data: validGroups } });
+        // 변경 사항이 있을 때만 DB 업데이트
+        if (JSON.stringify(originalGroups) !== JSON.stringify(processedGroups)) {
+            await partiesCol.updateOne(
+                { id: partyIdNum },
+                { $set: { temp_planner_data: processedGroups } }
+            );
         }
 
-        return NextResponse.json({ groups: validGroups }, { status: 200 });
+        return NextResponse.json({ groups: processedGroups }, { status: 200 });
     } catch (e) {
         return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
     }
@@ -65,12 +87,12 @@ export async function POST(
         const db = await getDb();
         const partiesCol = db.collection("parties");
 
-        // 🔥 저장할 때도 만료된 그룹은 버리고 저장
-        const validGroups = filterExpiredGroups(body.groups);
+        // 🔥 저장 전에도 한번 더 처리해서 깨끗한 상태로 저장
+        const processedGroups = processPlannerData(body.groups);
 
         await partiesCol.updateOne(
             { id: partyIdNum },
-            { $set: { temp_planner_data: validGroups } }
+            { $set: { temp_planner_data: processedGroups } }
         );
 
         return NextResponse.json({ ok: true }, { status: 200 });

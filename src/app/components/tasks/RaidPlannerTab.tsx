@@ -1,8 +1,7 @@
-// src/app/components/tasks/RaidPlannerTab.tsx
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Plus, Users, Swords, X, AlertTriangle, Check, ChevronLeft, ChevronRight, Edit2, Loader2, Filter, ChevronUp, ChevronDown, Search, ArrowUpDown, Calendar } from "lucide-react";
+import { Plus, Users, Swords, X, AlertTriangle, Check, ChevronLeft, ChevronRight, Edit2, Loader2, Filter, ChevronUp, ChevronDown, Search, ArrowUpDown, Calendar, Pin, Zap, Wand2, Settings } from "lucide-react";
 import {
     DndContext,
     DragEndEvent,
@@ -30,13 +29,15 @@ export type RaidGroup = {
     slots: (any | null)[];
     scheduleDay?: string;
     scheduleTime?: string;
+    resetAt?: number;
     expiresAt?: number;
+    isPinned?: boolean;
 };
 
 type RaidPlannerTabProps = {
     partyId: number;
     partyTasks: PartyMemberTasks[];
-    isTemporaryMode?: boolean; // 🔥 임시 파티 여부 플래그 추가
+    isTemporaryMode?: boolean;
     onBulkToggleGate?: (
         raidName: string,
         difficulty: string,
@@ -96,7 +97,77 @@ const classIconMap: Record<string, string> = {
     "기상술사": "aeromancer.svg", "발키리": "valkyrie.svg", "환수사": "wildsoul.svg", "가디언나이트": "dragon_knight.svg",
 };
 
+const POSITIONAL_TYPES: Record<string, "BACK_HEAD" | "HIT_MASTER" | "QUASI"> = {
+    "디스트로이어(분노의 망치)": "BACK_HEAD", "디스트로이어(중력 수련)": "BACK_HEAD", "슬레이어(포식자)": "BACK_HEAD", "슬레이어(처단자)": "BACK_HEAD",
+    "워로드(고독한 기사)": "BACK_HEAD", "홀리나이트(심판자)": "BACK_HEAD", "배틀마스터(초심)": "BACK_HEAD", "브레이커(수라의 길)": "BACK_HEAD",
+    "스트라이커(오의난무)": "BACK_HEAD", "스트라이커(일격필살)": "BACK_HEAD", "인파이터(극의: 체술)": "BACK_HEAD", "인파이터(충격 단련)": "BACK_HEAD",
+    "창술사(절정)": "BACK_HEAD", "창술사(절제)": "BACK_HEAD", "데빌헌터(전술 탄환)": "BACK_HEAD", "리퍼(갈증)": "BACK_HEAD",
+    "리퍼(달의 소리)": "BACK_HEAD", "블레이드(잔재된 기운)": "BACK_HEAD", "블레이드(버스트)": "BACK_HEAD", "가디언나이트(드레드 로어)": "BACK_HEAD",
+
+    "버서커(광기)": "QUASI", "버서커(광전사의 비기)": "QUASI", "워로드(전투 태세)": "QUASI", "배틀마스터(오의 강화)": "QUASI",
+    "데빌헌터(핸드거너)": "QUASI", "데모닉(완벽한 억제)": "QUASI",
+
+    "발키리(빛의 기사)": "HIT_MASTER", "기공사(세맥타통)": "HIT_MASTER", "기공사(연천지체)": "HIT_MASTER", "브레이커(권왕파천무)": "HIT_MASTER",
+    "건슬링어(사냥의 시간)": "HIT_MASTER", "건슬링어(피스메이커)": "HIT_MASTER", "블래스터(포격 강화)": "HIT_MASTER", "블래스터(화력 강화)": "HIT_MASTER",
+    "스카우터(진화의 유산)": "HIT_MASTER", "스카우터(아르데타인의 기술)": "HIT_MASTER", "호크아이(두 번째 동료)": "HIT_MASTER", "호크아이(죽음의 습격)": "HIT_MASTER",
+    "바드(진실된 용맹)": "HIT_MASTER", "서머너(상급 소환사)": "HIT_MASTER", "서머너(넘치는 교감)": "HIT_MASTER", "소서리스(점화)": "HIT_MASTER",
+    "소서리스(환류)": "HIT_MASTER", "아르카나(황제의 칙령)": "HIT_MASTER", "아르카나(황후의 은총)": "HIT_MASTER", "데모닉(멈출 수 없는 충동)": "HIT_MASTER",
+    "소울이터(그믐의 경계)": "HIT_MASTER", "소울이터(만월의 집행자)": "HIT_MASTER", "기상술사(질풍노도)": "HIT_MASTER", "기상술사(이슬비)": "HIT_MASTER",
+    "도화가(회귀)": "HIT_MASTER", "환수사(환수 각성)": "HIT_MASTER", "환수사(야성)": "HIT_MASTER", "가디언나이트(업화의 계승자)": "HIT_MASTER",
+};
+
+const SYNERGY_MAP: Record<string, string[]> = {
+    "디스트로이어": ["방깎", "무력화"],
+    "버서커": ["피증"],
+    "워로드(고독한 기사)": ["백헤드 피증", "받피감", "공깎"],
+    "워로드(전투 태세)": ["방깎", "백헤드 피증", "받피감", "공깎"],
+    "홀리나이트(심판자)": ["치피증"],
+    "슬레이어": ["피증"],
+    "발키리(빛의 기사)": ["치피증"],
+    "기공사": ["공증", "받피감", "공깎"],
+    "배틀마스터": ["치적", "공이속"],
+    "인파이터": ["피증", "무력화"],
+    "창술사": ["치피증"],
+    "브레이커": ["피증"],
+    "스트라이커": ["치적", "공속"],
+    "데빌헌터": ["치적"],
+    "블래스터": ["방깎", "무력화"],
+    "스카우터": ["공증"],
+    "호크아이(두 번째 동료)": ["피증", "이속", "공깎"],
+    "호크아이(죽음의 습격)": ["피증", "공깎"],
+    "건슬링어": ["치적"],
+    "바드(진실된 용맹)": ["방깎", "공속", "공깎", "마회", "뎀감"],
+    "서머너": ["방깎", "마회"],
+    "소서리스": ["피증"],
+    "아르카나": ["치적"],
+    "데모닉": ["피증"],
+    "리퍼": ["방깎"],
+    "블레이드": ["백헤드 피증", "공이속", "공깎"],
+    "소울이터": ["피증"],
+    "기상술사(이슬비)": ["치적", "공깎"],
+    "기상술사(질풍노도)": ["치적", "공이속"],
+    "도화가(회귀)": ["방깎", "받피감", "공속", "마회"],
+    "환수사": ["방깎"],
+    "가디언나이트": ["피증"]
+};
+
+function getCharSynergies(className: string, engraving: string): string[] {
+    const specificKey = `${className}(${engraving})`;
+    if (SYNERGY_MAP[specificKey]) return SYNERGY_MAP[specificKey];
+    if (SYNERGY_MAP[className]) return SYNERGY_MAP[className];
+    return [];
+}
+
+function getCharPositionalType(className: string, engraving: string) {
+    const key = `${className}(${engraving})`;
+    return POSITIONAL_TYPES[key] || "HIT_MASTER";
+}
+
 const SUPPORTER_ENGRAVINGS = ["절실한 구원", "축복의 오라", "만개", "해방자"];
+
+function isSupporterChar(className: string, engraving: string) {
+    return SUPPORTER_ENGRAVINGS.includes(engraving);
+}
 
 function getDisplayDifficulty(raidName: string, difficulty: string) {
     if (raidName === "지평의 성당") {
@@ -107,13 +178,38 @@ function getDisplayDifficulty(raidName: string, difficulty: string) {
     return difficulty;
 }
 
+const parseCP = (cpStr: string | number | undefined): number => {
+    if (!cpStr) return 0;
+    return parseInt(cpStr.toString().replace(/,/g, ""), 10) || 0;
+};
+
+const getGroupAvgCP = (slots: any[]): number => {
+    const members = slots.filter(Boolean);
+    if (members.length === 0) return 0;
+    const total = members.reduce((acc, m) => acc + parseCP(m.combatPower), 0);
+    return Math.floor(total / members.length);
+};
+
 export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = false, onBulkToggleGate }: RaidPlannerTabProps) {
+    const AUTO_SETUP_SORT_KEY = `raidPlanner_autoSort_${isTemporaryMode ? 'temp' : 'fixed'}`;
+    const AUTO_SETUP_RAIDS_KEY = `raidPlanner_autoRaids_${isTemporaryMode ? 'temp' : 'fixed'}`;
+
+    const [autoSetupSortType, setAutoSetupSortType] = useState<"synergy" | "cp">(() => {
+        if (typeof window === "undefined") return "synergy";
+        try { return (localStorage.getItem(AUTO_SETUP_SORT_KEY) as "synergy" | "cp") || "synergy"; } catch { return "synergy"; }
+    });
+
+    const [autoSetupRaids, setAutoSetupRaids] = useState<string[]>(() => {
+        if (typeof window === "undefined") return [];
+        try { return JSON.parse(localStorage.getItem(AUTO_SETUP_RAIDS_KEY) || "[]"); } catch { return []; }
+    });
     const [isLoading, setIsLoading] = useState(true);
     const [isEditMode, setIsEditMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
     const [originalGroups, setOriginalGroups] = useState<RaidGroup[]>([]);
     const [groups, setGroups] = useState<RaidGroup[]>([]);
+    const [otherGroups, setOtherGroups] = useState<RaidGroup[]>([]);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedRaidName, setSelectedRaidName] = useState<string | null>(null);
@@ -131,9 +227,10 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
 
     const [isReorderMode, setIsReorderMode] = useState(false);
 
+    const [showAutoSetupSettings, setShowAutoSetupSettings] = useState(false);
 
-    // API 엔드포인트 분기
     const apiEndpoint = isTemporaryMode ? `/api/party-tasks/${partyId}/temp-planner` : `/api/party-tasks/${partyId}/planner`;
+    const otherApiEndpoint = isTemporaryMode ? `/api/party-tasks/${partyId}/planner` : `/api/party-tasks/${partyId}/temp-planner`;
 
     const FILTER_KEY_REMAIN = `raidPlanner_onlyRemain_${isTemporaryMode ? 'temp' : 'fixed'}`;
     const FILTER_KEY_RAIDS = `raidPlanner_selectedRaids_${isTemporaryMode ? 'temp' : 'fixed'}`;
@@ -183,17 +280,25 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
             if (isUserFilterOpen && !(e.target as Element).closest('.user-filter-dropdown')) {
                 setIsUserFilterOpen(false);
             }
+            // 💡 자동 팝업 바깥 클릭 시 닫기
+            if (showAutoSetupSettings && !(e.target as Element).closest('.auto-setup-dropdown')) {
+                setShowAutoSetupSettings(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isFilterOpen, isUserFilterOpen]);
+    }, [isFilterOpen, isUserFilterOpen, showAutoSetupSettings]);
 
     useEffect(() => {
         if (!partyId) return;
 
         const loadPlanner = async () => {
             try {
-                const res = await fetch(apiEndpoint);
+                const [res, otherRes] = await Promise.all([
+                    fetch(apiEndpoint),
+                    fetch(otherApiEndpoint)
+                ]);
+
                 if (res.ok) {
                     const data = await res.json();
                     if (data.groups && data.groups.length > 0) {
@@ -204,6 +309,14 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                         setIsEditMode(false);
                     }
                 }
+
+                if (otherRes.ok) {
+                    const otherData = await otherRes.json();
+                    if (otherData.groups && otherData.groups.length > 0) {
+                        setOtherGroups(otherData.groups);
+                    }
+                }
+
             } catch (e) {
                 console.error("Failed to load planner data:", e);
             } finally {
@@ -212,7 +325,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         };
 
         loadPlanner();
-    }, [partyId, apiEndpoint]);
+    }, [partyId, apiEndpoint, otherApiEndpoint]);
 
     useEffect(() => {
         if (selectedRaidName && raidInformation[selectedRaidName]) {
@@ -223,15 +336,57 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         }
     }, [selectedRaidName]);
 
-
-
     useEffect(() => {
         if (!isTemporaryMode) return;
         const interval = setInterval(() => setNow(Date.now()), 1000);
         return () => clearInterval(interval);
     }, [isTemporaryMode]);
 
-    // 🔥 그룹 완료 상태 감지 및 DB에 expiresAt 저장 (또는 취소)
+    const toggleGroupPin = async (groupId: string) => {
+        const nextGroups = groups.map(g => {
+            if (g.id === groupId) {
+                return { ...g, isPinned: !g.isPinned, expiresAt: undefined };
+            }
+            return g;
+        });
+
+        setGroups(nextGroups);
+        setOriginalGroups(nextGroups);
+
+        if (!partyId) return;
+        try {
+            const payload = nextGroups.map(g => ({
+                id: g.id,
+                raidName: g.raidName,
+                groupName: g.groupName,
+                difficulty: g.difficulty,
+                maxMembers: g.maxMembers,
+                scheduleDay: g.scheduleDay || "",
+                scheduleTime: g.scheduleTime || "",
+                isPinned: g.isPinned,
+                slots: g.slots.map(char => char ? {
+                    uniqueId: char.uniqueId,
+                    ownerId: char.ownerId,
+                    ownerName: char.ownerName,
+                    name: char.name,
+                    className: char.className,
+                    itemLevelNum: char.itemLevelNum,
+                    combatPower: char.combatPower,
+                    jobEngraving: char.jobEngraving,
+                    isGuest: char.isGuest,
+                } : null)
+            }));
+
+            await fetch(apiEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ groups: payload }),
+            });
+        } catch (error) {
+            console.error("Save Pin Error:", error);
+        }
+    };
+
     useEffect(() => {
         if (!isTemporaryMode || isLoading || isEditMode) return;
 
@@ -253,21 +408,38 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
             }
 
             if (isFullyCompleted) {
-                if (!group.expiresAt) {
+                if (group.isPinned) {
+                    // 1. 아직 타이머가 없다면 타이머 부여
+                    if (!group.resetAt) {
+                        hasChanges = true;
+                        return { ...group, resetAt: Date.now() + 10000 }; // 10초 테스트 후 60000으로 변경하세요
+                    }
+                    // 2. 🔥 [핵심] 화면을 보고 있는 도중 시간이 다 되면 즉시 슬롯을 비움
+                    else if (now >= group.resetAt) {
+                        hasChanges = true;
+                        return {
+                            ...group,
+                            slots: Array(group.maxMembers).fill(null), // 여기서 파티원을 지움
+                            resetAt: undefined
+                        };
+                    }
+                } else if (!group.expiresAt) {
+                    // 일반 파티 삭제 타이머 (기존과 동일)
                     hasChanges = true;
-                    return { ...group, expiresAt: Date.now() + 60000 }; // 60초 뒤 폭파 설정
+                    return { ...group, expiresAt: Date.now() + 10000 };
                 }
             } else {
-                if (group.expiresAt) {
+                // 완료 상태가 아니면 타이머 제거
+                if (group.expiresAt || group.resetAt) {
                     hasChanges = true;
-                    const { expiresAt, ...rest } = group; // 체크 풀리면 폭파 타이머 제거
+                    const { expiresAt, resetAt, ...rest } = group;
                     return rest;
                 }
             }
             return group;
         });
 
-        // 변경사항이 생겼을 때만 DB에 업데이트 쏘기
+        // 🔥 데이터가 실제로 변했을 때만 상태를 업데이트하고 서버에 저장합니다.
         if (hasChanges) {
             setGroups(nextGroups);
             setOriginalGroups(nextGroups);
@@ -277,8 +449,15 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                 body: JSON.stringify({ groups: nextGroups }),
             }).catch(console.error);
         }
-    }, [groups, partyTasks, isTemporaryMode, isLoading, isEditMode, apiEndpoint]);
+    }, [groups, partyTasks, isTemporaryMode, isLoading, isEditMode, apiEndpoint, now]); // ✅ now가 변할 때마다 체크함
 
+    useEffect(() => {
+        try { localStorage.setItem(AUTO_SETUP_SORT_KEY, autoSetupSortType); } catch { }
+    }, [autoSetupSortType]);
+
+    useEffect(() => {
+        try { localStorage.setItem(AUTO_SETUP_RAIDS_KEY, JSON.stringify(autoSetupRaids)); } catch { }
+    }, [autoSetupRaids]);
 
 
     const baseCharacters = useMemo(() => {
@@ -286,8 +465,10 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
             const roster = member.summary?.roster ?? [];
             return roster
                 .filter(char => member.visibleByChar?.[char.name] !== false)
-                .map(char => ({
+                .map((char: any) => ({
                     ...char,
+                    className: char.className || "",
+                    jobEngraving: char.jobEngraving || "",
                     ownerName: member.nickname || member.name || "알 수 없음",
                     ownerId: member.userId,
                     uniqueId: `${member.userId}-${char.name}`,
@@ -295,6 +476,21 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                 }));
         });
     }, [partyTasks]);
+
+    // 💡 모든 가능한 숙제 목록을 뽑아 필터링 메뉴에 표시
+    const allAvailableRaids = useMemo(() => {
+        const raids = new Set<string>();
+        baseCharacters.forEach(char => {
+            const memberInfo = partyTasks.find(m => m.userId === char.ownerId);
+            const prefs = memberInfo?.prefsByChar?.[char.name]?.raids;
+            if (prefs) {
+                Object.entries(prefs).forEach(([raidName, pref]: [string, any]) => {
+                    if (pref.enabled) raids.add(raidName);
+                });
+            }
+        });
+        return Array.from(raids);
+    }, [baseCharacters, partyTasks]);
 
     const handleOpenGuestModal = (groupId: string, slotIndex: number) => {
         setGuestTargetSlot({ groupId, slotIndex });
@@ -434,7 +630,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
 
             return true;
         });
-    }, [syncedGroups, selectedRaids, selectedUsers, onlyRemain, isEditMode, partyTasks]);
+    }, [syncedGroups, selectedRaids, selectedUsers, onlyRemain, isEditMode, partyTasks, now]);
 
     const dayOrderMap = useMemo(() => {
         const days = ["일", "월", "화", "수", "목", "금", "토"];
@@ -519,12 +715,12 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         if (!activeGroup) return [];
 
         const reqLevel = raidInformation[activeGroup.raidName]?.difficulty[activeGroup.difficulty as DifficultyKey]?.level || 0;
-        const assignedUniqueIdsForThisRaid = new Set(
-            syncedGroups
-                .filter(g => g.raidName === activeGroup.raidName)
-                .flatMap(g => g.slots.map(s => s?.uniqueId))
-                .filter(Boolean)
-        );
+
+        const assignedUniqueIdsForThisRaid = new Set([
+            ...syncedGroups.filter(g => g.raidName === activeGroup.raidName).flatMap(g => g.slots.map(s => s?.uniqueId)),
+            ...otherGroups.filter(g => g.raidName === activeGroup.raidName).flatMap(g => g.slots.map(s => s?.uniqueId))
+        ].filter(Boolean));
+
         const ownersInActiveGroup = new Set(activeGroup.slots.map(s => s?.ownerId).filter(Boolean));
 
         return baseCharacters.filter(char => {
@@ -533,7 +729,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
             if (ownersInActiveGroup.has(char.ownerId)) return false;
             return true;
         });
-    }, [baseCharacters, syncedGroups, activeGroup]);
+    }, [baseCharacters, syncedGroups, otherGroups, activeGroup]);
 
     const handleGroupDragEnd = async (e: DragEndEvent) => {
         const { active, over } = e;
@@ -557,6 +753,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                     maxMembers: g.maxMembers,
                     scheduleDay: g.scheduleDay || "",
                     scheduleTime: g.scheduleTime || "",
+                    isPinned: g.isPinned,
                     slots: g.slots.map(char => char ? {
                         uniqueId: char.uniqueId,
                         ownerId: char.ownerId,
@@ -608,6 +805,8 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                 maxMembers: g.maxMembers,
                 scheduleDay: g.scheduleDay || "",
                 scheduleTime: g.scheduleTime || "",
+                isPinned: g.isPinned,
+                resetAt: g.resetAt,
                 slots: g.slots.map(char => char ? {
                     uniqueId: char.uniqueId,
                     ownerId: char.ownerId,
@@ -647,6 +846,368 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         setGroups(originalGroups);
         setIsEditMode(false);
         setActiveGroupId(null);
+    };
+
+    const handleSmartAutoFill = () => {
+        if (!activeGroup) {
+            alert("자동 편성할 레이드 그룹을 선택해주세요.");
+            return;
+        }
+
+        if (!window.confirm(`[${activeGroup.groupName}] 그룹의 빈자리를 최적의 조합으로 자동 편성하시겠습니까?`)) return;
+
+        setGroups(prevGroups => {
+            const newGroups = prevGroups.map(g => ({ ...g, slots: [...g.slots] }));
+            const targetGroupIndex = newGroups.findIndex(g => g.id === activeGroupId);
+            if (targetGroupIndex === -1) return prevGroups;
+
+            const targetGroup = newGroups[targetGroupIndex];
+            const reqLevel = raidInformation[targetGroup.raidName]?.difficulty[targetGroup.difficulty as DifficultyKey]?.level || 0;
+
+            const assignedUniqueIds = new Set([
+                ...newGroups.filter(g => g.raidName === targetGroup.raidName).flatMap(g => g.slots).filter(Boolean).map(c => c.uniqueId),
+                ...otherGroups.filter(g => g.raidName === targetGroup.raidName).flatMap(g => g.slots).filter(Boolean).map(c => c.uniqueId)
+            ]);
+
+            const ownersInThisGroup = new Set(targetGroup.slots.filter(Boolean).map(c => c.ownerId));
+            const namesInThisGroup = new Set(targetGroup.slots.filter(Boolean).map(c => c.name));
+
+            let candidates = baseCharacters.filter((c: any) => {
+                if ((c.itemLevelNum || 0) < reqLevel) return false;
+                if (assignedUniqueIds.has(c.uniqueId)) return false;
+                if (ownersInThisGroup.has(c.ownerId)) return false;
+                if (namesInThisGroup.has(c.name)) return false;
+
+                const memberInfo = partyTasks.find(m => m.userId === c.ownerId);
+                const charPref = memberInfo?.prefsByChar?.[c.name]?.raids?.[targetGroup.raidName];
+                return charPref && charPref.enabled && charPref.difficulty === targetGroup.difficulty;
+            });
+
+            const validCPCandidates = candidates.filter((c: any) => parseCP(c.combatPower) > 0);
+            const totalCandidatesCP = validCPCandidates.reduce((sum: number, c: any) => sum + parseCP(c.combatPower), 0);
+            const globalAvgCP = validCPCandidates.length > 0 ? Math.floor(totalCandidatesCP / validCPCandidates.length) : 0;
+
+            for (let i = 0; i < targetGroup.maxMembers; i++) {
+                if (targetGroup.slots[i] !== null) continue;
+
+                const currentMembers = targetGroup.slots.filter(Boolean);
+                const currentTotalCP = currentMembers.reduce((sum, c) => sum + parseCP(c.combatPower), 0);
+                const remainingSlots = targetGroup.maxMembers - currentMembers.length;
+
+                let targetCP = 0;
+                if (globalAvgCP > 0) {
+                    const idealTotalCP = globalAvgCP * targetGroup.maxMembers;
+                    targetCP = Math.max(1000, (idealTotalCP - currentTotalCP) / remainingSlots);
+                }
+
+                const partyIndex = Math.floor(i / 4);
+                const currentPartySlots = targetGroup.slots.slice(partyIndex * 4, partyIndex * 4 + 4).filter(Boolean);
+
+                const hasSupporter = currentPartySlots.some(c => isSupporterChar(c.className || "", (c as any).jobEngraving || ""));
+                const currentDpsCount = currentPartySlots.filter(c => !isSupporterChar(c.className || "", (c as any).jobEngraving || "")).length;
+                const partyClasses = currentPartySlots.map(c => c.className);
+
+                const partySynergies = new Set<string>();
+                let hasBackHeadSynergy = false;
+                let backHeadCount = 0;
+
+                currentPartySlots.forEach(c => {
+                    const cClassName = c.className || "";
+                    const cJobEngraving = (c as any).jobEngraving || "";
+
+                    const syns = getCharSynergies(cClassName, cJobEngraving);
+                    syns.forEach(s => partySynergies.add(s));
+                    if (syns.includes("백헤드 피증")) hasBackHeadSynergy = true;
+
+                    const posType = getCharPositionalType(cClassName, cJobEngraving);
+                    if (posType === "BACK_HEAD" || posType === "QUASI") backHeadCount++;
+                });
+
+                let bestCandidate = null;
+                let bestScore = -Infinity;
+
+                for (const candidate of candidates) {
+                    const candidateCP = parseCP(candidate.combatPower);
+                    let score = 0;
+
+                    // 💡 [옵션 반영] CP 매칭 페널티
+                    if (targetCP > 0 && candidateCP > 0) {
+                        const cpDiffRatio = Math.abs(targetCP - candidateCP) / targetCP;
+                        // CP 우선이면 오차에 대해 엄청나게 깎고, 시너지 우선이면 살짝만 깎음
+                        const cpPenaltyMultiplier = autoSetupSortType === "cp" ? 30000 : 10000;
+                        score = 10000 - (cpDiffRatio * cpPenaltyMultiplier);
+                    } else {
+                        score = candidate.itemLevelNum || 0;
+                    }
+
+                    const cClassName = candidate.className || "";
+                    const cEngraving = candidate.jobEngraving || "";
+
+                    const isSupp = isSupporterChar(cClassName, cEngraving);
+                    const isSupporterSlot = (i % 4 === 3); // 4번 자리(인덱스 3, 7, 11...)인지 확인
+
+                    if (isSupporterSlot && !isSupp) continue; // 4번 자리는 서포터만 배치 가능
+                    if (!isSupporterSlot && isSupp) continue; // 1~3번 자리는 딜러만 배치 가능
+                    if (partyClasses.includes(cClassName)) continue; // 직업 중복 금지
+
+
+                    const cSyns = getCharSynergies(cClassName, cEngraving);
+                    let overlapCount = 0;
+                    cSyns.forEach(s => {
+                        if (s !== "방깎" && s !== "백헤드 피증" && partySynergies.has(s)) {
+                            overlapCount++;
+                        }
+                    });
+
+                    // 💡 [옵션 반영] 시너지 겹침 페널티
+                    const overlapPenalty = autoSetupSortType === "synergy" ? 15000 : 5000;
+                    score -= (overlapCount * overlapPenalty);
+
+                    const posType = getCharPositionalType(cClassName, cEngraving);
+                    const bringsBackHeadSynergy = cSyns.includes("백헤드 피증");
+
+                    // 💡 [옵션 반영] 백헤드 가점 보너스
+                    const posBonusMultiplier = autoSetupSortType === "synergy" ? 1 : 0.4;
+                    if (hasBackHeadSynergy) {
+                        if (posType === "BACK_HEAD") score += (5000 * posBonusMultiplier);
+                        else if (posType === "QUASI") score += (2000 * posBonusMultiplier);
+                    }
+
+                    if (bringsBackHeadSynergy) {
+                        score += (backHeadCount * 3000 * posBonusMultiplier);
+                    }
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestCandidate = candidate;
+                    }
+                }
+
+                if (bestCandidate) {
+                    targetGroup.slots[i] = bestCandidate;
+                    assignedUniqueIds.add(bestCandidate.uniqueId);
+                    ownersInThisGroup.add(bestCandidate.ownerId);
+                    namesInThisGroup.add(bestCandidate.name);
+                    candidates = candidates.filter((c: any) => c.ownerId !== bestCandidate!.ownerId && c.name !== bestCandidate!.name);
+                }
+            }
+            return newGroups;
+        });
+    };
+
+    // 💡 [수정] 옵션이 반영된 완전 자동 편성 로직
+    const handleFullAutoSetup = () => {
+        setGroups(prevGroups => {
+            const nextGroups = prevGroups.map(g => ({ ...g, slots: [...g.slots] }));
+
+            const assigned = new Set<string>();
+            nextGroups.forEach(g => {
+                g.slots.forEach(c => {
+                    if (c && !c.isGuest) assigned.add(`${c.uniqueId}::${g.raidName}`);
+                });
+            });
+            otherGroups.forEach(g => {
+                g.slots.forEach(c => {
+                    if (c && !c.isGuest) assigned.add(`${c.uniqueId}::${g.raidName}`);
+                });
+            });
+
+            const neededAssignments: { char: any; raidName: string; difficulty: string }[] = [];
+            baseCharacters.forEach(char => {
+                const memberInfo = partyTasks.find(m => m.userId === char.ownerId);
+                const prefs = memberInfo?.prefsByChar?.[char.name]?.raids;
+                if (!prefs) return;
+
+                Object.entries(prefs).forEach(([raidName, pref]: [string, any]) => {
+                    if (pref.enabled) {
+                        // 💡 [옵션 반영] 사용자가 설정에서 체크한 레이드만 편성하도록 필터링 (비어있으면 전체 허용)
+                        if (autoSetupRaids.length > 0 && !autoSetupRaids.includes(raidName)) return;
+
+                        const diffInfo = raidInformation[raidName]?.difficulty[pref.difficulty as DifficultyKey];
+                        if (!diffInfo) return;
+
+                        const allGates = diffInfo.gates.map((g: any) => g.index) || [];
+                        const currentGates = pref.gates || [];
+                        const isFullyCompleted = allGates.length > 0 && allGates.every((g: number) => currentGates.includes(g));
+
+                        if (!isFullyCompleted && !assigned.has(`${char.uniqueId}::${raidName}`)) {
+                            const reqLevel = diffInfo.level || 0;
+                            if ((char.itemLevelNum || 0) >= reqLevel) {
+                                neededAssignments.push({ char, raidName, difficulty: pref.difficulty });
+                            }
+                        }
+                    }
+                });
+            });
+
+            if (neededAssignments.length === 0) {
+                alert("선택하신 조건에 맞는 편성 가능한 남은 숙제가 없습니다.");
+                return prevGroups;
+            }
+
+            const raidDiffMap = new Map<string, any[]>();
+            neededAssignments.forEach(a => {
+                const key = `${a.raidName}::${a.difficulty}`;
+                if (!raidDiffMap.has(key)) raidDiffMap.set(key, []);
+                raidDiffMap.get(key)!.push(a.char);
+            });
+
+            const newlyCreatedGroups: RaidGroup[] = [];
+            raidDiffMap.forEach((chars, key) => {
+                const [raidName, difficulty] = key.split("::");
+                const info = raidInformation[raidName];
+                let maxMembers = 8;
+                if ((info as any).maxMembers) {
+                    maxMembers = (info as any).maxMembers;
+                } else {
+                    if (info.kind === "어비스" || info.kind === "그림자" || raidName.includes("쿠크") || raidName.includes("세르카") || raidName.includes("카양겔") || raidName.includes("상아탑")) maxMembers = 4;
+                    else if (info.kind === "에픽") maxMembers = 16;
+                }
+
+                const ownerCounts = new Map<string, number>();
+                chars.forEach(c => {
+                    ownerCounts.set(c.ownerId, (ownerCounts.get(c.ownerId) || 0) + 1);
+                });
+                const maxFromOneOwner = Math.max(0, ...Array.from(ownerCounts.values()));
+                const numGroups = Math.max(Math.ceil(chars.length / maxMembers), maxFromOneOwner);
+
+                for (let i = 0; i < numGroups; i++) {
+                    newlyCreatedGroups.push({
+                        id: `auto-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        raidName,
+                        groupName: `${raidName} ${i + 1}팟`,
+                        difficulty,
+                        maxMembers,
+                        slots: Array(maxMembers).fill(null),
+                        isPinned: false
+                    });
+                }
+            });
+
+            let availableAssignments = [...neededAssignments];
+
+            newlyCreatedGroups.forEach(targetGroup => {
+                let candidates = availableAssignments
+                    .filter(a => a.raidName === targetGroup.raidName && a.difficulty === targetGroup.difficulty)
+                    .map(a => a.char);
+
+                const validCPCandidates = candidates.filter((c: any) => parseCP(c.combatPower) > 0);
+                const totalCandidatesCP = validCPCandidates.reduce((sum: number, c: any) => sum + parseCP(c.combatPower), 0);
+                const globalAvgCP = validCPCandidates.length > 0 ? Math.floor(totalCandidatesCP / validCPCandidates.length) : 0;
+
+                const ownersInThisGroup = new Set<string>();
+                const namesInThisGroup = new Set<string>();
+
+                for (let i = 0; i < targetGroup.maxMembers; i++) {
+                    if (candidates.length === 0) break;
+
+                    const currentMembers = targetGroup.slots.filter(Boolean);
+                    const currentTotalCP = currentMembers.reduce((sum, c) => sum + parseCP(c.combatPower), 0);
+                    const remainingSlots = targetGroup.maxMembers - currentMembers.length;
+
+                    let targetCP = 0;
+                    if (globalAvgCP > 0) {
+                        const idealTotalCP = globalAvgCP * targetGroup.maxMembers;
+                        targetCP = Math.max(1000, (idealTotalCP - currentTotalCP) / remainingSlots);
+                    }
+
+                    const partyIndex = Math.floor(i / 4);
+                    const currentPartySlots = targetGroup.slots.slice(partyIndex * 4, partyIndex * 4 + 4).filter(Boolean);
+
+                    const hasSupporter = currentPartySlots.some(c => isSupporterChar(c.className || "", (c as any).jobEngraving || ""));
+                    const currentDpsCount = currentPartySlots.filter(c => !isSupporterChar(c.className || "", (c as any).jobEngraving || "")).length;
+                    const partyClasses = currentPartySlots.map(c => c.className);
+
+                    const partySynergies = new Set<string>();
+
+                    let hasBackHeadSynergy = false;
+                    let backHeadCount = 0;
+
+                    currentPartySlots.forEach(c => {
+                        const cClassName = c.className || "";
+                        const cJobEngraving = (c as any).jobEngraving || "";
+
+                        const syns = getCharSynergies(cClassName, cJobEngraving);
+                        syns.forEach(s => partySynergies.add(s));
+                        if (syns.includes("백헤드 피증")) hasBackHeadSynergy = true;
+
+                        const posType = getCharPositionalType(cClassName, cJobEngraving);
+                        if (posType === "BACK_HEAD" || posType === "QUASI") backHeadCount++;
+                    });
+
+                    let bestCandidate = null;
+                    let bestScore = -Infinity;
+
+                    for (const candidate of candidates) {
+                        const candidateCP = parseCP(candidate.combatPower);
+                        let score = 0;
+
+                        // 💡 [옵션 반영]
+                        if (targetCP > 0 && candidateCP > 0) {
+                            const cpDiffRatio = Math.abs(targetCP - candidateCP) / targetCP;
+                            const cpPenaltyMultiplier = autoSetupSortType === "cp" ? 30000 : 10000;
+                            score = 10000 - (cpDiffRatio * cpPenaltyMultiplier);
+                        } else {
+                            score = candidate.itemLevelNum || 0;
+                        }
+
+                        const cClassName = candidate.className || "";
+                        const cEngraving = candidate.jobEngraving || "";
+
+                        const isSupp = isSupporterChar(cClassName, cEngraving);
+                        const isSupporterSlot = (i % 4 === 3); // 4번 자리(인덱스 3, 7, 11...)인지 확인
+
+                        if (isSupporterSlot && !isSupp) continue; // 4번 자리는 서포터만 배치 가능
+                        if (!isSupporterSlot && isSupp) continue; // 1~3번 자리는 딜러만 배치 가능
+                        if (partyClasses.includes(cClassName)) continue; // 직업 중복 금지
+
+                        const cSyns = getCharSynergies(cClassName, cEngraving);
+                        let overlapCount = 0;
+                        cSyns.forEach(s => {
+                            if (s !== "방깎" && s !== "백헤드 피증" && partySynergies.has(s)) {
+                                overlapCount++;
+                            }
+                        });
+
+                        // 💡 [옵션 반영]
+                        const overlapPenalty = autoSetupSortType === "synergy" ? 15000 : 5000;
+                        score -= (overlapCount * overlapPenalty);
+
+                        const posType = getCharPositionalType(cClassName, cEngraving);
+                        const bringsBackHeadSynergy = cSyns.includes("백헤드 피증");
+
+                        // 💡 [옵션 반영]
+                        const posBonusMultiplier = autoSetupSortType === "synergy" ? 1 : 0.4;
+                        if (hasBackHeadSynergy) {
+                            if (posType === "BACK_HEAD") score += (5000 * posBonusMultiplier);
+                            else if (posType === "QUASI") score += (2000 * posBonusMultiplier);
+                        }
+
+                        if (bringsBackHeadSynergy) {
+                            score += (backHeadCount * 3000 * posBonusMultiplier);
+                        }
+
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestCandidate = candidate;
+                        }
+                    }
+
+                    if (bestCandidate) {
+                        targetGroup.slots[i] = bestCandidate;
+                        ownersInThisGroup.add(bestCandidate.ownerId);
+                        namesInThisGroup.add(bestCandidate.name);
+
+                        candidates = candidates.filter((c: any) => c.ownerId !== bestCandidate!.ownerId && c.name !== bestCandidate!.name);
+                        availableAssignments = availableAssignments.filter(a => !(a.char.uniqueId === bestCandidate!.uniqueId && a.raidName === targetGroup.raidName));
+                    }
+                }
+            });
+
+            return [...nextGroups, ...newlyCreatedGroups];
+        });
+
+        setShowAutoSetupSettings(false);
     };
 
     const updateGroupName = (groupId: string, newName: string) => {
@@ -689,6 +1250,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
             slots: Array(max).fill(null),
             scheduleDay: "",
             scheduleTime: "",
+            isPinned: false,
         };
 
         setGroups([...groups, newGroup]);
@@ -763,6 +1325,14 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
             }
 
             const isMovingWithinSameGroup = sourceGroup?.id === targetGroup.id;
+
+            const isAlreadyInOtherGroup = otherGroups.some(g =>
+                g.raidName === targetGroup.raidName && g.slots.some(s => s?.uniqueId === char.uniqueId)
+            );
+            if (isAlreadyInOtherGroup) {
+                alert("다른 탭(고정/단발성 그룹)의 동일한 레이드에 이미 편성된 캐릭터입니다.");
+                return;
+            }
 
             const hasSameOwnerInGroup = targetGroup.slots.some((s, idx) => {
                 if (!s) return false;
@@ -877,6 +1447,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
             </div>
         );
     }
+
     return (
         <div className="flex flex-col gap-4 sm:gap-4.5 relative">
             <div className="bg-[#16181D] rounded-none sm:rounded-sm border-x-0 px-4 sm:px-5 py-3 sm:py-4">
@@ -892,7 +1463,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                         : "bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-white"
                                         }`}
                                 >
-                                    <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5" />
                                     자리 이동
                                 </button>
                             )}
@@ -920,7 +1490,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                         : "bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-white"
                                     }`}
                             >
-                                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5" />
                                 일정 보기
                             </button>
 
@@ -1010,11 +1579,99 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                     <div className="flex flex-row flex-wrap gap-2 sm:gap-3 items-center w-full sm:w-auto mt-2 sm:mt-0 pt-3 border-t border-white/10 sm:pt-0 sm:border-none">
                         {isEditMode ? (
                             <>
+                                <div className="flex gap-2 mr-auto sm:mr-0 bg-transparent p-0">
+                                </div>
+                                {/* 🔥 자동 세팅 그룹 */}
+                                <div className="relative flex items-center auto-setup-dropdown mr-auto sm:mr-0">
+                                    <button
+                                        onClick={() => handleFullAutoSetup()}
+                                        className="relative group flex items-center justify-center py-2 px-6 rounded-lg bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white/5  text-white"
+                                        title="배치되지 않은 모든 숙제를 계산해 새로운 레이드 그룹들을 한 번에 자동 편성합니다."
+                                    >
+                                        <span>자동 세팅</span>
+                                        <div
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setShowAutoSetupSettings(!showAutoSetupSettings);
+                                            }}
+                                            className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors duration-200 cursor-pointer"
+                                            title="자동 세팅 설정"
+                                        >
+                                            <Settings className="w-3 h-3" />
+                                        </div>
+                                    </button>
+
+                                    {showAutoSetupSettings && (
+                                        <div className="absolute top-full left-0 mt-2 w-56 p-4 rounded-xl bg-[#1E2028] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.7)] z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-xs font-bold text-white">자동 세팅 설정</h4>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setShowAutoSetupSettings(false);
+                                                    }}
+                                                    className="text-gray-400 hover:text-white"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-4 mb-4">
+                                                {/* 우선 편성 기준 UI */}
+                                                <div className="space-y-1.5">
+                                                    <span className="text-[11px] text-gray-400 block">편성 기준</span>
+                                                    <div className="grid grid-cols-2 gap-1 p-1 bg-[#0F1115] rounded-lg border border-white/5">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setAutoSetupSortType("synergy"); }}
+                                                            className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "synergy" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}
+                                                        >
+                                                            직업 시너지
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setAutoSetupSortType("cp"); }}
+                                                            className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "cp" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}
+                                                        >
+                                                            전투력 평균
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* 대상 레이드 선택 UI */}
+                                                <div className="space-y-1.5">
+                                                    <span className="text-[11px] text-gray-400 block">
+                                                        대상 레이드 <span className="text-gray-600 font-normal">(선택 안함 = 전체)</span>
+                                                    </span>
+                                                    <div className="max-h-32 overflow-y-auto custom-scrollbar pr-1 bg-[#0F1115] rounded-lg border border-white/5 p-1 flex flex-col gap-0.5">
+                                                        {allAvailableRaids.map(raidName => {
+                                                            const isActive = autoSetupRaids.includes(raidName);
+                                                            return (
+                                                                <button
+                                                                    key={raidName}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (isActive) setAutoSetupRaids(prev => prev.filter(r => r !== raidName));
+                                                                        else setAutoSetupRaids(prev => [...prev, raidName]);
+                                                                    }}
+                                                                    className={`flex items-center justify-between px-2 py-1.5 rounded text-xs transition-colors ${isActive ? "bg-[#5B69FF]/15 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5"}`}
+                                                                >
+                                                                    <span>{raidName}</span>
+                                                                    {isActive && <Check className="w-3 h-3" strokeWidth={3} />}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="absolute -top-1.5 left-16 w-3 h-3 bg-[#1E2028] border-t border-l border-white/10 rotate-45" />
+                                        </div>
+                                    )}
+                                </div>
+
                                 <button
                                     onClick={openAddModal}
                                     className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 hover:bg-white/5 text-white text-xs sm:text-sm font-medium transition-colors"
                                 >
-                                    <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                     그룹 추가
                                 </button>
                                 <button
@@ -1029,7 +1686,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                     disabled={isSaving}
                                     className="flex-[1.5] sm:flex-none inline-flex items-center justify-center gap-1.5 py-2 px-4 sm:px-5 rounded-md bg-[#5B69FF] hover:bg-[#4A57E6] text-white text-xs sm:text-sm font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {isSaving ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                                     저장 완료
                                 </button>
                             </>
@@ -1042,7 +1698,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                 }}
                                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-2 px-4 sm:px-5 rounded-md bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-white hover:bg-[#5B69FF]/20 text-xs sm:text-sm transition-colors"
                             >
-                                <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                 그룹 수정
                             </button>
                         )}
@@ -1081,6 +1736,9 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                                 partyTasks={partyTasks}
                                                 countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined}
                                                 onBulkToggleGate={onBulkToggleGate}
+                                                isTemporaryMode={isTemporaryMode}
+                                                onTogglePin={toggleGroupPin}
+                                                now={now}
                                             />
                                         </SortableGroupWrapper>
                                     ))}
@@ -1101,7 +1759,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                             {dayGroups.map(group => (
-                                                <ReadOnlyGroupCard key={group.id} group={group} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} />
+                                                <ReadOnlyGroupCard key={group.id} group={group} now={now} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} isTemporaryMode={isTemporaryMode} onTogglePin={toggleGroupPin} />
                                             ))}
                                         </div>
                                     </div>
@@ -1116,7 +1774,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                         {groupedBySchedule!.unscheduled.map(group => (
-                                            <ReadOnlyGroupCard key={group.id} group={group} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} />
+                                            <ReadOnlyGroupCard key={group.id} group={group} now={now} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} isTemporaryMode={isTemporaryMode} onTogglePin={toggleGroupPin} />
                                         ))}
                                     </div>
                                 </div>
@@ -1139,8 +1797,11 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                                     key={group.id}
                                                     group={group}
                                                     partyTasks={partyTasks}
-                                                    countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} // 🔥 카운트다운 프롭스 전달
+                                                    countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined}
                                                     onBulkToggleGate={onBulkToggleGate}
+                                                    isTemporaryMode={isTemporaryMode}
+                                                    now={now}
+                                                    onTogglePin={toggleGroupPin}
                                                 />
                                             ))}
                                         </div>
@@ -1154,7 +1815,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                 <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                     <div className="flex flex-col xl:flex-row gap-6 items-start relative">
                         <div className="flex flex-col gap-3 w-full xl:w-80 shrink-0 xl:sticky xl:top-26 xl:z-20">
-                            <WaitlistDroppable characters={waitlistCharacters} activeGroup={activeGroup} />
+                            <WaitlistDroppable characters={waitlistCharacters} activeGroup={activeGroup} onAutoFill={handleSmartAutoFill} />
                         </div>
 
                         <div className="flex-1 w-full min-h-[600px]">
@@ -1176,13 +1837,15 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                                             key={group.id}
                                                             group={group}
                                                             isActive={group.id === activeGroupId}
-                                                            countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} // 🔥 카운트다운 프롭스
+                                                            countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined}
                                                             onClick={() => setActiveGroupId(group.id)}
                                                             onRemove={() => removeGroup(group.id)}
                                                             onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
                                                             onNameChange={(newName) => updateGroupName(group.id, newName)}
                                                             onScheduleChange={(day, time) => updateGroupSchedule(group.id, day, time)}
                                                             onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
+                                                            isTemporaryMode={isTemporaryMode}
+                                                            onTogglePin={toggleGroupPin}
                                                         />
                                                     ))}
                                                 </div>
@@ -1202,13 +1865,15 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                                         key={group.id}
                                                         group={group}
                                                         isActive={group.id === activeGroupId}
-                                                        countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} // 🔥 카운트다운 프롭스
+                                                        countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined}
                                                         onClick={() => setActiveGroupId(group.id)}
                                                         onRemove={() => removeGroup(group.id)}
                                                         onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
                                                         onNameChange={(newName) => updateGroupName(group.id, newName)}
                                                         onScheduleChange={(day, time) => updateGroupSchedule(group.id, day, time)}
                                                         onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
+                                                        isTemporaryMode={isTemporaryMode}
+                                                        onTogglePin={toggleGroupPin}
                                                     />
                                                 ))}
                                             </div>
@@ -1232,13 +1897,15 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                                             key={group.id}
                                                             group={group}
                                                             isActive={group.id === activeGroupId}
-                                                            countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} // 🔥 카운트다운 프롭스 전달
+                                                            countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined}
                                                             onClick={() => setActiveGroupId(group.id)}
                                                             onRemove={() => removeGroup(group.id)}
                                                             onRemoveChar={(idx) => removeCharFromSlot(group.id, idx)}
                                                             onNameChange={(newName) => updateGroupName(group.id, newName)}
                                                             onScheduleChange={(day, time) => updateGroupSchedule(group.id, day, time)}
                                                             onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
+                                                            isTemporaryMode={isTemporaryMode}
+                                                            onTogglePin={toggleGroupPin}
                                                         />
                                                     ))}
                                                 </div>
@@ -1519,16 +2186,22 @@ function ReadOnlyGroupCard({
     group,
     partyTasks,
     countdown,
-    onBulkToggleGate
+    now, // 🔥 now 추가
+    onBulkToggleGate,
+    isTemporaryMode,
+    onTogglePin
 }: {
     group: RaidGroup,
     partyTasks: PartyMemberTasks[],
     countdown?: number,
-    onBulkToggleGate?: RaidPlannerTabProps["onBulkToggleGate"]
+    now: number, // 🔥 타입 정의 추가
+    onBulkToggleGate?: RaidPlannerTabProps["onBulkToggleGate"],
+    isTemporaryMode?: boolean,
+    onTogglePin?: (id: string) => void
 }) {
     const [page, setPage] = useState(0);
     const colors = difficultyColors[group.difficulty] || difficultyColors["노말"];
-
+    const resetCountdown = group.resetAt ? Math.max(0, Math.ceil((group.resetAt - now) / 1000)) : undefined;
     const isEpic = group.maxMembers > 8;
     const totalPages = Math.ceil(group.maxMembers / 8) || 1;
     const absoluteStartIndex = page * 8;
@@ -1573,18 +2246,34 @@ function ReadOnlyGroupCard({
                     그룹이 {countdown}초 뒤 자동 삭제됩니다
                 </div>
             )}
+            {group.isPinned && resetCountdown !== undefined && resetCountdown > 0 && (
+                <div className="bg-red-500/20 text-red-400 text-xs font-bold text-center py-1.5 border-b border-red-500/20 animate-pulse shadow-sm">
+                    파티원 정보가 {resetCountdown}초 뒤 초기화됩니다
+                </div>
+            )}
 
             <div className="p-5">
                 <div className="flex justify-between items-center w-full mb-1.5 gap-2">
-                    <span className="text-[16px] font-bold text-[#5B69FF] rounded-md truncate">
+                    <span className="text-[16px] font-bold text-[#5B69FF] rounded-md truncate flex-1">
                         {group.groupName}
                     </span>
-                    {(group.scheduleDay || group.scheduleTime) && (
-                        <div className="flex items-center gap-1.5 px-1.5 py-0.5 shrink-0 rounded bg-[#5B69FF]/10 text-[#5B69FF] text-[11px] font-bold">
-                            <Calendar className="w-3 h-3" />
-                            {group.scheduleDay ? `${group.scheduleDay}요일` : ""} {group.scheduleTime || ""}
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                        {(group.scheduleDay || group.scheduleTime) && (
+                            <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-[#5B69FF]/10 text-[#5B69FF] text-[11px] font-bold">
+                                <Calendar className="w-3 h-3" />
+                                {group.scheduleDay ? `${group.scheduleDay}요일` : ""} {group.scheduleTime || ""}
+                            </div>
+                        )}
+                        {isTemporaryMode && onTogglePin && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onTogglePin(group.id); }}
+                                className={`p-1.5 rounded-md transition-colors ${group.isPinned ? "bg-[#5B69FF]/20 text-[#5B69FF]" : "bg-white/5 text-gray-500 hover:text-white"}`}
+                                title={group.isPinned ? "고정 해제" : "파티 고정 (완료 시 그룹원만 초기화)"}
+                            >
+                                <Pin className="w-3.5 h-3.5" fill={group.isPinned ? "currentColor" : "none"} />
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
@@ -1596,6 +2285,11 @@ function ReadOnlyGroupCard({
                             <span className={`text-xs px-2 py-0.5 rounded font-bold ${colors.badge}`}>
                                 {getDisplayDifficulty(group.raidName, group.difficulty)}
                             </span>
+                            {getGroupAvgCP(group.slots) > 0 && (
+                                <span className="text-xs px-2 py-0.5 rounded font-bold bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+                                    평균 : {getGroupAvgCP(group.slots).toLocaleString()}
+                                </span>
+                            )}
                         </div>
                     </div>
 
@@ -1651,7 +2345,7 @@ function ReadOnlyGroupCard({
                                             <span className="text-[11px] font-bold text-gray-500">
                                                 {actualPartyNumber}파티
                                             </span>
-                                            <div className="text-[12px] font-mono font-bold tracking-wider">
+                                            <div className="text-[12px] ont-bold tracking-wider">
                                                 <span className={currentCount === maxInParty ? "text-[#5B69FF]" : "text-gray-300"}>
                                                     {currentCount}
                                                 </span>
@@ -1718,7 +2412,7 @@ function ReadOnlyGroupCard({
 function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean }) {
     const iconFileName = classIconMap[char.className] || 'default.svg';
     const iconUrl = `/icons/classes/${iconFileName}`;
-    const isSupporter = SUPPORTER_ENGRAVINGS.includes(char.jobEngraving ?? "");
+    const isSupporter = isSupporterChar(char.className || "", char.jobEngraving || "");
 
     return (
         <div className={`w-full h-full flex items-center gap-2 sm:gap-3 min-w-0 px-2 sm:px-3 transition-all ${isCompleted ? "opacity-90 grayscale brightness-75" : "opacity-100"}`}>
@@ -1762,16 +2456,18 @@ function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean 
     );
 }
 
-function GroupCard({ group, isActive, countdown, onClick, onRemove, onRemoveChar, onNameChange, onScheduleChange, onAddGuest }: {
+function GroupCard({ group, isActive, countdown, onClick, onRemove, onRemoveChar, onNameChange, onScheduleChange, onAddGuest, isTemporaryMode, onTogglePin }: {
     group: RaidGroup;
     isActive: boolean;
-    countdown?: number; // 🔥 카운트다운 프롭스
+    countdown?: number;
     onClick: () => void;
     onRemove: () => void;
     onRemoveChar: (idx: number) => void;
     onNameChange: (newName: string) => void;
     onScheduleChange: (day: string, time: string) => void;
     onAddGuest: (idx: number) => void;
+    isTemporaryMode?: boolean;
+    onTogglePin?: (id: string) => void;
 }) {
     const [page, setPage] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -1821,13 +2517,6 @@ function GroupCard({ group, isActive, countdown, onClick, onRemove, onRemoveChar
             onClick={onClick}
             className={`bg-[#16181D] rounded-lg flex flex-col border-[1.5px] cursor-pointer transition-all relative overflow-hidden ${isActive ? "border-[#5B69FF] bg-[#5B69FF]/5" : "border-transparent"}`}
         >
-            {/* 🔥 타이머 카운트다운 표시 */}
-            {countdown !== undefined && (
-                <div className="bg-red-500/20 text-red-400 text-xs font-bold text-center py-1.5 border-b border-red-500/20 animate-pulse shadow-sm">
-                    🔥 이 임시 파티는 {countdown}초 뒤 자동 삭제됩니다 (체크 해제 시 취소)
-                </div>
-            )}
-
             <div className="p-5">
                 <div className="flex justify-between items-center w-full mb-1.5 gap-2">
                     <div className="flex items-center gap-1 -ml-1 min-w-0 flex-1">
@@ -1930,6 +2619,17 @@ function GroupCard({ group, isActive, countdown, onClick, onRemove, onRemoveChar
                                 </div>
                             )}
                         </div>
+
+                        {isTemporaryMode && onTogglePin && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onTogglePin(group.id); }}
+                                className={`ml-1 p-1.5 rounded-md transition-colors ${group.isPinned ? "bg-[#5B69FF]/20 text-[#5B69FF]" : "bg-white/5 text-gray-500 hover:text-white"}`}
+                                title={group.isPinned ? "고정 해제" : "파티 고정 (완료 시 그룹원만 초기화)"}
+                            >
+                                <Pin className="w-3.5 h-3.5" fill={group.isPinned ? "currentColor" : "none"} />
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -1942,6 +2642,11 @@ function GroupCard({ group, isActive, countdown, onClick, onRemove, onRemoveChar
                             <span className={`text-xs px-2 py-0.5 rounded font-bold ${isActive ? colors.badge : "bg-gray-700/50 text-gray-500"}`}>
                                 {getDisplayDifficulty(group.raidName, group.difficulty)}
                             </span>
+                            {getGroupAvgCP(group.slots) > 0 && (
+                                <span className="text-xs px-2 py-0.5 rounded font-bold bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+                                    평균 : {getGroupAvgCP(group.slots).toLocaleString()}
+                                </span>
+                            )}
                         </div>
                     </div>
                     <div className="flex items-center gap-3 mt-1">
@@ -1970,7 +2675,7 @@ function GroupCard({ group, isActive, countdown, onClick, onRemove, onRemoveChar
                                         {actualPartyNumber}파티
                                     </span>
                                     {maxInParty > 0 && (
-                                        <div className="text-[12px] font-mono font-bold tracking-wider">
+                                        <div className="text-[12px] font-bold tracking-wider">
                                             <span className={currentCount === maxInParty ? "text-[#5B69FF]" : "text-gray-300"}>
                                                 {currentCount}
                                             </span>
@@ -2041,7 +2746,7 @@ function GroupCard({ group, isActive, countdown, onClick, onRemove, onRemoveChar
     );
 }
 
-function WaitlistDroppable({ characters, activeGroup }: { characters: any[], activeGroup: RaidGroup | null }) {
+function WaitlistDroppable({ characters, activeGroup, onAutoFill }: { characters: any[], activeGroup: RaidGroup | null, onAutoFill: () => void }) {
     const { setNodeRef, isOver } = useDroppable({
         id: "waitlist",
     });
@@ -2067,19 +2772,26 @@ function WaitlistDroppable({ characters, activeGroup }: { characters: any[], act
         >
             {activeGroup ? (
                 <>
-                    <h3 className="font-bold text-white mb-4 flex items-center gap-2 border-b border-white/5 pb-3 shrink-0">
+                    <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3 shrink-0">
+                        <h3 className="font-bold text-white flex items-center gap-2">
+                            <Users className="w-4 h-4 text-[#5B69FF]" />
+                            <div className="flex-1 truncate flex items-center gap-1.5 flex-wrap">
+                                {activeGroup.raidName}
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${diffColors?.badge}`}>
+                                    {getDisplayDifficulty(activeGroup.raidName, activeGroup.difficulty)}
+                                </span>
 
-                        <Users className="w-4 h-4 text-[#5B69FF]" />
-                        <div className="flex-1 truncate flex items-center gap-1.5">
-                            {activeGroup.raidName}
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${diffColors?.badge}`}>
-                                {getDisplayDifficulty(activeGroup.raidName, activeGroup.difficulty)}
-                            </span>
-                        </div>
-                        <span className="text-xs text-white px-2 py-0.5 rounded-full shrink-0">
-                            {characters.length}개
-                        </span>
-                    </h3>
+                            </div>
+
+                        </h3>
+                        <button
+                            onClick={onAutoFill}
+                            className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-md hover:bg-[#5B69FF]/20 bg-[#5B69FF]/10 text-[#5B69FF] border border-[#5B69FF]/30 text-xs font-bold transition-colors shadow-sm"
+                            title="현재 선택된 레이드 그룹에 최적의 조합으로 캐릭터들을 자동 편성합니다."
+                        >
+                            자동 편성
+                        </button>
+                    </div>
 
 
                     <div className="flex flex-col gap-5 pb-4">
@@ -2126,7 +2838,7 @@ function DraggableCharacter({ char }: { char: any }) {
 
     const iconFileName = classIconMap[char.className] || 'default.svg';
     const iconUrl = `/icons/classes/${iconFileName}`;
-    const isSupporter = SUPPORTER_ENGRAVINGS.includes(char.jobEngraving ?? "");
+    const isSupporter = isSupporterChar(char.className || "", char.jobEngraving || "");
 
     if (isDragging) {
         return (
@@ -2234,7 +2946,7 @@ function DraggableCharacterInSlot({ char, groupId, slotIndex }: { char: any, gro
 
     const iconFileName = classIconMap[char.className] || 'default.svg';
     const iconUrl = `/icons/classes/${iconFileName}`;
-    const isSupporter = SUPPORTER_ENGRAVINGS.includes(char.jobEngraving ?? "");
+    const isSupporter = isSupporterChar(char.className || "", char.jobEngraving || "");
 
     return (
         <div
@@ -2305,3 +3017,5 @@ function SortableGroupWrapper({ id, children }: { id: string, children: React.Re
         </div>
     );
 }
+
+

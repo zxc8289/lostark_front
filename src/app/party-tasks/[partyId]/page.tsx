@@ -2146,15 +2146,38 @@ export default function PartyDetailPage() {
                                 <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />
                             )}
                         </button>
-                        <button
-                            onClick={() => setActiveTab("temp_planner")}
-                            className={`pb-2 text-lg font-bold transition-colors relative ${activeTab === "temp_planner" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
-                        >
-                            단발성 그룹
-                            {activeTab === "temp_planner" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
-                        </button>
-                    </div>
 
+                        <div className="relative flex items-center pb-2">
+                            <button
+                                onClick={() => setActiveTab("temp_planner")}
+                                className={`text-lg font-bold transition-colors ${activeTab === "temp_planner" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+                            >
+                                자율편성 그룹
+                            </button>
+
+                            {/* ? 아이콘 (마우스 오버 타겟) */}
+                            <div className="relative group flex items-center justify-center ml-1.5 cursor-help">
+                                <div className="w-[18px] h-[18px] rounded-full bg-white/10 flex items-center justify-center text-[10px] text-gray-400 font-normal group-hover:text-white group-hover:bg-white/20 transition-colors">
+                                    ?
+                                </div>
+
+                                {/* 툴팁 내용 */}
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[260px] p-3 bg-[#1E2028] border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                                    <p className="text-xs text-gray-300 leading-relaxed break-keep text-center font-normal">
+                                        단발성 파티 편성에 적합한 그룹입니다.<br />
+                                        숙제 완료 시 <span className="text-yellow-400 text-opacity-90">10초뒤 그룹이 자동 삭제</span>되며,<br />
+                                        고정한 파티는 완료 시 <span className="text-yellow-400 text-opacity-90">파티원만 초기화</span>됩니다.
+                                    </p>
+                                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1E2028] border-t border-l border-white/10 rotate-45" />
+                                </div>
+                            </div>
+
+                            {/* 탭 활성화 밑줄 (텍스트와 아이콘 전체 너비만큼 표시) */}
+                            {activeTab === "temp_planner" && (
+                                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />
+                            )}
+                        </div>
+                    </div>
                     {/* 이쪽으로 이동된 파티 코드 생성 버튼 */}
                     <button
                         type="button"
