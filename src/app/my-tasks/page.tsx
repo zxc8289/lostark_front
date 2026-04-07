@@ -1484,7 +1484,91 @@ export default function MyTasksPage() {
                     </button>
                   )}
 
+                  <div className="relative flex items-center">
+                    <button
+                      onClick={(e) => {
+                        if (isAllView) {
+                          setShowAllViewWarning(true);
+                          return;
+                        }
+                        setAutoSetupConfirmOpen(true);
+                      }}
+                      className={`relative group flex items-center justify-center py-2 px-6 rounded-lg bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium transition-all duration-200 ${isAllView ? 'text-gray-600 opacity-50 cursor-pointer' : 'hover:bg-white/5 hover:border-white/20 text-white'
+                        }`}
+                    >
+                      <span>자동 세팅</span>
+                      {!isAllView && (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowAutoSetupSettings(!showAutoSetupSettings);
+                          }}
+                          className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors duration-200 cursor-pointer"
+                          title="자동 세팅 설정"
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </button>
 
+                    {showAutoSetupSettings && (
+                      <div className="absolute top-full left-0 mt-2 w-56 p-4 rounded-xl bg-[#1E2028] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.7)] z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-xs font-bold text-white">자동 세팅 설정</h4>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowAutoSetupSettings(false);
+                            }}
+                            className="text-gray-400 hover:text-white"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between gap-4 mb-4">
+                          <span className="text-[11px] text-gray-400">적용할 캐릭터 수</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={24}
+                            value={autoSetupCharCount}
+                            onChange={(e) => setAutoSetupCharCount(Number(e.target.value))}
+                            className="w-12 h-7 bg-[#0F1115] border border-white/10 rounded-md px-1 text-xs text-center text-white focus:outline-none focus:border-[#5B69FF] appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5 mb-5">
+                          <span className="text-[11px] text-gray-400 block">레이드 우선순위</span>
+                          <div className="grid grid-cols-2 gap-1 p-1 bg-[#0F1115] rounded-lg border border-white/5">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setAutoSetupSortType("latest"); }}
+                              className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "latest" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}
+                            >
+                              최신순
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setAutoSetupSortType("gold"); }}
+                              className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "gold" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}
+                            >
+                              골드순
+                            </button>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAutoSetupConfirmOpen(true);
+                            setShowAutoSetupSettings(false);
+                          }}
+                          className="w-full py-2 bg-[#5B69FF] hover:bg-[#4A57E6] text-white text-[11px] font-bold rounded-lg transition-colors"
+                        >
+                          적용하기
+                        </button>
+                        <div className="absolute -top-1.5 left-16 w-3 h-3 bg-[#1E2028] border-t border-l border-white/10 rotate-45" />
+                      </div>
+                    )}
+                  </div>
 
                   <button
                     onClick={gateAllClear}

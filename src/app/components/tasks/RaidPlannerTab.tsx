@@ -387,6 +387,50 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         }
     };
 
+
+    const toggleCharPin = async (groupId: string, slotIndex: number) => {
+        const nextGroups = groups.map(g => {
+            if (g.id === groupId) {
+                const newSlots = [...g.slots];
+                if (newSlots[slotIndex]) {
+                    newSlots[slotIndex] = {
+                        ...newSlots[slotIndex],
+                        isSlotPinned: !newSlots[slotIndex].isSlotPinned
+                    };
+                }
+                return { ...g, slots: newSlots };
+            }
+            return g;
+        });
+
+        setGroups(nextGroups);
+        setOriginalGroups(nextGroups);
+
+        if (!partyId) return;
+        try {
+            const payload = nextGroups.map(g => ({
+                id: g.id, raidName: g.raidName, groupName: g.groupName,
+                difficulty: g.difficulty, maxMembers: g.maxMembers,
+                scheduleDay: g.scheduleDay || "", scheduleTime: g.scheduleTime || "",
+                isPinned: g.isPinned,
+                slots: g.slots.map(char => char ? {
+                    uniqueId: char.uniqueId, ownerId: char.ownerId, ownerName: char.ownerName,
+                    name: char.name, className: char.className, itemLevelNum: char.itemLevelNum,
+                    combatPower: char.combatPower, jobEngraving: char.jobEngraving, isGuest: char.isGuest,
+                    isSlotPinned: char.isSlotPinned || false, // 🔥 저장할 때 핀 상태 포함
+                } : null)
+            }));
+
+            await fetch(apiEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ groups: payload }),
+            });
+        } catch (error) {
+            console.error("Save Char Pin Error:", error);
+        }
+    };
+
     useEffect(() => {
         if (!isTemporaryMode || isLoading || isEditMode) return;
 
@@ -409,22 +453,34 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
 
             if (isFullyCompleted) {
                 if (group.isPinned) {
-                    // 1. 아직 타이머가 없다면 타이머 부여
-                    if (!group.resetAt) {
-                        hasChanges = true;
-                        return { ...group, resetAt: Date.now() + 10000 }; // 10초 테스트 후 60000으로 변경하세요
-                    }
-                    // 2. 🔥 [핵심] 화면을 보고 있는 도중 시간이 다 되면 즉시 슬롯을 비움
-                    else if (now >= group.resetAt) {
-                        hasChanges = true;
-                        return {
-                            ...group,
-                            slots: Array(group.maxMembers).fill(null), // 여기서 파티원을 지움
-                            resetAt: undefined
-                        };
+                    // 🔥 [추가된 로직] 파티원 중 '핀 고정이 안 된(삭제 가능한)' 멤버가 있는지 확인
+                    const hasClearableMembers = group.slots.some(s => s !== null && !s.isSlotPinned);
+
+                    if (hasClearableMembers) {
+                        // 1. 지울 멤버가 있고 아직 타이머가 없다면 타이머 부여
+                        if (!group.resetAt) {
+                            hasChanges = true;
+                            return { ...group, resetAt: Date.now() + 10000 };
+                        }
+                        // 2. 시간이 다 되면 핀 고정된 캐릭터만 남기고 비움
+                        else if (now >= group.resetAt) {
+                            hasChanges = true;
+                            return {
+                                ...group,
+                                slots: group.slots.map(slot => slot?.isSlotPinned ? slot : null),
+                                resetAt: undefined
+                            };
+                        }
+                    } else {
+                        // 💡 지울 멤버가 없는 상태(전부 고정멤버만 남음)인데 타이머가 있다면 제거 (무한루프 방지)
+                        if (group.resetAt) {
+                            hasChanges = true;
+                            const { resetAt, ...rest } = group;
+                            return rest;
+                        }
                     }
                 } else if (!group.expiresAt) {
-                    // 일반 파티 삭제 타이머 (기존과 동일)
+                    // 일반 파티 삭제 타이머 (파티 고정이 아닌 경우 전체 파티 삭제)
                     hasChanges = true;
                     return { ...group, expiresAt: Date.now() + 10000 };
                 }
@@ -439,7 +495,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
             return group;
         });
 
-        // 🔥 데이터가 실제로 변했을 때만 상태를 업데이트하고 서버에 저장합니다.
         if (hasChanges) {
             setGroups(nextGroups);
             setOriginalGroups(nextGroups);
@@ -449,7 +504,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                 body: JSON.stringify({ groups: nextGroups }),
             }).catch(console.error);
         }
-    }, [groups, partyTasks, isTemporaryMode, isLoading, isEditMode, apiEndpoint, now]); // ✅ now가 변할 때마다 체크함
+    }, [groups, partyTasks, isTemporaryMode, isLoading, isEditMode, apiEndpoint, now]);
 
     useEffect(() => {
         try { localStorage.setItem(AUTO_SETUP_SORT_KEY, autoSetupSortType); } catch { }
@@ -478,18 +533,56 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
     }, [partyTasks]);
 
 
-    const allAvailableRaids = useMemo(() => {
-        const raids = new Set<string>();
+    const allAvailableRaidDiffs = useMemo(() => {
+        const raidDiffs = new Set<string>();
+
         baseCharacters.forEach(char => {
             const memberInfo = partyTasks.find(m => m.userId === char.ownerId);
             const prefs = memberInfo?.prefsByChar?.[char.name]?.raids;
             if (prefs) {
                 Object.entries(prefs).forEach(([raidName, pref]: [string, any]) => {
-                    if (pref.enabled) raids.add(raidName);
+                    if (pref.enabled && pref.difficulty) {
+                        // "레이드명::난이도" 형태로 저장
+                        raidDiffs.add(`${raidName}::${pref.difficulty}`);
+                    }
                 });
             }
         });
-        return Array.from(raids);
+
+        // 🔥 정렬 로직 추가: 최신 레이드(최대 레벨 높음) -> 높은 난이도 순
+        return Array.from(raidDiffs).sort((a, b) => {
+            const [raidA, diffA] = a.split("::");
+            const [raidB, diffB] = b.split("::");
+
+            const infoA = raidInformation[raidA];
+            const infoB = raidInformation[raidB];
+
+            // 1. 레이드의 '최대 입장 레벨'을 구해 최신 레이드 묶음 판별
+            let maxLevelA = 0;
+            if (infoA?.difficulty) {
+                Object.values(infoA.difficulty).forEach((d: any) => {
+                    if (d.level > maxLevelA) maxLevelA = d.level;
+                });
+            }
+
+            let maxLevelB = 0;
+            if (infoB?.difficulty) {
+                Object.values(infoB.difficulty).forEach((d: any) => {
+                    if (d.level > maxLevelB) maxLevelB = d.level;
+                });
+            }
+
+            // 2. 최대 레벨이 다르면(다른 레이드면) 레벨이 높은(최신) 레이드를 위로
+            if (maxLevelA !== maxLevelB) {
+                return maxLevelB - maxLevelA;
+            }
+
+            // 3. 같은 레이드라면, 해당 난이도의 입장 레벨이 높은 순으로 정렬 (예: 3단계 -> 2단계)
+            const levelA = infoA?.difficulty[diffA as DifficultyKey]?.level || 0;
+            const levelB = infoB?.difficulty[diffB as DifficultyKey]?.level || 0;
+
+            return levelB - levelA;
+        });
     }, [baseCharacters, partyTasks]);
 
     const handleOpenGuestModal = (groupId: string, slotIndex: number) => {
@@ -779,6 +872,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                         combatPower: char.combatPower,
                         jobEngraving: char.jobEngraving,
                         isGuest: char.isGuest,
+                        isSlotPinned: char.isSlotPinned || false,
                     } : null)
                 }));
 
@@ -832,6 +926,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                     combatPower: char.combatPower,
                     jobEngraving: char.jobEngraving,
                     isGuest: char.isGuest,
+                    isSlotPinned: char.isSlotPinned || false,
                 } : null)
             }));
 
@@ -875,8 +970,11 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
             const newGroups = prevGroups.map(g => ({ ...g, slots: [...g.slots] }));
             const targetGroupIndex = newGroups.findIndex(g => g.id === activeGroupId);
             if (targetGroupIndex === -1) return prevGroups;
-
             const targetGroup = newGroups[targetGroupIndex];
+            const info = raidInformation[targetGroup.raidName]; // 레이드 정보 가져오기
+            const diffInfo = info?.difficulty[targetGroup.difficulty as DifficultyKey];
+            const allGates = diffInfo?.gates.map((g: any) => g.index) || []; // 전체 관문 번호 리스트
+
             const reqLevel = raidInformation[targetGroup.raidName]?.difficulty[targetGroup.difficulty as DifficultyKey]?.level || 0;
 
             const assignedUniqueIds = new Set([
@@ -887,6 +985,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
             const ownersInThisGroup = new Set(targetGroup.slots.filter(Boolean).map(c => c.ownerId));
             const namesInThisGroup = new Set(targetGroup.slots.filter(Boolean).map(c => c.name));
 
+
             let candidates = baseCharacters.filter((c: any) => {
                 if ((c.itemLevelNum || 0) < reqLevel) return false;
                 if (assignedUniqueIds.has(c.uniqueId)) return false;
@@ -895,7 +994,15 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
 
                 const memberInfo = partyTasks.find(m => m.userId === c.ownerId);
                 const charPref = memberInfo?.prefsByChar?.[c.name]?.raids?.[targetGroup.raidName];
-                return charPref && charPref.enabled && charPref.difficulty === targetGroup.difficulty;
+
+                if (charPref && charPref.enabled && charPref.difficulty === targetGroup.difficulty) {
+                    const currentGates = charPref.gates || [];
+                    const isFullyCompleted = allGates.length > 0 && allGates.every((g: number) => currentGates.includes(g));
+
+                    return !isFullyCompleted; // 다 깨지 않은 캐릭터만 후보로 등록
+                }
+
+                return false;
             });
 
             const validCPCandidates = candidates.filter((c: any) => parseCP(c.combatPower) > 0);
@@ -955,7 +1062,11 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
 
                     if (isSupporterSlot && !isSupp) continue; // 4번 자리는 서포터만 배치 가능
                     if (!isSupporterSlot && isSupp) continue; // 1~3번 자리는 딜러만 배치 가능
-                    if (partyClasses.includes(cClassName)) continue; // 직업 중복 금지
+                    const hasSameClassInSameRole = currentPartySlots.some(member => {
+                        const memberIsSupp = isSupporterChar(member.className || "", member.jobEngraving || "");
+                        return member.className === cClassName && memberIsSupp === isSupp;
+                    });
+                    if (hasSameClassInSameRole) continue;
 
                     // 💡 [옵션 반영] CP 매칭 페널티
                     if (targetCP > 0 && candidateCP > 0) {
@@ -1057,8 +1168,8 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
 
                 Object.entries(prefs).forEach(([raidName, pref]: [string, any]) => {
                     if (pref.enabled) {
-                        // 💡 [옵션 반영] 사용자가 설정에서 체크한 레이드만 편성하도록 필터링 (비어있으면 전체 허용)
-                        if (autoSetupRaids.length > 0 && !autoSetupRaids.includes(raidName)) return;
+                        const targetRaidDiff = `${raidName}::${pref.difficulty}`;
+                        if (autoSetupRaids.length > 0 && !autoSetupRaids.includes(targetRaidDiff)) return;
 
                         const diffInfo = raidInformation[raidName]?.difficulty[pref.difficulty as DifficultyKey];
                         if (!diffInfo) return;
@@ -1206,7 +1317,11 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
 
                         if (isSupporterSlot && !isSupp) continue; // 4번 자리는 서포터만 배치 가능
                         if (!isSupporterSlot && isSupp) continue; // 1~3번 자리는 딜러만 배치 가능
-                        if (partyClasses.includes(cClassName)) continue; // 직업 중복 금지
+                        const hasSameClassInSameRole = currentPartySlots.some(member => {
+                            const memberIsSupp = isSupporterChar(member.className || "", member.jobEngraving || "");
+                            return member.className === cClassName && memberIsSupp === isSupp;
+                        });
+                        if (hasSameClassInSameRole) continue;
 
                         // 💡 [옵션 반영] CP 매칭 페널티
                         if (targetCP > 0 && candidateCP > 0) {
@@ -1716,19 +1831,28 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                                         대상 레이드 <span className="text-gray-600 font-normal">(선택 안함 = 전체)</span>
                                                     </span>
                                                     <div className="max-h-32 overflow-y-auto custom-scrollbar pr-1 bg-[#0F1115] rounded-lg border border-white/5 p-1 flex flex-col gap-0.5">
-                                                        {allAvailableRaids.map(raidName => {
-                                                            const isActive = autoSetupRaids.includes(raidName);
+                                                        {allAvailableRaidDiffs.map(raidDiffKey => {
+                                                            const [raidName, difficulty] = raidDiffKey.split("::");
+                                                            const isActive = autoSetupRaids.includes(raidDiffKey);
+                                                            const displayDiff = getDisplayDifficulty(raidName, difficulty); // "1단계", "하드" 등 깔끔한 출력용
+
                                                             return (
                                                                 <button
-                                                                    key={raidName}
+                                                                    key={raidDiffKey}
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        if (isActive) setAutoSetupRaids(prev => prev.filter(r => r !== raidName));
-                                                                        else setAutoSetupRaids(prev => [...prev, raidName]);
+                                                                        if (isActive) setAutoSetupRaids(prev => prev.filter(r => r !== raidDiffKey));
+                                                                        else setAutoSetupRaids(prev => [...prev, raidDiffKey]);
                                                                     }}
                                                                     className={`flex items-center justify-between px-2 py-1.5 rounded text-xs transition-colors ${isActive ? "bg-[#5B69FF]/15 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5"}`}
                                                                 >
-                                                                    <span>{raidName}</span>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span>{raidName}</span>
+                                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${isActive ? "bg-[#5B69FF]/20 text-[#5B69FF]" : "bg-white/10 text-gray-400"
+                                                                            }`}>
+                                                                            {displayDiff}
+                                                                        </span>
+                                                                    </div>
                                                                     {isActive && <Check className="w-3 h-3" strokeWidth={3} />}
                                                                 </button>
                                                             );
@@ -1813,6 +1937,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                                 isTemporaryMode={isTemporaryMode}
                                                 onTogglePin={toggleGroupPin}
                                                 now={now}
+                                                onToggleCharPin={toggleCharPin}
                                             />
                                         </SortableGroupWrapper>
                                     ))}
@@ -1833,7 +1958,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                             {dayGroups.map(group => (
-                                                <ReadOnlyGroupCard key={group.id} group={group} now={now} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} isTemporaryMode={isTemporaryMode} onTogglePin={toggleGroupPin} />
+                                                <ReadOnlyGroupCard key={group.id} onToggleCharPin={toggleCharPin} group={group} now={now} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} isTemporaryMode={isTemporaryMode} onTogglePin={toggleGroupPin} />
                                             ))}
                                         </div>
                                     </div>
@@ -1848,7 +1973,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                         {groupedBySchedule!.unscheduled.map(group => (
-                                            <ReadOnlyGroupCard key={group.id} group={group} now={now} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} isTemporaryMode={isTemporaryMode} onTogglePin={toggleGroupPin} />
+                                            <ReadOnlyGroupCard key={group.id} onToggleCharPin={toggleCharPin} group={group} now={now} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} isTemporaryMode={isTemporaryMode} onTogglePin={toggleGroupPin} />
                                         ))}
                                     </div>
                                 </div>
@@ -1876,6 +2001,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                                     isTemporaryMode={isTemporaryMode}
                                                     now={now}
                                                     onTogglePin={toggleGroupPin}
+                                                    onToggleCharPin={toggleCharPin}
                                                 />
                                             ))}
                                         </div>
@@ -1920,6 +2046,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                                             onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
                                                             isTemporaryMode={isTemporaryMode}
                                                             onTogglePin={toggleGroupPin}
+                                                            onToggleCharPin={toggleCharPin}
                                                         />
                                                     ))}
                                                 </div>
@@ -1948,6 +2075,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                                         onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
                                                         isTemporaryMode={isTemporaryMode}
                                                         onTogglePin={toggleGroupPin}
+                                                        onToggleCharPin={toggleCharPin}
                                                     />
                                                 ))}
                                             </div>
@@ -1980,6 +2108,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                                             onAddGuest={(slotIndex) => handleOpenGuestModal(group.id, slotIndex)}
                                                             isTemporaryMode={isTemporaryMode}
                                                             onTogglePin={toggleGroupPin}
+                                                            onToggleCharPin={toggleCharPin}
                                                         />
                                                     ))}
                                                 </div>
@@ -2260,18 +2389,20 @@ function ReadOnlyGroupCard({
     group,
     partyTasks,
     countdown,
-    now, // 🔥 now 추가
+    now,
     onBulkToggleGate,
     isTemporaryMode,
-    onTogglePin
+    onTogglePin,
+    onToggleCharPin // 🔥 추가
 }: {
-    group: RaidGroup,
-    partyTasks: PartyMemberTasks[],
-    countdown?: number,
-    now: number, // 🔥 타입 정의 추가
-    onBulkToggleGate?: RaidPlannerTabProps["onBulkToggleGate"],
-    isTemporaryMode?: boolean,
-    onTogglePin?: (id: string) => void
+    group: RaidGroup;
+    partyTasks: PartyMemberTasks[];
+    countdown?: number;
+    now: number;
+    onBulkToggleGate?: RaidPlannerTabProps["onBulkToggleGate"];
+    isTemporaryMode?: boolean;
+    onTogglePin?: (id: string) => void;
+    onToggleCharPin?: (groupId: string, slotIndex: number) => void;
 }) {
     const [page, setPage] = useState(0);
     const colors = difficultyColors[group.difficulty] || difficultyColors["노말"];
@@ -2341,7 +2472,10 @@ function ReadOnlyGroupCard({
                         {isTemporaryMode && onTogglePin && (
                             <button
                                 onClick={(e) => { e.stopPropagation(); onTogglePin(group.id); }}
-                                className={`p-1.5 rounded-md transition-colors ${group.isPinned ? "bg-[#5B69FF]/20 text-[#5B69FF]" : "bg-white/5 text-gray-500 hover:text-white"}`}
+                                className={`p-1.5 rounded-md transition-colors ${group.isPinned
+                                    ? "text-[#5B69FF] hover:bg-[#5B69FF]/15"
+                                    : "text-gray-500 hover:text-white hover:bg-white/10"
+                                    }`}
                                 title={group.isPinned ? "고정 해제" : "파티 고정 (완료 시 그룹원만 초기화)"}
                             >
                                 <Pin className="w-3.5 h-3.5" fill={group.isPinned ? "currentColor" : "none"} />
@@ -2446,12 +2580,23 @@ function ReadOnlyGroupCard({
 
                                     const char = charStates[absoluteIndex];
                                     return (
-                                        <div key={absoluteIndex} className={`h-14 sm:h-16 border rounded-lg flex items-center overflow-hidden transition-all ${char ? "border-white/5 bg-[#1E2028]" : "border-dashed border-white/10 bg-white/[0.02]"}`}>
+                                        <div key={absoluteIndex} className={`h-14 sm:h-16 border rounded-lg flex items-center overflow-hidden transition-all relative ${char ? "border-white/5 bg-[#1E2028]" : "border-dashed border-white/10 bg-white/[0.02]"}`}>
                                             {char ? (
-                                                <ReadOnlyChar
-                                                    char={char}
-                                                    isCompleted={char.isFullyCompleted}
-                                                />
+                                                <>
+                                                    <ReadOnlyChar char={char} isCompleted={char.isFullyCompleted} />
+                                                    {isTemporaryMode && onToggleCharPin && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onToggleCharPin(group.id, absoluteIndex); }}
+                                                            className={`absolute top-0 right-0 p-1.5 rounded-md transition-colors z-10 backdrop-blur-sm ${char.isSlotPinned
+                                                                ? "text-[#5B69FF] hover:bg-[#5B69FF]/15"
+                                                                : "text-gray-500 hover:text-white hover:bg-white/10"
+                                                                }`}
+                                                            title={char.isSlotPinned ? "캐릭터 고정 해제" : "캐릭터 고정 (초기화 시 남음)"}
+                                                        >
+                                                            <Pin className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill={char.isSlotPinned ? "currentColor" : "none"} />
+                                                        </button>
+                                                    )}
+                                                </>
                                             ) : (
                                                 <div className="w-full text-center text-[10px] sm:text-xs text-gray-600 font-medium">비어있음</div>
                                             )}
@@ -2510,7 +2655,6 @@ function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean 
                             용병
                         </span>
                     )}
-                    {isCompleted && <span className="shrink-0 text-[9px] text-gray-400 font-normal">(완료)</span>}
                 </div>
                 <div className="text-[9px] sm:text-[11px] text-gray-400 truncate flex gap-1 items-center">
                     <span className={`${isCompleted ? "text-gray-400" : "text-yellow-400/80"}`}>Lv.{char.itemLevelNum || 0}</span>
@@ -2530,7 +2674,9 @@ function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean 
     );
 }
 
-function GroupCard({ group, isActive, countdown, onClick, onRemove, onRemoveChar, onNameChange, onScheduleChange, onAddGuest, isTemporaryMode, onTogglePin }: {
+function GroupCard({
+    group, isActive, countdown, onClick, onRemove, onRemoveChar, onNameChange, onScheduleChange, onAddGuest, isTemporaryMode, onTogglePin, onToggleCharPin
+}: {
     group: RaidGroup;
     isActive: boolean;
     countdown?: number;
@@ -2542,6 +2688,7 @@ function GroupCard({ group, isActive, countdown, onClick, onRemove, onRemoveChar
     onAddGuest: (idx: number) => void;
     isTemporaryMode?: boolean;
     onTogglePin?: (id: string) => void;
+    onToggleCharPin?: (groupId: string, slotIndex: number) => void; // 🔥 추가
 }) {
     const [page, setPage] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -2694,16 +2841,7 @@ function GroupCard({ group, isActive, countdown, onClick, onRemove, onRemoveChar
                             )}
                         </div>
 
-                        {isTemporaryMode && onTogglePin && (
-                            <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); onTogglePin(group.id); }}
-                                className={`ml-1 p-1.5 rounded-md transition-colors ${group.isPinned ? "bg-[#5B69FF]/20 text-[#5B69FF]" : "bg-white/5 text-gray-500 hover:text-white"}`}
-                                title={group.isPinned ? "고정 해제" : "파티 고정 (완료 시 그룹원만 초기화)"}
-                            >
-                                <Pin className="w-3.5 h-3.5" fill={group.isPinned ? "currentColor" : "none"} />
-                            </button>
-                        )}
+
                     </div>
                 </div>
 
@@ -2778,6 +2916,8 @@ function GroupCard({ group, isActive, countdown, onClick, onRemove, onRemoveChar
                                             char={group.slots[absoluteIndex]}
                                             onRemove={() => onRemoveChar(absoluteIndex)}
                                             onAddGuest={() => onAddGuest(absoluteIndex)}
+                                            isTemporaryMode={isTemporaryMode}
+                                            onToggleCharPin={() => onToggleCharPin?.(group.id, absoluteIndex)}
                                         />
                                     );
                                 })}
@@ -2975,8 +3115,22 @@ function DraggableCharacter({ char }: { char: any }) {
     );
 }
 
-function DroppableSlot({ groupId, slotIndex, char, onRemove, onAddGuest }: {
-    groupId: string, slotIndex: number, char: any | null, onRemove: () => void, onAddGuest: () => void
+function DroppableSlot({
+    groupId,
+    slotIndex,
+    char,
+    onRemove,
+    onAddGuest,
+    isTemporaryMode, // 🔥 여기 추가
+    onToggleCharPin  // 🔥 여기 추가
+}: {
+    groupId: string;
+    slotIndex: number;
+    char: any | null;
+    onRemove: () => void;
+    onAddGuest: () => void;
+    isTemporaryMode?: boolean;
+    onToggleCharPin?: () => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: `slot::${groupId}::${slotIndex}`,
@@ -2990,15 +3144,18 @@ function DroppableSlot({ groupId, slotIndex, char, onRemove, onAddGuest }: {
                 }`}
         >
             {char ? (
-                <div className="flex-1 w-full h-full flex items-center justify-between min-w-0">
+                <div className="flex-1 w-full h-full flex items-center justify-between min-w-0 relative">
                     <DraggableCharacterInSlot char={char} groupId={groupId} slotIndex={slotIndex} />
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onRemove(); }}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 p-1 text-gray-500 hover:bg-red-500/20 hover:text-red-400 rounded-md transition-colors z-10"
-                    >
-                        <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    </button>
+
+                    <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 flex gap-1 z-10">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="p-1 text-gray-500 hover:bg-red-500/20 hover:text-red-400 rounded-md transition-colors bg-[#1E2028]/80"
+                        >
+                            <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                        </button>
+                    </div>
                 </div>
             ) : (
                 <button
@@ -3011,7 +3168,6 @@ function DroppableSlot({ groupId, slotIndex, char, onRemove, onAddGuest }: {
         </div>
     );
 }
-
 function DraggableCharacterInSlot({ char, groupId, slotIndex }: { char: any, groupId: string, slotIndex: number }) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `char-slot-${groupId}-${slotIndex}-${char.uniqueId}`,

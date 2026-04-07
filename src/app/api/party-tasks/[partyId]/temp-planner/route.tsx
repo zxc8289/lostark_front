@@ -7,23 +7,22 @@ export const runtime = "nodejs";
 
 type RouteParams = Promise<{ partyId: string }>;
 
-/**
- * 🔥 플래너 데이터 통합 처리 함수
- * 1. 일반 그룹: expiresAt이 지났으면 삭제
- * 2. 고정 그룹: resetAt이 지났으면 파티원(slots) 초기화
- */
+
+// 백엔드: api/party-tasks/[partyId]/temp-planner/route.ts (또는 해당하는 API 파일)
+
 function processPlannerData(groups: any[]) {
     const now = Date.now();
 
-    // 1. 만료된 일반 그룹 필터링 (기존 로직)
+    // 1. 만료된 일반 그룹 필터링
     const validGroups = groups.filter((g) => !g.expiresAt || g.expiresAt > now);
 
-    // 2. 고정 그룹의 파티원 초기화 체크 (새 로직)
+    // 2. 고정 그룹의 파티원 초기화 체크
     return validGroups.map((g) => {
         if (g.isPinned && g.resetAt && g.resetAt <= now) {
             return {
                 ...g,
-                slots: Array(g.maxMembers).fill(null), // 모든 슬롯 비우기
+                // 🔥 수정됨: 모든 슬롯을 비우는 대신, isSlotPinned가 true인 캐릭터는 남김
+                slots: g.slots.map((slot: any) => slot?.isSlotPinned ? slot : null),
                 resetAt: undefined, // 초기화 완료 후 타이머 제거
             };
         }
@@ -87,7 +86,6 @@ export async function POST(
         const db = await getDb();
         const partiesCol = db.collection("parties");
 
-        // 🔥 저장 전에도 한번 더 처리해서 깨끗한 상태로 저장
         const processedGroups = processPlannerData(body.groups);
 
         await partiesCol.updateOne(

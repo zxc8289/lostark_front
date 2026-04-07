@@ -2165,8 +2165,8 @@ export default function PartyDetailPage() {
                                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[260px] p-3 bg-[#1E2028] border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
                                     <p className="text-xs text-gray-300 leading-relaxed break-keep text-center font-normal">
                                         단발성 파티 편성에 적합한 그룹입니다.<br />
-                                        숙제 완료 시 <span className="text-yellow-400 text-opacity-90">10초뒤 그룹이 자동 삭제</span>되며,<br />
-                                        고정한 파티는 완료 시 <span className="text-yellow-400 text-opacity-90">파티원만 초기화</span>됩니다.
+                                        숙제 완료 시 <span className="text-yellow-400 text-opacity-90">10초 뒤 그룹이 자동 삭제</span>되며,<br />
+                                        고정된 파티와 캐릭터는 <span className="text-yellow-400 text-opacity-90">초기화되지 않고 유지</span>됩니다.
                                     </p>
                                     <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1E2028] border-t border-l border-white/10 rotate-45" />
                                 </div>
