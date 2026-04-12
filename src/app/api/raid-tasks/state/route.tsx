@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
                 );
 
                 if (namesToRemove.size > 0) {
-                    // 🔹 prefsByChar 정리
+                    // 🔹 prefsByChar 정리 (기존 코드)
                     if (prev.prefsByChar && typeof prev.prefsByChar === "object") {
                         const cleanedPrefs: Record<string, any> = {};
                         for (const [charName, value] of Object.entries(prev.prefsByChar)) {
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
                         next.prefsByChar = cleanedPrefs;
                     }
 
-                    // 🔹 visibleByChar 정리
+                    // 🔹 visibleByChar 정리 (기존 코드)
                     if (prev.visibleByChar && typeof prev.visibleByChar === "object") {
                         const cleanedVisible: Record<string, any> = {};
                         for (const [charName, value] of Object.entries(prev.visibleByChar)) {
@@ -148,6 +148,28 @@ export async function POST(req: NextRequest) {
                             }
                         }
                         next.visibleByChar = cleanedVisible;
+                    }
+
+                    // 🔥 [여기서부터 추가!] 🔹 goldDesignatedByChar 정리
+                    if (prev.goldDesignatedByChar && typeof prev.goldDesignatedByChar === "object") {
+                        const cleanedGold: Record<string, any> = {};
+                        for (const [charName, value] of Object.entries(prev.goldDesignatedByChar)) {
+                            if (!namesToRemove.has(charName)) {
+                                cleanedGold[charName] = value;
+                            }
+                        }
+                        next.goldDesignatedByChar = cleanedGold;
+                    }
+
+                    // 🔥 [여기서부터 추가!] 🔹 powerLockedByChar 정리
+                    if (prev.powerLockedByChar && typeof prev.powerLockedByChar === "object") {
+                        const cleanedLocked: Record<string, any> = {};
+                        for (const [charName, value] of Object.entries(prev.powerLockedByChar)) {
+                            if (!namesToRemove.has(charName)) {
+                                cleanedLocked[charName] = value;
+                            }
+                        }
+                        next.powerLockedByChar = cleanedLocked;
                     }
                 }
 

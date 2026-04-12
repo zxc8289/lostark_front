@@ -102,6 +102,7 @@ export type PartyMemberTasks = {
     rosterOrder?: string[];
     cardRosterOrder?: string[];
     goldDesignatedByChar?: Record<string, boolean>;
+    powerLockedByChar?: Record<string, boolean>;
 };
 
 type PartyRaidTasksResponse = {
@@ -561,7 +562,8 @@ export default function PartyDetailPage() {
         tableOrder?: string[],
         rosterOrder?: string[],
         cardRosterOrder?: string[],
-        goldDesignatedByChar?: Record<string, boolean>
+        goldDesignatedByChar?: Record<string, boolean>,
+        powerLockedByChar?: Record<string, boolean>
     ) {
         if (sendGlobalMessage) {
             sendGlobalMessage({
@@ -574,6 +576,7 @@ export default function PartyDetailPage() {
                 rosterOrder,
                 cardRosterOrder,
                 goldDesignatedByChar,
+                powerLockedByChar,
             });
         }
     }
@@ -680,6 +683,20 @@ export default function PartyDetailPage() {
             let nextAccountsBase: SavedAccount[];
 
             if (existingIdx >= 0) {
+                const oldSummary = baseAccounts[existingIdx].summary;
+                const myPartyData = partyTasks?.find(m => m.userId === myUserId);
+                const lockedByChar = myPartyData?.powerLockedByChar ?? {};
+
+                if (oldSummary && oldSummary.roster) {
+                    json.roster = json.roster.map(newChar => {
+                        if (lockedByChar[newChar.name]) {
+                            const oldChar = oldSummary.roster.find(c => c.name === newChar.name);
+                            if (oldChar) return oldChar;
+                        }
+                        return newChar;
+                    });
+                }
+
                 nextAccountsBase = baseAccounts.map((a, i) =>
                     i === existingIdx ? { ...a, summary: json } : a
                 );
@@ -868,7 +885,8 @@ export default function PartyDetailPage() {
     const handleMemberChangeSettings = (
         memberUserId: string,
         partialVisibleByChar: Record<string, boolean>,
-        partialGoldByChar: Record<string, boolean> // ✅ 추가
+        partialGoldByChar: Record<string, boolean>,
+        partialLockedByChar: Record<string, boolean>
     ) => {
         if (!party || !partyTasks) return;
         const partyIdNum = party.id;
@@ -879,7 +897,8 @@ export default function PartyDetailPage() {
             return {
                 ...m,
                 visibleByChar: { ...(m.visibleByChar ?? {}), ...partialVisibleByChar },
-                goldDesignatedByChar: { ...(m.goldDesignatedByChar ?? {}), ...partialGoldByChar }, // ✅ 추가
+                goldDesignatedByChar: { ...(m.goldDesignatedByChar ?? {}), ...partialGoldByChar },
+                powerLockedByChar: { ...(m.powerLockedByChar ?? {}), ...partialLockedByChar },
             };
         });
 
@@ -890,12 +909,12 @@ export default function PartyDetailPage() {
             sendMemberUpdateWS(
                 partyIdNum, updated.userId, updated.prefsByChar,
                 updated.visibleByChar, updated.tableOrder, updated.rosterOrder, updated.cardRosterOrder,
-                updated.goldDesignatedByChar // ✅ 추가
+                updated.goldDesignatedByChar, updated.powerLockedByChar // 🔥 추가
             );
             void saveMemberPrefsToServer(
                 partyIdNum, updated.userId, updated.prefsByChar,
                 updated.visibleByChar, updated.tableOrder, updated.rosterOrder, updated.cardRosterOrder,
-                updated.goldDesignatedByChar // ✅ 추가
+                updated.goldDesignatedByChar, updated.powerLockedByChar // 🔥 추가
             );
         }
     };
@@ -1047,6 +1066,18 @@ export default function PartyDetailPage() {
                     if (r.ok) {
                         json = (await r.json()) as CharacterSummary;
                         successNickname = name;
+
+                        const lockedByChar = target.powerLockedByChar ?? {};
+                        if (target.summary && target.summary.roster) {
+                            json.roster = json.roster.map(newChar => {
+                                if (lockedByChar[newChar.name]) {
+                                    const oldChar = target.summary!.roster!.find(c => c.name === newChar.name);
+                                    if (oldChar) return oldChar;
+                                }
+                                return newChar;
+                            });
+                        }
+
                         break;
                     }
                 } catch (innerErr) {
@@ -1154,7 +1185,8 @@ export default function PartyDetailPage() {
         tableOrder?: string[],
         rosterOrder?: string[],
         cardRosterOrder?: string[],
-        goldDesignatedByChar?: Record<string, boolean>
+        goldDesignatedByChar?: Record<string, boolean>,
+        powerLockedByChar?: Record<string, boolean>
     ) {
         try {
             await fetch(`/api/party-tasks/${partyId}/raid-tasks`, {
@@ -1168,6 +1200,7 @@ export default function PartyDetailPage() {
                     rosterOrder,
                     cardRosterOrder,
                     goldDesignatedByChar,
+                    powerLockedByChar,
                 }),
             });
         } catch (e) {
@@ -1832,6 +1865,7 @@ export default function PartyDetailPage() {
                                     goldDesignatedByChar: msg.goldDesignatedByChar ?? m.goldDesignatedByChar ?? {},
                                     tableOrder: msg.tableOrder ?? m.tableOrder ?? [],
                                     rosterOrder: msg.rosterOrder ?? m.rosterOrder ?? [],
+                                    powerLockedByChar: msg.powerLockedByChar ?? m.powerLockedByChar ?? {},
                                     cardRosterOrder: msg.cardRosterOrder ?? m.cardRosterOrder ?? [], // ✅ 추가
                                 };
                             }
@@ -2128,7 +2162,8 @@ export default function PartyDetailPage() {
                     <div className="flex gap-6">
                         <button
                             onClick={() => setActiveTab("tasks")}
-                            className={`pb-2 text-lg font-bold transition-colors relative ${activeTab === "tasks" ? "text-white" : "text-gray-500 hover:text-gray-300"
+                            className={`pb-2 text-[15px] sm:text-lg font-bold transition-colors relative ${ // 🔥 text-lg -> text-[15px] sm:text-lg 로 수정
+                                activeTab === "tasks" ? "text-white" : "text-gray-500 hover:text-gray-300"
                                 }`}
                         >
                             숙제 현황
@@ -2138,7 +2173,8 @@ export default function PartyDetailPage() {
                         </button>
                         <button
                             onClick={() => setActiveTab("planner")}
-                            className={`pb-2 text-lg font-bold transition-colors relative ${activeTab === "planner" ? "text-white" : "text-gray-500 hover:text-gray-300"
+                            className={`pb-2 text-[15px] sm:text-lg font-bold transition-colors relative ${ // 🔥 text-lg -> text-[15px] sm:text-lg 로 수정
+                                activeTab === "planner" ? "text-white" : "text-gray-500 hover:text-gray-300"
                                 }`}
                         >
                             레이드 그룹
@@ -2150,7 +2186,9 @@ export default function PartyDetailPage() {
                         <div className="relative flex items-center pb-2">
                             <button
                                 onClick={() => setActiveTab("temp_planner")}
-                                className={`text-lg font-bold transition-colors ${activeTab === "temp_planner" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+                                className={`text-[15px] sm:text-lg font-bold transition-colors ${ // 🔥 text-lg -> text-[15px] sm:text-lg 로 수정
+                                    activeTab === "temp_planner" ? "text-white" : "text-gray-500 hover:text-gray-300"
+                                    }`}
                             >
                                 자율편성 그룹
                             </button>
@@ -2378,8 +2416,9 @@ export default function PartyDetailPage() {
                                         roster={roster}
                                         visibleByChar={modalVisibleByChar}
                                         goldDesignatedByChar={targetMember?.goldDesignatedByChar ?? {}} // ✅ 추가
-                                        onChangeSettings={(nextVisible, nextGold) => { // ✅ 수정
-                                            handleMemberChangeSettings(charSettingTarget.memberUserId, nextVisible, nextGold);
+                                        powerLockedByChar={targetMember?.powerLockedByChar ?? {}}
+                                        onChangeSettings={(nextVisible, nextGold, nextLocked) => { // 🔥 nextLocked 추가
+                                            handleMemberChangeSettings(charSettingTarget.memberUserId, nextVisible, nextGold, nextLocked);
                                         }}
                                         onDeleteAccount={
                                             isMeTarget && activeAccountId !== "ALL" ? () => setDeleteConfirmOpen(true) : undefined
@@ -3438,7 +3477,6 @@ function PartyMemberActions({
     return (
         <div className="flex items-center gap-1 sm:gap-2" ref={menuRef}>
             <div className="relative">
-                {/* 1️⃣ 새로고침(업데이트) 버튼 - 막음 */}
                 <button
                     onClick={(e) => {
                         e.stopPropagation();

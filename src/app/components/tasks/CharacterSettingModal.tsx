@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { RosterCharacter } from "../AddAccount";
-import { RefreshCcw, X, Trash2, Check, AlertCircle, Eye, EyeOff, Coins } from "lucide-react";
+import { RefreshCcw, X, Trash2, Check, AlertCircle, Eye, EyeOff, Coins, Lock, Unlock } from "lucide-react";
 
 type ModalCharacter = {
     name: string;
@@ -10,7 +10,8 @@ type ModalCharacter = {
     itemLevel: string;
     itemLevelNum: number;
     isVisible: boolean;
-    isGoldEarn: boolean; // 🔥 추가: 골드 획득 지정 여부
+    isGoldEarn: boolean;
+    isPowerLocked: boolean;
 };
 
 const DUMMY_CHARACTERS: ModalCharacter[] = [];
@@ -33,8 +34,14 @@ type Props = {
     onRefreshAccount?: () => Promise<void> | void;
     visibleByChar?: Record<string, boolean>;
     goldDesignatedByChar?: Record<string, boolean>;
-    onChangeSettings?: (nextVisible: Record<string, boolean>, nextGold: Record<string, boolean>) => void; // 🔥 통합된 콜백
+    powerLockedByChar?: Record<string, boolean>;
+    onChangeSettings?: (
+        nextVisible: Record<string, boolean>,
+        nextGold: Record<string, boolean>,
+        nextLocked: Record<string, boolean>
+    ) => void;
     refreshError?: string | null;
+
 };
 
 export default function CharacterSettingModal({
@@ -45,6 +52,7 @@ export default function CharacterSettingModal({
     roster,
     visibleByChar,
     goldDesignatedByChar,
+    powerLockedByChar,
     onChangeSettings, // 🔥 수정됨
     refreshError
 }: Props) {
@@ -96,6 +104,7 @@ export default function CharacterSettingModal({
                     itemLevel: levelNum ? levelNum.toLocaleString() : String(c.itemLevel ?? ""),
                     isVisible: visibleByChar?.[c.name] ?? true,
                     isGoldEarn: false,
+                    isPowerLocked: powerLockedByChar?.[c.name] ?? false,
                 };
             })
             .sort((a, b) => b.itemLevelNum - a.itemLevelNum); // 높은 레벨부터
@@ -123,18 +132,25 @@ export default function CharacterSettingModal({
         setCharacters(next);
     };
 
+    const togglePowerLock = (index: number) => {
+        setCharacters(prev =>
+            prev.map((c, i) => i === index ? { ...c, isPowerLocked: !c.isPowerLocked } : c)
+        );
+    };
+
     const commitSettings = () => {
         const nextVisible: Record<string, boolean> = {};
         const nextGold: Record<string, boolean> = {};
+        const nextLocked: Record<string, boolean> = {};
 
         for (const c of characters) {
             nextVisible[c.name] = c.isVisible;
             nextGold[c.name] = c.isGoldEarn;
+            nextLocked[c.name] = c.isPowerLocked;
         }
 
-        // 🔥 수정됨: 내부에서도 통합된 함수 하나만 호출
         if (onChangeSettings) {
-            onChangeSettings(nextVisible, nextGold);
+            onChangeSettings(nextVisible, nextGold, nextLocked);
         }
 
         onClose(); // 설정 완료 시 모달 닫기
@@ -305,16 +321,14 @@ export default function CharacterSettingModal({
                                     </div>
                                 </div>
 
-                                {/* 버튼 2개 영역 */}
-                                <div className="grid grid-cols-2 gap-2 mt-auto pt-3 border-t border-white/5">
-                                    {/* 1. 골드 획득 토글 */}
+                                <div className="grid grid-cols-3 gap-1.5 mt-auto pt-3 border-t border-white/5">
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation(); // 카드 클릭(표시 토글) 방지
                                             toggleGoldEarn(index);
                                         }}
                                         className={`flex flex-col items-center justify-center py-2 rounded-lg transition-colors border ${char.isGoldEarn
-                                            ? "bg-[#F1F5F9] border-[#F1F5F9] text-[#111217] shadow-[0_0_10px_rgba(241,245,249,0.2)]"
+                                            ? "bg-yellow-600 border-yellow-600 text-white shadow-[0_0_10px_rgba(234,179,8,0.3)]" // 🔥 노란색(골드) 스타일
                                             : "bg-black/20 border-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300"
                                             }`}
                                     >
@@ -322,10 +336,9 @@ export default function CharacterSettingModal({
                                         <span className="text-[9px] sm:text-[10px] font-bold">골드 지정</span>
                                     </button>
 
-                                    {/* 2. 표시 토글 (시각적 피드백용) */}
                                     <button
                                         onClick={(e) => {
-                                            e.stopPropagation(); // 중복 방지
+                                            e.stopPropagation();
                                             toggleVisibility(index);
                                         }}
                                         className={`flex flex-col items-center justify-center py-2 rounded-lg transition-colors border ${char.isVisible
@@ -335,6 +348,18 @@ export default function CharacterSettingModal({
                                     >
                                         {char.isVisible ? <Eye size={16} className="mb-1" /> : <EyeOff size={16} className="mb-1" />}
                                         <span className="text-[9px] sm:text-[10px] font-bold">{char.isVisible ? "표시됨" : "숨김됨"}</span>
+                                    </button>
+
+                                    {/* 3. 스펙 고정 토글 (기존 골드 지정이었던 밝은 화이트 테마로 변경) */}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); togglePowerLock(index); }}
+                                        className={`flex flex-col items-center justify-center py-2 rounded-lg transition-colors border ${char.isPowerLocked
+                                            ? "bg-[#F1F5F9] border-[#F1F5F9] text-[#111217] shadow-[0_0_10px_rgba(241,245,249,0.2)]" // 🔥 밝은 화이트/메탈 스타일
+                                            : "bg-black/20 border-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300"
+                                            }`}
+                                    >
+                                        {char.isPowerLocked ? <Lock size={14} className="mb-1" /> : <Unlock size={14} className="mb-1" />}
+                                        <span className="text-[9px] sm:text-[10px] font-bold">스펙 고정</span>
                                     </button>
                                 </div>
                             </div>

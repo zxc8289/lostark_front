@@ -46,6 +46,7 @@ type RaidStateJson = {
     rosterOrder?: string[]; // ✅ 추가
     cardRosterOrder?: string[];
     goldDesignatedByChar?: Record<string, boolean>; // ✅ 추가
+    powerLockedByChar?: Record<string, boolean>;
 };
 
 type RaidTaskStateRow = {
@@ -67,6 +68,7 @@ type PartyMemberTasks = {
     rosterOrder?: string[]; // ✅ 추가
     cardRosterOrder?: string[];
     goldDesignatedByChar?: Record<string, boolean>; // ✅ 추가
+    powerLockedByChar?: Record<string, boolean>;
 };
 
 type PartyRaidTasksResponse = {
@@ -314,6 +316,7 @@ export async function GET(
             rosterOrder: parsed?.rosterOrder ?? [],
             cardRosterOrder: parsed?.cardRosterOrder ?? [],
             goldDesignatedByChar: parsed?.goldDesignatedByChar ?? {},
+            powerLockedByChar: parsed?.powerLockedByChar ?? {},
         });
     }
 
@@ -346,7 +349,7 @@ export async function POST(
         return NextResponse.json({ message: "Invalid JSON" }, { status: 400 });
     }
 
-    const { userId: targetUserId, prefsByChar, visibleByChar, tableOrder, nickname, summary, accounts, activeAccountId, activeAccountByParty, rosterOrder, cardRosterOrder, goldDesignatedByChar } = body;
+    const { userId: targetUserId, prefsByChar, visibleByChar, tableOrder, nickname, summary, accounts, activeAccountId, activeAccountByParty, rosterOrder, cardRosterOrder, goldDesignatedByChar, powerLockedByChar } = body;
     if (!targetUserId) {
         return NextResponse.json({ message: "userId required" }, { status: 400 });
     }
@@ -374,8 +377,9 @@ export async function POST(
     if (visibleByChar) nextState.visibleByChar = visibleByChar;
     if (tableOrder) nextState.tableOrder = tableOrder;
     if (Array.isArray(rosterOrder)) nextState.rosterOrder = rosterOrder;
-    if (Array.isArray(cardRosterOrder)) nextState.cardRosterOrder = cardRosterOrder; // 🔥 이 줄을 추가합니다.
+    if (Array.isArray(cardRosterOrder)) nextState.cardRosterOrder = cardRosterOrder;
     if (goldDesignatedByChar) nextState.goldDesignatedByChar = goldDesignatedByChar;
+    if (powerLockedByChar) nextState.powerLockedByChar = powerLockedByChar;
     if (typeof nickname === "string") nextState.nickname = nickname;
 
 

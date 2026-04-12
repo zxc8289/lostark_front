@@ -203,6 +203,24 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         if (typeof window === "undefined") return [];
         try { return JSON.parse(localStorage.getItem(AUTO_SETUP_RAIDS_KEY) || "[]"); } catch { return []; }
     });
+
+    const AUTO_SETUP_USERS_KEY = `raidPlanner_autoUsers_${isTemporaryMode ? 'temp' : 'fixed'}`;
+    const [autoSetupUsers, setAutoSetupUsers] = useState<string[]>(() => {
+        if (typeof window === "undefined") return [];
+        try { return JSON.parse(localStorage.getItem(AUTO_SETUP_USERS_KEY) || "[]"); } catch { return []; }
+    });
+
+    const [autoSetupMinMembers, setAutoSetupMinMembers] = useState<number>(() => {
+        if (typeof window === "undefined") return 4; // 기본 4명
+        try {
+            const saved = localStorage.getItem(`raidPlanner_autoMinMembers_${isTemporaryMode ? 'temp' : 'fixed'}`);
+            return saved ? Number(saved) : 4;
+        } catch {
+            return 4;
+        }
+    });
+
+
     const [isLoading, setIsLoading] = useState(true);
     const [isEditMode, setIsEditMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -228,6 +246,8 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
     const [isReorderMode, setIsReorderMode] = useState(false);
 
     const [showAutoSetupSettings, setShowAutoSetupSettings] = useState(false);
+
+
 
     const apiEndpoint = isTemporaryMode ? `/api/party-tasks/${partyId}/temp-planner` : `/api/party-tasks/${partyId}/planner`;
     const otherApiEndpoint = isTemporaryMode ? `/api/party-tasks/${partyId}/planner` : `/api/party-tasks/${partyId}/temp-planner`;
@@ -514,6 +534,13 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         try { localStorage.setItem(AUTO_SETUP_RAIDS_KEY, JSON.stringify(autoSetupRaids)); } catch { }
     }, [autoSetupRaids]);
 
+    useEffect(() => {
+        try { localStorage.setItem(AUTO_SETUP_USERS_KEY, JSON.stringify(autoSetupUsers)); } catch { }
+    }, [autoSetupUsers]);
+
+    useEffect(() => {
+        try { localStorage.setItem(`raidPlanner_autoMinMembers_${isTemporaryMode ? 'temp' : 'fixed'}`, String(autoSetupMinMembers)); } catch { }
+    }, [autoSetupMinMembers, isTemporaryMode]);
 
     const baseCharacters = useMemo(() => {
         return partyTasks.flatMap(member => {
@@ -678,6 +705,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
 
     const availableFilterRaids = useMemo(() => Array.from(new Set(groups.map(g => g.raidName))), [groups]);
 
+
     const availableFilterUsers = useMemo(() => {
         const users = new Map<string, string>();
         groups.forEach(g => {
@@ -687,6 +715,11 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         });
         return Array.from(users.entries()).map(([id, name]) => ({ id, name }));
     }, [groups]);
+
+
+    const allPartyUsers = useMemo(() => {
+        return partyTasks.map(m => ({ id: m.userId, name: m.nickname || m.name || "알 수 없음" }));
+    }, [partyTasks]);
 
     const filteredGroups = useMemo(() => {
         return syncedGroups.filter(group => {
@@ -991,6 +1024,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                 if (assignedUniqueIds.has(c.uniqueId)) return false;
                 if (ownersInThisGroup.has(c.ownerId)) return false;
                 if (namesInThisGroup.has(c.name)) return false;
+                if (autoSetupUsers.length > 0 && !autoSetupUsers.includes(c.ownerId)) return false;
 
                 const memberInfo = partyTasks.find(m => m.userId === c.ownerId);
                 const charPref = memberInfo?.prefsByChar?.[c.name]?.raids?.[targetGroup.raidName];
@@ -1068,7 +1102,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                     });
                     if (hasSameClassInSameRole) continue;
 
-                    // 💡 [옵션 반영] CP 매칭 페널티
                     if (targetCP > 0 && candidateCP > 0) {
                         const cpDiffRatio = Math.abs(targetCP - candidateCP) / targetCP;
                         const cpPenaltyMultiplier = autoSetupSortType === "cp" ? 30000 : 10000;
@@ -1085,14 +1118,12 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                         }
                     });
 
-                    // 💡 [옵션 반영] 시너지 겹침 페널티
                     const overlapPenalty = autoSetupSortType === "synergy" ? 15000 : 5000;
                     score -= (overlapCount * overlapPenalty);
 
                     const posType = getCharPositionalType(cClassName, cEngraving);
                     const bringsBackHeadSynergy = cSyns.includes("백헤드 피증");
 
-                    // 💡 [옵션 반영] 백헤드 가점 보너스
                     const posBonusMultiplier = autoSetupSortType === "synergy" ? 1 : 0.4;
                     if (hasBackHeadSynergy) {
                         if (posType === "BACK_HEAD") score += (5000 * posBonusMultiplier);
@@ -1103,9 +1134,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                         score += (backHeadCount * 3000 * posBonusMultiplier);
                     }
 
-                    // =====================================================================
-                    // 💡 [여기에 추가!] 기존 계산이 다 끝난 후, 마지막에 드림 시너지 보너스를 얹어줍니다.
-                    // =====================================================================
+
                     const isBlade = cClassName === "블레이드";
                     const isWarlord = cClassName === "워로드";
                     let dreamSynergyBonus = 0;
@@ -1143,7 +1172,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         });
     };
 
-    // 💡 [수정] 옵션이 반영된 완전 자동 편성 로직
     const handleFullAutoSetup = () => {
         setGroups(prevGroups => {
             const nextGroups = prevGroups.map(g => ({ ...g, slots: [...g.slots] }));
@@ -1161,7 +1189,9 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
             });
 
             const neededAssignments: { char: any; raidName: string; difficulty: string }[] = [];
+
             baseCharacters.forEach(char => {
+                if (autoSetupUsers.length > 0 && !autoSetupUsers.includes(char.ownerId)) return;
                 const memberInfo = partyTasks.find(m => m.userId === char.ownerId);
                 const prefs = memberInfo?.prefsByChar?.[char.name]?.raids;
                 if (!prefs) return;
@@ -1384,21 +1414,32 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                     }
                     if (bestCandidate) {
                         targetGroup.slots[i] = bestCandidate;
+
+                        // ❌ 여기에 있던 assignedUniqueIds.add(...) 삭제됨!
                         ownersInThisGroup.add(bestCandidate.ownerId);
                         namesInThisGroup.add(bestCandidate.name);
 
                         candidates = candidates.filter((c: any) => c.ownerId !== bestCandidate!.ownerId && c.name !== bestCandidate!.name);
                         availableAssignments = availableAssignments.filter(a => !(a.char.uniqueId === bestCandidate!.uniqueId && a.raidName === targetGroup.raidName));
                     }
-                }
+                } // <- for 루프 끝
+            }); // <- newlyCreatedGroups.forEach 끝
+
+            // 🚀 최소 인원 필터링
+            const validNewGroups = newlyCreatedGroups.filter(g => {
+                const currentMembersCount = g.slots.filter(slot => slot !== null).length;
+                return currentMembersCount >= autoSetupMinMembers;
             });
 
-            return [...nextGroups, ...newlyCreatedGroups];
+            if (validNewGroups.length === 0 && newlyCreatedGroups.length > 0) {
+                setTimeout(() => alert(`캐릭터 수가 부족하여 최소 편성 인원(${autoSetupMinMembers}명)을 만족하는 새 파티가 만들어지지 않았습니다.`), 100);
+            }
+
+            return [...nextGroups, ...validNewGroups];
         });
 
         setShowAutoSetupSettings(false);
     };
-
     const updateGroupName = (groupId: string, newName: string) => {
         setGroups(prev => prev.map(g => g.id === groupId ? { ...g, groupName: newName } : g));
     };
@@ -1806,6 +1847,19 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                             </div>
 
                                             <div className="space-y-4 mb-4">
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <span className="text-[11px] text-gray-400">최소 파티 인원</span>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <input
+                                                            type="number" min={1} max={16}
+                                                            value={autoSetupMinMembers}
+                                                            onChange={(e) => setAutoSetupMinMembers(Number(e.target.value))}
+                                                            className="w-12 h-7 bg-[#0F1115] border border-white/10 rounded-md px-1 text-xs text-center text-white focus:outline-none focus:border-[#5B69FF] appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                        />
+                                                        <span className="text-[10px] text-gray-500">명 이상</span>
+
+                                                    </div>
+                                                </div>
                                                 {/* 우선 편성 기준 UI */}
                                                 <div className="space-y-1.5">
                                                     <span className="text-[11px] text-gray-400 block">편성 기준</span>
@@ -1853,6 +1907,30 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                                                                             {displayDiff}
                                                                         </span>
                                                                     </div>
+                                                                    {isActive && <Check className="w-3 h-3" strokeWidth={3} />}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1.5 mt-4">
+                                                    <span className="text-[11px] text-gray-400 block">
+                                                        참여 파티원 <span className="text-gray-600 font-normal">(선택 안함 = 전체)</span>
+                                                    </span>
+                                                    <div className="max-h-32 overflow-y-auto custom-scrollbar pr-1 bg-[#0F1115] rounded-lg border border-white/5 p-1 flex flex-col gap-0.5">
+                                                        {allPartyUsers.map(user => {
+                                                            const isActive = autoSetupUsers.includes(user.id);
+                                                            return (
+                                                                <button
+                                                                    key={user.id}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (isActive) setAutoSetupUsers(prev => prev.filter(id => id !== user.id));
+                                                                        else setAutoSetupUsers(prev => [...prev, user.id]);
+                                                                    }}
+                                                                    className={`flex items-center justify-between px-2 py-1.5 rounded text-xs transition-colors ${isActive ? "bg-[#5B69FF]/15 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5"}`}
+                                                                >
+                                                                    <span>{user.name}</span>
                                                                     {isActive && <Check className="w-3 h-3" strokeWidth={3} />}
                                                                 </button>
                                                             );

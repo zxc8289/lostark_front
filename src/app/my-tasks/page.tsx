@@ -176,6 +176,7 @@ const GOLD_KEY = "raidTaskGoldByChar";
 const TABLE_ORDER_KEY = "raidTaskTableOrder";
 const ROSTER_ORDER_KEY = "raidTaskRosterOrder";
 const CARD_ROSTER_ORDER_KEY = "raidTaskCardRosterOrder";
+const POWER_LOCKED_KEY = "raidTaskPowerLockedByChar";
 
 const ACCOUNTS_KEY = "raidTaskAccounts";
 const ACTIVE_ACCOUNT_KEY = "raidTaskActiveAccount";
@@ -317,13 +318,14 @@ export default function MyTasksPage() {
   const [cardRosterOrder, setCardRosterOrder] = useState<string[]>([]);
   const [visibleByChar, setVisibleByChar] = useState<Record<string, boolean>>({});
   const [goldDesignatedByChar, setGoldDesignatedByChar] = useState<Record<string, boolean>>({}); // 🔥 추가
-
+  const [powerLockedByChar, setPowerLockedByChar] = useState<Record<string, boolean>>({});
 
   /* ✅ 데모 상태 */
   const [demoEnabled, setDemoEnabled] = useState(true);
   const [demoPrefsByChar, setDemoPrefsByChar] = useState<Record<string, CharacterTaskPrefs>>(() => DEMO_PREFS_BY_CHAR);
   const [demoVisibleByChar, setDemoVisibleByChar] = useState<Record<string, boolean>>(() => DEMO_VISIBLE_BY_CHAR);
   const [demoGoldDesignatedByChar, setDemoGoldDesignatedByChar] = useState<Record<string, boolean>>(() => DEMO_VISIBLE_BY_CHAR); // 🔥 추가
+  const [demoPowerLockedByChar, setDemoPowerLockedByChar] = useState<Record<string, boolean>>({}); // 🔥 추가
 
   /* ──────────────────────────
    * 웹소켓 실시간 데이터 수신
@@ -381,6 +383,7 @@ export default function MyTasksPage() {
           if (msg.rosterOrder) setRosterOrder(msg.rosterOrder);
           if (msg.cardRosterOrder) setCardRosterOrder(msg.cardRosterOrder);
           if (msg.goldDesignatedByChar) setGoldDesignatedByChar(msg.goldDesignatedByChar); // 🔥 추가
+          if (msg.powerLockedByChar) setPowerLockedByChar(msg.powerLockedByChar);
         }
 
         if (msg.type === "activeAccountUpdated" && msg.userId === myUserId) {
@@ -505,6 +508,29 @@ export default function MyTasksPage() {
     } catch { }
   }, [accounts, isAuthed]);
 
+  /* ──────────────────────────
+   * powerLockedByChar 초기 로드(비로그인) 🔥 추가
+   * ────────────────────────── */
+  useEffect(() => {
+    if (isAuthed) return;
+    if (!accounts.length) return;
+
+    try {
+      const raw = localStorage.getItem(POWER_LOCKED_KEY);
+      const saved = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+
+      const next: Record<string, boolean> = {};
+      for (const acc of accounts) {
+        for (const c of acc.summary?.roster ?? []) {
+          next[c.name] = saved[c.name] ?? false; // 기본값은 잠금 해제(false)
+        }
+      }
+
+      setPowerLockedByChar(next);
+      localStorage.setItem(POWER_LOCKED_KEY, JSON.stringify(next));
+    } catch { }
+  }, [accounts, isAuthed]);
+
   useEffect(() => {
     if (!accounts.length) {
       setActiveAccountId(null);
@@ -573,7 +599,7 @@ export default function MyTasksPage() {
 
   const effectivePrefsByChar = usingDemo ? demoPrefsByChar : prefsByChar;
   const effectiveVisibleByChar = usingDemo ? demoVisibleByChar : visibleByChar;
-
+  const effectivePowerLockedByChar = usingDemo ? demoPowerLockedByChar : powerLockedByChar;
   const effectiveHasRoster = !!currentActiveAccount && !!currentActiveAccount.summary?.roster?.length;
 
   const showEmptyState =
@@ -651,6 +677,7 @@ export default function MyTasksPage() {
       cardRosterOrder,
       activeAccountId,
       goldDesignatedByChar,
+      powerLockedByChar,
     };
   }
 
@@ -682,6 +709,7 @@ export default function MyTasksPage() {
       if (state.cardRosterOrder) setCardRosterOrder(state.cardRosterOrder);
       if (state.activeAccountId) setActiveAccountId(state.activeAccountId);
       if (state.goldDesignatedByChar) setGoldDesignatedByChar(state.goldDesignatedByChar); // 🔥 추가
+      if (state.powerLockedByChar) setPowerLockedByChar(state.powerLockedByChar);
     } catch { }
   }
 
@@ -730,7 +758,7 @@ export default function MyTasksPage() {
       controller.abort();
       clearTimeout(timeoutId);
     };
-  }, [authStatus, syncedWithServer, booting, accounts, prefsByChar, visibleByChar, tableOrder, rosterOrder, cardRosterOrder, activeAccountId]);
+  }, [authStatus, syncedWithServer, booting, accounts, prefsByChar, visibleByChar, tableOrder, rosterOrder, cardRosterOrder, activeAccountId, goldDesignatedByChar, powerLockedByChar]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
@@ -906,6 +934,16 @@ export default function MyTasksPage() {
 
         if (idx >= 0) {
           const existing = next[idx];
+          const oldSummary = existing.summary;
+          if (oldSummary && oldSummary.roster) {
+            json.roster = json.roster.map((newChar) => {
+              if (effectivePowerLockedByChar[newChar.name]) {
+                const oldChar = oldSummary.roster.find((c) => c.name === newChar.name);
+                if (oldChar) return oldChar;
+              }
+              return newChar;
+            });
+          }
           const updated = { ...existing, summary: json };
           next[idx] = updated;
           newActiveId = updated.id;
@@ -1944,6 +1982,7 @@ export default function MyTasksPage() {
             setAccountSearchErr(null);
           }}
           goldDesignatedByChar={safeGoldDesignatedByChar}
+          powerLockedByChar={effectivePowerLockedByChar}
           roster={effectiveAccount?.summary?.roster ?? []}
           onDeleteAccount={
             usingDemo || isAllView ? undefined : () => setDeleteConfirmOpen(true) // 🔥 모두 보기 상태일 때 삭제 막기
@@ -1952,7 +1991,7 @@ export default function MyTasksPage() {
           visibleByChar={effectiveVisibleByChar}
           refreshError={accountSearchErr}
           onRefreshAccount={isAllView ? undefined : handleMyRefreshAccount} // 🔥 모두 보기 상태일 때 갱신 막기
-          onChangeSettings={(nextVisible, nextGold) => { // 🔥 onChangeVisible 대신 이거 사용
+          onChangeSettings={(nextVisible, nextGold, nextLocked) => {
             if (usingDemo) {
               setDemoVisibleByChar((prev) => ({ ...prev, ...nextVisible }));
               setDemoGoldDesignatedByChar((prev) => ({ ...prev, ...nextGold }));
@@ -1962,13 +2001,16 @@ export default function MyTasksPage() {
             setVisibleByChar((prev) => {
               const mergedVisible = { ...prev, ...nextVisible };
               const mergedGold = { ...goldDesignatedByChar, ...nextGold };
+              const mergedLocked = { ...powerLockedByChar, ...nextLocked };
 
               setGoldDesignatedByChar(mergedGold);
+              setPowerLockedByChar(mergedLocked);
 
               try {
                 if (!isAuthed) {
                   localStorage.setItem(VISIBLE_KEY, JSON.stringify(mergedVisible));
                   localStorage.setItem(GOLD_KEY, JSON.stringify(mergedGold));
+                  localStorage.setItem(POWER_LOCKED_KEY, JSON.stringify(mergedLocked));
                 } else if (session?.user && sendMessage) {
                   const userId = (session.user as any).id || (session.user as any).userId;
                   sendMessage({
@@ -1976,7 +2018,8 @@ export default function MyTasksPage() {
                     userId,
                     prefsByChar,
                     visibleByChar: mergedVisible,
-                    goldDesignatedByChar: mergedGold, // 🔥 소켓으로 같이 쏴주기
+                    goldDesignatedByChar: mergedGold,
+                    powerLockedByChar: mergedLocked,
                   });
                 }
               } catch { }
