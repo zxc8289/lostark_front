@@ -66,8 +66,8 @@ import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useS
 import RaidPlannerTab from "@/app/components/tasks/RaidPlannerTab";
 
 /* ─────────────────────────────
- * 타입 정의
- * ───────────────────────────── */
+* 타입 정의
+* ───────────────────────────── */
 
 type PartyMember = {
     id: string;
@@ -148,8 +148,8 @@ const ACCOUNTS_KEY = "raidTaskAccounts";
 const ACTIVE_ACCOUNT_KEY = "raidTaskActiveAccount";
 
 /* ─────────────────────────────
- * 공통 함수
- * ───────────────────────────── */
+* 공통 함수
+* ───────────────────────────── */
 
 function applyRosterOrder(
     roster: RosterCharacter[],
@@ -339,8 +339,8 @@ function computeMemberSummary(
 }
 
 /* ─────────────────────────────
- * 메인 컴포넌트
- * ───────────────────────────── */
+* 메인 컴포넌트
+* ───────────────────────────── */
 export default function PartyDetailPage() {
     const router = useRouter();
     const params = useParams<{ partyId: string }>();
@@ -2569,7 +2569,7 @@ export default function PartyDetailPage() {
                                     <div className="flex items-center justify-between text-xs text-gray-400 bg-white/5 px-3 py-2 rounded-lg">
                                         <span className="flex items-center gap-1.5">
                                             <span>초대 코드:</span>
-                                            <span className="font-mono text-sm font-bold text-[#5B69FF]">
+                                            <span className="text-sm font-bold text-[#5B69FF]">
                                                 {invite.code}
                                             </span>
                                         </span>
@@ -3340,7 +3340,7 @@ function PartyMemberSummaryBar({
                             "inline-flex items-baseline justify-end",
                             "min-w-[40px] sm:min-w-[50px]",
                             "text-[11px] sm:text-sm font-semibold",
-                            "font-mono tabular-nums",
+                            "tabular-nums",
                             memberAllCleared
                                 ? "line-through decoration-gray-300 decoration-1 text-gray-400"
                                 : "text-gray-400",
@@ -3370,7 +3370,7 @@ function PartyMemberSummaryBar({
                             "inline-flex items-baseline justify-end",
                             "min-w-[40px] sm:min-w-[50px]",
                             "text-[11px] sm:text-sm font-semibold",
-                            "font-mono tabular-nums",
+                            "tabular-nums",
                             memberAllCleared
                                 ? "line-through decoration-gray-300 decoration-1 text-gray-400"
                                 : "text-gray-400",

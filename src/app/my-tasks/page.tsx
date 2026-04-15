@@ -1472,7 +1472,7 @@ export default function MyTasksPage() {
                         "inline-flex items-baseline justify-end",
                         "min-w-[50px]",
                         "text-xs sm:text-sm font-semibold",
-                        "font-mono tabular-nums",
+                        "tabular-nums",
                         isAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400",
                       ].join(" ")}
                     >
@@ -1491,7 +1491,7 @@ export default function MyTasksPage() {
                         "inline-flex items-baseline justify-end",
                         "min-w-[50px]",
                         "text-xs sm:text-sm font-semibold",
-                        "font-mono tabular-nums",
+                        "tabular-nums",
                         isAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400",
                       ].join(" ")}
                     >

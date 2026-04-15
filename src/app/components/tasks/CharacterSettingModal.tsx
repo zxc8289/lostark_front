@@ -165,21 +165,9 @@ export default function CharacterSettingModal({
 
     const toggleGoldEarn = (index: number) => {
         setAlertMessage(null);
-        setCharacters(prev => {
-            const char = prev[index];
-
-            // 켜려고 할 때 6개 제한 검사
-            if (!char.isGoldEarn) {
-                const currentGoldCount = prev.filter(c => c.isGoldEarn).length;
-                if (currentGoldCount >= 6) {
-                    setAlertMessage("골드 획득 지정은 최대 6캐릭터까지만 가능합니다.");
-                    setTimeout(() => setAlertMessage(null), 3000);
-                    return prev;
-                }
-            }
-
-            return prev.map((c, i) => i === index ? { ...c, isGoldEarn: !c.isGoldEarn } : c);
-        });
+        setCharacters(prev =>
+            prev.map((c, i) => i === index ? { ...c, isGoldEarn: !c.isGoldEarn } : c)
+        );
     };
 
     const handleRefreshClick = async () => {

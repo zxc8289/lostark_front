@@ -32,19 +32,21 @@ const REWARD_ICONS: Record<string, string> = {
     "클리어 메달": "/icons/materials/clear-medal.png",
 };
 
-const RewardList = ({ text }: { text: string }) => {
-    if (!text) return null;
+const RewardList = ({ text, cost }: { text: string; cost?: number }) => {
+    if (!text && !cost) return null;
 
-    const items = text.split(",").map((itemStr) => {
+    const items = text ? text.split(",").map((itemStr) => {
         const match = itemStr.trim().match(/(.+?)\s*(\d+)개/);
         if (match) {
             return { name: match[1].trim(), amount: match[2] };
         }
         return { name: itemStr.trim(), amount: "" };
-    });
+    }) : [];
 
     return (
         <div className="flex flex-wrap gap-2">
+
+
             {items.map((item, idx) => {
                 const iconPath = REWARD_ICONS[item.name];
 
@@ -70,6 +72,18 @@ const RewardList = ({ text }: { text: string }) => {
                     </div>
                 );
             })}
+            {cost !== undefined && cost > 0 && (
+                <div
+                    className="flex items-center gap-1.5 bg-[#0F1014] border border-[#FF8585]/30 px-2 py-1.5 rounded-md"
+                    title="더보기 골드"
+                >
+                    <Coins className="w-4 h-4 text-[#FF8585] drop-shadow-md" />
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-[13px] font-medium text-gray-300">더보기 골드</span>
+                        <span className="text-[13px] font-bold text-[#FF8585]">{cost.toLocaleString()}</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -185,6 +199,10 @@ export default function RaidInfoPage() {
             clear: toRewardString(clearTotals),
             bonus: toRewardString(bonusTotals),
         };
+    }, [rows]);
+
+    const totalBonusCost = useMemo(() => {
+        return rows.reduce((sum, row) => sum + (row.bonusCost || 0), 0);
     }, [rows]);
 
     return (
@@ -318,6 +336,15 @@ export default function RaidInfoPage() {
                                         </div>
                                     </div>
                                 )}
+                                {totalBonusCost > 0 && (
+                                    <div>
+                                        <div className="text-xs text-gray-500">더보기 골드</div>
+                                        <div className="text-[#FF8585] font-bold text-lg flex items-center justify-end gap-1">
+                                            <Coins className="w-4 h-4 text-[#FF8585]" />
+                                            {totalBonusCost.toLocaleString()}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -343,7 +370,7 @@ export default function RaidInfoPage() {
                                                         <RewardList text={row.rewards} />
                                                     </td>
                                                     <td className="py-5 px-5 align-top">
-                                                        <RewardList text={row.bonusRewards} />
+                                                        <RewardList text={row.bonusRewards} cost={row.bonusCost} />
                                                     </td>
                                                 </tr>
                                             ))}
