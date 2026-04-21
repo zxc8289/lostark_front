@@ -64,6 +64,7 @@ import { useGlobalWebSocket } from "@/app/components/WebSocketProvider";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import RaidPlannerTab from "@/app/components/tasks/RaidPlannerTab";
+import MemoModal from "@/app/components/tasks/MemoModal";
 
 /* ─────────────────────────────
 * 타입 정의
@@ -107,6 +108,8 @@ export type PartyMemberTasks = {
 
 type PartyRaidTasksResponse = {
     members: PartyMemberTasks[];
+    plannerData?: any[];
+    tempPlannerData?: any[];
 };
 
 type PartyInvite = {
@@ -222,6 +225,8 @@ function buildTasksForCharacter(
             currentGates: number[],
             allGates: number[]
         ) => void;
+        assignedRaids?: Set<string>; // 🔥 편성된 레이드 목록
+        ownerId?: string;
     }
 ): TaskItem[] {
     const prefs = prefsByChar[c.name];
@@ -282,6 +287,7 @@ function buildTasksForCharacter(
                 {totalGold.toLocaleString()}g
             </span>
         );
+        const isAssigned = options?.assignedRaids?.has(`${options.ownerId}-${c.name}::${raidName}`);
 
         items.push({
             id: raidName,
@@ -294,6 +300,7 @@ function buildTasksForCharacter(
                     gates={p.gates}
                     isBonus={p.isBonus}
                     right={right}
+                    isAssigned={isAssigned}
                     onToggleGate={(gate) => {
                         if (!options?.onToggleGate) return;
                         const currentGates = p.gates ?? [];
@@ -405,6 +412,12 @@ export default function PartyDetailPage() {
     const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
     const [inlineSearchInput, setInlineSearchInput] = useState("");
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [assignedRaids, setAssignedRaids] = useState<Set<string>>(new Set()); // 🔥 편성 목록 State 추가
+    const [memoTarget, setMemoTarget] = useState<{
+        memberUserId: string;
+        charName: string;
+        currentMemo: string;
+    } | null>(null);
 
     const AD_SLOT_SIDEBAR = "4444902536";
     const AD_SLOT_BOTTOM_BANNER = "7577482274"
@@ -463,6 +476,7 @@ export default function PartyDetailPage() {
                     throw new Error("파티 숙제 데이터를 불러오지 못했습니다.");
                 }
 
+                // 🚨 이 부분이 지워져서 오류가 났습니다! 다시 추가해줍니다.
                 const json = (await res.json()) as PartyRaidTasksResponse;
 
                 // 🔥 서버에서 받아온 데이터에 과거 데이터 마이그레이션 적용
@@ -475,6 +489,21 @@ export default function PartyDetailPage() {
                     }
                     return { ...m, prefsByChar: migratedPrefs };
                 });
+
+                const newAssigned = new Set<string>();
+                const allPlannerData = [...(json.plannerData || []), ...(json.tempPlannerData || [])];
+
+                allPlannerData.forEach((group: any) => {
+                    if (!group.slots) return;
+                    group.slots.forEach((slot: any) => {
+                        if (slot && !slot.isGuest) {
+                            // "유저ID-캐릭터이름::레이드명" 형태로 저장
+                            newAssigned.add(`${slot.uniqueId}::${group.raidName}`);
+                        }
+                    });
+                });
+
+                setAssignedRaids(newAssigned); // State 업데이트
 
                 setPartyTasks(migratedMembers);
             } catch (e: any) {
@@ -580,6 +609,37 @@ export default function PartyDetailPage() {
             });
         }
     }
+
+    const handleSaveMemo = (memberUserId: string, charName: string, newMemo: string) => {
+        if (!party || !partyTasks) return;
+        const partyIdNum = party.id;
+
+        const next: PartyMemberTasks[] = partyTasks.map((m) => {
+            if (m.userId !== memberUserId) return m;
+
+            // 기존 캐릭터 설정 복사
+            const memberPrefsByChar = { ...(m.prefsByChar ?? {}) };
+            const curPrefsForChar = memberPrefsByChar[charName] ?? { raids: {} };
+
+            // 메모만 업데이트
+            memberPrefsByChar[charName] = {
+                ...curPrefsForChar,
+                memo: newMemo,
+            };
+
+            return { ...m, prefsByChar: memberPrefsByChar };
+        });
+
+        // 로컬 상태 업데이트
+        setPartyTasks(next);
+
+        // 변경된 유저 찾아서 서버 및 웹소켓 전송
+        const updated = next.find((m) => m.userId === memberUserId);
+        if (updated) {
+            sendMemberUpdateWS(partyIdNum, updated.userId, updated.prefsByChar, updated.visibleByChar);
+            void saveMemberPrefsToServer(partyIdNum, updated.userId, updated.prefsByChar, updated.visibleByChar);
+        }
+    };
 
     const handleSelectAccount = (targetId: string) => {
         if (!party) return;
@@ -2162,7 +2222,7 @@ export default function PartyDetailPage() {
                     <div className="flex gap-6">
                         <button
                             onClick={() => setActiveTab("tasks")}
-                            className={`pb-2 text-[15px] sm:text-lg font-bold transition-colors relative ${ // 🔥 text-lg -> text-[15px] sm:text-lg 로 수정
+                            className={`pb-2 text-[13px] sm:text-lg font-bold transition-colors relative ${ // 🔥 text-lg -> text-[15px] sm:text-lg 로 수정
                                 activeTab === "tasks" ? "text-white" : "text-gray-500 hover:text-gray-300"
                                 }`}
                         >
@@ -2173,7 +2233,7 @@ export default function PartyDetailPage() {
                         </button>
                         <button
                             onClick={() => setActiveTab("planner")}
-                            className={`pb-2 text-[15px] sm:text-lg font-bold transition-colors relative ${ // 🔥 text-lg -> text-[15px] sm:text-lg 로 수정
+                            className={`pb-2 text-[13px] sm:text-lg font-bold transition-colors relative ${ // 🔥 text-lg -> text-[15px] sm:text-lg 로 수정
                                 activeTab === "planner" ? "text-white" : "text-gray-500 hover:text-gray-300"
                                 }`}
                         >
@@ -2186,7 +2246,7 @@ export default function PartyDetailPage() {
                         <div className="relative flex items-center pb-2">
                             <button
                                 onClick={() => setActiveTab("temp_planner")}
-                                className={`text-[15px] sm:text-lg font-bold transition-colors ${ // 🔥 text-lg -> text-[15px] sm:text-lg 로 수정
+                                className={`text-[13px] sm:text-lg font-bold transition-colors ${ // 🔥 text-lg -> text-[15px] sm:text-lg 로 수정
                                     activeTab === "temp_planner" ? "text-white" : "text-gray-500 hover:text-gray-300"
                                     }`}
                             >
@@ -2216,14 +2276,15 @@ export default function PartyDetailPage() {
                             )}
                         </div>
                     </div>
-                    {/* 이쪽으로 이동된 파티 코드 생성 버튼 */}
                     <button
                         type="button"
                         onClick={openInviteModal}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-[#5B69FF]/80 px-3 py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#4a57e0]"
+                        // 🔥 맨 끝에 mb-1.5 sm:mb-2 를 추가해서 위로 살짝 올려줌
+                        className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#5B69FF]/80 p-2 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#4a57e0] transition-colors mb-1.5 sm:mb-2"
+                        title="파티 코드 생성"
                     >
-                        <Link2 className="h-3.5 w-3.5" />
-                        <span>파티 코드 생성</span>
+                        <Link2 className="h-3.5 w-3.5 sm:h-3.5 sm:w-3.5 shrink-0" />
+                        <span className="hidden sm:inline">파티 코드 생성</span>
                     </button>
                 </div>
                 {activeTab === "tasks" ? (
@@ -2335,6 +2396,10 @@ export default function PartyDetailPage() {
                                                 onReorderRoster={handleMemberRosterReorder}
                                                 onReorderCardRoster={handleMemberCardRosterReorder}
                                                 onCharacterAllClear={handleMemberCharacterAllClear}
+                                                onOpenMemo={(userId, charName, memo) =>
+                                                    setMemoTarget({ memberUserId: userId, charName, currentMemo: memo })
+                                                }
+                                                assignedRaids={assignedRaids}
                                             />
                                         );
                                     })}
@@ -2674,6 +2739,18 @@ export default function PartyDetailPage() {
                 </div>
             )}
 
+            {memoTarget && (
+                <MemoModal
+                    isOpen={!!memoTarget}
+                    onClose={() => setMemoTarget(null)}
+                    charName={memoTarget.charName}
+                    initialMemo={memoTarget.currentMemo}
+                    onSave={(newMemo) => {
+                        handleSaveMemo(memoTarget.memberUserId, memoTarget.charName, newMemo);
+                    }}
+                />
+            )}
+
 
             <EmptyCharacterState
                 open={isAddAccountOpen}
@@ -2747,6 +2824,8 @@ function PartyMemberBlock({
     onReorderCardRoster,
     isAllView,
     onCharacterAllClear,
+    onOpenMemo,
+    assignedRaids,
 }: {
     partyId: number;
     member: PartyMemberTasks;
@@ -2773,6 +2852,8 @@ function PartyMemberBlock({
     onReorderCardRoster: (userId: string, mergedCardOrder: string[]) => void;
     isAllView: boolean;
     onCharacterAllClear: (userId: string, charName: string) => void;
+    onOpenMemo: (userId: string, charName: string, currentMemo: string) => void;
+    assignedRaids: Set<string>;
 }) {
     const [isExpanded, setIsExpanded] = useState(true);
     const [searchInput, setSearchInput] = useState("");
@@ -3069,14 +3150,18 @@ function PartyMemberBlock({
 
                                     const tasksAll = buildTasksForCharacter(c, filteredPrefs, {
                                         onlyRemain: false,
-                                        isGoldEarn: effectiveGold[c.name] ?? false, // 🔥 추가
-                                        onToggleGate: toggleWrapper
+                                        isGoldEarn: effectiveGold[c.name] ?? false,
+                                        onToggleGate: toggleWrapper,
+                                        assignedRaids: assignedRaids,
+                                        ownerId: member.userId,
                                     });
                                     const tasksShown = onlyRemain
                                         ? buildTasksForCharacter(c, filteredPrefs, {
                                             onlyRemain: true,
-                                            isGoldEarn: effectiveGold[c.name] ?? false, // 🔥 추가
-                                            onToggleGate: toggleWrapper
+                                            isGoldEarn: effectiveGold[c.name] ?? false,
+                                            onToggleGate: toggleWrapper,
+                                            assignedRaids: assignedRaids,
+                                            ownerId: member.userId,
                                         })
                                         : tasksAll;
 
@@ -3144,6 +3229,8 @@ function PartyMemberBlock({
                                                 if (selectedRaids.length > 0) return;
                                                 onReorder(member.userId, char.name, newOrder);
                                             })}
+                                            hasMemo={!!filteredPrefs[c.name]?.memo}
+                                            onOpenMemo={withEditAuth(() => onOpenMemo(member.userId, c.name, filteredPrefs[c.name]?.memo || ""))}
                                         />
                                     ));
                                 }
@@ -3163,13 +3250,14 @@ function PartyMemberBlock({
                                                                 character={c}
                                                                 tasks={tasks}
                                                                 isDragEnabled={isDragEnabled}
-                                                                dragHandleProps={dragHandleProps} // ✅ 이름 영역이 캐릭터 드래그 핸들
+                                                                dragHandleProps={dragHandleProps}
                                                                 onEdit={withEditAuth(() => onEdit(member, c))}
-
                                                                 onReorder={withEditAuth((char, newOrder) => {
                                                                     if (selectedRaids.length > 0) return;
                                                                     onReorder(member.userId, char.name, newOrder);
                                                                 })}
+                                                                hasMemo={!!filteredPrefs[c.name]?.memo}
+                                                                onOpenMemo={withEditAuth(() => onOpenMemo(member.userId, c.name, filteredPrefs[c.name]?.memo || ""))}
                                                             />
                                                         )}
                                                     </SortableStripWrapper>
@@ -3204,12 +3292,12 @@ function PartyMemberBlock({
                                 tableOrder={viewTableOrder}
                                 rosterOrder={member.rosterOrder ?? []} // ✅ 추가
                                 isDragEnabled={isDragEnabled}
+                                onOpenMemo={withEditAuth((charName: string, memo: string) => onOpenMemo(member.userId, charName, memo))}
                                 onReorderTable={withEditAuth((newOrder) => {
                                     if (selectedRaids.length > 0 || onlyRemain) return;
                                     onReorderTable(member.userId, newOrder);
                                 })}
                                 onReorderRoster={withEditAuth((newOrderSubset) => {
-                                    // ✅ 필터/visible로 인해 tableRoster가 부분집합일 수 있으므로 merge
                                     const subset = tableRoster.map((c) => c.name);
 
                                     const baseFull =
@@ -3300,17 +3388,16 @@ function PartyMemberSummaryBar({
                 </div>
             </div>
 
-            {/* 🔥 원래대로 복구 (모바일 1줄) + 텍스트 & 폰트 크기 조정 */}
             <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-2.5 sm:gap-4 text-xs sm:text-base min-w-0">
                 <span className="hidden sm:inline h-4 w-px bg-white/10 " />
 
                 <div className="flex items-baseline gap-1 sm:gap-1.5">
-                    <span className="font-semibold text-xs sm:text-base pr-1">
+                    <span className="font-semibold text-[11px] sm:text-base pr-1">
                         남은 숙제
                     </span>
                     <AnimatedNumber
                         value={summary.totalRemainingTasks}
-                        className="text-gray-400 text-[11px] sm:text-sm font-semibold"
+                        className="text-gray-400 text-[10px] sm:text-sm font-semibold"
                     />
                 </div>
 
@@ -3318,13 +3405,13 @@ function PartyMemberSummaryBar({
                 <span className="hidden sm:inline h-4 w-px bg-white/10 " />
 
                 <div className="flex items-baseline gap-1 sm:gap-1.5">
-                    <span className="font-semibold text-xs sm:text-base pr-1">
+                    <span className="font-semibold text-[11px] sm:text-base pr-1">
                         <span className="sm:hidden">남은 캐릭터</span>
                         <span className="hidden sm:inline">숙제 남은 캐릭터</span>
                     </span>
                     <AnimatedNumber
                         value={summary.remainingCharacters}
-                        className="text-gray-400 text-[11px] sm:text-sm font-semibold"
+                        className="text-gray-400 text-[10px] sm:text-sm font-semibold"
                     />
                 </div>
 
@@ -3332,14 +3419,14 @@ function PartyMemberSummaryBar({
                 <span className="hidden sm:inline h-4 w-px bg-white/10 " />
 
                 <div className="flex items-baseline gap-1 sm:gap-1.5">
-                    <span className="font-semibold text-xs sm:text-base pr-1">
+                    <span className="font-semibold text-[11px] sm:text-base pr-1">
                         골드
                     </span>
                     <div
                         className={[
                             "inline-flex items-baseline justify-end",
                             "min-w-[40px] sm:min-w-[50px]",
-                            "text-[11px] sm:text-sm font-semibold",
+                            "text-[10px] sm:text-sm font-semibold",
                             "tabular-nums",
                             memberAllCleared
                                 ? "line-through decoration-gray-300 decoration-1 text-gray-400"
@@ -3356,20 +3443,18 @@ function PartyMemberSummaryBar({
                         <span className="ml-0.5 text-[0.7em] sm:text-[0.75em]">g</span>
                     </div>
                 </div>
-
-                {/* 🔥 귀속 골드 영역 */}
                 <span className="inline sm:hidden h-3 w-px bg-white/10 " />
                 <span className="hidden sm:inline h-4 w-px bg-white/10 " />
 
                 <div className="flex items-baseline gap-1 sm:gap-1.5">
-                    <span className="font-semibold text-xs sm:text-base pr-1">
+                    <span className="font-semibold text-[11px] sm:text-base pr-1">
                         귀속 골드
                     </span>
                     <div
                         className={[
                             "inline-flex items-baseline justify-end",
                             "min-w-[40px] sm:min-w-[50px]",
-                            "text-[11px] sm:text-sm font-semibold",
+                            "text-[10px] sm:text-sm font-semibold",
                             "tabular-nums",
                             memberAllCleared
                                 ? "line-through decoration-gray-300 decoration-1 text-gray-400"

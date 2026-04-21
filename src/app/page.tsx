@@ -83,7 +83,7 @@ export default async function HomePage() {
             <div className="px-4 md:px-5 py-3 md:py-4 border-b border-white/5 flex items-center justify-between bg-[#16181D]">
               <span className="text-sm md:text-base font-bold text-gray-200 flex items-center gap-2">
                 <Megaphone size={16} className="text-gray-400 md:w-[18px] md:h-[18px]" />
-                공지사항
+                로스트아크 공지사항
               </span>
               <a href="https://lostark.game.onstove.com/News/Notice/List" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-xs font-medium text-gray-500 hover:text-blue-400 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-white/5">
                 전체보기 <ExternalLink size={12} />

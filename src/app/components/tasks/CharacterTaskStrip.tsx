@@ -1,3 +1,4 @@
+// components/tasks/CharacterTaskStrip.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,7 +18,7 @@ import {
     arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronLeft, ChevronRight, GripVertical, SquarePen, Plus, Check } from "lucide-react"; // 🔥 Plus 추가
+import { ChevronLeft, ChevronRight, GripVertical, SquarePen, Plus, Check, MessageSquareText } from "lucide-react"; // 🔥 MessageSquareText 추가
 
 export type RosterCharacter = {
     name: string;
@@ -27,7 +28,7 @@ export type RosterCharacter = {
     itemLevel?: string;
     itemLevelNum?: number;
     combatPower?: string;
-    jobEngraving?: string; // 🔥 추가
+    jobEngraving?: string;
 };
 
 export type TaskItem = { id: string; element: React.ReactNode };
@@ -40,6 +41,8 @@ export type Props = {
     onAllClear?: (c: RosterCharacter) => void;
     dragHandleProps?: Record<string, any>;
     isDragEnabled?: boolean;
+    onOpenMemo?: (c: RosterCharacter) => void;
+    hasMemo?: boolean;
 };
 
 function SortableCard({
@@ -79,6 +82,8 @@ export default function CharacterTaskStrip({
     onAllClear,
     dragHandleProps,
     isDragEnabled,
+    onOpenMemo, // 🔥 추가
+    hasMemo,    // 🔥 추가
 }: Props) {
     const carouselRef = useRef<TaskCarouselHandle>(null);
     const [cur, setCur] = useState(0);
@@ -126,17 +131,16 @@ export default function CharacterTaskStrip({
 
     return (
         <div className="bg-[#16181D] rounded-md px-5 py-4 space-y-2">
-            {/* 헤더 */}
             <div className="flex items-center">
                 <div
                     className="min-w-0"
                     {...(isDragEnabled ? dragHandleProps : {})}
                     style={isDragEnabled ? { touchAction: "none", cursor: "grab" } : {}}
                 >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                         <span
                             className={`
-                                block truncate max-w-[120px] sm:max-w-[220px]
+                                block truncate max-w-[100px] min-[400px]:max-w-[140px] sm:max-w-[220px]
                                 font-semibold text-base sm:text-xl
                                 ${isDragEnabled ? "hover:text-[#5B69FF] transition-colors" : ""}
                             `}
@@ -145,30 +149,10 @@ export default function CharacterTaskStrip({
                             {character.name}
                         </span>
 
-                        {/* 모바일 뷰: 레벨 / 전투력 */}
-                        <div className="flex sm:hidden items-center gap-1 text-gray-400 text-[11px] whitespace-nowrap">
+                        <div className="flex sm:hidden items-center text-gray-400 text-[11px] whitespace-nowrap">
                             <span>{levelText}</span>
-                            {character.combatPower && character.combatPower !== "0" && (
-                                <>
-                                    <span className="text-gray-600 text-[10px]">/</span>
-                                    <div className="flex items-center gap-[2px]">
-                                        {isSupporter ? (
-                                            <>
-                                                <Plus size={10} className="text-emerald-400 opacity-90 translate-y-[-1px]" strokeWidth={5} />
-                                                <span className="text-emerald-400 font-medium">{character.combatPower}</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span className="text-[9px] grayscale opacity-50 translate-y-[-0.5px]">⚔️</span>
-                                                <span className="text-[#E57373] font-medium">{character.combatPower}</span>
-                                            </>
-                                        )}
-                                    </div>
-                                </>
-                            )}
                         </div>
 
-                        {/* 데스크탑 뷰: 레벨 / 직업(각인) / 전투력 */}
                         <div className="hidden sm:flex items-center text-gray-400 text-sm font-medium whitespace-nowrap">
                             <span>{levelText}</span>
                             {character.className && (
@@ -198,7 +182,6 @@ export default function CharacterTaskStrip({
                         </div>
                     </div>
                 </div>
-
                 <div className="ml-auto mr-2 flex items-center gap-1.5 sm:gap-3">
                     <button
                         onClick={() => carouselRef.current?.prev()}
@@ -223,25 +206,37 @@ export default function CharacterTaskStrip({
                     </button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                    <button
+                        className="inline-flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:h-auto sm:py-2 sm:px-3 rounded-md bg-white/[.04] border border-white/10 text-xs text-white hover:bg-white/5 transition-colors"
+                        onClick={() => onOpenMemo?.(character)}
+                        title="메모 작성/보기"
+                    >
+                        <MessageSquareText
+                            className={`w-4 h-4 sm:w-4 sm:h-4 ${hasMemo ? "text-amber-400" : "text-white/70 sm:text-white/50"}`}
+                            strokeWidth={1.75}
+                        />
+                    </button>
+
                     {hasTasks && (
                         <button
-                            className="inline-flex items-center gap-1.5 py-[5px] px-[10px] sm:py-2 sm:px-3 rounded-md
-                         bg-white/[.04] border border-white/10  text-xs text-white hover:bg-white/5 transition-colors"
+                            className="inline-flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:h-auto sm:py-2 sm:px-3 rounded-md bg-white/[.04] border border-white/10 text-xs text-white hover:bg-white/5 transition-colors"
                             onClick={() => onAllClear?.(character)}
+                            title="일괄 완료"
                         >
+                            <Check className="w-4 h-4 sm:hidden text-white/70" strokeWidth={2.5} />
                             <span className="hidden sm:inline">일괄 완료</span>
                         </button>
                     )}
 
                     <button
-                        className="inline-flex items-center gap-1.5 py-[5px] px-[10px] sm:py-2 sm:px-3 rounded-md
-                         bg-white/[.04] border border-white/10  text-xs text-white hover:bg-white/5 transition-colors"
+                        className="inline-flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:h-auto sm:py-2 sm:px-3 rounded-md bg-white/[.04] border border-white/10 text-xs text-white hover:bg-white/5 transition-colors"
                         onClick={() => onEdit?.(character)}
+                        title="숙제 편집"
                     >
-                        숙제 편집
+                        <span className="hidden sm:inline">숙제 편집</span>
                         <SquarePen
-                            className="inline-block align-middle w-3 h-3 sm:w-4 sm:h-4  text-[#FFFFFF]/50"
+                            className="w-4 h-4 text-white/70 sm:w-4 sm:h-4 sm:text-white/50"
                             strokeWidth={1.75}
                         />
                     </button>
@@ -263,7 +258,6 @@ export default function CharacterTaskStrip({
                                         setVisibleCount(info.visibleCount);
                                     }
                                 }}
-
                             />
                             {itemsCount > 0 && (
                                 <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
@@ -280,7 +274,6 @@ export default function CharacterTaskStrip({
                                     })}
                                 </div>
                             )}
-
                         </div>
                     </SortableContext>
                 </DndContext>
@@ -294,7 +287,6 @@ export default function CharacterTaskStrip({
                         <span>에서 캐릭터의 레이드 숙제를 설정하고 관리해 보세요.</span>
                     </div>
                 </div>
-
             )}
         </div>
     );

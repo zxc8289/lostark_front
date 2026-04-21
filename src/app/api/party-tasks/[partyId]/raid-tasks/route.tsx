@@ -73,6 +73,8 @@ type PartyMemberTasks = {
 
 type PartyRaidTasksResponse = {
     members: PartyMemberTasks[];
+    plannerData?: any[];
+    tempPlannerData?: any[];
 };
 
 type RouteParams = Promise<{ partyId: string }>;
@@ -111,6 +113,8 @@ export async function GET(
             memo: string | null;
             owner_id: string;
             created_at: string;
+            planner_data?: any[];
+            temp_planner_data?: any[];
         }>(
             { id: partyIdNum },
             {
@@ -121,6 +125,8 @@ export async function GET(
                     memo: 1,
                     owner_id: 1,
                     created_at: 1,
+                    planner_data: 1,
+                    temp_planner_data: 1,
                 },
             }
         )) || undefined;
@@ -321,7 +327,11 @@ export async function GET(
     }
 
     return NextResponse.json(
-        { members } satisfies PartyRaidTasksResponse,
+        {
+            members,
+            plannerData: partyRow.planner_data || [],
+            tempPlannerData: partyRow.temp_planner_data || []
+        } satisfies PartyRaidTasksResponse,
         { status: 200 }
     );
 }

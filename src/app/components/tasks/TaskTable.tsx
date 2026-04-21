@@ -15,6 +15,7 @@ import {
     ChevronUp,
     Plus,
     ArrowLeftRight,
+    MessageSquareText,
 } from "lucide-react";
 import { getRaidColumnSortKeyForRoster } from "@/app/lib/tasks/raid-utils";
 import {
@@ -39,12 +40,9 @@ import { CSS } from "@dnd-kit/utilities";
 type Props = {
     roster: RosterCharacter[];
     prefsByChar: Record<string, CharacterTaskPrefs>;
-
-    // ✅ 레이드(컬럼) 순서
+    onOpenMemo: (charName: string, currentMemo: string) => void;
     tableOrder?: string[];
     onReorderTable?: (newOrder: string[]) => void;
-
-    // ✅ 캐릭터(행) 순서 (옵션: 부모에서 저장/복원하려면 사용)
     rosterOrder?: string[];
     onReorderRoster?: (newOrder: string[]) => void;
 
@@ -182,7 +180,8 @@ function SortableCharacterRow({
     maxVisible,
     onEdit,
     onToggleGate,
-    isDragEnabled, // 🔥 추가
+    isDragEnabled,
+    onOpenMemo
 }: {
     char: RosterCharacter;
     prefs: CharacterTaskPrefs | undefined;
@@ -190,7 +189,8 @@ function SortableCharacterRow({
     maxVisible: number;
     onEdit: (character: RosterCharacter) => void;
     onToggleGate: Props["onToggleGate"];
-    isDragEnabled: boolean; // 🔥 추가
+    isDragEnabled: boolean;
+    onOpenMemo: (charName: string, currentMemo: string) => void;
 }) {
     const rowId = `${CHAR_ID_PREFIX}${char.name}`;
     const sortable = useSortable({ id: rowId });
@@ -247,23 +247,46 @@ function SortableCharacterRow({
                         </span>
                     </div>
 
-                    {/* 우측 영역 (좌측 정렬): 직업+버튼, 전투력 */}
                     <div className="flex flex-col items-start justify-center gap-[8px] w-1/2 overflow-hidden">
                         <div className="flex items-center gap-1 leading-none w-full">
-                            <span className="text-[#8A95A5] font-normal text-[9px] sm:text-[13px] whitespace-nowrap overflow-hidden max-w-[45px] sm:max-w-[65px]">
+                            <span className="hidden sm:block text-[#8A95A5] font-normal text-[13px] whitespace-nowrap overflow-hidden max-w-[65px]">
                                 {char.className}
                             </span>
-                            <button
-                                onPointerDown={(e) => e.stopPropagation()}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onEdit(char);
-                                }}
-                                className="text-[#64748B] hover:text-white transition-colors p-[0.2px] rounded hover:bg-white/10 pointer-events-auto cursor-pointer flex-shrink-0"
-                                title="캐릭터 설정"
-                            >
-                                <SquarePen size={11} className="sm:w-[13px] sm:h-[13px] w-[9px] h-[9px]" strokeWidth={2} />
-                            </button>
+
+                            {/* 🔥 버튼들을 묶는 래퍼 추가 */}
+                            <div className="flex items-center gap-0.5 flex-shrink-0">
+                                {/* 기존 캐릭터 설정 버튼 */}
+                                <button
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEdit(char);
+                                    }}
+                                    className="text-[#64748B] hover:text-white transition-colors p-[2px] rounded hover:bg-white/10 pointer-events-auto cursor-pointer"
+                                    title="캐릭터 설정"
+                                >
+                                    <SquarePen size={12} className="sm:w-[13px] sm:h-[13px] w-[11px] h-[11px]" strokeWidth={2} />
+                                </button>
+
+                                <button
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onOpenMemo(char.name, prefs?.memo || "");
+                                    }}
+                                    className="p-[2px] rounded transition-colors pointer-events-auto cursor-pointer hover:bg-white/10 flex-shrink-0"
+                                    title="메모 작성/보기"
+                                >
+                                    <MessageSquareText
+                                        size={12}
+                                        className={`sm:w-[13px] sm:h-[13px] w-[11px] h-[11px] ${prefs?.memo
+                                            ? "text-amber-400 hover:text-amber-300"
+                                            : "text-[#64748B] hover:text-white"
+                                            }`}
+                                        strokeWidth={2}
+                                    />
+                                </button>
+                            </div>
                         </div>
 
                         {/* 전투력 */}
@@ -445,6 +468,7 @@ export default function TaskTable({
     onToggleGate,
     onEdit,
     isDragEnabled = false,
+    onOpenMemo
 }: Props) {
     const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -836,26 +860,32 @@ export default function TaskTable({
                 {/* 헤더 */}
                 <div className="flex items-center px-5 py-[17px]">
                     <div className="min-w-0 py-[2px]">
-                        <div className="flex items-center gap-2">
-                            <span
-                                className="block truncate max-w-[100px] sm:max-w-[300px] font-semibold text-sm sm:text-xl"
-                                title={first.name}
-                            >
-                                {first.name}
-                            </span>
-                            <span className="text-gray-400 text-[11px] sm:text-sm ">
-                                {first.itemLevel ? `Lv. ${first.itemLevel}` : "Lv. -"}{" "}
-                                {first.className ? `/ ${first.className}` : ""}
-                            </span>
+                        <div className="min-w-0 py-[2px]">
+                            <div className="flex items-center gap-2">
+                                <span
+                                    className="block truncate max-w-[100px] sm:max-w-[300px] font-semibold text-sm sm:text-xl"
+                                    title={first.name}
+                                >
+                                    {first.name}
+                                </span>
+                                <span className="text-gray-400 text-[11px] sm:text-sm">
+                                    {first.itemLevel ? `Lv. ${first.itemLevel}` : "Lv. -"}
+                                    {/* 🔥 직업 부분만 따로 빼서 모바일에서 숨김 처리 (hidden sm:inline) */}
+                                    {first.className && (
+                                        <span className="hidden sm:inline">
+                                            {" "}/ {first.className}
+                                        </span>
+                                    )}
+                                </span>
+                            </div>
+
 
                         </div>
 
-                        {/* 1. 정렬 버튼은 항상 렌더링 */}
 
                     </div>
                     <div className="ml-auto flex items-center gap-3 sm:gap-4 text-[10px] sm:text-[11px] text-gray-400">
 
-                        {/* 1. 정렬 그룹 */}
                         <div className="flex items-center">
                             <button
                                 onClick={handleSortRaids} // <--- 여기 변경!
@@ -869,7 +899,6 @@ export default function TaskTable({
                             </button>
                         </div>
 
-                        {/* 2. 스크롤/페이징 그룹 */}
                         {displayColumns.length > maxVisible && (
                             <div className="flex items-center gap-2 relative pl-3 sm:pl-4 before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[1px] before:h-5 sm:before:h-6 before:bg-white/10">
                                 <span className="pr-1.5 font-medium tracking-wider tabular-nums">
@@ -968,6 +997,7 @@ export default function TaskTable({
                                                 onEdit={onEdit}
                                                 onToggleGate={onToggleGate}
                                                 isDragEnabled={isDragEnabled}
+                                                onOpenMemo={onOpenMemo}
                                             />
                                         );
                                     })}
@@ -977,7 +1007,6 @@ export default function TaskTable({
                     </div>
 
                     <DragOverlay>
-                        {/* ✅ 레이드(컬럼) 오버레이 */}
                         {activeIsRaid ? (
                             <div
                                 className={`
@@ -997,7 +1026,6 @@ export default function TaskTable({
                             </div>
                         ) : null}
 
-                        {/* ✅ 캐릭터(행) 오버레이 */}
                         {activeIsChar && activeChar ? (
                             <div className="px-3 py-2 bg-[#1E222B] text-gray-200 border-[2px] border-solid border-[#5B69FF] shadow-2xl rounded-md cursor-grabbing">
                                 <div className="flex items-center gap-2">

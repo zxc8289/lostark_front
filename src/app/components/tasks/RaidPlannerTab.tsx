@@ -861,16 +861,21 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                 return false;
             }
 
+            // ❌ 기존에는 여기서 완료된 캐릭터를 숨겼지만, 이제는 통과시킵니다.
+            return true;
+        }).map(char => {
+            // ✅ 대신 여기서 개별 캐릭터의 완료 여부를 판단해 속성으로 넘겨줍니다.
+            const memberInfo = partyTasks.find(m => m.userId === char.ownerId);
+            const charPref = memberInfo?.prefsByChar?.[char.name]?.raids?.[activeGroup.raidName];
             const diffInfo = raidInformation[activeGroup.raidName]?.difficulty[activeGroup.difficulty as DifficultyKey];
             const allGates = diffInfo?.gates.map((g: any) => g.index) || [];
-            const currentGates = charPref.gates || [];
+            const currentGates = charPref?.gates || [];
+
             const isFullyCompleted = allGates.length > 0 && allGates.every((g: number) => currentGates.includes(g));
 
-            if (isFullyCompleted) return false;
-
-            return true;
+            return { ...char, isCompleted: isFullyCompleted };
         });
-    }, [baseCharacters, syncedGroups, otherGroups, activeGroup, partyTasks]); // 💡 의존성 배열에 partyTasks 추가
+    }, [baseCharacters, syncedGroups, otherGroups, activeGroup, partyTasks]);
 
     const handleGroupDragEnd = async (e: DragEndEvent) => {
         const { active, over } = e;
@@ -1337,9 +1342,9 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                     let bestScore = -Infinity;
                     for (const candidate of candidates) {
                         const candidateCP = parseCP(candidate.combatPower);
-                        let score = 0; // 👈 여기서 score가 만들어집니다.
+                        let score = 0;
 
-                        const cClassName = candidate.className || ""; // 👈 여기서 cClassName이 만들어집니다.
+                        const cClassName = candidate.className || "";
                         const cEngraving = candidate.jobEngraving || "";
 
                         const isSupp = isSupporterChar(cClassName, cEngraving);
@@ -3134,7 +3139,7 @@ function DraggableCharacter({ char }: { char: any }) {
 
     if (isDragging) {
         return (
-            <div className="p-2.5 bg-[#1E2028]/50 border border-white/5 rounded-lg flex items-center gap-2 opacity-30 h-14 sm:h-16">
+            <div className={`p-2.5 bg-[#1E2028]/50 border border-white/5 rounded-lg flex items-center gap-2 opacity-30 h-14 sm:h-16 ${char.isCompleted ? 'grayscale' : ''}`}>
                 <div className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 bg-black/30 rounded-md border border-white/5 flex items-center justify-center">
                     <img src={iconUrl} alt={char.className} className="w-4 h-4 sm:w-5 sm:h-5 object-contain filter brightness-0 invert" onError={(e) => (e.currentTarget.style.display = 'none')} />
                 </div>
@@ -3151,7 +3156,13 @@ function DraggableCharacter({ char }: { char: any }) {
             ref={setNodeRef}
             {...listeners}
             {...attributes}
-            className="p-2 sm:p-2.5 h-14 sm:h-16 bg-[#1E2028] border border-white/5 rounded-lg flex items-center justify-between hover:border-[#5B69FF] hover:bg-[#5B69FF]/5 cursor-grab active:cursor-grabbing transition-colors group touch-none"
+            // 🔥 isCompleted 값에 따라 흑백 처리 및 반투명 스타일이 적용됩니다.
+            className={`p-2 sm:p-2.5 h-14 sm:h-16 border rounded-lg flex items-center justify-between cursor-grab active:cursor-grabbing transition-all group touch-none
+                ${char.isCompleted
+                    ? "bg-[#1E2028]/40 border-transparent opacity-50 grayscale hover:opacity-80"
+                    : "bg-[#1E2028] border-white/5 hover:border-[#5B69FF] hover:bg-[#5B69FF]/5"
+                }
+            `}
         >
             <div className="min-w-0 flex-1 flex items-center gap-2 pr-1">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 bg-black/20 rounded border border-white/5 flex items-center justify-center overflow-hidden">
@@ -3167,7 +3178,7 @@ function DraggableCharacter({ char }: { char: any }) {
 
                 <div className="flex flex-col justify-center min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 min-w-0">
-                        <div className="text-[11px] sm:text-[13px] font-bold text-white truncate group-hover:text-[#5B69FF] transition-colors">
+                        <div className={`text-[11px] sm:text-[13px] font-bold truncate transition-colors ${char.isCompleted ? 'text-gray-400' : 'text-white group-hover:text-[#5B69FF]'}`}>
                             {char.name}
                         </div>
                         {char.isGuest && (
@@ -3177,10 +3188,10 @@ function DraggableCharacter({ char }: { char: any }) {
                         )}
                     </div>
                     <div className="text-[9px] sm:text-[11px] text-gray-400 truncate flex gap-1 items-center">
-                        <span className="text-yellow-400 ">Lv.{(char.itemLevelNum || 0).toFixed(2)}</span>
+                        <span className={char.isCompleted ? 'text-gray-500' : 'text-yellow-400/80'}>Lv.{(char.itemLevelNum || 0).toFixed(2)}</span>
                     </div>
                     {char.combatPower && (
-                        <div className={`flex items-center gap-0.5  text-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-400" : "text-red-400"}`}>
+                        <div className={`flex items-center gap-0.5 text-[9px] sm:text-[10px] ${char.isCompleted ? 'text-gray-500' : (isSupporter ? "text-emerald-400" : "text-red-400")}`}>
                             <span className={!isSupporter ? "translate-y-[0.5px]" : ""}>
                                 {isSupporter ? "✚" : "⚔️"}
                             </span>

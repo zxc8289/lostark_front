@@ -535,7 +535,6 @@ function SupportPageContent() {
                 )}
             </div>
 
-            {/* 삭제 확인 모달 */}
             {deleteModalOpen && (
                 <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-[#1E2028] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200 text-center">
@@ -553,7 +552,6 @@ function SupportPageContent() {
     );
 }
 
-// ✨ 컴포넌트 하단에 Suspense 래퍼 추가 (빌드 시 뼈대 역할)
 export default function SupportPage() {
     return (
         <Suspense fallback={

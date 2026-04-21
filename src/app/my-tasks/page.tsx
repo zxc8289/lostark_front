@@ -34,9 +34,9 @@ import { useGlobalWebSocket } from "../components/WebSocketProvider";
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import MemoModal from "../components/tasks/MemoModal";
 
-// ⭐ 1. 상단 Wrapper 함수 수정
-function SortableCardStripWrapper({ id, character, tasks, onEdit, onReorderTask, isDragEnabled, onAllClear }: any) {
+function SortableCardStripWrapper({ id, character, tasks, onEdit, onReorderTask, isDragEnabled, onAllClear, hasMemo, onOpenMemo }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   const style = {
@@ -57,6 +57,8 @@ function SortableCardStripWrapper({ id, character, tasks, onEdit, onReorderTask,
         onReorder={onReorderTask}
         isDragEnabled={isDragEnabled}
         dragHandleProps={{ ...attributes, ...listeners }}
+        hasMemo={hasMemo}
+        onOpenMemo={onOpenMemo}
       />
     </div>
   );
@@ -300,6 +302,18 @@ export default function MyTasksPage() {
   const [searchInput, setSearchInput] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const [memoTarget, setMemoTarget] = useState<{
+    charName: string;
+    currentMemo: string;
+  } | null>(null);
+
+  const handleSaveMemo = (charName: string, newMemo: string) => {
+    setCharPrefs(charName, (cur) => ({
+      ...cur,
+      memo: newMemo,
+    }));
+  };
 
   const [loading, setLoading] = useState(false);
   const [booting, setBooting] = useState(true);
@@ -1453,50 +1467,83 @@ export default function MyTasksPage() {
           <div className="flex-1 min-w-0 w-full flex flex-col gap-4 sm:gap-4.5">
             <div className="bg-[#16181D] rounded-none sm:rounded-sm border-x-0 px-4 sm:px-5 py-3 sm:py-4">
               <div className="flex flex-wrap gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between max-[1246px]:flex-col max-[1246px]:items-start max-[1246px]:justify-start">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 text-sm sm:text-base">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-[17px] pr-1">숙제 남은 캐릭터</span>
-                    <AnimatedNumber value={remainingCharacters} className="text-gray-400 text-xs sm:text-sm font-semibold" />
+                <div className="flex items-center gap-1.5 sm:gap-4 text-[10.5px] sm:text-base min-w-0">
+                  {/* 남은 숙제 */}
+                  <div className="flex items-baseline gap-1 sm:gap-1.5">
+                    <span className="font-semibold text-[10.5px] sm:text-[17px] pr-0.5 sm:pr-1">
+                      남은 숙제
+                    </span>
+                    <AnimatedNumber
+                      value={totalRemainingTasks}
+                      className="text-gray-400 text-[10.5px] sm:text-sm font-semibold"
+                    />
                   </div>
+
+                  <span className="inline sm:hidden h-3 w-px bg-white/10" />
                   <span className="hidden sm:inline h-4 w-px bg-white/10" />
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-[17px] pr-1">남은 숙제</span>
-                    <AnimatedNumber value={totalRemainingTasks} className="text-gray-400 text-xs sm:text-sm font-semibold" />
+
+                  {/* 남은 캐릭터 */}
+                  <div className="flex items-baseline gap-1 sm:gap-1.5">
+                    <span className="font-semibold text-[10.5px] sm:text-[17px] pr-0.5 sm:pr-1">
+                      <span className="sm:hidden">남은 캐릭</span>
+                      <span className="hidden sm:inline">숙제 남은 캐릭터</span>
+                    </span>
+                    <AnimatedNumber
+                      value={remainingCharacters}
+                      className="text-gray-400 text-[10.5px] sm:text-sm font-semibold"
+                    />
                   </div>
+
+                  <span className="inline sm:hidden h-3 w-px bg-white/10" />
                   <span className="hidden sm:inline h-4 w-px bg-white/10" />
-                  {/* 🔥 기존 "남은 골드" -> "골드"로 텍스트 수정 */}
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-[17px] pr-1">골드</span>
+
+                  {/* 골드 */}
+                  <div className="flex items-baseline gap-1 sm:gap-1.5">
+                    <span className="font-semibold text-[10.5px] sm:text-[17px] pr-0.5 sm:pr-1">
+                      골드
+                    </span>
                     <div
                       className={[
                         "inline-flex items-baseline justify-end",
-                        "min-w-[50px]",
-                        "text-xs sm:text-sm font-semibold",
+                        "min-w-[38px] sm:min-w-[50px]",
+                        "text-[10.5px] sm:text-sm font-semibold",
                         "tabular-nums",
-                        isAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400",
+                        isAllCleared
+                          ? "line-through decoration-gray-300 decoration-1 text-gray-400"
+                          : "text-gray-400",
                       ].join(" ")}
                     >
-                      <AnimatedNumber value={isAllCleared ? totalGold : totalRemainingGold} />
-                      <span className="ml-0.5 text-[0.75em]">g</span>
+                      <AnimatedNumber
+                        value={isAllCleared ? totalGold : totalRemainingGold}
+                      />
+                      <span className="ml-[1px] text-[8.5px] sm:text-[0.75em]">g</span>
                     </div>
                   </div>
 
-                  {/* 🔥 구분선 및 귀속 골드 영역 추가 */}
+                  {/* 귀속 골드 */}
+                  <span className="inline sm:hidden h-3 w-px bg-white/10" />
                   <span className="hidden sm:inline h-4 w-px bg-white/10" />
 
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-semibold text-sm sm:text-[17px] pr-1">귀속 골드</span>
+                  <div className="flex items-baseline gap-1 sm:gap-1.5">
+                    <span className="font-semibold text-[10.5px] sm:text-[17px] pr-0.5 sm:pr-1">
+                      <span className="sm:hidden">귀속</span>
+                      <span className="hidden sm:inline">귀속 골드</span>
+                    </span>
                     <div
                       className={[
                         "inline-flex items-baseline justify-end",
-                        "min-w-[50px]",
-                        "text-xs sm:text-sm font-semibold",
+                        "min-w-[38px] sm:min-w-[50px]",
+                        "text-[10.5px] sm:text-sm font-semibold",
                         "tabular-nums",
-                        isAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400",
+                        isAllCleared
+                          ? "line-through decoration-gray-300 decoration-1 text-gray-400"
+                          : "text-gray-400",
                       ].join(" ")}
                     >
-                      <AnimatedNumber value={isAllCleared ? totalBoundGold : totalRemainingBoundGold} />
-                      <span className="ml-0.5 text-[0.75em]">g</span>
+                      <AnimatedNumber
+                        value={isAllCleared ? totalBoundGold : totalRemainingBoundGold}
+                      />
+                      <span className="ml-[1px] text-[8.5px] sm:text-[0.75em]">g</span>
                     </div>
                   </div>
                 </div>
@@ -1735,6 +1782,7 @@ export default function MyTasksPage() {
                     roster={tableRoster}
                     prefsByChar={tablePrefsByChar}
                     tableOrder={tableOrderForView}
+                    onOpenMemo={(charName, memo) => setMemoTarget({ charName, currentMemo: memo })}
                     onReorderTable={(newOrder) => {
                       if (isTableFiltered) return;
                       setTableOrder(newOrder);
@@ -1834,21 +1882,26 @@ export default function MyTasksPage() {
                       <DndContext sensors={cardSensors} collisionDetection={closestCenter} onDragEnd={handleCardDragEnd}>
                         <SortableContext items={visibleCardStrips.map(s => s.character.name)} strategy={verticalListSortingStrategy}>
                           <div className="flex flex-col gap-4" key={`cards-${isAllView ? 'all' : currentActiveAccount?.id}`}>
-                            {visibleCardStrips.map(({ character, tasks }) => (
-                              <SortableCardStripWrapper
-                                key={character.name}
-                                id={character.name}
-                                character={character}
-                                tasks={tasks}
-                                isDragEnabled={isDragEnabled}
-                                onEdit={() => setEditingChar(character)}
-                                onAllClear={() => handleSingleCharacterAllClear(character.name)}
-                                onReorderTask={(char: any, newOrderIds: any) => {
-                                  if (isRaidFilterActive) return;
-                                  setCharPrefs(char.name, (cur) => ({ ...cur, order: newOrderIds }));
-                                }}
-                              />
-                            ))}
+                            {visibleCardStrips.map(({ character, tasks }) => {
+                              const charMemo = effectivePrefsByChar[character.name]?.memo || "";
+                              return (
+                                <SortableCardStripWrapper
+                                  key={character.name}
+                                  id={character.name}
+                                  character={character}
+                                  tasks={tasks}
+                                  isDragEnabled={isDragEnabled}
+                                  onEdit={() => setEditingChar(character)}
+                                  onAllClear={() => handleSingleCharacterAllClear(character.name)}
+                                  onReorderTask={(char: any, newOrderIds: any) => {
+                                    if (isRaidFilterActive) return;
+                                    setCharPrefs(char.name, (cur) => ({ ...cur, order: newOrderIds }));
+                                  }}
+                                  hasMemo={!!charMemo}
+                                  onOpenMemo={() => setMemoTarget({ charName: character.name, currentMemo: charMemo })}
+                                />
+                              );
+                            })}
                           </div>
                         </SortableContext>
                       </DndContext>
@@ -2025,6 +2078,19 @@ export default function MyTasksPage() {
               } catch { }
               return mergedVisible;
             });
+          }}
+        />
+      )}
+
+      {memoTarget && (
+        <MemoModal
+          isOpen={!!memoTarget}
+          onClose={() => setMemoTarget(null)}
+          charName={memoTarget.charName}
+          initialMemo={memoTarget.currentMemo}
+          onSave={(newMemo) => {
+            handleSaveMemo(memoTarget.charName, newMemo);
+            setMemoTarget(null);
           }}
         />
       )}

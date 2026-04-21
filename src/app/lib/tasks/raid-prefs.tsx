@@ -2,6 +2,7 @@
 import type { DifficultyKey } from "@/server/data/raids";
 
 export type CharacterTaskPrefs = {
+    memo?: string;
     raids: Record<
         string, // raidName
         {
@@ -10,6 +11,7 @@ export type CharacterTaskPrefs = {
             gates: number[];
             isBonus?: boolean;
             isGold?: boolean;
+
         }
     >;
     order?: string[];

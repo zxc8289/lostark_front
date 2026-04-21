@@ -81,9 +81,10 @@ function TaskCarouselBase(
                             className="
                                 shrink-0
                                 basis-full
-                                sm:basis-[calc((100%-1rem)/2)]
-                                md:basis-[calc((100%-2rem)/2)]
-                                lg:basis-[calc((100%-2rem)/3)]
+                                min-[640px]:basis-[calc((100%-1rem)/2)]
+                                min-[960px]:basis-[calc((100%-2rem)/3)]
+                                min-[1280px]:basis-[calc((100%-2rem)/3)]
+                                min-[1760px]:basis-[calc((100%-3rem)/4)]
                             "
                         >
                             {node}
