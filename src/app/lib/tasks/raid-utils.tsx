@@ -255,9 +255,10 @@ export function autoSelectTop3Raids(
     prev?: CharacterTaskPrefs,
     sortType: "latest" | "gold" = "latest" // ✨ 정렬 기준 추가
 ): CharacterTaskPrefs {
-    const raidEntries = Object.entries(raidInformation);
+    const raidEntries = Object.entries(raidInformation).filter(
+        ([raidName]) => raidName !== "1막-에기르 EX"
+    );
     const updatedRaids: CharacterTaskPrefs["raids"] = { ...(prev?.raids ?? {}) };
-
     const candidates: {
         raidName: string;
         difficulty: DifficultyKey;
@@ -390,8 +391,29 @@ export function buildAutoSetupForRoster(
     for (const c of targetCharacters) {
         const ilvlNum = c.itemLevelNum ?? 0;
         const prevPrefs = nextPrefsByChar[c.name] ?? { raids: {} };
-        // ✨ sortType을 인자로 넘겨줌
         nextPrefsByChar[c.name] = autoSelectTop3Raids(ilvlNum, prevPrefs, sortType);
+    }
+
+    for (const c of roster) {
+        const charName = c.name;
+        const oldPref = prevPrefsByChar[charName];
+        const newPref = nextPrefsByChar[charName];
+
+        if (oldPref && newPref) {
+            const exRaidOld = (oldPref.raids as any)?.["1막-에기르 EX"];
+
+            if (exRaidOld && exRaidOld.enabled) {
+                (newPref.raids as any)["1막-에기르 EX"] = exRaidOld;
+                if (!newPref.order?.includes("1막-에기르 EX")) {
+                    newPref.order = [...(newPref.order || []), "1막-에기르 EX"];
+                }
+            } else {
+                if ((newPref.raids as any)?.["1막-에기르 EX"]) {
+                    delete (newPref.raids as any)["1막-에기르 EX"];
+                    newPref.order = (newPref.order || []).filter((r: string) => r !== "1막-에기르 EX");
+                }
+            }
+        }
     }
 
     return {
@@ -400,7 +422,6 @@ export function buildAutoSetupForRoster(
         nextGoldByChar,
     };
 }
-
 
 /**
  * 기존 유저 데이터 호환(마이그레이션) 함수

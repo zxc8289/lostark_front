@@ -1082,6 +1082,9 @@ export default function MyTasksPage() {
 
     const roster = currentActiveAccount.summary.roster;
     const { nextPrefsByChar, nextVisibleByChar, nextGoldByChar } = buildAutoSetupForRoster(roster, effectivePrefsByChar, charCount, sortType);
+
+
+
     const RESET_TABLE_ORDER = ["__empty_0"];
 
     const nextVisibleMerged: Record<string, boolean> = usingDemo ? { ...demoVisibleByChar } : { ...visibleByChar };

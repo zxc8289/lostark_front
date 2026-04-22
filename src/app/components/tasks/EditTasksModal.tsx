@@ -98,9 +98,8 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
         [state.raids]
     );
 
-    // 2. 현재 골드가 체크된 레이드 개수 계산
     const goldCount = useMemo(
-        () => Object.values(state.raids ?? {}).filter((raid) => raid.isGold).length,
+        () => Object.entries(state.raids ?? {}).filter(([rName, raid]) => raid.isGold && rName !== "1막-에기르 EX").length,
         [state.raids]
     );
 
@@ -279,9 +278,8 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                                         <button
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
-                                                                                // 골드가 해제되어 있는데 이미 3개를 채웠다면 막기
-                                                                                if (!pref.isGold && goldCount >= 3) {
-                                                                                    alert("골드 획득은 캐릭터당 최대 3개까지만 지정할 수 있습니다.");
+                                                                                if (raidName !== "1막-에기르 EX" && !pref.isGold && goldCount >= 3) {
+                                                                                    alert("골드 획득은 캐릭터당 최대 3개까지만 지정할 수 있습니다. (익스트림 제외)");
                                                                                     return;
                                                                                 }
                                                                                 setState((s) => ({
@@ -298,7 +296,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                                                     ? "bg-[#EAB308]/10 text-[#FDE047] border-[#EAB308]/30"
                                                                                     : "bg-[#121418] text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300 hover:border-white/10"
                                                                                 }
-                                                                                ${!pref.isGold && goldCount >= 3 ? "opacity-50 cursor-not-allowed" : ""}
+                                                                                ${raidName !== "1막-에기르 EX" && !pref.isGold && goldCount >= 3 ? "opacity-50 cursor-not-allowed" : ""}
                                                                             `}
                                                                         >
                                                                             <div className={`w-1.5 h-1.5 rounded-full transition-colors ${pref.isGold
