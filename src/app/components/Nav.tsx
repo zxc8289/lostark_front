@@ -16,7 +16,6 @@ import {
     ChatBubbleLeftEllipsisIcon // ✨ 추가된 아이콘
 } from "@heroicons/react/24/solid";
 import { useState, useRef, useEffect } from "react";
-import { UPDATE_LOGS } from "@/data/updateLogs";
 import { readPrefs } from "../lib/tasks/raid-prefs";
 import { computeRaidSummaryForRoster } from "../lib/tasks/raid-utils";
 import { Loader2, TrashIcon } from "lucide-react";
@@ -30,6 +29,16 @@ type AlertItem = {
     date: string;
     link: string; // 클릭 시 이동할 경로
     isRead: boolean;
+};
+
+// DB 공지사항을 Nav 규격에 맞춘 타입
+type NavNoticeItem = {
+    id: string;
+    type: string; // "New" | "Fix" | "Update" | "공지"
+    title: string;
+    content: string;
+    date: string;
+    link: string;
 };
 
 type RaidTaskState = {
@@ -80,7 +89,10 @@ export default function Nav() {
 
     const [hasNewUpdates, setHasNewUpdates] = useState(false);
     const [activeTab, setActiveTab] = useState<"notice" | "alert">("notice");
-    const [alerts, setAlerts] = useState<AlertItem[]>([]); // ✨ taskAlerts를 alerts로 통합
+
+    // 알림 및 공지사항 상태
+    const [alerts, setAlerts] = useState<AlertItem[]>([]);
+    const [dbNotices, setDbNotices] = useState<NavNoticeItem[]>([]);
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -160,11 +172,43 @@ export default function Nav() {
         }
     };
 
+    // ✨ 공지사항 가져오기 로직 (DB 연동)
     useEffect(() => {
-        if (UPDATE_LOGS.length === 0) return;
-        const maxId = Math.max(...UPDATE_LOGS.map(log => log.id));
-        const lastSeenId = Number(localStorage.getItem("lastSeenUpdateId") || 0);
-        if (maxId > lastSeenId) setHasNewUpdates(true);
+        const fetchNotices = async () => {
+            try {
+                const res = await fetch("/api/notice", { cache: "no-store" });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.notices && data.notices.length > 0) {
+                        const formattedNotices: NavNoticeItem[] = data.notices.map((n: any) => {
+                            const d = new Date(n.createdAt);
+                            const dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+                            return {
+                                id: n.id,
+                                type: n.category,
+                                title: n.title,
+                                content: n.title, // 💡 Nav에서는 리스트에서 제목만 한 줄로 띄우길 원하셨으므로 content 대신 title을 사용
+                                date: dateStr,
+                                link: `/support?noticeId=${n.id}` // 클릭 시 상세로 이동
+                            };
+                        });
+                        setDbNotices(formattedNotices);
+
+                        // 새 공지사항 확인 로직 (첫 번째 아이템의 id를 로컬스토리지와 비교)
+                        const latestNoticeId = formattedNotices[0].id;
+                        const lastSeenId = localStorage.getItem("lastSeenNoticeId");
+
+                        if (!lastSeenId || lastSeenId !== latestNoticeId) {
+                            setHasNewUpdates(true);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("공지사항을 가져오는데 실패했습니다.", e);
+            }
+        };
+
+        fetchNotices();
     }, []);
 
     // ✨ 통합 알림 가져오기 로직
@@ -177,7 +221,7 @@ export default function Nav() {
         const fetchAllAlerts = async () => {
             const newAlerts: AlertItem[] = [];
 
-            // 1. 관리자 답변 알림 (항시 체크)
+            // 1. 관리자 답변 알림
             try {
                 const replyRes = await fetch("/api/support/alerts", { method: "GET", cache: "no-store" });
                 if (replyRes.ok) {
@@ -190,7 +234,7 @@ export default function Nav() {
                                 title: "관리자 답변",
                                 content: `작성하신 '${a.title}' 문의에 관리자 답변이 달렸습니다.`,
                                 date: "방금 전",
-                                link: `/support?postId=${a._id}`, // ✨ 여기를 변경! (?postId=... 추가)
+                                link: `/support?postId=${a._id}`,
                                 isRead: false
                             });
                         });
@@ -198,7 +242,7 @@ export default function Nav() {
                 }
             } catch (e) { console.error(e); }
 
-            // 2. 레이드 숙제 알림 (특정 요일/시간에만 체크)
+            // 2. 레이드 숙제 알림
             const now = new Date();
             const day = now.getDay();
             const hour = now.getHours();
@@ -252,16 +296,16 @@ export default function Nav() {
         };
 
         fetchAllAlerts();
-        const timerId = setInterval(fetchAllAlerts, 60000); // 1분마다 갱신
+        const timerId = setInterval(fetchAllAlerts, 60000);
         return () => clearInterval(timerId);
     }, [status, pathname, isNotiEnabled]);
 
     const handleBellClick = () => {
         if (!isNotiOpen) {
             setHasNewUpdates(false);
-            if (UPDATE_LOGS.length > 0) {
-                const maxId = Math.max(...UPDATE_LOGS.map(log => log.id));
-                localStorage.setItem("lastSeenUpdateId", String(maxId));
+            if (dbNotices.length > 0) {
+                // 최신 공지사항 id를 읽음 처리로 로컬스토리지에 저장
+                localStorage.setItem("lastSeenNoticeId", dbNotices[0].id);
             }
         }
         setIsNotiOpen(!isNotiOpen);
@@ -335,7 +379,6 @@ export default function Nav() {
         setOpenDropdownIdx(null);
     }, [pathname]);
 
-    const sortedLogs = [...UPDATE_LOGS].sort((a, b) => b.id - a.id);
     const hasAnyAlert = hasNewUpdates || alerts.length > 0;
 
     return (
@@ -395,7 +438,7 @@ export default function Nav() {
                             </button>
 
                             {isNotiOpen && (
-                                <div className="absolute mt-3 w-80 sm:w-96 bg-[#25272e] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right right-[-50px] sm:right-0">
+                                <div className="absolute mt-3 w-80 sm:w-96 bg-[#25272e] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right right-[-80px] sm:right-0">
                                     <div className="flex items-center bg-[#2c2f36] border-b border-white/5 relative">
                                         <button onClick={() => setActiveTab("notice")} className={`flex-1 py-3 text-sm font-bold text-center transition-all ${activeTab === "notice" ? "text-white border-b-2 border-[#5B69FF] bg-white/5" : "text-gray-400 hover:text-gray-200 hover:bg-white/5"}`}>
                                             공지사항 {hasNewUpdates && <span className="ml-1.5 w-1.5 h-1.5 inline-block bg-red-500 rounded-full align-middle mb-0.5"></span>}
@@ -407,19 +450,23 @@ export default function Nav() {
                                     </div>
                                     <div className="max-h-[400px] overflow-y-auto custom-scrollbar bg-[#25272e]">
                                         {activeTab === "notice" ? (
-                                            sortedLogs.length > 0 ? (
+                                            dbNotices.length > 0 ? (
                                                 <ul className="divide-y divide-white/5">
-                                                    {sortedLogs.slice(0, 5).map((log) => (
-                                                        <li key={log.id} className="px-4 py-4 hover:bg-white/5 transition-colors">
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${log.type === 'New' ? 'bg-emerald-500/20 text-emerald-400' : log.type === 'Fix' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}`}>{log.type}</span>
-                                                                <span className="text-xs text-gray-500">{log.date}</span>
-                                                            </div>
-                                                            <p className="text-sm text-gray-300 leading-snug">{log.content}</p>
+                                                    {dbNotices.slice(0, 5).map((log) => (
+                                                        <li key={log.id} className="group">
+                                                            {/* ✨ Link 태그를 적용하여 클릭 시 페이지 이동 */}
+                                                            <Link href={log.link} onClick={() => setIsNotiOpen(false)} className="block px-4 py-4 hover:bg-white/5 transition-colors">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${log.type === 'New' ? 'bg-emerald-500/20 text-emerald-400' : log.type === 'Fix' ? 'bg-red-500/20 text-red-400' : log.type === 'Update' ? 'bg-blue-500/20 text-blue-400' : 'bg-[#5B69FF]/20 text-[#5B69FF]'}`}>{log.type}</span>
+                                                                    <span className="text-xs text-gray-500">{log.date}</span>
+                                                                </div>
+                                                                {/* 제목이 말줄임표 처리되도록 line-clamp 적용 */}
+                                                                <p className="text-sm font-medium text-gray-300 leading-snug line-clamp-1 group-hover:text-white transition-colors">{log.title}</p>
+                                                            </Link>
                                                         </li>
                                                     ))}
                                                 </ul>
-                                            ) : (<div className="flex flex-col items-center justify-center h-[150px] text-gray-500"><ExclamationCircleIcon className="w-8 h-8 mb-2 opacity-50" /><span className="text-sm">업데이트 내역이 없습니다.</span></div>)
+                                            ) : (<div className="flex flex-col items-center justify-center h-[150px] text-gray-500"><ExclamationCircleIcon className="w-8 h-8 mb-2 opacity-50" /><span className="text-sm">공지사항이 없습니다.</span></div>)
                                         ) : (
                                             !isNotiEnabled ? (
                                                 <div className="flex flex-col items-center justify-center h-[150px] text-gray-500"><BellIcon className="w-8 h-8 mb-2 opacity-20" /><span className="text-sm font-medium text-gray-400">알림 설정이 꺼져있습니다.</span></div>
@@ -428,7 +475,6 @@ export default function Nav() {
                                                     {alerts.map((alert, idx) => (
                                                         <li key={idx} className="px-4 py-3 hover:bg-white/5 transition-colors group cursor-default">
                                                             <div className="flex items-start gap-3">
-                                                                {/* ✨ 알림 종류별 아이콘 색상 변경 */}
                                                                 <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${alert.type === 'raid' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-400'}`}>
                                                                     {alert.type === 'raid' ? <BellIcon className="w-4 h-4" /> : <ChatBubbleLeftEllipsisIcon className="w-4 h-4" />}
                                                                 </div>

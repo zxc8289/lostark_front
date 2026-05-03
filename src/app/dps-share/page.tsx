@@ -60,6 +60,17 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
             하드: [{ gate: 1, hp: 16222, range: [2400, 3200] }, { gate: 2, hp: 24431, range: [4275, 5700] }],
             나메: [],
         },
+        "1막-EX": {
+            "노말": [
+                { "gate": 1, "hp": 16400, "range": [2042, 2723] }
+            ],
+            "하드": [
+                { "gate": 1, "hp": 33500, "range": [4161, 5548] }
+            ],
+            "나메": [
+                { "gate": 1, "hp": 60200, "range": [7461, 9948] }
+            ]
+        }
     },
     "그림자": {
         "세르카": {
@@ -70,9 +81,18 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
     },
     "어비스 던전": {
         "지평의 성당": {
-            노말: [{ gate: 1, hp: 3112, range: [990, 1330] }, { gate: 2, hp: 3125, range: [938, 1250] }],
-            하드: [{ gate: 1, hp: 7434, range: [2370, 3160] }, { gate: 2, hp: 7653, range: [2296, 3061] }],
-            나메: [{ gate: 1, hp: 12025, range: [3800, 5120] }, { gate: 2, hp: 12610, range: [3783, 5044] }],
+            "노말": [
+                { "gate": 1, "hp": 3112, "range": [990, 1330] },
+                { "gate": 2, "hp": 3125, "range": [938, 1250] }
+            ],
+            "하드": [
+                { "gate": 1, "hp": 6765, "range": [2157, 2876] },
+                { "gate": 2, "hp": 6964, "range": [2089, 2785] }
+            ],
+            "나메": [
+                { "gate": 1, "hp": 11400, "range": [3602, 4854] },
+                { "gate": 2, "hp": 11900, "range": [3570, 4760] }
+            ]
         }
     }
 };
@@ -203,20 +223,25 @@ export default function DpsSharePage() {
 
                                     <div className="space-y-2">
                                         <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">난이도</label>
-                                        <div className={`grid ${category === "카제로스" ? "grid-cols-2" : "grid-cols-3"} gap-2 p-1 bg-[#121318] rounded-lg border border-white/5`}>
-                                            {(["노말", "하드", "나메"] as DiffKey[])
-                                                .filter(d => category !== "카제로스" || d !== "나메")
-                                                .map((d) => (
-                                                    <button
-                                                        key={d}
-                                                        onClick={() => setDiff(d)}
-                                                        className={`py-2 rounded-md text-sm font-bold transition-all border ${diff === d ? DIFF[d].check : `bg-[#1B222D] text-gray-400 border-transparent ${DIFF[d].hover}`
-                                                            }`}
-                                                    >
-                                                        {getDiffLabel(category, d)}
-                                                    </button>
-                                                ))}
-                                        </div>
+                                        {(() => {
+                                            const isNightmareAvailable = category !== "카제로스" || act === "1막-EX";
+                                            return (
+                                                <div className={`grid ${isNightmareAvailable ? "grid-cols-3" : "grid-cols-2"} gap-2 p-1 bg-[#121318] rounded-lg border border-white/5`}>
+                                                    {(["노말", "하드", "나메"] as DiffKey[])
+                                                        .filter(d => d !== "나메" || isNightmareAvailable)
+                                                        .map((d) => (
+                                                            <button
+                                                                key={d}
+                                                                onClick={() => setDiff(d)}
+                                                                className={`py-2 rounded-md text-sm font-bold transition-all border ${diff === d ? DIFF[d].check : `bg-[#1B222D] text-gray-400 border-transparent ${DIFF[d].hover}`
+                                                                    }`}
+                                                            >
+                                                                {getDiffLabel(category, d)}
+                                                            </button>
+                                                        ))}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     <div className="space-y-2">
@@ -261,7 +286,7 @@ export default function DpsSharePage() {
                                 <div className="flex items-center gap-6 text-right ml-auto sm:ml-0 self-end sm:self-auto">
                                     <div>
                                         <div className="text-xs text-gray-500">보스 총 체력</div>
-                                        <div className="text-gray-200 font-mono font-medium">
+                                        <div className="text-gray-200 font-medium">
                                             {totalHp.toLocaleString()} <span className="text-xs">억</span>
                                         </div>
                                     </div>
@@ -275,7 +300,6 @@ export default function DpsSharePage() {
                                         const key = `${category}-${act}-${diff}-${row.gate}`;
                                         const input = dmgInput[key] ?? "";
 
-                                        // ✅ 해당 관문의 잔혈 컷을 기반으로 '파티 실질 총 딜량' 역산 후 퍼센트 계산
                                         const effectiveHp = bleed / (bleedCut / 100);
                                         const sharePercent = effectiveHp > 0 ? ((Number(input) / effectiveHp) * 100).toFixed(1) : "0.0";
 
@@ -283,7 +307,7 @@ export default function DpsSharePage() {
                                             <div key={key} className="relative group flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border border-white/5 bg-[#16181D] p-5 transition-all hover:border-white/10 shadow-sm">
                                                 <div className="flex items-center justify-between">
                                                     <span className="font-semibold text-gray-200">{row.gate} 관문</span>
-                                                    <span className="text-xs font-mono text-gray-500">체력: {row.hp.toLocaleString()}억</span>
+                                                    <span className="text-xs text-gray-500">체력: {row.hp.toLocaleString()}억</span>
                                                 </div>
                                                 <div className="relative mt-2">
                                                     <label className="absolute -top-2 left-2 bg-[#16181D] px-1 text-[10px] text-indigo-400 font-medium z-10">나의 피해량</label>
@@ -293,7 +317,7 @@ export default function DpsSharePage() {
                                                             placeholder="0"
                                                             value={input}
                                                             onChange={(e) => setDmgInput(prev => ({ ...prev, [key]: e.target.value }))}
-                                                            className="w-full bg-transparent px-4 py-3 text-white outline-none font-mono text-xl font-medium"
+                                                            className="w-full bg-transparent px-4 py-3 text-white outline-none text-xl font-medium"
                                                         />
                                                         <span className="pr-4 text-sm text-gray-600 font-bold">억</span>
                                                     </div>
@@ -301,7 +325,7 @@ export default function DpsSharePage() {
                                                 <div className="mt-auto space-y-4">
                                                     <div className="flex items-end justify-between border-b border-white/5 pb-3">
                                                         <span className="text-[11px] text-gray-500 font-medium">현재 딜 지분</span>
-                                                        <span className={`text-2xl font-bold font-mono ${Number(sharePercent) >= bleedCut ? "text-[#FF8585]" : Number(sharePercent) >= strongCut ? "text-[#7C88FF]" : "text-white"}`}>
+                                                        <span className={`text-2xl font-bold ${Number(sharePercent) >= bleedCut ? "text-[#FF8585]" : Number(sharePercent) >= strongCut ? "text-[#7C88FF]" : "text-white"}`}>
                                                             {sharePercent}%
                                                         </span>
                                                     </div>

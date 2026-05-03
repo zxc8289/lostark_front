@@ -5,9 +5,24 @@ import HomePartySummaryProvider, { HomePartyGuard, HomePartyHeader, HomePartyDet
 import TodaySchedule from "./components/TodaySchedule";
 import ClientOnly from "./components/ClientOnly";
 
+// --- 유틸리티 함수 ---
+function fmtDate(iso?: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function categoryBadgeClass(category: string) {
+  if (category === "New") return "bg-emerald-500/20 border-emerald-500/30 text-emerald-400";
+  if (category === "Fix") return "bg-red-500/20 border-red-500/30 text-red-400";
+  if (category === "Update") return "bg-blue-500/20 border-blue-500/30 text-blue-400";
+  return "bg-[#5B69FF]/20 border-[#5B69FF]/30 text-[#5B69FF]"; // 공지
+}
+
 export default async function HomePage() {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
+  // 1. 로스트아크 공식 공지사항 가져오기
   let notices = [
     { title: "로스트아크 정기 점검 안내", category: "공지", date: "NEW", link: "#", isNew: true },
     { title: "2월 14일(수) 로스트아크 샵 상품 안내", category: "상점", date: "2024.02.10", link: "https://lostark.game.onstove.com/News/Notice/List", isNew: false },
@@ -24,7 +39,19 @@ export default async function HomePage() {
         notices = json.list;
       }
     }
-  } catch (e) { console.error("[HomePage] fetch error:", e); }
+  } catch (e) { console.error("[HomePage] lostark notice fetch error:", e); }
+
+  // 2. 로아체크 자체 공지사항 가져오기 (최대 5개)
+  let loacheckNotices: any[] = [];
+  try {
+    const res = await fetch(`${baseUrl}/api/notice`, { cache: "no-store" });
+    if (res.ok) {
+      const json = await res.json();
+      if (json?.notices && Array.isArray(json.notices)) {
+        loacheckNotices = json.notices.slice(0, 5);
+      }
+    }
+  } catch (e) { console.error("[HomePage] loacheck notice fetch error:", e); }
 
   const toggleBtnClass = "order-2 w-full list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center justify-center gap-2 py-2.5 md:py-3 rounded-xl bg-[#131519] border border-white/5 hover:bg-[#1A1D24] hover:border-white/10 hover:text-gray-200 transition-all text-xs font-bold text-gray-500 mt-3 md:mt-4";
 
@@ -78,8 +105,9 @@ export default async function HomePage() {
       {/* 중단 섹션: 공지사항과 주요 기능 카드 */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-6">
         <div className="lg:col-span-3 flex flex-col gap-4 lg:gap-6 h-full">
-          {/* 공지사항 */}
-          <div className="bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex flex-col shrink-0">
+
+          {/* 1. 로스트아크 공지사항 (고정 높이 지정) */}
+          <div className="bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex flex-col shrink-0 h-[280px] sm:h-[320px] lg:h-[280px]">
             <div className="px-4 md:px-5 py-3 md:py-4 border-b border-white/5 flex items-center justify-between bg-[#16181D]">
               <span className="text-sm md:text-base font-bold text-gray-200 flex items-center gap-2">
                 <Megaphone size={16} className="text-gray-400 md:w-[18px] md:h-[18px]" />
@@ -90,7 +118,7 @@ export default async function HomePage() {
               </a>
             </div>
 
-            <div className="max-h-[148px] overflow-y-auto custom-scrollbar">
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
               <ul className="divide-y divide-white/5">
                 {notices.map((notice, idx) => (
                   <li key={idx}>
@@ -103,7 +131,7 @@ export default async function HomePage() {
                           {notice.date}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-300 font-bold leading-snug line-clamp-2 group-hover:text-white transition-colors">
+                      <p className="text-sm text-gray-300 font-bold leading-snug line-clamp-1 sm:line-clamp-2 group-hover:text-white transition-colors">
                         {notice.title}
                       </p>
                     </a>
@@ -113,13 +141,47 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* 공지사항 하단 광고 자리 빈칸 */}
-          <div className="w-full flex-1 bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex items-center justify-center relative min-h-[180px] md:min-h-[300px]">
-            <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-xs z-0 select-none"></div>
-            <div className="relative z-10 w-full h-full">
-              {/* 나중에 이곳에 구글 애드센스 컴포넌트를 다시 넣으시면 됩니다 */}
+          {/* 2. 로아체크 소식 (고정 높이 지정) */}
+          <div className="bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex flex-col shrink-0 h-[280px] sm:h-[320px] lg:h-[210px]">
+            <div className="px-4 md:px-5 py-3 md:py-4 border-b border-white/5 flex items-center justify-between bg-[#16181D]">
+              <span className="text-sm md:text-base font-bold text-gray-200 flex items-center gap-2">
+                <Megaphone size={16} className="md:w-[18px] md:h-[18px]" />
+                로아체크 공지사항
+              </span>
+              <a href="/support" className="text-[11px] md:text-xs font-medium text-gray-500 hover:text-[#5B69FF] flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-[#5B69FF]/10">
+                전체보기 <ExternalLink size={12} />
+              </a>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <ul className="divide-y divide-white/5">
+                {loacheckNotices.length > 0 ? (
+                  loacheckNotices.map((notice, idx) => (
+                    <li key={idx}>
+                      <a href={`/support?noticeId=${notice.id}`} className="block px-4 md:px-5 py-3 md:py-3.5 hover:bg-white/5 transition-colors group">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium bg-white/5 text-gray-400 border-white/10 group-hover:border-white/20 group-hover:text-gray-300 transition-colors`}>
+                            {notice.category}
+                          </span>
+                          <span className="text-[11px] font-medium text-gray-600">
+                            {fmtDate(notice.createdAt)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-300 font-bold leading-snug line-clamp-1 sm:line-clamp-2 group-hover:text-white transition-colors">
+                          {notice.title}
+                        </p>
+                      </a>
+                    </li>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full min-h-[100px] text-gray-500 text-sm">
+                    등록된 소식이 없습니다.
+                  </div>
+                )}
+              </ul>
             </div>
           </div>
+
         </div>
 
         <div className="lg:col-span-7 flex flex-col gap-4 lg:gap-6 h-full">

@@ -4,21 +4,35 @@ import { ObjectId } from "mongodb";
 
 const SERVER_ADMIN_SECRET = process.env.SUPPORT_ADMIN_SECRET || "default_secret_key";
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const { id } = params;
+        const { id } = await params;
 
-        // 유효한 ObjectId 형식인지 검사
         if (!ObjectId.isValid(id)) {
             return NextResponse.json({ ok: false, error: "잘못된 ID 형식입니다." }, { status: 400 });
         }
-
         const db = await getDb();
+
         const notice = await db.collection("notices").findOne({ _id: new ObjectId(id) });
 
         if (!notice) {
             return NextResponse.json({ ok: false, error: "공지사항을 찾을 수 없습니다." }, { status: 404 });
         }
+
+        // 2. 해당 공지사항의 댓글(Replies) 가져오기 
+        // (postId 필드에 공지사항 id가 저장된다고 가정합니다)
+        const repliesDocs = await db.collection("replies").find({ postId: id }).sort({ createdAt: 1 }).toArray();
+
+        const replies = repliesDocs.map(r => ({
+            id: r._id.toString(),
+            postId: r.postId,
+            content: r.content,
+            parentId: r.parentId || null,
+            author: r.author,
+            authorImage: r.authorImage,
+            isStaff: r.isStaff || false,
+            createdAt: r.createdAt,
+        }));
 
         return NextResponse.json({
             ok: true,
@@ -30,6 +44,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
                 createdAt: notice.createdAt,
                 updatedAt: notice.updatedAt,
             },
+            replies, // 💡 프론트엔드로 댓글 데이터 함께 반환
         });
     } catch (error) {
         console.error("[Notice Detail GET] Error:", error);
@@ -37,14 +52,15 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const adminKey = req.headers.get("x-admin-secret");
         if (adminKey !== SERVER_ADMIN_SECRET) {
             return NextResponse.json({ ok: false, error: "권한이 없습니다." }, { status: 401 });
         }
 
-        const { id } = params;
+        const { id } = await params;
+
         if (!ObjectId.isValid(id)) {
             return NextResponse.json({ ok: false, error: "잘못된 ID 형식입니다." }, { status: 400 });
         }
@@ -75,14 +91,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const adminKey = req.headers.get("x-admin-secret");
         if (adminKey !== SERVER_ADMIN_SECRET) {
             return NextResponse.json({ ok: false, error: "권한이 없습니다." }, { status: 401 });
         }
 
-        const { id } = params;
+        const { id } = await params;
+
         if (!ObjectId.isValid(id)) {
             return NextResponse.json({ ok: false, error: "잘못된 ID 형식입니다." }, { status: 400 });
         }

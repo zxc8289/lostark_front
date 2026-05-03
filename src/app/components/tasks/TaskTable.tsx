@@ -202,10 +202,9 @@ function SortableCharacterRow({
         transform,
         transition,
         isDragging,
-        isOver, // 🔥 현재 내가 드래그 오버(덮어써진)된 상태인지 확인
+        isOver,
     } = sortable;
 
-    // 🔥 스왑(Swap) UI: 드래그 중인 아이템이 내 위에 올라오면 하이라이트 표시
     const overStyle = isOver && !isDragging ? "bg-white/10 ring-2 ring-inset ring-[#5B69FF]" : "";
 
     const style: CSSProperties = {
@@ -231,10 +230,8 @@ function SortableCharacterRow({
                 {...dragListeners}
                 className={`h-[56px] sm:h-[67px] px-1 sm:px-0 py-1.5 sm:py-2 align-middle sticky left-0 z-10 border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] bg-[#111217] group-hover:bg-[#16181D] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}
             >
-                {/* 가상의 중앙선을 기준으로 양쪽 배치 (간격 소폭 넓힘) */}
                 <div className="flex items-center justify-center w-full h-full pointer-events-none gap-1 sm:gap-1.5">
 
-                    {/* 좌측 영역 (우측 정렬): 닉네임, 레벨 */}
                     <div className="flex flex-col items-end justify-center gap-[8px] w-1/2 overflow-hidden">
                         <span
                             className="block truncate max-w-[55px] sm:max-w-[85px] text-white font-medium text-[10px] sm:text-[14px] leading-none"
@@ -252,10 +249,7 @@ function SortableCharacterRow({
                             <span className="hidden sm:block text-[#8A95A5] font-normal text-[13px] whitespace-nowrap overflow-hidden max-w-[65px]">
                                 {char.className}
                             </span>
-
-                            {/* 🔥 버튼들을 묶는 래퍼 추가 */}
                             <div className="flex items-center gap-0.5 flex-shrink-0">
-                                {/* 기존 캐릭터 설정 버튼 */}
                                 <button
                                     onPointerDown={(e) => e.stopPropagation()}
                                     onClick={(e) => {
@@ -289,17 +283,14 @@ function SortableCharacterRow({
                             </div>
                         </div>
 
-                        {/* 전투력 */}
                         {(char as any).combatPower && (char as any).combatPower !== "0" ? (
                             (() => {
-                                // 🔥 서포터 각인 배열
                                 const supporterEngravings = ["절실한 구원", "축복의 오라", "만개", "해방자"];
                                 const isSupporter = supporterEngravings.includes((char as any).jobEngraving ?? "");
 
                                 return (
                                     <div className="flex items-center gap-0.5 leading-none flex-shrink-0">
                                         {isSupporter ? (
-                                            // 서포터일 경우: + 아이콘, 연두색 텍스트
                                             <>
                                                 <Plus
                                                     size={12}
@@ -309,10 +300,9 @@ function SortableCharacterRow({
                                                 <span className="text-emerald-400 font-medium text-[9px] sm:text-[12px] whitespace-nowrap">{(char as any).combatPower}</span>
                                             </>
                                         ) : (
-                                            // 딜러일 경우: ⚔️ 아이콘, 붉은색 텍스트
                                             <>
-                                                <span className="text-[9px] sm:text-[11px] grayscale opacity-50 translate-y-[1px]">⚔️</span>
-                                                <span className="text-[#E57373] font-medium text-[9px] sm:text-[12px] whitespace-nowrap">{(char as any).combatPower}</span>
+                                                <span className="text-[9px] sm:text-[11px] grayscale opacity-50 translate-y-[-1px]">⚔️</span>
+                                                <span className="text-[#E57373] font-medium text-[9px] sm:text-[12px] whitespace-nowrap translate-y-[-1.5px]">{(char as any).combatPower}</span>
                                             </>
                                         )}
                                     </div>
@@ -774,7 +764,6 @@ export default function TaskTable({
             activeKey.startsWith(CHAR_ID_PREFIX) &&
             overKey.startsWith(CHAR_ID_PREFIX);
 
-        // ✅ 캐릭터(행) 정렬
         if (isCharDrag) {
             const activeName = activeKey.slice(CHAR_ID_PREFIX.length);
             const overName = overKey.slice(CHAR_ID_PREFIX.length);
@@ -980,7 +969,6 @@ export default function TaskTable({
                             </thead>
 
                             <tbody className="divide-y divide-white/5">
-                                {/* ✅ 캐릭터(행)도 SortableContext로 감싸기 */}
                                 <SortableContext
                                     items={rowIds}
                                     strategy={verticalListSortingStrategy}

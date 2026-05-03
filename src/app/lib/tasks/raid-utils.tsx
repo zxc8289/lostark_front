@@ -357,7 +357,7 @@ export function buildAutoSetupForRoster(
     roster: RosterCharacter[],
     prevPrefsByChar: Record<string, CharacterTaskPrefs>,
     charCount: number = 6,
-    sortType: "latest" | "gold" = "latest" // ✨ 파라미터 전달 받음
+    sortType: "latest" | "gold" = "latest" 
 ): AutoSetupResult {
     if (!roster.length) {
         return {

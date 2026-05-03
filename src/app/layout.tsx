@@ -2,14 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Nav from "./components/Nav";
 import AuthSessionProvider from "./components/AuthSessionProvider";
-// 🔥 [추가] WebSocketProvider 불러오기
 import WebSocketProvider from "./components/WebSocketProvider";
 import { pretendard } from "./fonts";
 import Footer from "./components/Footer";
 import Script from "next/script";
 import { GoogleTagManager } from '@next/third-parties/google';
 
-// 1. 메타데이터 설정
 export const metadata: Metadata = {
   title: {
     template: "%s | 로아체크",
