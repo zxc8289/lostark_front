@@ -16,11 +16,21 @@ import Select from "../components/arcgrid/ui/Select";
 import Input from "../components/arcgrid/ui/Input";
 
 // Icons
-import { LayoutGrid, Save, FolderOpen, Trash2, ArrowUpDown, Info } from "lucide-react";
-import GoogleAd from "../components/GoogleAd";
+import {
+  LayoutGrid,
+  Save,
+  FolderOpen,
+  Trash2,
+  Info,
+  HelpCircle,
+  Database,
+  SlidersHorizontal,
+  CheckCircle2,
+} from "lucide-react";
 
 type Constraints = Record<string, { minPts: number; maxPts: number }>;
 type Inventory = { order: Gem[]; chaos: Gem[] };
+
 type WorkerPayload =
   | {
     action: "points";
@@ -58,26 +68,38 @@ type WorkerRes =
 
 type SortMode = "default" | "newest" | "will_desc" | "pts_desc";
 
-// Hook: Responsive
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(false);
+
   useEffect(() => {
     const mql = window.matchMedia(query);
+
     const handler = (e: MediaQueryListEvent | MediaQueryList) =>
       setMatches("matches" in e ? e.matches : (e as MediaQueryList).matches);
+
     handler(mql);
-    mql.addEventListener ? mql.addEventListener("change", handler) : (mql as any).addListener(handler);
+
+    mql.addEventListener
+      ? mql.addEventListener("change", handler)
+      : (mql as any).addListener(handler);
+
     return () => {
-      mql.removeEventListener ? mql.removeEventListener("change", handler) : (mql as any).removeListener(handler);
+      mql.removeEventListener
+        ? mql.removeEventListener("change", handler)
+        : (mql as any).removeListener(handler);
     };
   }, [query]);
+
   return matches;
 }
 
 function safeUUID() {
   try {
     // @ts-ignore
-    return crypto?.randomUUID?.() ?? `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    return (
+      crypto?.randomUUID?.() ??
+      `${Date.now()}_${Math.random().toString(16).slice(2)}`
+    );
   } catch {
     return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
   }
@@ -85,7 +107,11 @@ function safeUUID() {
 
 function toConstraints(cores: CoreDef[]): Constraints {
   const out: Constraints = {};
-  for (const c of cores) out[c.key] = { minPts: c.minPts, maxPts: c.maxPts };
+
+  for (const c of cores) {
+    out[c.key] = { minPts: c.minPts, maxPts: c.maxPts };
+  }
+
   return out;
 }
 
@@ -93,10 +119,13 @@ export default function ArcGridPage() {
   const [state, setState] = useState(() => makeInitialState());
   const [loaded, setLoaded] = useState(false);
 
-  // 정렬 상태 추가 (기본값: 최신순 - 사용자의 요청 반영)
   const [sortMode, setSortMode] = useState<SortMode>("newest");
 
-  const [resultPack, setResultPack] = useState<{ plan: PlanPack; focusKey: string | null } | null>(null);
+  const [resultPack, setResultPack] = useState<{
+    plan: PlanPack;
+    focusKey: string | null;
+  } | null>(null);
+
   const [altPlans, setAltPlans] = useState<ScoredPlan[] | null>(null);
   const [showAltList, setShowAltList] = useState(true);
 
@@ -104,65 +133,82 @@ export default function ArcGridPage() {
 
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [prog, setProg] = useState<{ v: number | null; msg: string }>({ v: null, msg: "" });
-
-  const AD_SLOT_BOTTOM_BANNER = "7577482274";
+  const [prog, setProg] = useState<{ v: number | null; msg: string }>({
+    v: null,
+    msg: "",
+  });
 
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const [fileName, setFileName] = useState(() => {
     const now = new Date();
-    return `arcgrid_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(
-      2,
-      "0"
-    )}`;
+
+    return `arcgrid_${now.getFullYear()}-${String(
+      now.getMonth() + 1
+    ).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   });
 
-  // --- derived ---
-  const enabledCores = useMemo(() => state.cores.filter((c) => c.enabled) as CoreDef[], [state.cores]);
+  const enabledCores = useMemo(
+    () => state.cores.filter((c) => c.enabled) as CoreDef[],
+    [state.cores]
+  );
+
   const invCount = state.inventory.order.length + state.inventory.chaos.length;
   const selectedCoreCount = enabledCores.length;
 
   const gemById = useMemo(() => {
     const m = new Map<string, Gem>();
-    for (const g of state.inventory.order) m.set(g.id, g);
-    for (const g of state.inventory.chaos) m.set(g.id, g);
+
+    for (const g of state.inventory.order) {
+      m.set(g.id, g);
+    }
+
+    for (const g of state.inventory.chaos) {
+      m.set(g.id, g);
+    }
+
     return m;
   }, [state.inventory.order, state.inventory.chaos]);
 
-  // --- Sort Helper ---
   const getSortedList = (list: Gem[]) => {
     const temp = [...list];
+
     switch (sortMode) {
       case "newest":
         return temp.reverse();
       case "will_desc":
         return temp.sort((a, b) => (b.baseWill ?? 0) - (a.baseWill ?? 0));
       case "pts_desc":
-        return temp.sort((a, b) => ((b.options[1]?.lv ?? 0) - (a.options[1]?.lv ?? 0)));
+        return temp.sort(
+          (a, b) => (b.options[1]?.lv ?? 0) - (a.options[1]?.lv ?? 0)
+        );
       case "default":
       default:
         return temp;
     }
   };
 
-  // --- toast/progress helpers ---
   const showToast = (m: string) => {
     setToast(m);
     setTimeout(() => setToast(null), 1400);
   };
+
   const startProgress = (msg: string, v: number | null = null) => {
     setProg({ v, msg });
     setBusy(true);
   };
-  const updateProgress = (msg: string, v: number | null) => setProg({ v, msg });
+
+  const updateProgress = (msg: string, v: number | null) => {
+    setProg({ v, msg });
+  };
+
   const endProgress = () => {
     setProg({ v: 100, msg: "완료" });
     setTimeout(() => setBusy(false), 250);
   };
+
   const tick = () => new Promise((r) => setTimeout(r, 0));
 
-  // --- persistence ---
   useEffect(() => {
     const s = loadState();
     setState(s);
@@ -171,12 +217,14 @@ export default function ArcGridPage() {
 
   useEffect(() => {
     if (!loaded) return;
+
     const id = setTimeout(() => saveState(state), 100);
+
     return () => clearTimeout(id);
   }, [state, loaded]);
 
-  // --- Worker RPC ---
   const workerRef = useRef<Worker | null>(null);
+
   const pendingRef = useRef(
     new Map<
       string,
@@ -188,21 +236,33 @@ export default function ArcGridPage() {
   );
 
   useEffect(() => {
-    const w = new Worker(new URL("../lib/arcgrid/arcgrid.worker.tsx", import.meta.url), { type: "module" });
+    const w = new Worker(
+      new URL("../lib/arcgrid/arcgrid.worker.tsx", import.meta.url),
+      { type: "module" }
+    );
+
     workerRef.current = w;
 
     w.onmessage = (ev: MessageEvent<WorkerRes>) => {
       const msg = ev.data;
       const pending = pendingRef.current.get(msg.id);
+
       if (!pending) return;
+
       pendingRef.current.delete(msg.id);
 
-      if (msg.ok) pending.resolve(msg.result);
-      else pending.reject(new Error(msg.error || "worker error"));
+      if (msg.ok) {
+        pending.resolve(msg.result);
+      } else {
+        pending.reject(new Error(msg.error || "worker error"));
+      }
     };
 
     w.onerror = () => {
-      for (const [, p] of pendingRef.current) p.reject(new Error("worker crashed"));
+      for (const [, p] of pendingRef.current) {
+        p.reject(new Error("worker crashed"));
+      }
+
       pendingRef.current.clear();
     };
 
@@ -210,6 +270,7 @@ export default function ArcGridPage() {
       try {
         w.terminate();
       } catch { }
+
       workerRef.current = null;
       pendingRef.current.clear();
     };
@@ -217,35 +278,51 @@ export default function ArcGridPage() {
 
   function callWorker<T>(payload: WorkerPayload): Promise<T> {
     const w = workerRef.current;
-    if (!w) return Promise.reject(new Error("worker not ready"));
+
+    if (!w) {
+      return Promise.reject(new Error("worker not ready"));
+    }
 
     const id = safeUUID();
+
     return new Promise<T>((resolve, reject) => {
       pendingRef.current.set(id, { resolve, reject });
+
       const msg: WorkerReq = { id, ...payload };
+
       w.postMessage(msg);
     });
   }
 
-  // --- inventory update helpers ---
   const updateGem = (family: keyof Inventory, id: string, patch: Partial<Gem>) => {
     setState((st) => ({
       ...st,
       inventory: {
         ...st.inventory,
-        [family]: st.inventory[family].map((g) => (g.id === id ? { ...g, ...patch } : g)),
+        [family]: st.inventory[family].map((g) =>
+          g.id === id ? { ...g, ...patch } : g
+        ),
       },
     }));
   };
 
-  const updateGemOption = (family: keyof Inventory, id: string, idx: number, patch: Partial<Gem["options"][number]>) => {
+  const updateGemOption = (
+    family: keyof Inventory,
+    id: string,
+    idx: number,
+    patch: Partial<Gem["options"][number]>
+  ) => {
     setState((st) => ({
       ...st,
       inventory: {
         ...st.inventory,
         [family]: st.inventory[family].map((g) => {
           if (g.id !== id) return g;
-          const options = g.options.map((o, i) => (i === idx ? { ...o, ...patch } : o));
+
+          const options = g.options.map((o, i) =>
+            i === idx ? { ...o, ...patch } : o
+          );
+
           return { ...g, options };
         }),
       },
@@ -255,16 +332,24 @@ export default function ArcGridPage() {
   const removeGem = (family: keyof Inventory, id: string) => {
     setState((st) => ({
       ...st,
-      inventory: { ...st.inventory, [family]: st.inventory[family].filter((g) => g.id !== id) },
+      inventory: {
+        ...st.inventory,
+        [family]: st.inventory[family].filter((g) => g.id !== id),
+      },
     }));
   };
 
   const addDrafts = (drafts: QuickDraft[]) => {
     if (!drafts.length) return;
+
     setState((st) => {
       const next: typeof st = {
         ...st,
-        inventory: { ...st.inventory, order: [...st.inventory.order], chaos: [...st.inventory.chaos] },
+        inventory: {
+          ...st.inventory,
+          order: [...st.inventory.order],
+          chaos: [...st.inventory.chaos],
+        },
       };
 
       for (const d of drafts) {
@@ -279,19 +364,22 @@ export default function ArcGridPage() {
             ...d.opts.slice(0, 2).map((o) => ({ name: o.name, lv: o.lv })),
           ],
         };
+
         (next.inventory as any)[g.family].push(g);
       }
+
       return next;
     });
+
     showToast(`젬 ${drafts.length}개 추가 완료`);
   };
 
-  // --- actions ---
   async function runPoints() {
     if (!selectedCoreCount) return showToast("선택된 코어가 없어요");
     if (invCount === 0) return showToast("인벤토리에 젬을 추가해 주세요");
 
     const constraints = toConstraints(state.cores as CoreDef[]);
+
     startProgress("최대 포인트 플랜 계산 중...", 15);
     await tick();
 
@@ -328,7 +416,10 @@ export default function ArcGridPage() {
     await tick();
 
     try {
-      const { bestPts, list } = await callWorker<{ bestPts: number; list: ScoredPlan[] }>({
+      const { bestPts, list } = await callWorker<{
+        bestPts: number;
+        list: ScoredPlan[];
+      }>({
         action: "statsAtBest",
         cores: enabledCores,
         params: state.params,
@@ -343,8 +434,12 @@ export default function ArcGridPage() {
       await tick();
 
       setAltPlans(list);
-      if (!list.length) showToast("조건을 만족하는 조합이 없어요");
-      else showToast(`최대 포인트(${bestPts}) 내 스탯 상위 ${list.length}개`);
+
+      if (!list.length) {
+        showToast("조건을 만족하는 조합이 없어요");
+      } else {
+        showToast(`최대 포인트(${bestPts}) 내 스탯 상위 ${list.length}개`);
+      }
     } catch (e: any) {
       showToast(e?.message ?? "계산 실패");
     } finally {
@@ -359,7 +454,10 @@ export default function ArcGridPage() {
     const constraints = toConstraints(state.cores as CoreDef[]);
     const role = (state.params.role ?? "dealer") as Role;
 
-    startProgress(`${role === "supporter" ? "서포터" : "딜러"} 스탯 우선 탐색 중...`, 10);
+    startProgress(
+      `${role === "supporter" ? "서포터" : "딜러"} 스탯 우선 탐색 중...`,
+      10
+    );
     await tick();
 
     try {
@@ -378,7 +476,10 @@ export default function ArcGridPage() {
         showToast("조건을 만족하는 조합이 없어요");
       } else {
         setAltPlans(list);
-        setResultPack({ plan: list[0].plan, focusKey: enabledCores[0]?.key ?? null });
+        setResultPack({
+          plan: list[0].plan,
+          focusKey: enabledCores[0]?.key ?? null,
+        });
         showToast("스탯 우선 조합을 계산했어요");
       }
     } catch (e: any) {
@@ -389,28 +490,43 @@ export default function ArcGridPage() {
   }
 
   function saveToFile() {
-    const exportData = { version: 1, params: state.params, cores: state.cores, inventory: state.inventory };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const exportData = {
+      version: 1,
+      params: state.params,
+      cores: state.cores,
+      inventory: state.inventory,
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
+
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `${fileName || "arcgrid_setup"}.json`;
     a.click();
+
     showToast("파일로 저장했어요");
   }
 
   function loadFromFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
+
     if (!f) return;
+
     const reader = new FileReader();
+
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result ?? "{}"));
+
         setState((st) => ({
           ...st,
           params: parsed.params ?? st.params,
           cores: parsed.cores ?? st.cores,
           inventory: parsed.inventory ?? st.inventory,
         }));
+
         setAltPlans(null);
         setResultPack(null);
         showToast("파일에서 불러왔어요");
@@ -418,6 +534,7 @@ export default function ArcGridPage() {
         showToast("불러오기에 실패했습니다");
       }
     };
+
     reader.readAsText(f);
     e.target.value = "";
   }
@@ -432,32 +549,69 @@ export default function ArcGridPage() {
   }
 
   const [expandedSet, setExpandedSet] = useState<Set<number>>(() => new Set());
+
   const toggleRow = (i: number) => {
     setExpandedSet((prev) => {
       const next = new Set(prev);
+
       next.has(i) ? next.delete(i) : next.add(i);
+
       return next;
     });
   };
 
-  const isMobile = useMediaQuery("(max-width: 640px)");
-
   return (
     <div className="space-y-8 py-8 sm:py-12 text-gray-300 w-full max-w-7xl mx-auto px-4 sm:px-0">
-      {/* 1) Header */}
       <div className="space-y-2">
         <div className="inline-flex items-center gap-2 text-xs font-medium text-[#5B69FF]">
           <LayoutGrid className="h-4 w-4" />
           <span>아크 그리드 최적화</span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">젬 세팅</h1>
-        <p className="text-sm text-gray-400 max-w-2xl leading-relaxed">
-          보유 중인 젬을 기반으로 의지력을 계산하여 최적의 코어 포인트를 찾아냅니다. 원하는 세팅을 저장하고 불러올 수
-          있습니다.
+
+        <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          젬 세팅 최적화
+        </h1>
+
+        <p className="text-sm text-gray-400 max-w-3xl leading-relaxed break-keep">
+          보유 중인 젬을 기반으로 의지력을 계산하여 최적의 코어 포인트를 찾아냅니다. 원하는 세팅을 저장하고 불러올 수 있습니다.
         </p>
       </div>
 
-      {/* 2) Save/Load */}
+      <section className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border border-white/5 bg-[#16181D] p-5">
+          <div className="flex items-center gap-2 mb-2 text-gray-200 font-bold">
+            <SlidersHorizontal className="h-4 w-4 text-[#5B69FF]" />
+            코어 조건 설정
+          </div>
+          <p className="text-sm text-gray-400 leading-relaxed break-keep">
+            사용할 코어를 선택하고 등급, 최소 포인트, 최대 포인트 조건을 정합니다.
+            조건이 명확할수록 원하는 방향에 가까운 조합을 찾기 쉽습니다.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/5 bg-[#16181D] p-5">
+          <div className="flex items-center gap-2 mb-2 text-gray-200 font-bold">
+            <Database className="h-4 w-4 text-emerald-400" />
+            보유 젬 입력
+          </div>
+          <p className="text-sm text-gray-400 leading-relaxed break-keep">
+            질서와 혼돈 젬의 의지력 효율, 코어 포인트, 추가 옵션을 입력합니다.
+            입력한 젬만 계산에 사용되므로 실제 보유 상태와 맞춰 넣는 것이 좋습니다.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/5 bg-[#16181D] p-5">
+          <div className="flex items-center gap-2 mb-2 text-gray-200 font-bold">
+            <CheckCircle2 className="h-4 w-4 text-indigo-400" />
+            결과 비교
+          </div>
+          <p className="text-sm text-gray-400 leading-relaxed break-keep">
+            포인트 우선, 스탯 상위, 스탯 우선 결과를 비교해서 자신의 세팅
+            목표에 맞는 조합을 선택할 수 있습니다.
+          </p>
+        </div>
+      </section>
+
       <div className="bg-[#16181D] border border-white/5 rounded-2xl p-5 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-6 text-xs sm:text-sm text-gray-400">
@@ -465,6 +619,7 @@ export default function ArcGridPage() {
               <span className="w-1.5 h-1.5 rounded-full bg-[#5B69FF]" />
               선택 코어 <b className="text-white ml-0.5">{selectedCoreCount}</b>
             </div>
+
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               보유 젬 <b className="text-white ml-0.5">{invCount}</b>
@@ -478,6 +633,7 @@ export default function ArcGridPage() {
               onChange={(e) => setFileName(e.target.value)}
               placeholder="파일 이름"
             />
+
             <button
               onClick={saveToFile}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#2d333b] hover:bg-[#383f47] text-white text-xs font-medium transition-all"
@@ -487,7 +643,13 @@ export default function ArcGridPage() {
 
             <label className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#2d333b] hover:bg-[#383f47] text-white text-xs font-medium cursor-pointer transition-all">
               <FolderOpen className="h-3.5 w-3.5" /> 불러오기
-              <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={loadFromFile} />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={loadFromFile}
+              />
             </label>
 
             <button
@@ -500,17 +662,24 @@ export default function ArcGridPage() {
         </div>
       </div>
 
-      {/* 3) Core Settings */}
       <div className="bg-[#16181D] border border-white/5 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-2">
+          <div className="space-y-1">
             <h2 className="text-lg font-bold text-white">1. 코어 설정</h2>
+            <p className="text-sm text-gray-500 break-keep">
+              계산에 사용할 코어를 선택하고 각 코어의 등급과 포인트 범위를 입력합니다.
+            </p>
           </div>
 
           <div className="w-full sm:w-40">
             <Select
               value={(state.params.role ?? "dealer") as any}
-              onChange={(v) => setState((st) => ({ ...st, params: { ...st.params, role: v as any } }))}
+              onChange={(v) =>
+                setState((st) => ({
+                  ...st,
+                  params: { ...st.params, role: v as any },
+                }))
+              }
               options={[
                 { value: "dealer", label: "딜러" },
                 { value: "supporter", label: "서포터" },
@@ -530,7 +699,8 @@ export default function ArcGridPage() {
           {state.cores.map((core) => (
             <div
               key={core.key}
-              className={`rounded-xl ${core.enabled ? "bg-white/[0.02] border border-white/5" : "opacity-40"} p-2`}
+              className={`rounded-xl ${core.enabled ? "bg-white/[0.02] border border-white/5" : "opacity-40"
+                } p-2`}
             >
               <div className="grid [grid-template-columns:1.2fr_1fr_1fr_1fr] gap-3 items-center">
                 <Row
@@ -538,25 +708,33 @@ export default function ArcGridPage() {
                   onToggle={(b) =>
                     setState((st) => ({
                       ...st,
-                      cores: st.cores.map((c) => (c.key === core.key ? { ...c, enabled: b } : c)),
+                      cores: st.cores.map((c) =>
+                        c.key === core.key ? { ...c, enabled: b } : c
+                      ),
                     }))
                   }
                   onGrade={(g) =>
                     setState((st) => ({
                       ...st,
-                      cores: st.cores.map((c) => (c.key === core.key ? { ...c, grade: g } : c)),
+                      cores: st.cores.map((c) =>
+                        c.key === core.key ? { ...c, grade: g } : c
+                      ),
                     }))
                   }
                   onMin={(v) =>
                     setState((st) => ({
                       ...st,
-                      cores: st.cores.map((c) => (c.key === core.key ? { ...c, minPts: v } : c)),
+                      cores: st.cores.map((c) =>
+                        c.key === core.key ? { ...c, minPts: v } : c
+                      ),
                     }))
                   }
                   onMax={(v) =>
                     setState((st) => ({
                       ...st,
-                      cores: st.cores.map((c) => (c.key === core.key ? { ...c, maxPts: v } : c)),
+                      cores: st.cores.map((c) =>
+                        c.key === core.key ? { ...c, maxPts: v } : c
+                      ),
                     }))
                   }
                 />
@@ -566,12 +744,16 @@ export default function ArcGridPage() {
         </div>
       </div>
 
-      {/* 4) Inventory */}
       <div className="bg-[#16181D] border border-white/5 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            2. 보유 젬 입력
-          </h2>
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              2. 보유 젬 입력
+            </h2>
+            <p className="text-sm text-gray-500 break-keep">
+              현재 보유한 질서 젬과 혼돈 젬을 입력합니다. 의지력 효율과 코어 포인트가 계산 결과에 직접 반영됩니다.
+            </p>
+          </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <div className="w-full sm:w-48">
@@ -614,12 +796,16 @@ export default function ArcGridPage() {
         </div>
       </div>
 
-      {/* 5) Results */}
       <div className="bg-[#16181D] border border-white/5 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            3. 결과 확인
-          </h2>
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              3. 결과 확인
+            </h2>
+            <p className="text-sm text-gray-500 break-keep">
+              목표에 따라 포인트 우선, 스탯 상위, 스탯 우선 계산을 각각 실행해 비교할 수 있습니다.
+            </p>
+          </div>
 
           <div className="flex flex-wrap gap-2">
             <button
@@ -628,12 +814,14 @@ export default function ArcGridPage() {
             >
               포인트 우선
             </button>
+
             <button
               onClick={runStatsAtBest}
               className="px-3 py-1.5 rounded-lg bg-[#2d333b] border border-[#444c56] text-white text-xs hover:bg-[#383f47] transition-all"
             >
               스탯 상위 (최대P)
             </button>
+
             <button
               onClick={runStatsAny}
               className="px-3 py-1.5 rounded-lg bg-[#2d333b] border border-[#444c56] text-white text-xs hover:bg-[#383f47] transition-all"
@@ -650,15 +838,21 @@ export default function ArcGridPage() {
         ) : (
           <div className="space-y-4">
             <div className="rounded-lg">
-              <ResultsPanel plan={resultPack.plan} cores={state.cores} gemById={gemById} />
+              <ResultsPanel
+                plan={resultPack.plan}
+                cores={state.cores}
+                gemById={gemById}
+              />
             </div>
 
             {altPlans && altPlans.length > 0 && (
               <div className="pt-2">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-sm text-gray-300">
-                    스탯 상위 리스트 <span className="text-gray-500">({altPlans.length}개)</span>
+                    스탯 상위 리스트{" "}
+                    <span className="text-gray-500">({altPlans.length}개)</span>
                   </div>
+
                   <button
                     onClick={() => setShowAltList((v) => !v)}
                     className="px-2.5 py-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-xs text-gray-200"
@@ -673,12 +867,23 @@ export default function ArcGridPage() {
                       <thead className="bg-[#22272e] text-gray-300">
                         <tr>
                           <th className="px-2 sm:px-3 py-2 w-8 sm:w-10"></th>
-                          <th className="px-2 sm:px-3 py-2 text-center w-10 sm:w-14">#</th>
-                          <th className="px-2 sm:px-3 py-2 text-center w-28 sm:w-32">스탯 점수</th>
-                          <th className="px-2 sm:px-3 py-2 text-center w-24 sm:w-28">총 포인트</th>
-                          <th className="px-2 sm:px-3 py-2 text-center w-28 sm:w-32">잔여 의지력</th>
+                          <th className="px-2 sm:px-3 py-2 text-center w-10 sm:w-14">
+                            #
+                          </th>
+                          <th className="px-2 sm:px-3 py-2 text-center w-28 sm:w-32">
+                            스탯 점수
+                          </th>
+                          <th className="px-2 sm:px-3 py-2 text-center w-24 sm:w-28">
+                            총 포인트
+                          </th>
+                          <th className="px-2 sm:px-3 py-2 text-center w-28 sm:w-32">
+                            잔여 의지력
+                          </th>
                           {enabledCores.map((c) => (
-                            <th key={c.key} className="px-2 sm:px-3 py-2 text-center whitespace-nowrap">
+                            <th
+                              key={c.key}
+                              className="px-2 sm:px-3 py-2 text-center whitespace-nowrap"
+                            >
                               {c.label}
                             </th>
                           ))}
@@ -690,6 +895,7 @@ export default function ArcGridPage() {
                         {altPlans.map((p, i) => {
                           const colCount = 6 + enabledCores.length;
                           const isOpen = expandedSet.has(i);
+
                           return (
                             <Fragment key={`plan-${i}`}>
                               <tr className="bg-[#2d333b] hover:bg-[#30363d]">
@@ -699,17 +905,26 @@ export default function ArcGridPage() {
                                     className="w-6 h-6 rounded hover:bg-black/20"
                                     onClick={() => toggleRow(i)}
                                   >
-                                    <span className="inline-block align-middle">{isOpen ? "▾" : "▸"}</span>
+                                    <span className="inline-block align-middle">
+                                      {isOpen ? "▾" : "▸"}
+                                    </span>
                                   </button>
                                 </td>
 
-                                <td className="px-2 sm:px-3 py-2 text-gray-300 text-center">#{i + 1}</td>
-                                <td className="px-2 sm:px-3 py-2 text-center">
-                                  <b className="text-white">{p.statScore.toFixed(3)}</b>
+                                <td className="px-2 sm:px-3 py-2 text-gray-300 text-center">
+                                  #{i + 1}
                                 </td>
+
+                                <td className="px-2 sm:px-3 py-2 text-center">
+                                  <b className="text-white">
+                                    {p.statScore.toFixed(3)}
+                                  </b>
+                                </td>
+
                                 <td className="px-2 sm:px-3 py-2 text-center">
                                   <b className="text-gray-200">{p.sumPts}</b>
                                 </td>
+
                                 <td className="px-2 sm:px-3 py-2 text-center">
                                   <b className="text-gray-200">{p.sumRemain}</b>
                                 </td>
@@ -717,15 +932,24 @@ export default function ArcGridPage() {
                                 {enabledCores.map((c) => {
                                   const it = p.plan.answer[c.key];
                                   const pts = it?.res?.pts ?? 0;
-                                  const stat = typeof it?.res?.flexScore === "number" ? it.res.flexScore : 0;
+                                  const stat =
+                                    typeof it?.res?.flexScore === "number"
+                                      ? it.res.flexScore
+                                      : 0;
+
                                   return (
-                                    <td key={c.key} className="px-2 sm:px-3 py-2 text-gray-300 text-center">
+                                    <td
+                                      key={c.key}
+                                      className="px-2 sm:px-3 py-2 text-gray-300 text-center"
+                                    >
                                       <div className="flex items-center justify-center gap-1.5 sm:gap-2">
                                         <span className="px-1.5 sm:px-2 py-0.5 rounded bg-black/20 border border-white/10">
                                           {pts}p
                                         </span>
                                         <span className="text-gray-500">·</span>
-                                        <span className="tabular-nums text-gray-200">{stat.toFixed(3)}</span>
+                                        <span className="tabular-nums text-gray-200">
+                                          {stat.toFixed(3)}
+                                        </span>
                                       </div>
                                     </td>
                                   );
@@ -735,7 +959,10 @@ export default function ArcGridPage() {
                                   <button
                                     className="px-2.5 sm:px-3 py-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-[#5B69FF] text-[11px] font-bold transition-all"
                                     onClick={() => {
-                                      setResultPack({ plan: p.plan, focusKey: enabledCores[0]?.key ?? null });
+                                      setResultPack({
+                                        plan: p.plan,
+                                        focusKey: enabledCores[0]?.key ?? null,
+                                      });
                                       setToast(`#${i + 1} 조합을 적용했어요`);
                                       setTimeout(() => setToast(null), 1400);
                                     }}
@@ -749,7 +976,11 @@ export default function ArcGridPage() {
                                 <tr className="bg-[#1f242c]">
                                   <td colSpan={colCount} className="px-2 sm:px-3 py-3">
                                     <div className="rounded-lg border border-white/10 bg-[#0E1015]">
-                                      <ResultsPanel plan={p.plan} cores={state.cores} gemById={gemById} />
+                                      <ResultsPanel
+                                        plan={p.plan}
+                                        cores={state.cores}
+                                        gemById={gemById}
+                                      />
                                     </div>
                                   </td>
                                 </tr>
@@ -767,110 +998,245 @@ export default function ArcGridPage() {
         )}
       </div>
 
-      {/* 기존 하단 액션바 유지 */}
       <ActionBar coreCount={selectedCoreCount} invCount={invCount} onRun={runPoints} />
+
       <div className="space-y-4">
         <section className="rounded-2xl bg-gradient-to-b from-[#16181D] to-[#121318] border border-white/5 p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <Info className="w-5 h-5 text-indigo-400" />
-            <h3 className="text-base font-bold text-gray-200">아크 그리드 최적화란?</h3>
+            <h2 className="text-base font-bold text-gray-200">
+              아크 그리드 젬 세팅 최적화란?
+            </h2>
           </div>
 
           <div className="space-y-4 text-sm text-gray-400 leading-relaxed break-keep">
             <p>
-              <strong className="text-gray-300">아크 그리드 최적화</strong>는 보유 중인 질서/혼돈 젬의
-              의지력 효율, 코어 포인트, 추가 옵션을 바탕으로 현재 조건에서 가장 효율적인 조합을 찾는 기능입니다.
-              단순히 점수가 높은 젬만 고르는 것이 아니라, 어떤 코어를 얼마나 활성화할지, 어떤 기준으로
-              포인트와 스탯을 가져갈지를 함께 계산합니다.
+              <strong className="text-gray-300">아크 그리드 젬 세팅 최적화</strong>
+              는 보유 중인 질서 젬과 혼돈 젬의 의지력 효율, 코어 포인트, 추가 옵션을
+              바탕으로 현재 조건에서 가장 효율적인 조합을 찾는 기능입니다. 단순히
+              점수가 높은 젬만 고르는 것이 아니라, 어떤 코어를 활성화할지, 각 코어에
+              몇 포인트까지 투자할지, 딜러와 서포터 중 어떤 기준으로 스탯을 볼지를
+              함께 계산합니다.
             </p>
+
             <p>
-              같은 인벤토리라도 목표가 무엇인지에 따라 결과는 달라질 수 있습니다. 어떤 유저는 핵심 코어를 먼저
-              켜는 것이 중요하고, 어떤 유저는 도달 가능한 최고 포인트를 유지하면서 스탯을 더 챙기는 것이 중요할 수
-              있습니다. 로아체크는 이런 차이를 반영해 여러 최적화 기준을 따로 제공합니다.
+              같은 젬 인벤토리를 가지고 있어도 목표가 다르면 결과는 달라질 수 있습니다.
+              어떤 유저는 핵심 코어 활성화가 우선이고, 어떤 유저는 최대 포인트를 유지하면서
+              전투 스탯을 조금 더 챙기는 것이 중요할 수 있습니다. 이 페이지는 그런 차이를
+              반영해 여러 계산 방식을 제공합니다.
+            </p>
+
+            <p>
+              특히 젬 수가 많아질수록 직접 손으로 조합을 맞추는 데 시간이 오래 걸리기 때문에,
+              현재 가능한 조합을 빠르게 비교하고 후보를 줄이는 용도로 활용하기 좋습니다.
             </p>
           </div>
         </section>
 
         <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
-          <h3 className="text-base font-bold text-gray-200 mb-4">최적화 옵션 설명</h3>
+          <h2 className="text-base font-bold text-gray-200 mb-4">
+            최적화 옵션 설명
+          </h2>
 
           <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-400 leading-relaxed">
             <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
-              <h4 className="text-gray-200 font-semibold mb-2">포인트 우선</h4>
+              <h3 className="text-gray-200 font-semibold mb-2">포인트 우선</h3>
               <p>
-                선택한 코어의 최소 포인트 조건을 맞추는 데 우선순위를 둡니다. 핵심 코어를 먼저 안정적으로
-                활성화하고 싶은 경우에 적합합니다.
+                선택한 코어의 최소 포인트 조건을 맞추는 데 우선순위를 둡니다.
+                핵심 코어를 먼저 안정적으로 활성화하고 싶거나, 목표 포인트를
+                명확히 정해둔 경우에 적합합니다.
               </p>
             </div>
 
             <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
-              <h4 className="text-gray-200 font-semibold mb-2">스탯 상위 (최대P)</h4>
+              <h3 className="text-gray-200 font-semibold mb-2">
+                스탯 상위 (최대P)
+              </h3>
               <p>
-                현재 인벤토리로 도달 가능한 가장 높은 코어 포인트를 유지한 상태에서, 그 안에서 가장 높은 전투
-                스탯 효율이 나오는 조합을 찾습니다.
+                현재 인벤토리로 도달 가능한 가장 높은 코어 포인트를 유지한 상태에서,
+                그 안에서 가장 높은 전투 스탯 효율이 나오는 조합을 찾습니다.
+                포인트를 유지하면서 세부 효율을 비교하고 싶을 때 유용합니다.
               </p>
             </div>
 
             <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
-              <h4 className="text-gray-200 font-semibold mb-2">스탯 우선</h4>
+              <h3 className="text-gray-200 font-semibold mb-2">스탯 우선</h3>
               <p>
-                최대 포인트 달성보다 실제 체감되는 스탯 효율을 더 중요하게 보는 방식입니다. 포인트를 조금
-                양보하더라도 결과적으로 더 좋은 조합이 나올 수 있습니다.
+                최대 포인트 달성보다 실제 체감되는 스탯 효율을 더 중요하게 보는 방식입니다.
+                포인트를 조금 양보하더라도 결과적으로 더 좋은 딜러 또는 서포터 세팅이
+                나올 수 있습니다.
               </p>
             </div>
           </div>
         </section>
 
         <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
-          <h3 className="text-base font-bold text-gray-200 mb-4">이 페이지를 사용하는 방법</h3>
+          <h2 className="text-base font-bold text-gray-200 mb-4">
+            이 페이지를 사용하는 방법
+          </h2>
 
-          <div className="space-y-4 text-sm text-gray-400 leading-relaxed">
+          <div className="space-y-4 text-sm text-gray-400 leading-relaxed break-keep">
             <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
               <strong className="text-gray-200 block mb-2">1. 코어 설정</strong>
-              원하는 코어를 켜고, 각 코어의 최소 포인트와 최대 포인트를 정합니다. 여기서 어떤 코어를 활성화할지에
-              따라 이후 최적화 방향이 달라집니다.
+              원하는 코어를 켜고, 각 코어의 등급과 최소 포인트, 최대 포인트를 정합니다.
+              최소 포인트는 반드시 맞추고 싶은 기준이고, 최대 포인트는 과도하게 포인트가
+              들어가는 것을 막기 위한 제한값으로 사용할 수 있습니다.
             </div>
 
             <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
               <strong className="text-gray-200 block mb-2">2. 보유 젬 입력</strong>
-              질서/혼돈 젬을 현재 보유 상태대로 입력합니다. 의지력 효율과 포인트, 옵션 레벨이 실제 결과에 직접
-              반영되므로 가능한 한 정확하게 입력하는 것이 좋습니다.
+              질서 젬과 혼돈 젬을 현재 보유 상태대로 입력합니다. 의지력 효율, 코어 포인트,
+              옵션 레벨이 실제 결과에 직접 반영되므로 가능한 한 정확하게 입력하는 것이 좋습니다.
             </div>
 
             <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
               <strong className="text-gray-200 block mb-2">3. 결과 비교</strong>
-              포인트 우선, 스탯 상위, 스탯 우선 결과를 각각 확인해 보고, 내 목적에 맞는 조합을 선택하면 됩니다.
-              단순히 숫자가 가장 큰 결과 하나만 보는 것보다, 어떤 기준으로 좋은 결과인지 같이 해석하는 것이
-              중요합니다.
+              포인트 우선, 스탯 상위, 스탯 우선 결과를 각각 확인해 보고, 내 목적에 맞는
+              조합을 선택하면 됩니다. 숫자가 가장 큰 결과 하나만 보기보다, 어떤 기준으로
+              좋은 결과인지 함께 해석하는 것이 중요합니다.
+            </div>
+
+            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+              <strong className="text-gray-200 block mb-2">4. 저장과 불러오기</strong>
+              자주 사용하는 세팅은 JSON 파일로 저장할 수 있습니다. 다른 브라우저나 기기에서
+              같은 세팅을 다시 확인하고 싶을 때 저장 파일을 불러오면 입력 시간을 줄일 수 있습니다.
             </div>
           </div>
         </section>
 
         <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
-          <h3 className="text-base font-bold text-gray-200 mb-4">결과 해석 팁</h3>
+          <h2 className="text-base font-bold text-gray-200 mb-4">
+            입력값을 어떻게 정하면 좋나요?
+          </h2>
 
-          <div className="space-y-3 text-sm text-gray-400 leading-relaxed">
+          <div className="space-y-3 text-sm text-gray-400 leading-relaxed break-keep">
             <p>
-              같은 젬 인벤토리라도 어떤 코어를 선택했는지, 딜러인지 서포터인지, 최소 포인트를 얼마나 높게 잡았는지에
-              따라 결과가 크게 달라질 수 있습니다. 따라서 결과는 한 번만 보기보다, 코어 구성과 조건을 조금씩
-              바꿔보며 비교하는 것이 좋습니다.
+              코어 설정에서 가장 중요한 값은 최소 포인트와 최대 포인트입니다. 최소 포인트를
+              너무 높게 잡으면 조건을 만족하는 조합이 줄어들고, 너무 낮게 잡으면 원하지 않는
+              낮은 포인트 조합이 결과에 포함될 수 있습니다.
             </p>
+
             <p>
-              특히 <strong className="text-gray-300">“스탯 상위 (최대P)”</strong>와
-              <strong className="text-gray-300"> “스탯 우선”</strong> 결과가 다르게 나오는 경우,
-              무조건 최대 포인트가 정답은 아니라는 뜻일 수 있습니다. 실제 세팅 목적에 맞는 선택이 더 중요합니다.
+              처음 사용하는 경우에는 실제 목표보다 약간 여유 있게 범위를 잡고 계산한 뒤,
+              결과를 확인하면서 최소 포인트를 조금씩 올려보는 방식이 좋습니다. 보유 젬이 많다면
+              스탯 우선과 최대 포인트 기준을 모두 비교해 보는 것이 좋습니다.
             </p>
+
             <p>
-              로아체크는 계산 결과를 빠르게 비교하고 판단하기 위한 도구이며, 최종 선택은 캐릭터 세팅 방향과
-              플레이 스타일을 함께 고려하는 것이 가장 좋습니다.
+              딜러와 서포터는 중요하게 보는 스탯 방향이 다를 수 있으므로, 상단 역할 선택을 현재
+              캐릭터에 맞게 설정한 뒤 결과를 확인하는 것이 좋습니다.
             </p>
           </div>
         </section>
 
+        <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
+          <h2 className="text-base font-bold text-gray-200 mb-4">
+            예시로 보는 결과 선택
+          </h2>
+
+          <div className="space-y-3 text-sm text-gray-400 leading-relaxed break-keep">
+            <p>
+              예를 들어 포인트 우선 결과는 총 포인트가 가장 높지만 스탯 점수가 낮고,
+              스탯 우선 결과는 총 포인트가 조금 낮지만 실제 스탯 점수가 더 높게 나올 수 있습니다.
+              이 경우 무조건 포인트가 높은 조합이 정답이라고 보기는 어렵습니다.
+            </p>
+
+            <p>
+              핵심 코어 활성화 자체가 목표라면 포인트 우선 결과가 더 적합할 수 있고,
+              이미 필요한 코어 포인트를 충분히 맞춘 상태라면 스탯 상위나 스탯 우선 결과가
+              더 좋은 선택이 될 수 있습니다.
+            </p>
+
+            <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-4">
+              <p className="text-indigo-200 font-medium">
+                핵심은 “내가 지금 부족한 것이 코어 포인트인지, 실제 스탯 효율인지”를 먼저
+                정한 뒤 결과를 선택하는 것입니다.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
+          <h2 className="text-base font-bold text-gray-200 mb-4">결과 해석 팁</h2>
+
+          <div className="space-y-3 text-sm text-gray-400 leading-relaxed break-keep">
+            <p>
+              같은 젬 인벤토리라도 어떤 코어를 선택했는지, 딜러인지 서포터인지, 최소 포인트를
+              얼마나 높게 잡았는지에 따라 결과가 크게 달라질 수 있습니다. 따라서 결과는 한 번만
+              보기보다, 코어 구성과 조건을 조금씩 바꿔보며 비교하는 것이 좋습니다.
+            </p>
+
+            <p>
+              특히 <strong className="text-gray-300">스탯 상위 (최대P)</strong>와{" "}
+              <strong className="text-gray-300">스탯 우선</strong> 결과가 다르게 나오는 경우,
+              무조건 최대 포인트가 정답은 아니라는 뜻일 수 있습니다. 실제 세팅 목적에 맞는
+              선택이 더 중요합니다.
+            </p>
+
+            <p>
+              계산 결과는 현재 입력된 젬만을 기준으로 합니다. 실제 게임 내 장비, 각인, 특성,
+              직업별 효율까지 모두 반영하는 절대값은 아니므로 최종 선택 전에는 자신의 캐릭터
+              세팅 방향과 플레이 스타일도 함께 고려하는 것이 좋습니다.
+            </p>
+          </div>
+        </section>
+
+        <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <HelpCircle className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-base font-bold text-gray-200">자주 묻는 질문</h2>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              {
+                q: "포인트 우선과 스탯 우선 중 무엇을 선택해야 하나요?",
+                a: "핵심 코어 활성화나 목표 포인트 달성이 우선이면 포인트 우선을 먼저 확인하는 것이 좋습니다. 이미 필요한 포인트를 맞췄다면 스탯 상위나 스탯 우선 결과를 비교해 보는 것이 좋습니다.",
+              },
+              {
+                q: "스탯 상위 (최대P)는 어떤 상황에서 쓰나요?",
+                a: "현재 보유 젬으로 가능한 최대 포인트를 유지하면서 그 안에서 스탯 효율이 좋은 조합을 찾고 싶을 때 사용합니다. 포인트를 포기하고 싶지 않은 경우에 적합합니다.",
+              },
+              {
+                q: "조건을 만족하는 조합이 없다고 나오는 이유는 무엇인가요?",
+                a: "선택한 코어가 너무 많거나, 최소 포인트 조건이 높거나, 보유 젬 수가 부족할 때 발생할 수 있습니다. 최소 포인트를 낮추거나 코어 선택을 줄인 뒤 다시 계산해 보세요.",
+              },
+              {
+                q: "젬을 모두 입력해야 정확한가요?",
+                a: "네. 계산기는 입력된 젬만 기준으로 조합을 찾습니다. 실제로 보유한 젬을 빠뜨리면 더 좋은 조합이 있어도 결과에 나오지 않을 수 있습니다.",
+              },
+              {
+                q: "저장 파일에는 어떤 정보가 들어가나요?",
+                a: "역할 설정, 코어 설정, 보유 젬 목록이 JSON 형태로 저장됩니다. 저장 파일을 다시 불러오면 같은 조건으로 계산을 이어갈 수 있습니다.",
+              },
+              {
+                q: "모바일에서도 사용할 수 있나요?",
+                a: "모바일에서도 사용할 수 있지만, 젬 입력과 결과 비교가 많은 페이지라서 많은 젬을 입력할 때는 PC 화면에서 사용하는 편이 더 편할 수 있습니다.",
+              },
+              {
+                q: "계산 결과가 실제 게임에서 무조건 정답인가요?",
+                a: "아닙니다. 이 페이지는 입력한 조건 안에서 가능한 조합을 계산하는 보조 도구입니다. 최종 선택은 캐릭터 세팅, 플레이 스타일, 실제 게임 내 상황까지 함께 고려하는 것이 좋습니다.",
+              },
+            ].map((item) => (
+              <details
+                key={item.q}
+                className="group rounded-xl border border-white/5 bg-[#0F1014] px-4 py-3"
+              >
+                <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer">
+                  <span className="text-sm font-semibold text-gray-200">
+                    {item.q}
+                  </span>
+                </summary>
+
+                <div className="pt-3 mt-3 border-t border-white/5 text-sm text-gray-400 leading-relaxed break-keep">
+                  {item.a}
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
       </div>
 
-
-      {/* Quick Add Modal */}
       {showQuick && (
         <QuickAddModal
           onClose={() => setShowQuick(false)}
@@ -892,12 +1258,22 @@ export default function ArcGridPage() {
       {busy && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
           <div className="relative w-[min(400px,90vw)] bg-[#16181D] border border-white/10 rounded-2xl p-6 shadow-2xl">
             <div className="text-center space-y-4">
-              <div className="text-white font-bold">{prog.msg || "작업을 준비하고 있어요"}</div>
-              <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden">
-                <div className="h-full bg-[#5B69FF] transition-all duration-300" style={{ width: `${Math.max(0, Math.min(100, prog.v ?? 0))}%` }} />
+              <div className="text-white font-bold">
+                {prog.msg || "작업을 준비하고 있어요"}
               </div>
+
+              <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#5B69FF] transition-all duration-300"
+                  style={{
+                    width: `${Math.max(0, Math.min(100, prog.v ?? 0))}%`,
+                  }}
+                />
+              </div>
+
               <div className="text-[10px] text-gray-500 uppercase tracking-widest">
                 로딩 중입니다. 로딩이 지속되면 질서 코어와 혼돈 코어를 각각 계산해 보세요.
               </div>
@@ -909,7 +1285,6 @@ export default function ArcGridPage() {
   );
 }
 
-/** 코어 한 줄 UI */
 function Row({
   core,
   onToggle,
@@ -927,6 +1302,7 @@ function Row({
 
   const gradeOptions = useMemo(() => {
     const showNum = !isMobile;
+
     return [
       { value: "heroic", label: showNum ? "영웅(9)" : "영웅" },
       { value: "legend", label: showNum ? "전설(12)" : "전설" },
@@ -939,12 +1315,20 @@ function Row({
     <>
       <div className="flex items-center gap-3">
         <label className="inline-flex items-center cursor-pointer">
-          <input type="checkbox" className="sr-only peer" checked={core.enabled} onChange={(e) => onToggle(e.target.checked)} />
+          <input
+            type="checkbox"
+            className="sr-only peer"
+            checked={core.enabled}
+            onChange={(e) => onToggle(e.target.checked)}
+          />
+
           <div className="relative w-9 h-5 sm:w-11 sm:h-6 bg-gray-700 rounded-full peer peer-checked:bg-[#5B69FF] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:after:translate-x-full" />
         </label>
 
         <span
-          className={`px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold truncate ${core.family === "order" ? "text-rose-400 bg-rose-400/10" : "text-blue-400 bg-blue-400/10"
+          className={`px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold truncate ${core.family === "order"
+            ? "text-rose-400 bg-rose-400/10"
+            : "text-blue-400 bg-blue-400/10"
             }`}
           title={core.label}
         >
@@ -953,7 +1337,11 @@ function Row({
       </div>
 
       <div className="bg-[#0E1015] rounded-md border border-white/5">
-        <Select value={core.grade as any} onChange={(v) => onGrade(v as any)} options={gradeOptions as any} />
+        <Select
+          value={core.grade as any}
+          onChange={(v) => onGrade(v as any)}
+          options={gradeOptions as any}
+        />
       </div>
 
       <div className="bg-[#0E1015] rounded-md border border-white/5">

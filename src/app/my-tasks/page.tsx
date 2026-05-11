@@ -1058,11 +1058,13 @@ export default function MyTasksPage() {
               {accountSearchErr && <p className="mt-2 text-[11px] text-red-400 px-1">에러: {accountSearchErr}</p>}
             </div>
 
-            {/* 🔥 메인 콘텐츠 (탭으로 분리) */}
             <div className="flex-1 min-w-0 w-full flex flex-col gap-4 sm:gap-4.5">
-              {activeTab === "weekly" ? <WeeklyRaidTab /> : <GeneralTaskTab />}
-
-              {/* 빈 화면 및 초기 로딩 UI는 page에 유지 (두 탭 공통) */}
+              <div className={activeTab === "weekly" ? "block w-full" : "hidden"}>
+                <WeeklyRaidTab />
+              </div>
+              <div className={activeTab === "daily" ? "block w-full" : "hidden"}>
+                <GeneralTaskTab />
+              </div>
               {usingDemo && activeTab === "weekly" && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 ">
                   <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">

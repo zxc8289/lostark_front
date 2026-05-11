@@ -228,14 +228,9 @@ export default function HomeMyTasksSummary({ children }: { children: React.React
     return <HomeMyTasksCtx.Provider value={ctx}>{children}</HomeMyTasksCtx.Provider>;
 }
 
-/* ───────── [Guard] 데이터 유무 체크 및 빈화면 표시 ───────── */
 export function HomeMyTasksGuard({ children }: { children: React.ReactNode }) {
     const { loading, activeAccount } = useHomeMyTasks();
-
-    // 🔹 로딩 시 스켈레톤 (flex-1로 꽉 채움)
     if (loading) return <HomeMyTasksSkeleton />;
-
-    // 🔹 데이터 없을 때: 파티 숙제와 동일한 디자인 (flex-1, dashed border)
     if (!activeAccount) {
         return (
             <div className="flex-1 w-full flex flex-col items-center justify-center text-center rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-6">
@@ -276,7 +271,6 @@ export function HomeMyTasksHeader() {
 
     return (
         <div className="space-y-5">
-            {/* 계정 선택 드롭다운 */}
             <section className="relative rounded-xl bg-[#16181D] border border-white/5 overflow-hidden" ref={popRef}>
                 <button
                     type="button"

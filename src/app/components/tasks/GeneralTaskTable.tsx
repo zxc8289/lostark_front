@@ -33,11 +33,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 // 🔥 유틸 함수 임포트
 import { GeneralTaskStatus, GeneralTasksData, getVisualRestGauge } from "@/app/lib/tasks/general-task-utils";
+import type { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs"; // 🔥 타입 추가
 
 type Props = {
     roster: RosterCharacter[];
     taskColumns: string[];
     tasksByChar: GeneralTasksData;
+    prefsByChar: Record<string, CharacterTaskPrefs>;
     onToggleTask: (charName: string, taskName: string, runIndex: number) => void;
     onOpenMemo: (charName: string, currentMemo: string) => void;
     onEdit: (character: RosterCharacter) => void;
@@ -45,9 +47,11 @@ type Props = {
     rosterOrder?: string[];
     onReorderRoster?: (newOrder: string[]) => void;
     onReorderTasks?: (newOrder: string[]) => void;
+    onUpdateRestGauge?: (charName: string, taskName: string, newGauge: number) => void; // 🔥 휴식 게이지 직접 수정 함수
 };
 
-const TASK_BTN_BASE = "w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border transition-all duration-150 relative hover:scale-[1.1]";
+const TASK_BTN_BASE = "w-7 h-7 sm:w-8 sm:h-8 rounded-[8px] sm:rounded-[10px] flex items-center justify-center text-[10px] sm:text-xs font-bold transition-all duration-150 relative hover:scale-[1.05]";
+
 const CHAR_COL_WIDTH = "w-[140px] sm:w-[210px] min-w-[120px] sm:min-w-[180px]";
 const TASK_COL_CLASS = "px-2 py-3 sm:py-4 whitespace-nowrap text-center";
 const CHAR_ID_PREFIX = "char:";
@@ -94,11 +98,12 @@ function getClientPoint(e: any): { x: number; y: number } | null {
 }
 
 function SortableCharacterRow({
-    char, tasks, visibleTaskColumns, maxVisible, onEdit, onToggleTask, isDragEnabled, onOpenMemo
+    char, tasks, prefs, visibleTaskColumns, maxVisible, onEdit, onToggleTask, isDragEnabled, onOpenMemo, onUpdateRestGauge // 🔥 게이지 수정 추가
 }: {
-    char: RosterCharacter; tasks: Record<string, GeneralTaskStatus> | undefined; visibleTaskColumns: string[];
+    char: RosterCharacter; tasks: Record<string, GeneralTaskStatus> | undefined; prefs: CharacterTaskPrefs | undefined; visibleTaskColumns: string[];
     maxVisible: number; onEdit: (character: RosterCharacter) => void; onToggleTask: Props["onToggleTask"];
     isDragEnabled: boolean; onOpenMemo: Props["onOpenMemo"];
+    onUpdateRestGauge?: Props["onUpdateRestGauge"];
 }) {
     const rowId = `${CHAR_ID_PREFIX}${char.name}`;
     const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = useSortable({ id: rowId });
@@ -124,8 +129,9 @@ function SortableCharacterRow({
                                 <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onEdit(char); }} className="text-[#64748B] hover:text-white transition-colors p-[2px] rounded hover:bg-white/10 pointer-events-auto cursor-pointer" title="캐릭터 설정">
                                     <SquarePen size={12} className="sm:w-[13px] sm:h-[13px] w-[11px] h-[11px]" strokeWidth={2} />
                                 </button>
-                                <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onOpenMemo(char.name, ""); }} className="p-[2px] rounded transition-colors pointer-events-auto cursor-pointer hover:bg-white/10 flex-shrink-0" title="메모 작성/보기">
-                                    <MessageSquareText size={12} className="sm:w-[13px] sm:h-[13px] w-[11px] h-[11px] text-[#64748B] hover:text-white" strokeWidth={2} />
+                                {/* 🔥 메모 아이콘을 prefs.memo 유무에 따라 색상 변경 및 내용 전달 */}
+                                <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onOpenMemo(char.name, prefs?.memo || ""); }} className="p-[2px] rounded transition-colors pointer-events-auto cursor-pointer hover:bg-white/10 flex-shrink-0" title="메모 작성/보기">
+                                    <MessageSquareText size={12} className={`sm:w-[13px] sm:h-[13px] w-[11px] h-[11px] ${prefs?.memo ? "text-amber-400 hover:text-amber-300" : "text-[#64748B] hover:text-white"}`} strokeWidth={2} />
                                 </button>
                             </div>
                         </div>
@@ -154,18 +160,19 @@ function SortableCharacterRow({
             {visibleTaskColumns.map((taskName) => {
                 if (taskName.startsWith("__empty_")) return <td key={taskName} className={TASK_COL_CLASS} />;
 
-                const defaultMax = taskName === "에포나 의뢰" ? 3 : 1;
+                // 🔥 낙원의 문은 5회 초기화 고려하여 기본 6수(1회+5초기화)로 세팅
+                let defaultMax = 1;
+                if (taskName === "에포나 의뢰") defaultMax = 3;
+                if (taskName === "낙원의 문") defaultMax = 6;
                 const status = tasks?.[taskName] || { completedRuns: 0, maxRuns: defaultMax, restGauge: 0 };
 
                 const hasRestGauge = ["혼돈의 균열", "카오스 던전", "가디언 토벌"].includes(taskName);
 
-                // 🔥 현재 보여줄 게이지를 실시간으로 계산 (파생 상태)
-                const displayRestGauge = getVisualRestGauge(status.restGauge, status.completedRuns);
-
                 return (
                     <td key={taskName} className={`${TASK_COL_CLASS} align-middle`}>
-                        <div className="flex flex-col items-center justify-center gap-[5px]">
-                            <div className="flex items-center justify-center gap-1 sm:gap-1.5">
+                        <div className="flex flex-col items-center justify-center gap-[3px] sm:gap-[4px]">
+                            {/* 🔥 버튼 목록 (기존 원형 유지) */}
+                            <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 w-full max-w-[100px] sm:max-w-[140px] mx-auto">
                                 {Array.from({ length: status.maxRuns }).map((_, idx) => {
                                     const isChecked = idx < status.completedRuns;
                                     return (
@@ -175,8 +182,10 @@ function SortableCharacterRow({
                                             aria-pressed={isChecked}
                                             onClick={() => onToggleTask(char.name, taskName, idx)}
                                             className={[
-                                                TASK_BTN_BASE,
-                                                isChecked ? "bg-[#5B69FF] text-white border-transparent" : "bg-white/5 text-white/30 border-white/20 hover:border-white/40 hover:bg-white/10"
+                                                "w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border transition-all duration-150 relative hover:scale-[1.1]",
+                                                isChecked
+                                                    ? "bg-[#5B69FF] text-white border-transparent"
+                                                    : "bg-white/5 text-white/30 border-white/20 hover:border-white/40 hover:bg-white/10"
                                             ].join(" ")}
                                         >
                                             {isChecked && (
@@ -189,11 +198,42 @@ function SortableCharacterRow({
                                 })}
                             </div>
 
-                            {/* 표시할 게이지가 있는 숙제만 텍스트 렌더링 */}
+                            {/* 🔥 게이지 바 컨테이너 (이전 예쁜 폼으로 완전 롤백 + items-end로 자연스러운 우측 정렬) */}
                             {hasRestGauge && (
-                                <span className={`text-[10px] sm:text-[11px] font-medium leading-none tracking-tight mt-1 text-gray-500`}>
-                                    {displayRestGauge}
-                                </span>
+                                <div
+                                    className="flex flex-col items-end gap-[2px] sm:gap-[3px] cursor-pointer hover:bg-white/5 px-1 py-1 rounded-md transition-colors mt-[1px]"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (onUpdateRestGauge) {
+                                            let next = status.restGauge + 20;
+                                            if (next > 200) next = 0;
+                                            onUpdateRestGauge(char.name, taskName, next);
+                                        }
+                                    }}
+                                    title="클릭하여 휴식 게이지 수정"
+                                >
+                                    {/* 🔥 게이지 바 영역 (1칸 = 40, 반칸 = 20) */}
+                                    <div className="flex gap-[2px] sm:gap-[3px]">
+                                        {[...Array(5)].map((_, i) => {
+                                            const barMax = (i + 1) * 40;
+                                            const barMin = i * 40;
+                                            const isFilled = status.restGauge >= barMax;
+                                            const isPartial = status.restGauge >= barMin + 10 && status.restGauge < barMax;
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    className={`h-[3px] sm:h-[4px] w-[10px] sm:w-[12px] rounded-full transition-colors ${isFilled ? 'bg-[#4ade80]' : isPartial ? 'bg-[#4ade80]/40' : 'bg-[#2A2D36]'
+                                                        }`}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* 🔥 숫자 영역 (억지 w-full 없이 items-end 덕분에 게이지바 끝선에 맞춰짐) */}
+                                    <span className="text-[10px] sm:text-[11px] font-medium leading-none tracking-tight text-gray-500 mt-[1px]">
+                                        {status.restGauge}/200
+                                    </span>
+                                </div>
                             )}
                         </div>
                     </td>
@@ -204,7 +244,7 @@ function SortableCharacterRow({
 }
 
 export default function GeneralTaskTable({
-    roster, taskColumns, tasksByChar, onToggleTask, onOpenMemo, onEdit, isDragEnabled = false, rosterOrder, onReorderRoster, onReorderTasks
+    roster, taskColumns, tasksByChar, prefsByChar, onToggleTask, onOpenMemo, onEdit, isDragEnabled = false, rosterOrder, onReorderRoster, onReorderTasks, onUpdateRestGauge // 🔥 파라미터 추가
 }: Props) {
     const rootRef = useRef<HTMLDivElement | null>(null);
     const [maxVisible, setMaxVisible] = useState(DESKTOP_MAX_VISIBLE);
@@ -417,9 +457,12 @@ export default function GeneralTaskTable({
                                 <SortableContext items={rowIds} strategy={verticalListSortingStrategy}>
                                     {orderedRoster.map((char) => (
                                         <SortableCharacterRow
-                                            key={char.name} char={char} tasks={tasksByChar[char.name]}
+                                            key={char.name} char={char}
+                                            tasks={tasksByChar[char.name]}
+                                            prefs={prefsByChar[char.name]}
                                             visibleTaskColumns={visibleTaskColumns} maxVisible={maxVisible}
                                             onEdit={onEdit} onToggleTask={onToggleTask} isDragEnabled={isDragEnabled} onOpenMemo={onOpenMemo}
+                                            onUpdateRestGauge={onUpdateRestGauge} // 🔥 함수 내려주기
                                         />
                                     ))}
                                 </SortableContext>

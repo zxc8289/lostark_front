@@ -24,18 +24,12 @@ interface TaskSidebarProps {
     activeAccountId: string | null;
     onSelectAccount: (id: string) => void;
     onAddAccount: () => void;
-
     onlyRemain: boolean;
     setOnlyRemain: (v: boolean) => void;
     isCardView: boolean;
     setIsCardView: (v: boolean) => void;
-
-    // 🔥 레이드 필터 상태
     selectedRaids: string[];
     setSelectedRaids: (v: string[]) => void;
-
-    adSlot?: string;
-
     isDragEnabled: boolean;
     setIsDragEnabled: (v: boolean) => void;
 }
@@ -51,7 +45,6 @@ export default function TaskSidebar({
     setIsCardView,
     selectedRaids,
     setSelectedRaids,
-    adSlot = "4444902536",
     isDragEnabled,
     setIsDragEnabled
 }: TaskSidebarProps) {

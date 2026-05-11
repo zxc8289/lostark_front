@@ -57,7 +57,6 @@ import {
 import AnimatedNumber from "@/app/components/tasks/AnimatedNumber";
 import EmptyCharacterState from "@/app/components/tasks/EmptyCharacterState";
 import PartySettingsModal from "@/app/components/tasks/PartySettingsModal";
-import GoogleAd from "@/app/components/GoogleAd";
 import TaskSidebar from "@/app/components/tasks/TaskSidebar";
 
 import { useGlobalWebSocket } from "@/app/components/WebSocketProvider";
@@ -3360,8 +3359,9 @@ function PartyMemberSummaryBar({
     children,
 }: PartyMemberSummaryBarProps) {
     const memberAllCleared =
-        summary.totalRemainingGold === 0 && summary.totalGold > 0;
-
+        summary.totalRemainingGold === 0 &&
+        ((summary as any).totalRemainingBoundGold ?? 0) === 0 &&
+        (summary.totalGold > 0 || ((summary as any).totalBoundGold ?? 0) > 0);
     return (
         <div className="relative rounded-md py-2 flex flex-col sm:flex-row sm:items-center w-full">
 

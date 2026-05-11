@@ -1,26 +1,43 @@
 import type { Metadata } from "next";
 import "./globals.css";
+
 import Nav from "./components/Nav";
 import AuthSessionProvider from "./components/AuthSessionProvider";
 import WebSocketProvider from "./components/WebSocketProvider";
-import { pretendard } from "./fonts";
 import Footer from "./components/Footer";
+
+import { pretendard } from "./fonts";
 import Script from "next/script";
-import { GoogleTagManager } from '@next/third-parties/google';
+import { GoogleTagManager } from "@next/third-parties/google";
 
 export const metadata: Metadata = {
   title: {
     template: "%s | 로아체크",
     default: "로아체크 - 로스트아크 레이드 체크",
   },
-  description: "로스트아크 숙제 관리, 레이드 딜 지분 분석, 젬 세팅 계산",
-  keywords: ["로스트아크", "로아", "숙제", "계산기", "딜지분", "로아체크", "loacheck", "레이드", "수익"],
+  description:
+    "로스트아크 숙제 관리, 레이드 딜 지분 분석, 젬 세팅 계산을 도와주는 로아체크입니다.",
+  keywords: [
+    "로스트아크",
+    "로아",
+    "숙제",
+    "계산기",
+    "딜지분",
+    "로아체크",
+    "loacheck",
+    "레이드",
+    "수익",
+    "보석",
+    "경매",
+    "더보기",
+  ],
   icons: {
     icon: "/favicon.ico",
   },
   openGraph: {
     title: "로아체크 - 로스트아크 레이드 체크",
-    description: "오늘의 숙제와 레이드 수익을 확인해보세요.",
+    description:
+      "로스트아크 숙제 관리, 레이드 수익 계산, 딜 지분 분석, 젬 세팅 계산을 한 번에 확인해보세요.",
     url: "https://loacheck.com",
     siteName: "로아체크",
     images: [
@@ -45,14 +62,35 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "로아체크",
+    alternateName: ["LOACHECK", "loacheck"],
+    url: "https://loacheck.com",
+    description:
+      "로스트아크 숙제 관리, 레이드 수익 계산, 딜 지분 분석, 젬 세팅 계산 도구",
+    inLanguage: "ko-KR",
+    publisher: {
+      "@type": "Organization",
+      name: "로아체크",
+      url: "https://loacheck.com",
+    },
+  };
+
   return (
     <html lang="ko">
-      <GoogleTagManager gtmId="GTM-PF49FQBN" />
+      <body
+        className={`${pretendard.variable} font-pretendard min-h-screen flex flex-col bg-[#1B1D22] text-gray-300`}
+      >
+        <GoogleTagManager gtmId="GTM-PF49FQBN" />
 
-      <body className={`${pretendard.variable} font-pretendard min-h-screen flex flex-col bg-[#1B1D22] text-gray-300`}>
 
-        {/* Next.js 최적화를 위해 next/script를 사용합니다 */}
         <Script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1712313315461589"
@@ -60,24 +98,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           strategy="afterInteractive"
         />
 
-        {/* 구조화된 데이터 */}
-        <script
+        <Script
+          id="website-json-ld"
           type="application/ld+json"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              "name": "로아체크",
-              "alternateName": ["LOACHECK", "loacheck"],
-              "url": "https://loacheck.com",
-              "description": "로스트아크 숙제 및 딜 지분 계산 도구",
-            }),
+            __html: JSON.stringify(websiteJsonLd),
           }}
         />
 
-        {/* 세션 프로바이더 */}
         <AuthSessionProvider>
-          {/* 🔥 [추가] 웹소켓 프로바이더로 앱 감싸기 (세션 프로바이더 내부에 위치해야 함) */}
           <WebSocketProvider>
             <header>
               <Nav />

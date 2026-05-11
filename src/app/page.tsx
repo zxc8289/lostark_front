@@ -41,14 +41,14 @@ export default async function HomePage() {
     }
   } catch (e) { console.error("[HomePage] lostark notice fetch error:", e); }
 
-  // 2. 로아체크 자체 공지사항 가져오기 (최대 5개)
+  // 2. 로아체크 자체 공지사항 가져오기
   let loacheckNotices: any[] = [];
   try {
     const res = await fetch(`${baseUrl}/api/notice`, { cache: "no-store" });
     if (res.ok) {
       const json = await res.json();
       if (json?.notices && Array.isArray(json.notices)) {
-        loacheckNotices = json.notices.slice(0, 5);
+        loacheckNotices = json.notices; // 스크롤을 위해 전체를 가져옵니다.
       }
     }
   } catch (e) { console.error("[HomePage] loacheck notice fetch error:", e); }
@@ -85,65 +85,23 @@ export default async function HomePage() {
   return (
     <div className="pt-6 md:pt-17 pb-10 px-0 md:px-4 xl:px-0 text-gray-300 w-full max-w-7xl mx-auto space-y-5 lg:space-y-8">
 
-      {/* 상단 섹션: 스케줄 + 우측 광고 자리 */}
-      <section className="w-full grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-6">
+      {/* 상단 섹션: 스케줄 + 우측 로아체크 공지사항 */}
+      <section className="w-full grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-6 items-stretch">
+
+        {/* 상단 좌측 스케줄 */}
         <div className="lg:col-span-7 w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-2xl p-4 md:p-6 relative overflow-hidden flex flex-col justify-center">
-          <ClientOnly fallback={<div className="w-full h-full bg-white/5 animate-pulse rounded-2xl" />}>
+          <ClientOnly fallback={<div className="w-full h-[200px] bg-white/5 animate-pulse rounded-2xl" />}>
             <TodaySchedule />
           </ClientOnly>
         </div>
 
-        {/* 상단 우측 광고 자리 빈칸 */}
-        <div className="lg:col-span-3 w-full h-full min-h-[120px] md:min-h-[180px] bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-2xl overflow-hidden flex items-center justify-center relative">
-          <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-xs z-0 select-none"></div>
-          <div className="relative z-10 w-full h-full">
-            {/* 나중에 이곳에 구글 애드센스 컴포넌트를 다시 넣으시면 됩니다 */}
-          </div>
-        </div>
-      </section>
+        {/* 상단 우측 로아체크 공지사항 래퍼 (Wrapper) */}
+        <div className="lg:col-span-3 relative h-[290px] lg:h-auto">
 
-      {/* 중단 섹션: 공지사항과 주요 기능 카드 */}
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-6">
-        <div className="lg:col-span-3 flex flex-col gap-4 lg:gap-6 h-full">
+          {/* 실제 카드 (lg 화면 이상에서만 absolute로 띄워서 그리드 높이 영향 차단) */}
+          <div className="w-full h-full lg:absolute lg:inset-0 bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-2xl overflow-hidden flex flex-col">
 
-          {/* 1. 로스트아크 공지사항 (고정 높이 지정) */}
-          <div className="bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex flex-col shrink-0 h-[280px] sm:h-[320px] lg:h-[280px]">
-            <div className="px-4 md:px-5 py-3 md:py-4 border-b border-white/5 flex items-center justify-between bg-[#16181D]">
-              <span className="text-sm md:text-base font-bold text-gray-200 flex items-center gap-2">
-                <Megaphone size={16} className="text-gray-400 md:w-[18px] md:h-[18px]" />
-                로스트아크 공지사항
-              </span>
-              <a href="https://lostark.game.onstove.com/News/Notice/List" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-xs font-medium text-gray-500 hover:text-blue-400 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-white/5">
-                전체보기 <ExternalLink size={12} />
-              </a>
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <ul className="divide-y divide-white/5">
-                {notices.map((notice, idx) => (
-                  <li key={idx}>
-                    <a href={notice.link} target="_blank" rel="noopener noreferrer" className="block px-4 md:px-5 py-3 md:py-3.5 hover:bg-white/5 transition-colors group">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium bg-white/5 text-gray-400 border-white/10 group-hover:border-white/20 group-hover:text-gray-300 transition-colors`}>
-                          {notice.category}
-                        </span>
-                        <span className={`text-[11px] font-medium ${notice.isNew ? "text-blue-400 font-bold" : "text-gray-600"}`}>
-                          {notice.date}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-300 font-bold leading-snug line-clamp-1 sm:line-clamp-2 group-hover:text-white transition-colors">
-                        {notice.title}
-                      </p>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* 2. 로아체크 소식 (고정 높이 지정) */}
-          <div className="bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex flex-col shrink-0 h-[280px] sm:h-[320px] lg:h-[210px]">
-            <div className="px-4 md:px-5 py-3 md:py-4 border-b border-white/5 flex items-center justify-between bg-[#16181D]">
+            <div className="px-4 md:px-5 py-3 md:py-4 border-b border-white/5 flex items-center justify-between bg-[#16181D] shrink-0">
               <span className="text-sm md:text-base font-bold text-gray-200 flex items-center gap-2">
                 <Megaphone size={16} className="md:w-[18px] md:h-[18px]" />
                 로아체크 공지사항
@@ -153,12 +111,13 @@ export default async function HomePage() {
               </a>
             </div>
 
+            {/* 스크롤 영역 */}
             <div className="flex-1 overflow-y-auto custom-scrollbar">
               <ul className="divide-y divide-white/5">
                 {loacheckNotices.length > 0 ? (
                   loacheckNotices.map((notice, idx) => (
                     <li key={idx}>
-                      <a href={`/support?noticeId=${notice.id}`} className="block px-4 md:px-5 py-3 md:py-3.5 hover:bg-white/5 transition-colors group">
+                      <a href={`/support?noticeId=${notice.id}`} className="block px-4 md:px-5 py-3 md:py-[15.6px] hover:bg-white/5 transition-colors group">
                         <div className="flex items-center gap-2 mb-1.5">
                           <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium bg-white/5 text-gray-400 border-white/10 group-hover:border-white/20 group-hover:text-gray-300 transition-colors`}>
                             {notice.category}
@@ -181,11 +140,73 @@ export default async function HomePage() {
               </ul>
             </div>
           </div>
+        </div>
+      </section>
+      {/* 중단 섹션: 좌측 배너 + 우측 숙제/계산기 배너 (펼치기 시 독립적 동작) */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-6 items-start">
+
+        {/* 중단 좌측: 로스트아크 공지 + 레이드 정보 배너 */}
+        <div className="lg:col-span-3 flex flex-col gap-4 lg:gap-6">
+
+          {/* 1. 로스트아크 공지사항 (모바일은 h-auto, PC는 고정 높이) */}
+          <div className="bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex flex-col h-auto md:h-[390px]">
+            <div className="px-4 md:px-5 py-3 md:py-4 border-b border-white/5 flex items-center justify-between bg-[#16181D] shrink-0">
+              <span className="text-sm md:text-base font-bold text-gray-200 flex items-center gap-2">
+                <Megaphone size={16} className="text-gray-400 md:w-[18px] md:h-[18px]" />
+                로스트아크 공지사항
+              </span>
+              <a href="https://lostark.game.onstove.com/News/Notice/List" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-xs font-medium text-gray-500 hover:text-blue-400 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-white/5">
+                전체보기 <ExternalLink size={12} />
+              </a>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <ul className="divide-y divide-white/5">
+                {notices.map((notice, idx) => (
+                  <li key={idx} className={idx >= 3 ? "hidden md:block" : ""}>
+                    <a href={notice.link} target="_blank" rel="noopener noreferrer" className="block px-4 md:px-5 py-3 md:py-[16px] hover:bg-white/5 transition-colors group">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium bg-white/5 text-gray-400 border-white/10 group-hover:border-white/20 group-hover:text-gray-300 transition-colors`}>
+                          {notice.category}
+                        </span>
+                        <span className={`text-[11px] font-medium ${notice.isNew ? "text-blue-400 font-bold" : "text-gray-600"}`}>
+                          {notice.date}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-300 font-bold leading-snug line-clamp-1 sm:line-clamp-2 group-hover:text-white transition-colors">
+                        {notice.title}
+                      </p>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* 2. 레이드 정보 바로가기 (단일 링크형 배너) */}
+          <a href="/raid-info" className="group relative w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl p-4 md:p-5 flex items-center justify-between hover:border-[#5B69FF]/50 transition-all duration-300 overflow-hidden">
+            <div className="flex items-center gap-3 md:gap-4 z-10">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-[#1F222B] flex items-center justify-center text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors border border-white/5">
+                <ArrowUpRight size={20} className="md:w-[24px] md:h-[24px]" />
+              </div>
+              <div className="flex flex-col">
+                <h3 className="text-base md:text-lg font-bold text-gray-100 group-hover:text-white transition-colors">레이드 보상 정보</h3>
+                <p className="text-xs md:text-sm text-gray-500 group-hover:text-gray-400 transition-colors">레이드 보상 정보 확인</p>
+              </div>
+            </div>
+            <div className="text-gray-400 hover:text-gray-200 transition-colors z-10">
+              <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
+            </div>
+            <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-[#5B69FF]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          </a>
 
         </div>
 
-        <div className="lg:col-span-7 flex flex-col gap-4 lg:gap-6 h-full">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 w-full items-start">
+        {/* 중단 우측: 숙제 현황 및 파티 영역 (세로 열 기준으로 변경) */}
+        <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 items-start">
+
+          {/* 좌측 열: 내 숙제 현황 + 젬 세팅 최적화 배너 */}
+          <div className="flex flex-col gap-4 lg:gap-6 w-full">
             <Card className="border border-x-0 md:border-x border-white/5 bg-[#16181D] w-full flex flex-col rounded-none md:rounded-2xl" contentPadding="lg">
               <HomeMyTasksSummary>
                 <div className="w-full flex flex-col min-h-[300px] md:min-h-[340px]">
@@ -217,6 +238,25 @@ export default async function HomePage() {
               </HomeMyTasksSummary>
             </Card>
 
+            <a href="/gem-setup" className="group relative w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl p-4 md:p-5 flex items-center justify-between hover:border-[#5B69FF]/50 transition-all duration-300 overflow-hidden">
+              <div className="flex items-center gap-3 md:gap-4 z-10">
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-[#1F222B] flex items-center justify-center text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors border border-white/5">
+                  <Diamond size={20} className="md:w-[24px] md:h-[24px]" />
+                </div>
+                <div className="flex flex-col">
+                  <h3 className="text-base md:text-lg font-bold text-gray-100 group-hover:text-white transition-colors">젬 세팅 최적화</h3>
+                  <p className="text-xs md:text-sm text-gray-500 group-hover:text-gray-400 transition-colors">보유한 젬으로 최적의 효율 찾기</p>
+                </div>
+              </div>
+              <div className="text-gray-400 hover:text-gray-200 transition-colors">
+                <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
+              </div>
+              <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-[#5B69FF]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            </a>
+          </div>
+
+          {/* 우측 열: 내 참여 파티 + 딜 지분 계산기 배너 */}
+          <div className="flex flex-col gap-4 lg:gap-6 w-full">
             <Card className="border border-x-0 md:border-x border-white/5 bg-[#16181D] w-full flex flex-col rounded-none md:rounded-2xl" contentPadding="lg">
               <HomePartySummaryProvider>
                 <div className="w-full flex flex-col min-h-[300px] md:min-h-[340px]">
@@ -245,24 +285,6 @@ export default async function HomePage() {
                 </div>
               </HomePartySummaryProvider>
             </Card>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 w-full">
-            <a href="/gem-setup" className="group relative w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl p-4 md:p-5 flex items-center justify-between hover:border-[#5B69FF]/50 transition-all duration-300 overflow-hidden">
-              <div className="flex items-center gap-3 md:gap-4 z-10">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-[#1F222B] flex items-center justify-center text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors border border-white/5">
-                  <Diamond size={20} className="md:w-[24px] md:h-[24px]" />
-                </div>
-                <div className="flex flex-col">
-                  <h3 className="text-base md:text-lg font-bold text-gray-100 group-hover:text-white transition-colors">젬 세팅 최적화</h3>
-                  <p className="text-xs md:text-sm text-gray-500 group-hover:text-gray-400 transition-colors">보유한 젬으로 최적의 효율 찾기</p>
-                </div>
-              </div>
-              <div className="text-gray-400 hover:text-gray-200 transition-colors">
-                <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
-              </div>
-              <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-[#5B69FF]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            </a>
 
             <a href="/dps-share" className="group relative w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl p-4 md:p-5 flex items-center justify-between hover:border-[#FF5252]/50 transition-all duration-300 overflow-hidden">
               <div className="flex items-center gap-3 md:gap-4 z-10">
@@ -280,6 +302,7 @@ export default async function HomePage() {
               <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-[#FF5252]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             </a>
           </div>
+
         </div>
       </div>
 
