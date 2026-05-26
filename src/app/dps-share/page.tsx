@@ -91,10 +91,10 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
             ],
             나메: [],
         },
-        "1막-EX": {
-            노말: [{ gate: 1, hp: 16400, range: [2042, 2723] }],
-            하드: [{ gate: 1, hp: 33500, range: [4161, 5548] }],
-            나메: [{ gate: 1, hp: 60200, range: [7461, 9948] }],
+        "2막-EX": {
+            노말: [{ gate: 1, hp: 11966, range: [1542, 2056] }],
+            하드: [{ gate: 1, hp: 32449, range: [4174, 5565] }],
+            나메: [{ gate: 1, hp: 73669, range: [9477, 12635] }],
         },
     },
     그림자: {
@@ -151,7 +151,7 @@ export default function DpsSharePage() {
     const handleActChange = (nextAct: string) => {
         setAct(nextAct);
 
-        const isNightmareAvailable = category !== "카제로스" || nextAct === "1막-EX";
+        const isNightmareAvailable = category !== "카제로스" || nextAct === "2막-EX";
 
         if (!isNightmareAvailable && diff === "나메") {
             setDiff("노말");
@@ -200,7 +200,7 @@ export default function DpsSharePage() {
     }, [category, act, diff, dmgInput, bleedCut]);
 
     const rows = RAID_DATA[category][act][diff] || [];
-    const isNightmareAvailable = category !== "카제로스" || act === "1막-EX";
+    const isNightmareAvailable = category !== "카제로스" || act === "2막-EX";
 
     return (
         <>

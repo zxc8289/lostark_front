@@ -13,11 +13,8 @@ import {
     GripVertical,
     ChevronDown,
     ChevronUp,
-    Plus,
     ArrowLeftRight,
-    MessageSquareText,
 } from "lucide-react";
-import { getRaidColumnSortKeyForRoster } from "@/app/lib/tasks/raid-utils";
 import {
     DndContext,
     type DragEndEvent,
@@ -33,9 +30,9 @@ import {
     horizontalListSortingStrategy,
     verticalListSortingStrategy,
     useSortable,
-    arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import CharacterInfoCell from "./CharacterInfoCell";
 
 type Props = {
     roster: RosterCharacter[];
@@ -56,6 +53,7 @@ type Props = {
     onEdit: (character: RosterCharacter) => void;
     isDragEnabled?: boolean; // 드래그 활성화 여부
 };
+
 
 const GATE_BTN_BASE =
     "w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border transition-all duration-150";
@@ -115,7 +113,7 @@ function SortableHeader({
     id,
     displayName,
     isBlank,
-    isDragEnabled, // 🔥 추가
+    isDragEnabled,
 }: {
     id: string;
     displayName: string;
@@ -195,256 +193,80 @@ function SortableCharacterRow({
     const rowId = `${CHAR_ID_PREFIX}${char.name}`;
     const sortable = useSortable({ id: rowId });
 
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging,
-        isOver,
-    } = sortable;
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = sortable;
 
     const overStyle = isOver && !isDragging ? "bg-white/10 ring-2 ring-inset ring-[#5B69FF]" : "";
+    const style: CSSProperties = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 };
 
-    const style: CSSProperties = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.35 : 1,
-    };
-
-    const hasAnyRaid =
-        !!prefs && Object.values(prefs.raids ?? {}).some((r) => r?.enabled);
-
+    const hasAnyRaid = !!prefs && Object.values(prefs.raids ?? {}).some((r) => r?.enabled);
     const dragListeners = isDragEnabled ? listeners : {};
     const dragAttributes = isDragEnabled ? attributes : {};
 
     return (
-        <tr
-            ref={setNodeRef}
-            style={style}
-            className={`hover:bg-white/[0.02] transition-colors group ${overStyle}`}
-        >
+        <tr ref={setNodeRef} style={style} className={`hover:bg-white/[0.02] transition-colors group ${overStyle}`}>
             <td
                 {...dragAttributes}
                 {...dragListeners}
-                className={`h-[56px] sm:h-[67px] px-1 sm:px-0 py-1.5 sm:py-2 align-middle sticky left-0 z-10 border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] bg-[#111217] group-hover:bg-[#16181D] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}
+                className={`h-[60px] sm:h-[72px] px-2 sm:px-3 py-1.5 sm:py-2 align-middle sticky left-0 z-10 border-r border-white/5 bg-[#111217] group-hover:bg-[#16181D] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}
             >
-                <div className="flex items-center justify-center w-full h-full pointer-events-none gap-1 sm:gap-1.5">
-
-                    <div className="flex flex-col items-end justify-center gap-[8px] w-1/2 overflow-hidden">
-                        <span
-                            className="block truncate max-w-[55px] sm:max-w-[85px] text-white font-medium text-[10px] sm:text-[14px] leading-none"
-                            title={char.name}
-                        >
-                            {char.name}
-                        </span>
-                        <span className="text-gray-400 font-normal text-[9px] sm:text-[12px] leading-none whitespace-nowrap">
-                            Lv. {char.itemLevel}
-                        </span>
-                    </div>
-
-                    <div className="flex flex-col items-start justify-center gap-[8px] w-1/2 overflow-hidden">
-                        <div className="flex items-center gap-1 leading-none w-full">
-                            <span className="hidden sm:block text-[#8A95A5] font-normal text-[13px] whitespace-nowrap overflow-hidden max-w-[65px]">
-                                {char.className}
-                            </span>
-                            <div className="flex items-center gap-0.5 flex-shrink-0">
-                                <button
-                                    onPointerDown={(e) => e.stopPropagation()}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onEdit(char);
-                                    }}
-                                    className="text-[#64748B] hover:text-white transition-colors p-[2px] rounded hover:bg-white/10 pointer-events-auto cursor-pointer"
-                                    title="캐릭터 설정"
-                                >
-                                    <SquarePen size={12} className="sm:w-[13px] sm:h-[13px] w-[11px] h-[11px]" strokeWidth={2} />
-                                </button>
-
-                                <button
-                                    onPointerDown={(e) => e.stopPropagation()}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onOpenMemo(char.name, prefs?.memo || "");
-                                    }}
-                                    className="p-[2px] rounded transition-colors pointer-events-auto cursor-pointer hover:bg-white/10 flex-shrink-0"
-                                    title="메모 작성/보기"
-                                >
-                                    <MessageSquareText
-                                        size={12}
-                                        className={`sm:w-[13px] sm:h-[13px] w-[11px] h-[11px] ${prefs?.memo
-                                            ? "text-amber-400 hover:text-amber-300"
-                                            : "text-[#64748B] hover:text-white"
-                                            }`}
-                                        strokeWidth={2}
-                                    />
-                                </button>
-                            </div>
-                        </div>
-
-                        {(char as any).combatPower && (char as any).combatPower !== "0" ? (
-                            (() => {
-                                const supporterEngravings = ["절실한 구원", "축복의 오라", "만개", "해방자"];
-                                const isSupporter = supporterEngravings.includes((char as any).jobEngraving ?? "");
-
-                                return (
-                                    <div className="flex items-center gap-0.5 leading-none flex-shrink-0">
-                                        {isSupporter ? (
-                                            <>
-                                                <Plus
-                                                    size={12}
-                                                    className="text-emerald-400 opacity-90 translate-y-[-0.5px]"
-                                                    strokeWidth={5} // 아이콘을 좀 더 두툼하게
-                                                />
-                                                <span className="text-emerald-400 font-medium text-[9px] sm:text-[12px] whitespace-nowrap">{(char as any).combatPower}</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span className="text-[9px] sm:text-[11px] grayscale opacity-50 translate-y-[-1px]">⚔️</span>
-                                                <span className="text-[#E57373] font-medium text-[9px] sm:text-[12px] whitespace-nowrap translate-y-[-1.5px]">{(char as any).combatPower}</span>
-                                            </>
-                                        )}
-                                    </div>
-                                );
-                            })()
-                        ) : (
-                            <div className="flex items-center gap-0.5 leading-none flex-shrink-0">
-                                <span className="text-[#E57373] text-[9px] sm:text-[12px]">전투력 없음</span>
-                            </div>
-                        )}
-                    </div>
-
-                </div>
+                <CharacterInfoCell
+                    char={char}
+                    prefs={prefs}
+                    onEdit={onEdit}
+                    onOpenMemo={onOpenMemo}
+                />
             </td>
-            {/* 레이드 관문 부분 유지 */}
-            {
-                hasAnyRaid ? (
-                    <>
-                        {visibleRaidColumns.map((raidId) => {
-                            if (raidId.startsWith("__empty_")) {
-                                return (
-                                    <td
-                                        key={raidId}
-                                        className={`${RAID_COL_CLASS} `}
-                                    />
-                                );
-                            }
+            {/* 레이드 관문 부분 (이전과 완전히 동일) */}
+            {hasAnyRaid ? (
+                <>
+                    {visibleRaidColumns.map((raidId) => {
+                        if (raidId.startsWith("__empty_")) return <td key={raidId} className={RAID_COL_CLASS} />;
 
-                            const p = prefs?.raids?.[raidId];
-                            const info = raidInformation[raidId];
-                            const diffInfo =
-                                info && p
-                                    ? (info.difficulty as any)[p.difficulty]
-                                    : undefined;
+                        const p = prefs?.raids?.[raidId];
+                        const info = raidInformation[raidId];
+                        const diffInfo = info && p ? (info.difficulty as any)[p.difficulty] : undefined;
 
-                            if (!p?.enabled || !info || !diffInfo) {
-                                return (
-                                    <td
-                                        key={raidId}
-                                        className={RAID_COL_CLASS}
-                                    />
-                                );
-                            }
+                        if (!p?.enabled || !info || !diffInfo) return <td key={raidId} className={RAID_COL_CLASS} />;
 
-                            const checkedSet = new Set(p.gates ?? []);
-                            const allGates: number[] = diffInfo.gates.map(
-                                (g: any) => g.index
-                            );
+                        const checkedSet = new Set(p.gates ?? []);
+                        const allGates: number[] = diffInfo.gates.map((g: any) => g.index);
+                        const diffStyle = DIFF_STYLES[p.difficulty as keyof typeof DIFF_STYLES] ?? DIFF_STYLES["노말"];
+                        const isBonus = !!p.isBonus;
 
-                            const diffStyle =
-                                DIFF_STYLES[
-                                p.difficulty as keyof typeof DIFF_STYLES
-                                ] ?? DIFF_STYLES["노말"];
-
-                            const isBonus = !!p.isBonus;
-
-                            return (
-                                <td
-                                    key={raidId}
-                                    className={`${RAID_COL_CLASS} align-middle`}
-                                >
-                                    <div className="flex items-center justify-center gap-[4px] sm:gap-[5px]">
-                                        {allGates.map((g: number) => {
-                                            const isChecked = checkedSet.has(g);
-
-                                            return (
-                                                <button
-                                                    key={g}
-                                                    type="button"
-                                                    title={`관문 ${g}`}
-                                                    aria-pressed={isChecked}
-                                                    onClick={() =>
-                                                        onToggleGate(
-                                                            char.name,
-                                                            raidId,
-                                                            g,
-                                                            Array.from(checkedSet),
-                                                            allGates
-                                                        )
-                                                    }
-                                                    className={[
-                                                        GATE_BTN_BASE,
-                                                        "relative", // ✨ 내부 뱃지 배치를 위해 기준점 설정
-                                                        "hover:scale-[1.1]",
-                                                        isChecked
-                                                            ? `${diffStyle.check} border-transparent`
-                                                            : [
-                                                                diffStyle.idle,
-                                                                "hover:border-white/30",
-                                                                diffStyle.hover,
-                                                            ].join(" "),
-                                                    ].join(" ")}
-                                                >
-                                                    {isChecked ? (
-                                                        <svg
-                                                            viewBox="0 0 20 20"
-                                                            className="h-3 w-3 sm:h-4 sm:w-4"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            strokeWidth={2}
-                                                        >
-                                                            <path
-                                                                d="M5 10l3 3 7-7"
-                                                                strokeLinecap="round"
-                                                                strokeLinejoin="round"
-                                                            />
-                                                        </svg>
-                                                    ) : (
-                                                        g
-                                                    )}
-
-                                                    {isBonus && (
-                                                        <span
-                                                            className="absolute -top-[3px] -right-[3px] sm:-top-1 sm:-right-1 
-                                                                flex items-center justify-center 
-                                                                w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] 
-                                                                bg-[#111217] text-gray-300 
-                                                                text-[10px] sm:text-[12px] font-medium leading-none
-                                                                rounded-full border border-gray-500/60 z-10"
-                                                        >
-                                                            <span className="relative bottom-[0.5px]">+</span>
-                                                        </span>
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </td>
-                            );
-                        })}
-                    </>
-                ) : (
-                    <td colSpan={maxVisible} className="px-3 py-3 sm:py-4 align-middle">
-                        <div className="px-3 py-2 text-[10px] sm:text-[11px] md:text-sm text-gray-500 text-center">
-                            <span className="text-[#FFFFFF]/70">{char.name}</span>
-                            <SquarePen className="inline-block align-middle w-3 h-3 sm:w-4 sm:h-4 mx-1 text-[#FFFFFF]/70" />
-                            <span>에서 캐릭터의 레이드 숙제를 설정하고 관리해 보세요.</span>
-                        </div>
-                    </td>
-                )
-            }
-        </tr >
+                        return (
+                            <td key={raidId} className={`${RAID_COL_CLASS} align-middle`}>
+                                <div className="flex items-center justify-center gap-[4px] sm:gap-[5px]">
+                                    {allGates.map((g: number) => {
+                                        const isChecked = checkedSet.has(g);
+                                        return (
+                                            <button
+                                                key={g} type="button" title={`관문 ${g}`} aria-pressed={isChecked}
+                                                onClick={() => onToggleGate(char.name, raidId, g, Array.from(checkedSet), allGates)}
+                                                className={[
+                                                    GATE_BTN_BASE, "relative", "hover:scale-[1.1]",
+                                                    isChecked ? `${diffStyle.check} border-transparent` : [diffStyle.idle, "hover:border-white/30", diffStyle.hover].join(" "),
+                                                ].join(" ")}
+                                            >
+                                                {isChecked ? <svg viewBox="0 0 20 20" className="h-3 w-3 sm:h-4 sm:w-4" fill="none" stroke="currentColor" strokeWidth={2}><path d="M5 10l3 3 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg> : g}
+                                                {isBonus && <span className="absolute -top-[3px] -right-[3px] sm:-top-1 sm:-right-1 flex items-center justify-center w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] bg-[#111217] text-gray-300 text-[10px] sm:text-[12px] font-medium leading-none rounded-full border border-gray-500/60 z-10"><span className="relative bottom-[0.5px]">+</span></span>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </td>
+                        );
+                    })}
+                </>
+            ) : (
+                <td colSpan={maxVisible} className="px-3 py-3 sm:py-4 align-middle">
+                    <div className="px-3 py-2 text-[10px] sm:text-[11px] md:text-sm text-gray-500 text-center">
+                        <span className="text-[#FFFFFF]/70">{char.name}</span>
+                        <SquarePen className="inline-block align-middle w-3 h-3 sm:w-4 sm:h-4 mx-1 text-[#FFFFFF]/70" />
+                        <span>에서 캐릭터의 레이드 숙제를 설정하고 관리해 보세요.</span>
+                    </div>
+                </td>
+            )}
+        </tr>
     );
 }
 
@@ -859,7 +681,6 @@ export default function TaskTable({
                                 </span>
                                 <span className="text-gray-400 text-[11px] sm:text-sm">
                                     {first.itemLevel ? `Lv. ${first.itemLevel}` : "Lv. -"}
-                                    {/* 🔥 직업 부분만 따로 빼서 모바일에서 숨김 처리 (hidden sm:inline) */}
                                     {first.className && (
                                         <span className="hidden sm:inline">
                                             {" "}/ {first.className}
@@ -918,7 +739,6 @@ export default function TaskTable({
                     </div>
                 </div>
 
-                {/* 테이블 래퍼 */}
                 <div className="w-full overflow-hidden rounded-b-md border border-t-0 border-white/10 bg-[#111217]">
                     <div className="overflow-x-auto">
                         <table className="w-full text-center text-[11px] sm:text-sm text-gray-400 border-collapse table-fixed">

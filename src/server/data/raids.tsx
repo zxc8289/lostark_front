@@ -408,37 +408,6 @@ export const raidInformation: Record<
         },
     },
 
-    "1막-에기르 EX": {
-        kind: "카제로스",
-        releaseDate: "2026-04-22",
-        gates: 2,
-        difficulty: {
-            "노말": {
-                level: 1720,
-                gold: 20000,
-                boundGold: 0,
-                gates: [
-                    { index: 1, name: "1관문", gold: 20000, boundGold: 0, bonusCost: 0, rewards: "", bonusRewards: "" },
-                ],
-            },
-            "하드": {
-                level: 1750,
-                gold: 45000,
-                boundGold: 0,
-                gates: [
-                    { index: 1, name: "1관문", gold: 45000, boundGold: 0, bonusCost: 0, rewards: "", bonusRewards: "" },
-                ],
-            },
-            "나메": {
-                level: 1770,
-                gold: 45000,
-                boundGold: 0,
-                gates: [
-                    { index: 1, name: "1관문", gold: 45000, boundGold: 0, bonusCost: 0, rewards: "", bonusRewards: "" },
-                ],
-            },
-        },
-    },
 
 
     "2막-아브렐슈드": {
@@ -475,6 +444,40 @@ export const raidInformation: Record<
             },
         },
     },
+
+
+    "2막-아브렐슈드 EX": {
+        kind: "카제로스",
+        releaseDate: "2026-05-20",
+        gates: 2,
+        difficulty: {
+            "노말": {
+                level: 1720,
+                gold: 20000,
+                boundGold: 0,
+                gates: [
+                    { index: 1, name: "1관문", gold: 20000, boundGold: 0, bonusCost: 0, rewards: "", bonusRewards: "" },
+                ],
+            },
+            "하드": {
+                level: 1750,
+                gold: 45000,
+                boundGold: 0,
+                gates: [
+                    { index: 1, name: "1관문", gold: 45000, boundGold: 0, bonusCost: 0, rewards: "", bonusRewards: "" },
+                ],
+            },
+            "나메": {
+                level: 1770,
+                gold: 45000,
+                boundGold: 0,
+                gates: [
+                    { index: 1, name: "1관문", gold: 45000, boundGold: 0, bonusCost: 0, rewards: "", bonusRewards: "" },
+                ],
+            },
+        },
+    },
+
 
     "3막-모르둠": {
         kind: "카제로스",

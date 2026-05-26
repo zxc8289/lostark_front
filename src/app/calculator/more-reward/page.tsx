@@ -272,9 +272,9 @@ export default function MoreRewardCalculatorPage() {
         }
     }, [excludedItems, isMounted]);
 
-    if (!isMounted) {
-        return <div className="min-h-screen bg-[#111217]" />;
-    }
+    // if (!isMounted) {
+    //     return <div className="min-h-screen bg-[#111217]" />;
+    // }
 
     return (
         <div className="-mx-4 sm:mx-0 space-y-6 animate-in fade-in duration-300">

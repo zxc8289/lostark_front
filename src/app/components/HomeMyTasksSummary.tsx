@@ -29,9 +29,43 @@ const VISIBLE_KEY = "raidTaskVisibleByChar";
 const ACCOUNTS_KEY = "raidTaskAccounts";
 const ACTIVE_ACCOUNT_KEY = "raidTaskActiveAccount";
 
+const DIFF_STYLES = {
+    하드: {
+        check: "bg-[#FF5252] text-white border-[#FF5252]",
+        idle: "bg-[#FF5252]/8 text-[#FFB3B3]/80 border-[#FF5252]/40",
+        hover: "hover:bg-[#FF5252] hover:text-white",
+    },
+    노말: {
+        check: "bg-[#5B69FF] text-white border-[#5B69FF]",
+        idle: "bg-[#5B69FF]/8 text-[#C0C6FF]/85 border-[#5B69FF]/40",
+        hover: "hover:bg-[#5B69FF] hover:text-white",
+    },
+    나메: {
+        check: "bg-[#6D28D9] text-white border-[#6D28D9]",
+        idle: "bg-[#6D28D9]/8 text-[#D6BCFA]/85 border-[#6D28D9]/75",
+        hover: "hover:bg-[#6D28D9] hover:text-white",
+    },
+    싱글: {
+        check: "bg-[#F1F5F9] text-[#111217] border-[#F1F5F9]",
+        idle: "bg-white/5 text-white/70 border-white/20",
+        hover: "hover:bg-[#F1F5F9] hover:text-[#111217]",
+    },
+} as const;
+
+type RaidDifficulty = keyof typeof DIFF_STYLES;
+
+function getDifficultyChipClass(difficulty?: string) {
+    const style = DIFF_STYLES[difficulty as RaidDifficulty];
+    return style?.idle ?? "bg-black/40 text-gray-300 border-white/5";
+}
+
 type RemainingRaidRow = {
     raidName: string;
-    chars: { name: string; remainLabel: string }[];
+    chars: {
+        name: string;
+        remainLabel: string;
+        difficulty: string;
+    }[];
 };
 
 type Ctx = {
@@ -211,7 +245,11 @@ export default function HomeMyTasksSummary({ children }: { children: React.React
                 const remainIdx = allGateIdx.filter((gi) => !done.includes(gi));
                 const remainLabel = remainIdx.length ? `${formatGateRanges(remainIdx)} 남음` : "진행 중";
                 const row = map.get(raidName) ?? { raidName, chars: [] };
-                row.chars.push({ name: c.name, remainLabel });
+                row.chars.push({
+                    name: c.name,
+                    remainLabel,
+                    difficulty: pref.difficulty,
+                });
                 map.set(raidName, row);
             }
         }
@@ -383,10 +421,16 @@ export function HomeMyTasksDetails() {
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                         {r.chars.map((c, i) => (
-                            <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-black/40 rounded border border-white/5 text-[10px]">
-                                <span className="text-gray-200 font-medium">{c.name}</span>
-                                <span className="w-px h-2 bg-white/10" />
-                                <span className="text-gray-300 font-bold">{c.remainLabel}</span>
+                            <div
+                                key={i}
+                                title={`${c.name} / ${c.difficulty} / ${c.remainLabel}`}
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] transition-colors ${getDifficultyChipClass(c.difficulty)}`}
+                            >
+                                <span className="font-medium">{c.name}</span>
+
+                                <span className="w-px h-2 bg-current/20" />
+
+                                <span className="font-bold opacity-90">{c.remainLabel}</span>
                             </div>
                         ))}
                     </div>

@@ -334,11 +334,16 @@ export default function PartyDemoPage() {
     const myUserId = MOCK_MY_USER_ID;
 
     const [selectedRaids, setSelectedRaids] = useState<string[]>([]);
-    const [party, setParty] = useState<PartyDetail | null>(null);
-    const [partyLoading, setPartyLoading] = useState(true);
+    const [party, setParty] = useState<PartyDetail | null>(
+        MOCK_PARTY_DETAIL as PartyDetail
+    );
+
+    const [partyLoading, setPartyLoading] = useState(false);
     const [partyErr, setPartyErr] = useState<string | null>(null);
 
-    const [partyTasks, setPartyTasks] = useState<PartyMemberTasks[] | null>(null);
+    const [partyTasks, setPartyTasks] = useState<PartyMemberTasks[] | null>(
+        MOCK_PARTY_TASKS
+    );
     const [tasksLoading, setTasksLoading] = useState(false);
     const [tasksErr, setTasksErr] = useState<string | null>(null);
     const [refreshErr, setRefreshErr] = useState<string | null>(null);
@@ -629,15 +634,6 @@ export default function PartyDemoPage() {
         }));
     };
 
-    // 초기 데이터 로딩 효과
-    useEffect(() => {
-        setPartyLoading(true);
-        setTimeout(() => {
-            setParty(MOCK_PARTY_DETAIL as PartyDetail);
-            setPartyLoading(false);
-            reloadPartyTasks(true);
-        }, 1000);
-    }, [reloadPartyTasks]);
 
     const handlePartyUpdated = (patch: Partial<PartyDetail>) => {
         setParty((prev) => (prev ? { ...prev, ...patch } : prev));
@@ -869,28 +865,54 @@ export default function PartyDemoPage() {
                         )}
 
                         {charSettingOpen && charSettingTarget && (() => {
-                            const targetMember = partyTasks?.find((m) => m.userId === charSettingTarget.memberUserId);
+                            const targetMember = partyTasks?.find(
+                                (m) => m.userId === charSettingTarget.memberUserId
+                            );
+
                             const isMeTarget = !!myUserId && charSettingTarget.memberUserId === myUserId;
-                            const baseSummary = (isMeTarget ? (currentAccount?.summary ?? null) : null) ?? targetMember?.summary ?? null;
+
+                            const baseSummary = isMeTarget
+                                ? currentAccount?.summary ?? null
+                                : targetMember?.summary ?? null;
+
                             const roster = baseSummary?.roster ?? [];
                             const rawVisible = targetMember?.visibleByChar ?? {};
+
                             const modalVisibleByChar: Record<string, boolean> = {};
-                            for (const c of roster) modalVisibleByChar[c.name] = rawVisible[c.name] ?? true;
+                            for (const c of roster) {
+                                modalVisibleByChar[c.name] = rawVisible[c.name] ?? true;
+                            }
 
                             return (
                                 <CharacterSettingModal
                                     open
-                                    onClose={() => { setCharSettingOpen(false); setRefreshErr(null); setAccountSearchErr(null); }}
+                                    onClose={() => {
+                                        setCharSettingOpen(false);
+                                        setRefreshErr(null);
+                                        setAccountSearchErr(null);
+                                    }}
                                     refreshError={isMeTarget ? accountSearchErr : refreshErr}
                                     roster={roster}
                                     visibleByChar={modalVisibleByChar}
-                                    onChangeVisible={(next) => handleMemberChangeVisible(charSettingTarget.memberUserId, next)}
-                                    onDeleteAccount={isMeTarget && activeAccountId !== "ALL" ? () => setDeleteConfirmOpen(true) : undefined}
-                                    onRefreshAccount={isMeTarget ? handleMyRefreshAccount : () => handleMemberRefreshAccount(charSettingTarget.memberUserId)}
+                                    onChangeSettings={(nextVisible) => {
+                                        handleMemberChangeVisible(
+                                            charSettingTarget.memberUserId,
+                                            nextVisible
+                                        );
+                                    }}
+                                    onDeleteAccount={
+                                        isMeTarget && activeAccountId !== "ALL"
+                                            ? () => setDeleteConfirmOpen(true)
+                                            : undefined
+                                    }
+                                    onRefreshAccount={
+                                        isMeTarget
+                                            ? handleMyRefreshAccount
+                                            : () => handleMemberRefreshAccount(charSettingTarget.memberUserId)
+                                    }
                                 />
                             );
                         })()}
-
                         {/* 검색 모달 (계정 추가) */}
                         <EmptyCharacterState
                             open={isAddAccountOpen}
@@ -1120,21 +1142,42 @@ function PartyMemberBlock({
                             isRaidFilterActive ? null : (onlyRemain ? <div className="text-center py-10 text-gray-500">모든 숙제 완료!</div> : null)
                         ) : (
                             <TaskTable
-                                key={`table-${isAllView ? 'all' : currentAccount?.id}`}
+                                key={`table-${isAllView ? "all" : currentAccount?.id}`}
                                 roster={tableRoster}
                                 prefsByChar={tablePrefsByChar}
                                 tableOrder={viewTableOrder}
                                 rosterOrder={member.rosterOrder ?? []}
                                 isDragEnabled={isDragEnabled}
-                                onReorderTable={withEditAuth((newOrder: any) => { if (selectedRaids.length === 0 && !onlyRemain) onReorderTable(member.userId, newOrder); })}
-                                onReorderRoster={withEditAuth((newOrderSubset: any) => {
+                                onReorderTable={withEditAuth((newOrder: string[]) => {
+                                    if (selectedRaids.length === 0 && !onlyRemain) {
+                                        onReorderTable(member.userId, newOrder);
+                                    }
+                                })}
+                                onReorderRoster={withEditAuth((newOrderSubset: string[]) => {
                                     const subset = tableRoster.map((c) => c.name);
-                                    const baseFull = (member.rosterOrder && member.rosterOrder.length > 0) ? member.rosterOrder : defaultSortedRoster.map((c) => c.name);
+                                    const baseFull =
+                                        member.rosterOrder && member.rosterOrder.length > 0
+                                            ? member.rosterOrder
+                                            : defaultSortedRoster.map((c) => c.name);
+
                                     const merged = mergeReorderedSubset(baseFull, subset, newOrderSubset);
                                     onReorderRoster(member.userId, merged);
                                 })}
-                                onToggleGate={withEditAuth((char: any, raid: any, gate: any, cur: any, all: any) => onToggleGate(char, raid, gate, cur, all))}
-                                onEdit={withEditAuth((c: any) => onEdit(c))}
+                                onToggleGate={withEditAuth((
+                                    charName: string,
+                                    raidName: string,
+                                    gateIndex: number,
+                                    currentGates: number[],
+                                    allGates: number[]
+                                ) => {
+                                    onToggleGate(charName, raidName, gateIndex, currentGates, allGates);
+                                })}
+                                onEdit={withEditAuth((c: RosterCharacter) => {
+                                    onEdit(c);
+                                })}
+                                onOpenMemo={(charName: string, currentMemo: string) => {
+                                    console.log("memo open", charName, currentMemo);
+                                }}
                             />
                         )
                     )}

@@ -44,6 +44,7 @@ export default function WeeklyRaidTab() {
         handleMyRefreshAccount, isRefreshing, setAutoSetupConfirmOpen, showAutoSetupSettings,
         setShowAutoSetupSettings, autoSetupCharCount, setAutoSetupCharCount, autoSetupSortType,
         setAutoSetupSortType, gateAllClear, effectiveHasRoster, setIsCharSettingOpen,
+        showInitialLoading,
         isCardView, isTableEmpty, isRaidFilterActive, onlyRemain,
         tableRoster, tablePrefsByChar, tableOrderForView, setMemoTarget, setTableOrder,
         handleTableToggleGate, setEditingChar, rosterOrder, isDragEnabled, setRosterOrder,
@@ -113,10 +114,9 @@ export default function WeeklyRaidTab() {
 
     return (
         <>
-            <div className="bg-[#16181D] rounded-none sm:rounded-sm border-x-0 px-4 sm:px-5 py-3 sm:py-4">
+            <div className="bg-[#16181D] rounded-none sm:rounded-sm border-x-0 mb-[18px] px-4 sm:px-5 py-3 sm:py-4">
                 <div className="flex flex-wrap gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between max-[1246px]:flex-col max-[1246px]:items-start max-[1246px]:justify-start">
                     <div className="flex items-center gap-1.5 sm:gap-4 text-[10.5px] sm:text-base min-w-0">
-                        {/* 남은 숙제 */}
                         <div className="flex items-baseline gap-1 sm:gap-1.5">
                             <span className="font-semibold text-[10.5px] sm:text-[17px] pr-0.5 sm:pr-1">남은 숙제</span>
                             <AnimatedNumber value={totalRemainingTasks} className="text-gray-400 text-[10.5px] sm:text-sm font-semibold" />
@@ -254,7 +254,10 @@ export default function WeeklyRaidTab() {
                 </div>
             </div>
 
-            {!isCardView ? (
+            {showInitialLoading ? (
+                <TaskTableOnlySkeleton
+                />
+            ) : !isCardView ? (
                 isTableEmpty ? (
                     isRaidFilterActive ? null : (
                         onlyRemain ? (
@@ -362,5 +365,66 @@ export default function WeeklyRaidTab() {
                 </div>
             )}
         </>
+    );
+}
+
+function TaskTableOnlySkeleton() {
+    return (
+        <div className="bg-[#16181D] rounded-sm relative animate-pulse">
+            <div className="flex items-center px-5 py-[17px]">
+                <div className="h-5 w-[120px] sm:w-[220px] rounded bg-white/5" />
+                <div className="ml-auto flex items-center gap-2">
+                    <div className="h-6 w-6 sm:h-8 sm:w-8 rounded-full bg-white/5" />
+                    <div className="h-6 w-6 sm:h-8 sm:w-8 rounded-full bg-white/5" />
+                </div>
+            </div>
+
+            <div className="w-full overflow-hidden rounded-b-md border border-t-0 border-white/10 bg-[#111217]">
+                <div className="overflow-hidden">
+                    <table className="w-full text-center text-[11px] sm:text-sm text-gray-400 border-collapse table-fixed">
+                        <thead className="bg-[#1E222B]">
+                            <tr>
+                                <th className="px-3 py-3 sm:py-4 sticky left-0 bg-[#1E222B] border-r border-white/5 w-[140px] sm:w-[210px] min-w-[120px] sm:min-w-[180px]">
+                                    <div className="h-3 w-14 mx-auto rounded bg-white/5" />
+                                </th>
+
+                                {[1, 2, 3, 4, 5].map((i) => (
+                                    <th key={i} className="px-2 py-3 sm:py-4">
+                                        <div className="h-3 w-16 mx-auto rounded bg-white/5" />
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+
+                        <tbody className="divide-y divide-white/5">
+                            {[1, 2, 3, 4, 5].map((row) => (
+                                <tr key={row}>
+                                    <td className="h-[60px] sm:h-[72px] px-2 sm:px-3 py-1.5 sm:py-2 sticky left-0 bg-[#111217] border-r border-white/5 w-[140px] sm:w-[210px] min-w-[120px] sm:min-w-[180px]">
+                                        <div className="flex items-center justify-center w-full h-full">
+                                            <div className="inline-flex items-center gap-1 sm:gap-2">
+                                                <div className="w-8 h-8 sm:w-[42px] sm:h-[42px] rounded-md bg-white/5" />
+                                                <div className="flex flex-col gap-[5px] sm:gap-[7px]">
+                                                    <div className="h-3 w-[72px] sm:w-[110px] rounded bg-white/5" />
+                                                    <div className="h-2.5 w-[58px] sm:w-[90px] rounded bg-white/5" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {[1, 2, 3, 4, 5].map((col) => (
+                                        <td key={col} className="px-2 py-3 sm:py-4 align-middle">
+                                            <div className="flex items-center justify-center gap-[4px] sm:gap-[5px]">
+                                                <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-white/5" />
+                                                <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-white/5" />
+                                            </div>
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     );
 }

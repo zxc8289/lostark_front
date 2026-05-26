@@ -253,10 +253,10 @@ export function computeRaidSummaryForRoster(
 export function autoSelectTop3Raids(
     ilvl: number,
     prev?: CharacterTaskPrefs,
-    sortType: "latest" | "gold" = "latest" // ✨ 정렬 기준 추가
+    sortType: "latest" | "gold" = "latest"
 ): CharacterTaskPrefs {
     const raidEntries = Object.entries(raidInformation).filter(
-        ([raidName]) => raidName !== "1막-에기르 EX"
+        ([raidName]) => raidName !== "2막-아브렐슈드 EX"
     );
     const updatedRaids: CharacterTaskPrefs["raids"] = { ...(prev?.raids ?? {}) };
     const candidates: {
@@ -357,7 +357,7 @@ export function buildAutoSetupForRoster(
     roster: RosterCharacter[],
     prevPrefsByChar: Record<string, CharacterTaskPrefs>,
     charCount: number = 6,
-    sortType: "latest" | "gold" = "latest" 
+    sortType: "latest" | "gold" = "latest"
 ): AutoSetupResult {
     if (!roster.length) {
         return {
@@ -400,17 +400,17 @@ export function buildAutoSetupForRoster(
         const newPref = nextPrefsByChar[charName];
 
         if (oldPref && newPref) {
-            const exRaidOld = (oldPref.raids as any)?.["1막-에기르 EX"];
+            const exRaidOld = (oldPref.raids as any)?.["2막-아브렐슈드 EX"];
 
             if (exRaidOld && exRaidOld.enabled) {
-                (newPref.raids as any)["1막-에기르 EX"] = exRaidOld;
-                if (!newPref.order?.includes("1막-에기르 EX")) {
-                    newPref.order = [...(newPref.order || []), "1막-에기르 EX"];
+                (newPref.raids as any)["2막-아브렐슈드 EX"] = exRaidOld;
+                if (!newPref.order?.includes("2막-아브렐슈드 EX")) {
+                    newPref.order = [...(newPref.order || []), "2막-아브렐슈드 EX"];
                 }
             } else {
-                if ((newPref.raids as any)?.["1막-에기르 EX"]) {
-                    delete (newPref.raids as any)["1막-에기르 EX"];
-                    newPref.order = (newPref.order || []).filter((r: string) => r !== "1막-에기르 EX");
+                if ((newPref.raids as any)?.["2막-아브렐슈드 EX"]) {
+                    delete (newPref.raids as any)["2막-아브렐슈드 EX"];
+                    newPref.order = (newPref.order || []).filter((r: string) => r !== "2막-아브렐슈드 EX");
                 }
             }
         }

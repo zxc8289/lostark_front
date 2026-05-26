@@ -1,11 +1,27 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Info, Calculator, Check } from "lucide-react";
+const PARTY_SIZE_STORAGE_KEY = "auctionCalculator_partySize";
 
 export default function AuctionCalculatorPage() {
+    const [isStorageLoaded, setIsStorageLoaded] = useState(false);
     const [partySize, setPartySize] = useState<4 | 8 | 16>(8);
+
+    useEffect(() => {
+        try {
+            const saved = Number(localStorage.getItem(PARTY_SIZE_STORAGE_KEY));
+
+            if (saved === 4 || saved === 8 || saved === 16) {
+                setPartySize(saved);
+            }
+        } catch { }
+
+        setIsStorageLoaded(true);
+    }, []);
+
     const [marketPriceRaw, setMarketPriceRaw] = useState<string>("");
+
 
     const calc = useMemo(() => {
         const fee = 0.95;
@@ -33,6 +49,7 @@ export default function AuctionCalculatorPage() {
     };
 
     const fmt = (v: number) => (v || 0).toLocaleString();
+
 
     return (
         <>
@@ -83,7 +100,14 @@ export default function AuctionCalculatorPage() {
                                         {[4, 8, 16].map((n) => (
                                             <button
                                                 key={n}
-                                                onClick={() => setPartySize(n as 4 | 8 | 16)}
+                                                onClick={() => {
+                                                    const nextPartySize = n as 4 | 8 | 16;
+                                                    setPartySize(nextPartySize);
+
+                                                    try {
+                                                        localStorage.setItem(PARTY_SIZE_STORAGE_KEY, String(nextPartySize));
+                                                    } catch { }
+                                                }}
                                                 className={`flex w-full items-center gap-3 px-4 py-3 transition-colors border-b border-white/5 last:border-b-0 ${partySize === n
                                                     ? "bg-[#5B69FF]/15 text-white"
                                                     : "text-gray-400 hover:bg-white/5 hover:text-gray-200"

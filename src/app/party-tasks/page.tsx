@@ -164,13 +164,15 @@ export default function PartyTasksPage() {
 
 
 
-    /* 내 파티 목록 불러오기: authenticated에서만 */
     useEffect(() => {
+        if (status !== "authenticated") return;
+
         let cancelled = false;
 
         async function loadParties() {
             setLoading(true);
             setErr(null);
+
             try {
                 const res = await fetch("/api/party-tasks/my-parties", {
                     method: "GET",
@@ -183,6 +185,7 @@ export default function PartyTasksPage() {
                 }
 
                 const data = (await res.json()) as MyPartiesResponse;
+
                 if (!cancelled) {
                     setParties(data.parties ?? []);
                 }
@@ -200,10 +203,9 @@ export default function PartyTasksPage() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [status]);
 
-    if (status === "loading") return <PartyTasksLoading />;
-    if (status === "unauthenticated") return <PartyDemoPage />;
+    if (status !== "authenticated") return <PartyDemoPage />;
 
     const hasParties = parties.length > 0;
 

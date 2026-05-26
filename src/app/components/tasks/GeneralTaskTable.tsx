@@ -6,12 +6,9 @@ import { RosterCharacter } from "../AddAccount";
 import {
     ChevronLeft,
     ChevronRight,
-    SquarePen,
     GripVertical,
     ChevronDown,
     ChevronUp,
-    Plus,
-    MessageSquareText,
 } from "lucide-react";
 import {
     DndContext,
@@ -31,8 +28,9 @@ import {
     arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import CharacterInfoCell from "./CharacterInfoCell";
 // 🔥 유틸 함수 임포트
-import { GeneralTaskStatus, GeneralTasksData, getVisualRestGauge } from "@/app/lib/tasks/general-task-utils";
+import { GeneralTaskStatus, GeneralTasksData } from "@/app/lib/tasks/general-task-utils";
 import type { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs"; // 🔥 타입 추가
 
 type Props = {
@@ -49,8 +47,6 @@ type Props = {
     onReorderTasks?: (newOrder: string[]) => void;
     onUpdateRestGauge?: (charName: string, taskName: string, newGauge: number) => void; // 🔥 휴식 게이지 직접 수정 함수
 };
-
-const TASK_BTN_BASE = "w-7 h-7 sm:w-8 sm:h-8 rounded-[8px] sm:rounded-[10px] flex items-center justify-center text-[10px] sm:text-xs font-bold transition-all duration-150 relative hover:scale-[1.05]";
 
 const CHAR_COL_WIDTH = "w-[140px] sm:w-[210px] min-w-[120px] sm:min-w-[180px]";
 const TASK_COL_CLASS = "px-2 py-3 sm:py-4 whitespace-nowrap text-center";
@@ -115,66 +111,55 @@ function SortableCharacterRow({
 
     return (
         <tr ref={setNodeRef} style={style} className={`hover:bg-white/[0.02] transition-colors group ${overStyle}`}>
-            <td {...dragAttributes} {...dragListeners} className={`h-[56px] sm:h-[67px] px-1 sm:px-0 py-1.5 sm:py-2 align-middle sticky left-0 z-10 border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] bg-[#111217] group-hover:bg-[#16181D] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}>
-                <div className="flex items-center justify-center w-full h-full pointer-events-none gap-1 sm:gap-1.5">
-                    <div className="flex flex-col items-end justify-center gap-[8px] w-1/2 overflow-hidden">
-                        <span className="block truncate max-w-[55px] sm:max-w-[85px] text-white font-medium text-[10px] sm:text-[14px] leading-none" title={char.name}>{char.name}</span>
-                        <span className="text-gray-400 font-normal text-[9px] sm:text-[12px] leading-none whitespace-nowrap">Lv. {char.itemLevel}</span>
-                    </div>
-
-                    <div className="flex flex-col items-start justify-center gap-[8px] w-1/2 overflow-hidden">
-                        <div className="flex items-center gap-1 leading-none w-full">
-                            <span className="hidden sm:block text-[#8A95A5] font-normal text-[13px] whitespace-nowrap overflow-hidden max-w-[65px]">{char.className}</span>
-                            <div className="flex items-center gap-0.5 flex-shrink-0">
-                                <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onEdit(char); }} className="text-[#64748B] hover:text-white transition-colors p-[2px] rounded hover:bg-white/10 pointer-events-auto cursor-pointer" title="캐릭터 설정">
-                                    <SquarePen size={12} className="sm:w-[13px] sm:h-[13px] w-[11px] h-[11px]" strokeWidth={2} />
-                                </button>
-                                {/* 🔥 메모 아이콘을 prefs.memo 유무에 따라 색상 변경 및 내용 전달 */}
-                                <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onOpenMemo(char.name, prefs?.memo || ""); }} className="p-[2px] rounded transition-colors pointer-events-auto cursor-pointer hover:bg-white/10 flex-shrink-0" title="메모 작성/보기">
-                                    <MessageSquareText size={12} className={`sm:w-[13px] sm:h-[13px] w-[11px] h-[11px] ${prefs?.memo ? "text-amber-400 hover:text-amber-300" : "text-[#64748B] hover:text-white"}`} strokeWidth={2} />
-                                </button>
-                            </div>
-                        </div>
-
-                        {(char as any).combatPower && (char as any).combatPower !== "0" ? (
-                            (() => {
-                                const supporterEngravings = ["절실한 구원", "축복의 오라", "만개", "해방자"];
-                                const isSupporter = supporterEngravings.includes((char as any).jobEngraving ?? "");
-                                return (
-                                    <div className="flex items-center gap-0.5 leading-none flex-shrink-0">
-                                        {isSupporter ? (
-                                            <><Plus size={12} className="text-emerald-400 opacity-90 translate-y-[-0.5px]" strokeWidth={5} /><span className="text-emerald-400 font-medium text-[9px] sm:text-[12px] whitespace-nowrap">{(char as any).combatPower}</span></>
-                                        ) : (
-                                            <><span className="text-[9px] sm:text-[11px] grayscale opacity-50 translate-y-[-1px]">⚔️</span><span className="text-[#E57373] font-medium text-[9px] sm:text-[12px] whitespace-nowrap translate-y-[-1.5px]">{(char as any).combatPower}</span></>
-                                        )}
-                                    </div>
-                                );
-                            })()
-                        ) : (
-                            <div className="flex items-center gap-0.5 leading-none flex-shrink-0"><span className="text-[#E57373] text-[9px] sm:text-[12px]">전투력 없음</span></div>
-                        )}
-                    </div>
-                </div>
+            <td
+                {...dragAttributes}
+                {...dragListeners}
+                className={`h-[78px] sm:h-[88px] px-2 sm:px-3 py-1.5 sm:py-2 align-middle sticky left-0 z-10 border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] bg-[#111217] group-hover:bg-[#16181D] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}
+            >
+                <CharacterInfoCell
+                    char={char}
+                    prefs={prefs}
+                    onEdit={onEdit}
+                    onOpenMemo={onOpenMemo}
+                />
             </td>
 
             {visibleTaskColumns.map((taskName) => {
                 if (taskName.startsWith("__empty_")) return <td key={taskName} className={TASK_COL_CLASS} />;
 
-                // 🔥 낙원의 문은 5회 초기화 고려하여 기본 6수(1회+5초기화)로 세팅
+                const isSingleCheckTask = ["낙원의 문", "할의 모래시계"].includes(taskName);
+
                 let defaultMax = 1;
                 if (taskName === "에포나 의뢰") defaultMax = 3;
-                if (taskName === "낙원의 문") defaultMax = 6;
-                const status = tasks?.[taskName] || { completedRuns: 0, maxRuns: defaultMax, restGauge: 0 };
+                const rawStatus = tasks?.[taskName] || {
+                    completedRuns: 0,
+                    maxRuns: defaultMax,
+                    restGauge: 0,
+                    period: ["낙원의 문", "할의 모래시계"].includes(taskName) ? "WEEKLY" : "DAILY",
+                };
 
+                const status = {
+                    ...rawStatus,
+                    maxRuns: isSingleCheckTask ? 1 : rawStatus.maxRuns,
+                    completedRuns: isSingleCheckTask
+                        ? rawStatus.completedRuns > 0
+                            ? 1
+                            : 0
+                        : rawStatus.completedRuns,
+                };
                 const hasRestGauge = ["혼돈의 균열", "카오스 던전", "가디언 토벌"].includes(taskName);
 
                 return (
-                    <td key={taskName} className={`${TASK_COL_CLASS} align-middle`}>
-                        <div className="flex flex-col items-center justify-center gap-[3px] sm:gap-[4px]">
-                            {/* 🔥 버튼 목록 (기존 원형 유지) */}
-                            <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 w-full max-w-[100px] sm:max-w-[140px] mx-auto">
+                    <td
+                        key={taskName}
+                        className={`${TASK_COL_CLASS} align-middle relative h-[60px] sm:h-[72px]`}
+                    >
+                        <div className="relative w-full h-full">
+                            {/* 체크박스: 셀의 가로/세로 정중앙 고정 */}
+                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 w-full max-w-[100px] sm:max-w-[140px]">
                                 {Array.from({ length: status.maxRuns }).map((_, idx) => {
                                     const isChecked = idx < status.completedRuns;
+
                                     return (
                                         <button
                                             key={idx}
@@ -189,8 +174,18 @@ function SortableCharacterRow({
                                             ].join(" ")}
                                         >
                                             {isChecked && (
-                                                <svg viewBox="0 0 20 20" className="h-3 w-3 sm:h-4 sm:w-4" fill="none" stroke="currentColor" strokeWidth={2}>
-                                                    <path d="M5 10l3 3 7-7" strokeLinecap="round" strokeLinejoin="round" />
+                                                <svg
+                                                    viewBox="0 0 20 20"
+                                                    className="h-3 w-3 sm:h-4 sm:w-4"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth={2}
+                                                >
+                                                    <path
+                                                        d="M5 10l3 3 7-7"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    />
                                                 </svg>
                                             )}
                                         </button>
@@ -198,12 +193,13 @@ function SortableCharacterRow({
                                 })}
                             </div>
 
-                            {/* 🔥 게이지 바 컨테이너 (이전 예쁜 폼으로 완전 롤백 + items-end로 자연스러운 우측 정렬) */}
+                            {/* 게이지바: 체크박스 중앙 기준 아래 고정, 공간 차지 X */}
                             {hasRestGauge && (
                                 <div
-                                    className="flex flex-col items-end gap-[2px] sm:gap-[3px] cursor-pointer hover:bg-white/5 px-1 py-1 rounded-md transition-colors mt-[1px]"
+                                    className="absolute left-1/2 top-1/2 -translate-x-1/2 translate-y-[17px] sm:translate-y-[20px] flex flex-col items-end gap-[2px] sm:gap-[3px] cursor-pointer hover:bg-white/5 px-1 py-0.5 rounded-md transition-colors"
                                     onClick={(e) => {
                                         e.stopPropagation();
+
                                         if (onUpdateRestGauge) {
                                             let next = status.restGauge + 20;
                                             if (next > 200) next = 0;
@@ -212,25 +208,28 @@ function SortableCharacterRow({
                                     }}
                                     title="클릭하여 휴식 게이지 수정"
                                 >
-                                    {/* 🔥 게이지 바 영역 (1칸 = 40, 반칸 = 20) */}
                                     <div className="flex gap-[2px] sm:gap-[3px]">
                                         {[...Array(5)].map((_, i) => {
                                             const barMax = (i + 1) * 40;
                                             const barMin = i * 40;
                                             const isFilled = status.restGauge >= barMax;
                                             const isPartial = status.restGauge >= barMin + 10 && status.restGauge < barMax;
+
                                             return (
                                                 <div
                                                     key={i}
-                                                    className={`h-[3px] sm:h-[4px] w-[10px] sm:w-[12px] rounded-full transition-colors ${isFilled ? 'bg-[#4ade80]' : isPartial ? 'bg-[#4ade80]/40' : 'bg-[#2A2D36]'
+                                                    className={`h-[3px] sm:h-[4px] w-[10px] sm:w-[12px] rounded-full transition-colors ${isFilled
+                                                        ? "bg-[#4ade80]"
+                                                        : isPartial
+                                                            ? "bg-[#4ade80]/40"
+                                                            : "bg-[#2A2D36]"
                                                         }`}
                                                 />
                                             );
                                         })}
                                     </div>
 
-                                    {/* 🔥 숫자 영역 (억지 w-full 없이 items-end 덕분에 게이지바 끝선에 맞춰짐) */}
-                                    <span className="text-[10px] sm:text-[11px] font-medium leading-none tracking-tight text-gray-500 mt-[1px]">
+                                    <span className="text-[9px] sm:text-[10px] font-medium leading-none tracking-tight text-gray-500">
                                         {status.restGauge}/200
                                     </span>
                                 </div>

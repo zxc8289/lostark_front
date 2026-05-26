@@ -171,7 +171,7 @@ function isSupporterChar(className: string, engraving: string) {
 
 function getDisplayDifficulty(raidName: string, difficulty: string) {
 
-    
+
     if (raidName === "지평의 성당") {
         if (difficulty === "노말") return "1단계";
         if (difficulty === "하드") return "2단계";
@@ -2747,7 +2747,7 @@ function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean 
                     <span className="truncate text-gray-400">{char.ownerName}</span>
                 </div>
                 {char.combatPower && (
-                    <div className={`flex items-center gap-0.5 text-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-400" : "text-red-400"}`}>
+                    <div className={`flex items-center gap-0.5 text-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-300/70" : "text-red-400/70"}`}>
                         <span className={!isSupporter ? "translate-y-[0.5px]" : ""}>
                             {isSupporter ? "✚" : "⚔️"}
                         </span>
@@ -3304,7 +3304,7 @@ function DraggableCharacterInSlot({ char, groupId, slotIndex }: { char: any, gro
                     <span className="truncate">{char.ownerName}</span>
                 </div>
                 {char.combatPower && (
-                    <div className={`flex items-center gap-0.5  text-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-400" : "text-red-400"}`}>
+                    <div className={`flex items-center gap-0.5  text-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-300/70" : "text-red-400/70"}`}>
                         <span className={!isSupporter ? "translate-y-[1px]" : ""}>
                             {isSupporter ? "✚" : "⚔️"}
                         </span>

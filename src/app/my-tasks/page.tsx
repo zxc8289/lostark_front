@@ -173,7 +173,7 @@ export default function MyTasksPage() {
   const [autoSetupConfirmOpen, setAutoSetupConfirmOpen] = useState(false);
   const [showAllViewWarning, setShowAllViewWarning] = useState(false);
 
-  // 🔥 [탭 상태 추가] 주간 숙제 vs 일일 숙제
+
   const [activeTab, setActiveTab] = useState<"weekly" | "daily">("weekly");
 
   const [isDragEnabled, setIsDragEnabled] = useState<boolean>(() => {
@@ -1004,7 +1004,7 @@ export default function MyTasksPage() {
                 onClick={() => setActiveTab("daily")}
                 className={`pb-2 text-[13px] sm:text-lg font-bold transition-colors relative ${activeTab === "daily" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
               >
-                일일 숙제
+                일일 및 주간 숙제 (테스트)
                 {activeTab === "daily" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
               </button>
             </div>
@@ -1117,29 +1117,7 @@ export default function MyTasksPage() {
                 </div>
               )}
 
-              {showInitialLoading && (
-                <div className="w-full space-y-4 animate-in fade-in duration-300">
-                  <div className="bg-[#16181D] rounded-none sm:rounded-2xl border-x-0 sm:border border-white/5 px-4 sm:px-5 py-3 sm:py-4 animate-pulse">
-                    <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <div className="h-5 w-36 rounded bg-white/5" />
-                        <div className="h-5 w-28 rounded bg-white/5" />
-                        <div className="h-5 w-32 rounded bg-white/5" />
-                      </div>
-                      <div className="flex flex-wrap gap-2 sm:gap-3">
-                        <div className="h-9 w-24 rounded-lg bg-white/5" />
-                        <div className="h-9 w-24 rounded-lg bg-white/5" />
-                        <div className="h-9 w-28 rounded-lg bg-white/5" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                      <div key={i} className="h-[180px] rounded-none sm:rounded-2xl border-x-0 sm:border border-white/5 bg-[#16181D] p-5 animate-pulse" />
-                    ))}
-                  </div>
-                </div>
-              )}
+
             </div>
           </div>
         </div>
