@@ -5,11 +5,11 @@ export const metadata: Metadata = {
     description:
         "고정 공대나 파티원들의 숙제 현황을 실시간으로 공유하고 관리하세요. 초대 코드로 간편하게 파티를 만들고 레이드 진행 상황을 체크할 수 있습니다.",
     robots: {
-        index: false,
-        follow: false,
+        index: true,
+        follow: true,
         googleBot: {
-            index: false,
-            follow: false,
+            index: true,
+            follow: true,
         },
     },
     openGraph: {

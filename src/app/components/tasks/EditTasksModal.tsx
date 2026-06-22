@@ -99,7 +99,13 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
     );
 
     const goldCount = useMemo(
-        () => Object.entries(state.raids ?? {}).filter(([rName, raid]) => raid.isGold && rName !== "1막-에기르 EX").length,
+        () =>
+            Object.entries(state.raids ?? {}).filter(
+                ([rName, raid]) =>
+                    raid.enabled &&
+                    raid.isGold &&
+                    rName !== "1막-에기르 EX"
+            ).length,
         [state.raids]
     );
 
@@ -348,13 +354,16 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                                 setState((s) => {
                                                                     const prev = s.raids[raidName] ?? makeDefaultPref(info, ilvl);
                                                                     const enabled = e.target.checked;
+
                                                                     return {
                                                                         raids: {
                                                                             ...s.raids,
                                                                             [raidName]: {
                                                                                 ...prev,
                                                                                 enabled,
-                                                                                gates: enabled ? [] : prev.gates,
+                                                                                gates: [],
+                                                                                isGold: enabled ? prev.isGold : false,
+                                                                                isBonus: enabled ? prev.isBonus : false,
                                                                             },
                                                                         },
                                                                     };

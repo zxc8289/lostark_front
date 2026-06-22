@@ -1082,6 +1082,50 @@ export default function MyTasksPage() {
                 </div>
               )}
 
+              {!hasRealRoster && (
+                <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                  <div className="flex flex-col gap-2">
+                    <h2 className="text-base sm:text-lg font-semibold text-white">
+                      내 숙제 관리란?
+                    </h2>
+
+                    <p className="text-[12px] sm:text-sm leading-6 text-gray-300 break-keep">
+                      로스트아크 캐릭터별 주간 레이드, 일일 숙제, 휴식게이지, 예상 골드 보상을 한 화면에서 확인하는 기능입니다.
+                      캐릭터를 등록하면 완료한 숙제와 남은 숙제를 체크하고, 원정대 단위로 주간 보상 현황을 관리할 수 있습니다.
+                    </p>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl bg-black/20 p-4 border border-white/5">
+                      <h3 className="text-sm font-semibold text-white">
+                        주간 레이드 관리
+                      </h3>
+                      <p className="mt-2 text-[12px] leading-5 text-gray-400 break-keep">
+                        캐릭터별 레이드 완료 여부와 예상 골드 보상을 확인할 수 있습니다.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-black/20 p-4 border border-white/5">
+                      <h3 className="text-sm font-semibold text-white">
+                        일일 숙제 체크
+                      </h3>
+                      <p className="mt-2 text-[12px] leading-5 text-gray-400 break-keep">
+                        혼돈의 균열, 가디언 토벌 같은 일일 숙제 진행 여부를 관리할 수 있습니다.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-black/20 p-4 border border-white/5">
+                      <h3 className="text-sm font-semibold text-white">
+                        휴식게이지 반영
+                      </h3>
+                      <p className="mt-2 text-[12px] leading-5 text-gray-400 break-keep">
+                        숙제를 진행하지 않은 날의 휴식게이지 증가와 사용 여부를 함께 확인할 수 있습니다.
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
               {showEmptyState && (
                 <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 rounded-none sm:rounded-2xl animate-in fade-in zoom-in-95 duration-500">
                   <div className="relative mb-6">

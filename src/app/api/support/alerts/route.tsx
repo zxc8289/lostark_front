@@ -18,7 +18,6 @@ export async function GET() {
     try {
         const db = await getDb();
 
-        // ✨ 핵심 수정: 이름(authorName)이 아니라 고유 ID(authorId)로 내 글을 찾습니다.
         const unreadPosts = await db.collection("support_posts").find({
             authorId: userId,
             hasUnreadAdminReply: true

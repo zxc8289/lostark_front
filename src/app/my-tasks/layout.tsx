@@ -4,11 +4,11 @@ export const metadata: Metadata = {
     title: "내 숙제 현황",
     description: "오늘 해야 할 로스트아크 숙제(카던, 가디언, 레이드)를 체크하고 예상 골드 수익을 확인하세요.",
     robots: {
-        index: false,
-        follow: false,
+        index: true,
+        follow: true,
         googleBot: {
-            index: false,
-            follow: false,
+            index: true,
+            follow: true,
         },
     },
     openGraph: {
