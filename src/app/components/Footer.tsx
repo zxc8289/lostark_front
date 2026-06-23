@@ -1,6 +1,6 @@
 // components/Footer.tsx
 import { RiDiscordFill, RiGithubFill } from "react-icons/ri";
-import { Activity, ShieldCheck, FileText, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 
 export default function Footer() {
     return (
@@ -23,10 +23,17 @@ export default function Footer() {
                     </div>
 
                     {/* 사이트 맵 & 법적 고지 섹션 */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-12 sm:gap-16">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 sm:gap-16">
+                        <FooterNavGroup title="About">
+                            <FooterNavLink href="/about">로아체크 소개</FooterNavLink>
+                            <FooterNavLink href="/guide">이용 가이드</FooterNavLink>
+                            <FooterNavLink href="/articles">정보 글</FooterNavLink>
+                        </FooterNavGroup>
+
                         <FooterNavGroup title="Service">    
                             <FooterNavLink href="/my-tasks">내 숙제</FooterNavLink>
                             <FooterNavLink href="/party-tasks">공격대 목록</FooterNavLink>
+                            <FooterNavLink href="/raid-info">레이드 정보</FooterNavLink>
                         </FooterNavGroup>
 
                         <FooterNavGroup title="Legal">

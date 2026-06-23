@@ -57,10 +57,11 @@ type NavItem = {
 
 const items: NavItem[] = [
     { href: "/", label: "홈" },
+    // { href: "/about", label: "소개" },
     { href: "/my-tasks", label: "내 숙제" },
     { href: "/party-tasks", label: "파티 숙제" },
     { href: "/dps-share", label: "딜 지분" },
-    { href: "/gem-setup", label: "젬 세팅" },
+    // { href: "/gem-setup", label: "젬 세팅" },
     { href: "/raid-info", label: "레이드 정보" },
     {
         href: "/calculator/auction",
@@ -70,6 +71,7 @@ const items: NavItem[] = [
             { href: "/calculator/more-reward", label: "더보기 계산기" },
         ]
     },
+    // { href: "/guide", label: "가이드" },
     { href: "/support", label: "문의하기" },
 ];
 

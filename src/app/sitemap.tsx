@@ -13,6 +13,42 @@ export default function sitemap(): MetadataRoute.Sitemap {
             priority: 1,
         },
         {
+            url: `${baseUrl}/about/`,
+            lastModified: now,
+            changeFrequency: "monthly",
+            priority: 0.8,
+        },
+        {
+            url: `${baseUrl}/guide/`,
+            lastModified: now,
+            changeFrequency: "monthly",
+            priority: 0.8,
+        },
+        {
+            url: `${baseUrl}/articles/`,
+            lastModified: now,
+            changeFrequency: "monthly",
+            priority: 0.75,
+        },
+        {
+            url: `${baseUrl}/articles/raid-checklist/`,
+            lastModified: now,
+            changeFrequency: "monthly",
+            priority: 0.7,
+        },
+        {
+            url: `${baseUrl}/articles/more-reward-efficiency/`,
+            lastModified: now,
+            changeFrequency: "monthly",
+            priority: 0.7,
+        },
+        {
+            url: `${baseUrl}/articles/auction-bid-guide/`,
+            lastModified: now,
+            changeFrequency: "monthly",
+            priority: 0.7,
+        },
+        {
             url: `${baseUrl}/my-tasks/`,
             lastModified: now,
             changeFrequency: "weekly",

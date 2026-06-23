@@ -205,6 +205,7 @@ export default function PartyTasksPage() {
         };
     }, [status]);
 
+    if (status === "loading") return <PartyTasksLoading />;
     if (status !== "authenticated") return <PartyDemoPage />;
 
     const hasParties = parties.length > 0;

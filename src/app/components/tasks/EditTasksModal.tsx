@@ -204,7 +204,6 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onClick={onClose} />
-
             <div className="relative w-full max-w-[min(800px,92vw)] flex flex-col rounded-xl bg-[#16181D] shadow-2xl border border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 <header className="px-5 py-5 sm:px-8 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#16181D]">
                     <div>

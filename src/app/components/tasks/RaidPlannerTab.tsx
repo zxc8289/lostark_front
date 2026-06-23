@@ -38,6 +38,9 @@ type RaidPlannerTabProps = {
     partyId: number;
     partyTasks: PartyMemberTasks[];
     isTemporaryMode?: boolean;
+    initialGroups?: RaidGroup[];
+    initialOtherGroups?: RaidGroup[];
+    disablePersistence?: boolean;
     onBulkToggleGate?: (
         raidName: string,
         difficulty: string,
@@ -192,7 +195,15 @@ const getGroupAvgCP = (slots: any[]): number => {
     return Math.floor(total / members.length);
 };
 
-export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = false, onBulkToggleGate }: RaidPlannerTabProps) {
+export default function RaidPlannerTab({
+    partyId,
+    partyTasks,
+    isTemporaryMode = false,
+    initialGroups,
+    initialOtherGroups,
+    disablePersistence = false,
+    onBulkToggleGate,
+}: RaidPlannerTabProps) {
     const AUTO_SETUP_SORT_KEY = `raidPlanner_autoSort_${isTemporaryMode ? 'temp' : 'fixed'}`;
     const AUTO_SETUP_RAIDS_KEY = `raidPlanner_autoRaids_${isTemporaryMode ? 'temp' : 'fixed'}`;
 
@@ -312,6 +323,16 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
     }, [isFilterOpen, isUserFilterOpen, showAutoSetupSettings]);
 
     useEffect(() => {
+        if (disablePersistence) {
+            const demoGroups = initialGroups ?? [];
+            setGroups(demoGroups);
+            setOriginalGroups(demoGroups);
+            setOtherGroups(initialOtherGroups ?? []);
+            setIsEditMode(false);
+            setIsLoading(false);
+            return;
+        }
+
         if (!partyId) return;
 
         const loadPlanner = async () => {
@@ -347,7 +368,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         };
 
         loadPlanner();
-    }, [partyId, apiEndpoint, otherApiEndpoint]);
+    }, [partyId, apiEndpoint, otherApiEndpoint, disablePersistence, initialGroups, initialOtherGroups]);
 
     useEffect(() => {
         if (selectedRaidName && raidInformation[selectedRaidName]) {
@@ -375,7 +396,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         setGroups(nextGroups);
         setOriginalGroups(nextGroups);
 
-        if (!partyId) return;
+        if (disablePersistence || !partyId) return;
         try {
             const payload = nextGroups.map(g => ({
                 id: g.id,
@@ -428,7 +449,7 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         setGroups(nextGroups);
         setOriginalGroups(nextGroups);
 
-        if (!partyId) return;
+        if (disablePersistence || !partyId) return;
         try {
             const payload = nextGroups.map(g => ({
                 id: g.id, raidName: g.raidName, groupName: g.groupName,
@@ -520,13 +541,14 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
         if (hasChanges) {
             setGroups(nextGroups);
             setOriginalGroups(nextGroups);
+            if (disablePersistence || !partyId) return;
             fetch(apiEndpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ groups: nextGroups }),
             }).catch(console.error);
         }
-    }, [groups, partyTasks, isTemporaryMode, isLoading, isEditMode, apiEndpoint, now]);
+    }, [groups, partyTasks, isTemporaryMode, isLoading, isEditMode, apiEndpoint, now, disablePersistence, partyId]);
 
     useEffect(() => {
         try { localStorage.setItem(AUTO_SETUP_SORT_KEY, autoSetupSortType); } catch { }
@@ -890,7 +912,10 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                 return newGroups;
             });
 
-            if (!partyId) return;
+            if (disablePersistence || !partyId) {
+                setOriginalGroups(newGroups);
+                return;
+            }
 
             try {
                 const payload = newGroups.map(g => ({
@@ -942,7 +967,6 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
     };
 
     const handleSavePlanner = async () => {
-        if (!partyId) return;
         setIsSaving(true);
 
         try {
@@ -969,6 +993,13 @@ export default function RaidPlannerTab({ partyId, partyTasks, isTemporaryMode = 
                     isSlotPinned: char.isSlotPinned || false,
                 } : null)
             }));
+
+            if (disablePersistence || !partyId) {
+                setOriginalGroups(payload);
+                setIsEditMode(false);
+                setActiveGroupId(null);
+                return;
+            }
 
             const res = await fetch(apiEndpoint, {
                 method: "POST",

@@ -483,7 +483,7 @@ export default function MyTasksPage() {
   const hasRealRoster = !!effectiveAccount && !!effectiveAccount.summary?.roster?.length;
   const isAuthLoading = authStatus === "loading";
   const waitingInitialData = isAuthLoading || (isAuthed && !syncedWithServer);
-  const showInitialLoading = !hasRealRoster && (waitingInitialData || booting || syncingServer);
+  const showInitialLoading = !hasRealRoster && (waitingInitialData || booting || syncingServer || loading || isRefreshing);
   const usingDemo = demoEnabled && !hasRealRoster && !showInitialLoading;
 
   const currentActiveAccount: SavedAccount | null = usingDemo ? { id: DEMO_ACCOUNT_ID, nickname: "예시 원정대", summary: DEMO_SUMMARY, isPrimary: true } : effectiveAccount;
@@ -1082,7 +1082,7 @@ export default function MyTasksPage() {
                 </div>
               )}
 
-              {!hasRealRoster && (
+              {!showInitialLoading && !hasRealRoster && (
                 <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                   <div className="flex flex-col gap-2">
                     <h2 className="text-base sm:text-lg font-semibold text-white">

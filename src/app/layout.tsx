@@ -5,6 +5,7 @@ import Nav from "./components/Nav";
 import AuthSessionProvider from "./components/AuthSessionProvider";
 import WebSocketProvider from "./components/WebSocketProvider";
 import Footer from "./components/Footer";
+import AppAlertModal from "./components/AppAlertModal";
 
 import { pretendard } from "./fonts";
 import Script from "next/script";
@@ -80,6 +81,17 @@ export default function RootLayout({
       "@type": "Organization",
       name: "로아체크",
       url: "https://loacheck.com",
+      contactPoint: {
+        "@type": "ContactPoint",
+        contactType: "customer support",
+        email: "zxc8289@gmail.com",
+        availableLanguage: ["ko"],
+      },
+    },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: "https://loacheck.com/support?q={search_term_string}",
+      "query-input": "required name=search_term_string",
     },
   };
 
@@ -109,6 +121,8 @@ export default function RootLayout({
 
         <AuthSessionProvider>
           <WebSocketProvider>
+            <AppAlertModal />
+
             <header>
               <Nav />
             </header>

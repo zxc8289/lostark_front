@@ -50,12 +50,15 @@ import {
     calcNextGates,
     computeRaidSummaryForRoster,
     buildAutoSetupForRoster,
+    migrateLegacyPrefs,
     type RaidSummary,
 } from "@/app/lib/tasks/raid-utils";
 import AnimatedNumber from "@/app/components/tasks/AnimatedNumber";
 import EmptyCharacterState from "@/app/components/tasks/EmptyCharacterState";
 import PartySettingsModal from "@/app/components/tasks/PartySettingsModal";
 import TaskSidebar from "@/app/components/tasks/TaskSidebar";
+import MemoModal from "@/app/components/tasks/MemoModal";
+import RaidPlannerTab, { type RaidGroup } from "@/app/components/tasks/RaidPlannerTab";
 import { useSession } from "next-auth/react";
 
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -134,6 +137,8 @@ const MOCK_PARTY_TASKS: PartyMemberTasks[] = [
         summary: { ...baseSummaryProps, roster: MOCK_ROSTER_ME } as unknown as CharacterSummary,
         prefsByChar: MOCK_PREFS_ME,
         visibleByChar: { "데모캐릭_본캐": true, "데모캐릭_부캐1": true, "데모캐릭_부캐2": true } as Record<string, boolean>,
+        goldDesignatedByChar: { "데모캐릭_본캐": true, "데모캐릭_부캐1": true, "데모캐릭_부캐2": false },
+        powerLockedByChar: {},
         tableOrder: ["__empty_0"],
         rosterOrder: [],
         cardRosterOrder: [],
@@ -159,6 +164,8 @@ const MOCK_PARTY_TASKS: PartyMemberTasks[] = [
             }
         },
         visibleByChar: { "파티원A_본캐": true, "파티원A_부캐": true } as Record<string, boolean>,
+        goldDesignatedByChar: { "파티원A_본캐": true, "파티원A_부캐": true },
+        powerLockedByChar: {},
         tableOrder: ["__empty_0"],
         rosterOrder: [],
         cardRosterOrder: [],
@@ -180,6 +187,8 @@ const MOCK_PARTY_TASKS: PartyMemberTasks[] = [
             },
         },
         visibleByChar: { "파티원B_본캐": true, "파티원B_부캐": false } as Record<string, boolean>,
+        goldDesignatedByChar: { "파티원B_본캐": true, "파티원B_부캐": false },
+        powerLockedByChar: {},
         tableOrder: ["__empty_0"],
         rosterOrder: [],
         cardRosterOrder: [],
@@ -192,7 +201,21 @@ const MOCK_PARTY_TASKS: PartyMemberTasks[] = [
  * ───────────────────────────── */
 type PartyMember = { id: string; name: string | null; image: string | null; role: string; };
 type PartyDetail = { id: number; name: string; memo: string | null; ownerId: string; createdAt: string; myRole: string; members: PartyMember[]; raidCount: number; nextResetAt: string | null; raidState?: RaidStateFromServer; };
-type PartyMemberTasks = { userId: string; name: string | null; image: string | null; nickname: string; summary: CharacterSummary | null; prefsByChar: Record<string, CharacterTaskPrefs>; visibleByChar: Record<string, boolean>; tableOrder?: string[]; rosterOrder?: string[]; cardRosterOrder?: string[]; canOthersEdit?: boolean; };
+type PartyMemberTasks = {
+    userId: string;
+    name: string | null;
+    image: string | null;
+    nickname: string;
+    summary: CharacterSummary | null;
+    prefsByChar: Record<string, CharacterTaskPrefs>;
+    visibleByChar: Record<string, boolean>;
+    tableOrder?: string[];
+    rosterOrder?: string[];
+    cardRosterOrder?: string[];
+    canOthersEdit?: boolean;
+    goldDesignatedByChar?: Record<string, boolean>;
+    powerLockedByChar?: Record<string, boolean>;
+};
 type PartyInvite = { code: string; url?: string; expiresAt?: string | null; };
 type SavedFilters = { onlyRemain?: boolean; isCardView?: boolean; tableView?: boolean; columnOrder?: string[]; selectedRaids?: string[]; isDragEnabled?: boolean; };
 
@@ -202,6 +225,98 @@ type RaidStateFromServer = { accounts?: SavedAccount[]; activeAccountId?: string
 /* ─────────────────────────────
  * 공통 유틸 함수
  * ───────────────────────────── */
+function getDemoSlot(member: PartyMemberTasks, charIndex: number) {
+    const char = member.summary?.roster?.[charIndex] as any;
+    if (!char) return null;
+    return {
+        ...char,
+        ownerId: member.userId,
+        ownerName: member.nickname || member.name || "",
+        uniqueId: `${member.userId}-${char.name}`,
+        className: char.className || "",
+        combatPower: char.combatPower || "0",
+        jobEngraving: char.jobEngraving || "",
+        isGuest: false,
+    };
+}
+
+function getDemoRaid(member: PartyMemberTasks, charIndex: number, raidIndex: number) {
+    const charName = member.summary?.roster?.[charIndex]?.name;
+    const raids = charName ? Object.entries(member.prefsByChar?.[charName]?.raids ?? {}) : [];
+    const [raidName, pref] = raids[raidIndex] ?? raids[0] ?? ["", { difficulty: "" }];
+    return {
+        raidName,
+        difficulty: (pref as any).difficulty || "",
+    };
+}
+
+function getDemoMaxMembers(raidName: string) {
+    return (raidInformation[raidName] as any)?.maxMembers ?? 8;
+}
+
+function makeDemoGroup(
+    id: string,
+    raidName: string,
+    difficulty: string,
+    slots: Array<any | null>,
+    extra?: Partial<RaidGroup>
+): RaidGroup {
+    const maxMembers = getDemoMaxMembers(raidName);
+    return {
+        id,
+        raidName,
+        groupName: raidName,
+        difficulty,
+        maxMembers,
+        slots: [...slots, ...Array(Math.max(0, maxMembers - slots.length)).fill(null)].slice(0, maxMembers),
+        scheduleDay: "",
+        scheduleTime: "",
+        isPinned: false,
+        ...extra,
+    };
+}
+
+const DEMO_FIXED_RAID = getDemoRaid(MOCK_PARTY_TASKS[0], 0, 0);
+const DEMO_TEMP_RAID = getDemoRaid(MOCK_PARTY_TASKS[0], 0, 1);
+const DEMO_BEHEMOTH_RAID = getDemoRaid(MOCK_PARTY_TASKS[2], 0, 0);
+
+const DEMO_FIXED_GROUPS: RaidGroup[] = [
+    makeDemoGroup(
+        "demo-fixed-main",
+        DEMO_FIXED_RAID.raidName,
+        DEMO_FIXED_RAID.difficulty,
+        [getDemoSlot(MOCK_PARTY_TASKS[0], 0), getDemoSlot(MOCK_PARTY_TASKS[2], 0)],
+        { isPinned: true }
+    ),
+];
+
+const DEMO_TEMP_GROUPS: RaidGroup[] = [
+    makeDemoGroup(
+        "demo-temp-main",
+        DEMO_TEMP_RAID.raidName,
+        DEMO_TEMP_RAID.difficulty,
+        [getDemoSlot(MOCK_PARTY_TASKS[0], 0), getDemoSlot(MOCK_PARTY_TASKS[1], 0)]
+    ),
+    makeDemoGroup(
+        "demo-temp-sub",
+        DEMO_BEHEMOTH_RAID.raidName,
+        DEMO_BEHEMOTH_RAID.difficulty,
+        [getDemoSlot(MOCK_PARTY_TASKS[2], 0)]
+    ),
+];
+
+function getAssignedRaidsFromGroups(groups: RaidGroup[]) {
+    const assigned = new Set<string>();
+    groups.forEach((group) => {
+        group.slots.forEach((slot: any) => {
+            if (slot && !slot.isGuest) {
+                assigned.add(`${slot.uniqueId}::${group.raidName}`);
+            }
+        });
+    });
+    return assigned;
+}
+
 function applyRosterOrder(roster: RosterCharacter[], rosterOrder?: string[]): RosterCharacter[] {
     if (!rosterOrder || rosterOrder.length === 0) return roster;
     const map = new Map(roster.map((c) => [c.name, c] as const));
@@ -243,7 +358,13 @@ function mergeReorderedSubset(full: string[], subset: string[], subsetNew: strin
 function buildTasksForCharacter(
     c: RosterCharacter,
     prefsByChar: Record<string, CharacterTaskPrefs>,
-    options?: { onlyRemain?: boolean; onToggleGate?: (raidName: string, gateIndex: number, currentGates: number[], allGates: number[]) => void; }
+    options?: {
+        onlyRemain?: boolean;
+        isGoldEarn?: boolean;
+        assignedRaids?: Set<string>;
+        ownerId?: string;
+        onToggleGate?: (raidName: string, gateIndex: number, currentGates: number[], allGates: number[]) => void;
+    }
 ): TaskItem[] {
     const prefs = prefsByChar[c.name];
     if (!prefs) return [];
@@ -277,10 +398,21 @@ function buildTasksForCharacter(
 
         const totalGold = (p.gates ?? []).reduce((sum, gi) => {
             const g = diff.gates.find((x) => x.index === gi);
-            const gold = g?.gold ?? 0;
-            const cost = p.isBonus ? (g?.bonusCost ?? 0) : 0;
-            return sum + Math.max(0, gold - cost);
+            if (!g) return sum;
+
+            const isGoldEarn = options?.isGoldEarn ?? false;
+            const canEarnGold = isGoldEarn && p.isGold !== false;
+            const baseGold = canEarnGold ? (g.gold ?? 0) : 0;
+            const boundGold = canEarnGold ? ((g as any).boundGold ?? 0) : 0;
+            let cost = p.isBonus ? (g.bonusCost ?? 0) : 0;
+
+            const netBoundGold = Math.max(0, boundGold - cost);
+            cost = Math.max(0, cost - boundGold);
+            const netGold = Math.max(0, baseGold - cost);
+
+            return sum + netGold + netBoundGold;
         }, 0);
+        const isAssigned = options?.assignedRaids?.has(`${options.ownerId}-${c.name}::${raidName}`);
 
         const right = (
             <span className="text-xs px-2 py-1 rounded bg-yellow-500/10 text-yellow-300 border border-yellow-300/20">
@@ -298,6 +430,7 @@ function buildTasksForCharacter(
                     difficulty={p.difficulty}
                     gates={p.gates}
                     right={right}
+                    isAssigned={isAssigned}
                     onToggleGate={(gate) => {
                         if (!options?.onToggleGate) return;
                         const currentGates = p.gates ?? [];
@@ -313,7 +446,19 @@ function buildTasksForCharacter(
 
 function computeMemberSummary(member: PartyMemberTasks & { summary: CharacterSummary | null }): RaidSummary {
     const visibleRoster = member.summary?.roster?.filter((c) => member.visibleByChar?.[c.name] ?? true) ?? [];
-    return computeRaidSummaryForRoster(visibleRoster, member.prefsByChar ?? {});
+    const migratedPrefs: Record<string, CharacterTaskPrefs> = {};
+    for (const [charName, prefs] of Object.entries(member.prefsByChar ?? {})) {
+        migratedPrefs[charName] = migrateLegacyPrefs(prefs);
+    }
+    let effectiveGold = member.goldDesignatedByChar;
+    if (!effectiveGold || Object.keys(effectiveGold).length === 0) {
+        effectiveGold = {};
+        const sorted = [...visibleRoster].sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0));
+        sorted.forEach((c, index) => {
+            effectiveGold![c.name] = index < 6;
+        });
+    }
+    return computeRaidSummaryForRoster(visibleRoster, migratedPrefs, effectiveGold);
 }
 
 /* ─────────────────────────────
@@ -351,6 +496,7 @@ export default function PartyDemoPage() {
     const [onlyRemain, setOnlyRemain] = useState(false);
     const [isCardView, setIsCardView] = useState(false);
     const [isDragEnabled, setIsDragEnabled] = useState(false); // 🔥 드래그 토글 추가
+    const [activeTab, setActiveTab] = useState<"tasks" | "planner" | "temp_planner">("tasks");
 
     const [editOpen, setEditOpen] = useState(false);
     const [editTarget, setEditTarget] = useState<{ memberUserId: string; charName: string; character: RosterCharacter; } | null>(null);
@@ -385,6 +531,26 @@ export default function PartyDemoPage() {
     const [activeAccountId, setActiveAccountId] = useState<string | null>("demo-account-1");
     const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [assignedRaids, setAssignedRaids] = useState<Set<string>>(
+        () => new Set([
+            `${MOCK_MY_USER_ID}-데모캐릭_본캐::카멘`,
+            `${MOCK_OTHER_USER_ID_B}-파티원B_본캐::베히모스`,
+        ])
+    );
+    const [memoTarget, setMemoTarget] = useState<{
+        memberUserId: string;
+        charName: string;
+        currentMemo: string;
+    } | null>(null);
+
+    const toggleAssignedRaid = (key: string) => {
+        setAssignedRaids((prev) => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    };
 
     // 🔥 통합 보기를 위한 가상의 currentAccount 생성 로직
     const isAllView = activeAccountId === "ALL";
@@ -458,7 +624,14 @@ export default function PartyDemoPage() {
 
                 setPartyTasks(prev => {
                     if (!prev) return prev;
-                    return prev.map(m => m.userId === myUserId ? { ...m, summary: fakeSummary, nickname: trimmed } : m);
+                    const nextGold = Object.fromEntries(fakeSummary.roster.map((c, index) => [c.name, index < 6]));
+                    return prev.map(m => m.userId === myUserId ? {
+                        ...m,
+                        summary: fakeSummary,
+                        nickname: trimmed,
+                        goldDesignatedByChar: nextGold,
+                        powerLockedByChar: {},
+                    } : m);
                 });
 
                 setAccountSearchLoading(false);
@@ -512,6 +685,39 @@ export default function PartyDemoPage() {
         setPartyTasks(prev => prev!.map((m) => {
             if (m.userId !== memberUserId) return m;
             return { ...m, visibleByChar: { ...(m.visibleByChar ?? {}), ...partialVisibleByChar } };
+        }));
+    };
+
+    const handleMemberChangeSettings = (
+        memberUserId: string,
+        partialVisibleByChar: Record<string, boolean>,
+        partialGoldByChar: Record<string, boolean>,
+        partialLockedByChar: Record<string, boolean>
+    ) => {
+        if (!partyTasks) return;
+        setPartyTasks(prev => prev!.map((m) => {
+            if (m.userId !== memberUserId) return m;
+            return {
+                ...m,
+                visibleByChar: { ...(m.visibleByChar ?? {}), ...partialVisibleByChar },
+                goldDesignatedByChar: { ...(m.goldDesignatedByChar ?? {}), ...partialGoldByChar },
+                powerLockedByChar: { ...(m.powerLockedByChar ?? {}), ...partialLockedByChar },
+            };
+        }));
+    };
+
+    const handleSaveMemo = (memberUserId: string, charName: string, newMemo: string) => {
+        if (!partyTasks) return;
+        setPartyTasks(prev => prev!.map((m) => {
+            if (m.userId !== memberUserId) return m;
+            const current = m.prefsByChar?.[charName] ?? { raids: {} };
+            return {
+                ...m,
+                prefsByChar: {
+                    ...(m.prefsByChar ?? {}),
+                    [charName]: { ...current, memo: newMemo },
+                },
+            };
         }));
     };
 
@@ -574,16 +780,19 @@ export default function PartyDemoPage() {
             if (isMe && currentAccount?.summary?.roster) roster = currentAccount.summary.roster;
             if (!roster.length) return m;
 
-            const { nextPrefsByChar, nextVisibleByChar } = buildAutoSetupForRoster(roster, m.prefsByChar ?? {}, charCount);
+            const { nextPrefsByChar, nextVisibleByChar, nextGoldByChar } = buildAutoSetupForRoster(roster, m.prefsByChar ?? {}, charCount);
 
             const nextVisibleMerged: Record<string, boolean> = { ...(m.visibleByChar ?? {}) };
+            const nextGoldMerged: Record<string, boolean> = { ...(m.goldDesignatedByChar ?? {}) };
             for (const c of roster) { nextVisibleMerged[c.name] = nextVisibleByChar[c.name] ?? false; }
+            for (const c of roster) { nextGoldMerged[c.name] = nextGoldByChar[c.name] ?? false; }
 
             return {
                 ...m,
                 tableOrder: ["__empty_0"],
                 prefsByChar: { ...(m.prefsByChar ?? {}), ...nextPrefsByChar },
                 visibleByChar: nextVisibleMerged,
+                goldDesignatedByChar: nextGoldMerged,
             };
         }));
     };
@@ -741,10 +950,40 @@ export default function PartyDemoPage() {
                     </div>
                 </div>
 
+                <div className="flex items-center justify-between px-4 sm:px-0 mb-4 border-b border-white/5 sm:border-transparent">
+                    <div className="flex gap-6">
+                        <button
+                            onClick={() => setActiveTab("tasks")}
+                            className={`pb-2 text-[13px] sm:text-lg font-bold transition-colors relative ${activeTab === "tasks" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+                        >
+                            숙제 현황
+                            {activeTab === "tasks" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("planner")}
+                            className={`pb-2 text-[13px] sm:text-lg font-bold transition-colors relative ${activeTab === "planner" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+                        >
+                            레이드 그룹
+                            {activeTab === "planner" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("temp_planner")}
+                            className={`pb-2 text-[13px] sm:text-lg font-bold transition-colors relative ${activeTab === "temp_planner" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+                        >
+                            자율편성 그룹
+                            {activeTab === "temp_planner" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
+                        </button>
+                    </div>
+                </div>
+
                 {/* 그리드 레이아웃 */}
-                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)] gap-5 lg:items-start">
+                <div className={activeTab === "tasks"
+                    ? "grid grid-cols-1 lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)] gap-5 lg:items-start"
+                    : "grid grid-cols-1 gap-5 lg:items-start"
+                }>
 
                     {/* 공용 사이드바 적용 */}
+                    {activeTab === "tasks" && (
                     <div className="space-y-4">
                         <TaskSidebar
                             accounts={accounts}
@@ -761,9 +1000,12 @@ export default function PartyDemoPage() {
                             setIsDragEnabled={setIsDragEnabled}
                         />
                     </div>
+                    )}
 
                     {/* 파티 멤버 목록 */}
                     <div className="grid grid-cols-1 gap-4 sm:gap-5">
+                        {activeTab === "tasks" ? (
+                            <>
 
                         {/* 데모 안내 배너 */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-2">
@@ -847,9 +1089,63 @@ export default function PartyDemoPage() {
                                             isDragEnabled={isDragEnabled}
                                             onReorderRoster={handleMemberRosterReorder}
                                             onReorderCardRoster={handleMemberCardRosterReorder}
+                                            onOpenMemo={(userId: string, charName: string, memo: string) =>
+                                                setMemoTarget({ memberUserId: userId, charName, currentMemo: memo })
+                                            }
+                                            assignedRaids={assignedRaids}
                                         />
                                     );
                                 })}
+                            </div>
+                        )}
+                            </>
+                        ) : activeTab === "planner" ? (
+                            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                <RaidPlannerTab
+                                    key="demo-planner"
+                                    partyId={party.id}
+                                    partyTasks={partyTasks ?? []}
+                                    initialGroups={DEMO_FIXED_GROUPS}
+                                    initialOtherGroups={DEMO_TEMP_GROUPS}
+                                    disablePersistence
+                                    isTemporaryMode={false}
+                                    onBulkToggleGate={(raidName, difficulty, gate, allGates, targets) => {
+                                        targets.forEach((target) => {
+                                            handleMemberToggleGate(
+                                                target.userId,
+                                                target.charName,
+                                                raidName,
+                                                gate,
+                                                target.currentGates,
+                                                allGates
+                                            );
+                                        });
+                                    }}
+                                />
+                            </div>
+                        ) : (
+                            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                <RaidPlannerTab
+                                    key="demo-temp-planner"
+                                    partyId={party.id}
+                                    partyTasks={partyTasks ?? []}
+                                    initialGroups={DEMO_TEMP_GROUPS}
+                                    initialOtherGroups={DEMO_FIXED_GROUPS}
+                                    disablePersistence
+                                    isTemporaryMode
+                                    onBulkToggleGate={(raidName, difficulty, gate, allGates, targets) => {
+                                        targets.forEach((target) => {
+                                            handleMemberToggleGate(
+                                                target.userId,
+                                                target.charName,
+                                                raidName,
+                                                gate,
+                                                target.currentGates,
+                                                allGates
+                                            );
+                                        });
+                                    }}
+                                />
                             </div>
                         )}
 
@@ -894,10 +1190,14 @@ export default function PartyDemoPage() {
                                     refreshError={isMeTarget ? accountSearchErr : refreshErr}
                                     roster={roster}
                                     visibleByChar={modalVisibleByChar}
-                                    onChangeSettings={(nextVisible) => {
-                                        handleMemberChangeVisible(
+                                    goldDesignatedByChar={targetMember?.goldDesignatedByChar ?? {}}
+                                    powerLockedByChar={targetMember?.powerLockedByChar ?? {}}
+                                    onChangeSettings={(nextVisible, nextGold, nextLocked) => {
+                                        handleMemberChangeSettings(
                                             charSettingTarget.memberUserId,
-                                            nextVisible
+                                            nextVisible,
+                                            nextGold,
+                                            nextLocked
                                         );
                                     }}
                                     onDeleteAccount={
@@ -942,6 +1242,19 @@ export default function PartyDemoPage() {
                                 </div>
                             </div>
                         )}
+
+                        {memoTarget && (
+                            <MemoModal
+                                isOpen={!!memoTarget}
+                                onClose={() => setMemoTarget(null)}
+                                charName={memoTarget.charName}
+                                initialMemo={memoTarget.currentMemo}
+                                onSave={(newMemo) => {
+                                    handleSaveMemo(memoTarget.memberUserId, memoTarget.charName, newMemo);
+                                    setMemoTarget(null);
+                                }}
+                            />
+                        )}
                     </div>
                 </div>
             </div>
@@ -952,6 +1265,96 @@ export default function PartyDemoPage() {
 // ==============================================================================
 // 하위 컴포넌트들
 // ==============================================================================
+const DEMO_PLANNER_GROUPS = [
+    {
+        key: `${MOCK_MY_USER_ID}-데모캐릭_본캐::카멘`,
+        raidName: "카멘",
+        difficulty: "하드",
+        character: "데모캐릭_본캐",
+        owner: "체험자 (나)",
+        time: "수요일 21:00",
+    },
+    {
+        key: `${MOCK_OTHER_USER_ID_B}-파티원B_본캐::베히모스`,
+        raidName: "베히모스",
+        difficulty: "노말",
+        character: "파티원B_본캐",
+        owner: "파티원 B",
+        time: "목요일 22:00",
+    },
+    {
+        key: `${MOCK_OTHER_USER_ID_A}-파티원A_본캐::에키드나`,
+        raidName: "에키드나",
+        difficulty: "노말",
+        character: "파티원A_본캐",
+        owner: "파티원 A",
+        time: "주말 자유",
+    },
+];
+
+function DemoPlannerPanel({
+    mode,
+    assignedRaids,
+    onToggleAssignedRaid,
+}: {
+    mode: "planner" | "temp_planner";
+    assignedRaids: Set<string>;
+    onToggleAssignedRaid: (key: string) => void;
+}) {
+    const isTemporary = mode === "temp_planner";
+
+    return (
+        <div className="space-y-4">
+            <section className="rounded-xl border border-white/5 bg-[#16181D] p-5 md:p-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                        <p className="text-xs font-bold text-[#5B69FF]">
+                            {isTemporary ? "TEMPORARY PLANNER" : "RAID PLANNER"}
+                        </p>
+                        <h2 className="mt-1 text-xl font-bold text-white">
+                            {isTemporary ? "자율편성 그룹 데모" : "레이드 그룹 데모"}
+                        </h2>
+                        <p className="mt-2 text-sm text-gray-400 leading-6 break-keep">
+                            실제 파티 화면에서는 이 탭에서 레이드 그룹을 만들고 캐릭터를 편성합니다.
+                            데모에서는 아래 버튼으로 편성 상태를 켜고 끄며 숙제 카드의 편성 표시를 확인할 수 있습니다.
+                        </p>
+                    </div>
+                    <div className="rounded-lg bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-gray-400">
+                        편성됨 {assignedRaids.size}개
+                    </div>
+                </div>
+            </section>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {DEMO_PLANNER_GROUPS.map((group) => {
+                    const active = assignedRaids.has(group.key);
+                    return (
+                        <article key={group.key} className={`rounded-xl border p-5 transition-colors ${active ? "border-[#5B69FF]/50 bg-[#5B69FF]/10" : "border-white/5 bg-[#16181D]"}`}>
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-lg font-bold text-white">{group.raidName}</span>
+                                        <span className="rounded bg-white/10 px-2 py-0.5 text-[11px] text-gray-300">{group.difficulty}</span>
+                                    </div>
+                                    <p className="mt-2 text-sm text-gray-400">{group.character}</p>
+                                    <p className="mt-1 text-xs text-gray-500">{group.owner} · {isTemporary ? "임시 편성" : group.time}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => onToggleAssignedRaid(group.key)}
+                                    className={`rounded-lg px-3 py-2 text-xs font-bold transition-colors ${active ? "bg-[#5B69FF] text-white" : "bg-white/5 text-gray-300 hover:bg-white/10"}`}
+                                >
+                                    {active ? "편성 해제" : "편성하기"}
+                                </button>
+                            </div>
+                        </article>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 function SortableStripWrapper({ id, children }: any) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
     const style: React.CSSProperties = {
@@ -967,7 +1370,8 @@ function SortableStripWrapper({ id, children }: any) {
 function PartyMemberBlock({
     partyId, onReorderTable, member, filteredPrefs, viewTableOrder, isMe, isAllView, currentAccount,
     onlyRemain, isCardView, onAutoSetup, onGateAllClear, onOpenCharSetting, onToggleGate, onEdit, onReorder, onSearch,
-    searchLoading, searchError, onRefreshAccount, selectedRaids, isDragEnabled, onReorderRoster, onReorderCardRoster
+    searchLoading, searchError, onRefreshAccount, selectedRaids, isDragEnabled, onReorderRoster, onReorderCardRoster,
+    onOpenMemo, assignedRaids
 }: any) {
     const [isExpanded, setIsExpanded] = useState(true);
     const [showPermissionError, setShowPermissionError] = useState(false);
@@ -990,6 +1394,14 @@ function PartyMemberBlock({
     const baseSummary = isMe && currentAccount?.summary ? currentAccount.summary : member.summary;
     const visibleRoster = baseSummary?.roster?.filter((c: any) => member.visibleByChar?.[c.name] ?? true) ?? [];
     const defaultSortedRoster = useMemo(() => [...visibleRoster].sort((a: any, b: any) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0)), [visibleRoster]);
+    const effectiveGold = useMemo(() => {
+        const current = member.goldDesignatedByChar;
+        if (current && Object.keys(current).length > 0) return current;
+        const fallback: Record<string, boolean> = {};
+        const sorted = [...visibleRoster].sort((a: any, b: any) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0));
+        sorted.forEach((c: any, idx: number) => { fallback[c.name] = idx < 6; });
+        return fallback;
+    }, [member.goldDesignatedByChar, visibleRoster]);
 
     const tableOrderedRoster = useMemo(() => applyRosterOrder(defaultSortedRoster, member.rosterOrder), [defaultSortedRoster, member.rosterOrder]);
     const cardOrderedRoster = useMemo(() => applyRosterOrder(defaultSortedRoster, member.cardRosterOrder), [defaultSortedRoster, member.cardRosterOrder]);
@@ -1073,8 +1485,20 @@ function PartyMemberBlock({
                             {(() => {
                                 const strips = cardRosterForView.map((c) => {
                                     const toggleWrapper = withEditAuth((rName: string, gate: number, curG: number[], allG: number[]) => onToggleGate(c.name, rName, gate, curG, allG));
-                                    const tasksAll = buildTasksForCharacter(c, filteredPrefs, { onlyRemain: false, onToggleGate: toggleWrapper });
-                                    const tasksShown = onlyRemain ? buildTasksForCharacter(c, filteredPrefs, { onlyRemain: true, onToggleGate: toggleWrapper }) : tasksAll;
+                                    const tasksAll = buildTasksForCharacter(c, filteredPrefs, {
+                                        onlyRemain: false,
+                                        isGoldEarn: effectiveGold[c.name] ?? false,
+                                        assignedRaids,
+                                        ownerId: member.userId,
+                                        onToggleGate: toggleWrapper,
+                                    });
+                                    const tasksShown = onlyRemain ? buildTasksForCharacter(c, filteredPrefs, {
+                                        onlyRemain: true,
+                                        isGoldEarn: effectiveGold[c.name] ?? false,
+                                        assignedRaids,
+                                        ownerId: member.userId,
+                                        onToggleGate: toggleWrapper,
+                                    }) : tasksAll;
                                     return { c, tasksAllLen: tasksAll.length, tasks: tasksShown };
                                 });
 
@@ -1112,7 +1536,16 @@ function PartyMemberBlock({
 
                                 if (!isDragEnabled) {
                                     return visibleStrips.map(({ c, tasks }) => (
-                                        <CharacterTaskStrip key={c.name} character={c} tasks={tasks} isDragEnabled={false} onEdit={withEditAuth(() => onEdit(c))} onReorder={withEditAuth((char: any, newOrder: any) => { if (selectedRaids.length === 0) onReorder(member.userId, char.name, newOrder); })} />
+                                        <CharacterTaskStrip
+                                            key={c.name}
+                                            character={c}
+                                            tasks={tasks}
+                                            isDragEnabled={false}
+                                            onEdit={withEditAuth(() => onEdit(c))}
+                                            onReorder={withEditAuth((char: any, newOrder: any) => { if (selectedRaids.length === 0) onReorder(member.userId, char.name, newOrder); })}
+                                            hasMemo={!!filteredPrefs[c.name]?.memo}
+                                            onOpenMemo={withEditAuth(() => onOpenMemo(member.userId, c.name, filteredPrefs[c.name]?.memo || ""))}
+                                        />
                                     ));
                                 }
 
@@ -1127,6 +1560,8 @@ function PartyMemberBlock({
                                                                 character={c} tasks={tasks} isDragEnabled={true} dragHandleProps={dragHandleProps}
                                                                 onEdit={withEditAuth(() => onEdit(c))}
                                                                 onReorder={withEditAuth((char: any, newOrder: any) => { if (selectedRaids.length === 0) onReorder(member.userId, char.name, newOrder); })}
+                                                                hasMemo={!!filteredPrefs[c.name]?.memo}
+                                                                onOpenMemo={withEditAuth(() => onOpenMemo(member.userId, c.name, filteredPrefs[c.name]?.memo || ""))}
                                                             />
                                                         )}
                                                     </SortableStripWrapper>
@@ -1175,9 +1610,9 @@ function PartyMemberBlock({
                                 onEdit={withEditAuth((c: RosterCharacter) => {
                                     onEdit(c);
                                 })}
-                                onOpenMemo={(charName: string, currentMemo: string) => {
-                                    console.log("memo open", charName, currentMemo);
-                                }}
+                                onOpenMemo={withEditAuth((charName: string, currentMemo: string) => {
+                                    onOpenMemo(member.userId, charName, currentMemo);
+                                })}
                             />
                         )
                     )}
@@ -1199,7 +1634,12 @@ function PartyMemberBlock({
 }
 
 function PartyMemberSummaryBar({ member, summary, children }: any) {
-    const memberAllCleared = summary.totalRemainingGold === 0 && summary.totalGold > 0;
+    const totalRemainingBoundGold = (summary as any).totalRemainingBoundGold ?? 0;
+    const totalBoundGold = (summary as any).totalBoundGold ?? 0;
+    const memberAllCleared =
+        summary.totalRemainingGold === 0 &&
+        totalRemainingBoundGold === 0 &&
+        (summary.totalGold > 0 || totalBoundGold > 0);
     return (
         <div className="relative rounded-md py-2 flex flex-col sm:flex-row sm:items-center w-full">
             <div className="flex items-center justify-between w-full sm:w-auto">
@@ -1221,6 +1661,13 @@ function PartyMemberSummaryBar({ member, summary, children }: any) {
                     <div className={`inline-flex items-baseline justify-end min-w-[50px] text-xs sm:text-sm font-semibold font-mono tabular-nums ${memberAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400"}`}>
                         <AnimatedNumber value={memberAllCleared ? summary.totalGold : summary.totalRemainingGold} />
                         <span className="ml-0.5 text-[0.75em]">g</span>
+                        {(memberAllCleared ? totalBoundGold : totalRemainingBoundGold) > 0 && (
+                            <>
+                                <span className="mx-1 text-gray-600">+</span>
+                                <AnimatedNumber value={memberAllCleared ? totalBoundGold : totalRemainingBoundGold} />
+                                <span className="ml-0.5 text-[0.75em] text-amber-300">귀속</span>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
