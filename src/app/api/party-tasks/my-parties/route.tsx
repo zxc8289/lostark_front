@@ -24,6 +24,7 @@ type UserDoc = {
     id: string;
     name: string | null;
     image: string | null;
+    partyOrder?: string[];
 };
 
 export async function GET() {
@@ -33,7 +34,7 @@ export async function GET() {
         return NextResponse.json({ parties: [] }, { status: 401 });
     }
 
-    const userId = (session.user as any).id as string;
+    const userId = (session.user as { id: string }).id;
 
     try {
         const db = await getDb();
@@ -104,6 +105,7 @@ export async function GET() {
                         id: 1,
                         name: 1,
                         image: 1,
+                        partyOrder: 1,
                     },
                 }
             )
@@ -157,6 +159,29 @@ export async function GET() {
                 })),
             };
         });
+
+        const myPartyOrder = userById.get(userId)?.partyOrder ?? [];
+        const orderIndex = new Map(myPartyOrder.map((id, index) => [id, index]));
+        parties.sort((a, b) => {
+            const aIndex = orderIndex.get(a.id);
+            const bIndex = orderIndex.get(b.id);
+
+            if (aIndex !== undefined && bIndex !== undefined) return aIndex - bIndex;
+            if (aIndex !== undefined) return -1;
+            if (bIndex !== undefined) return 1;
+
+            const aDoc = partyDocs.find((party) => String(party.id) === a.id);
+            const bDoc = partyDocs.find((party) => String(party.id) === b.id);
+            return (bDoc?.created_at ?? "").localeCompare(aDoc?.created_at ?? "");
+        });
+
+        const sanitizedOrder = parties.map((party) => party.id);
+        if (sanitizedOrder.join("|") !== myPartyOrder.join("|")) {
+            await usersCol.updateOne(
+                { id: userId },
+                { $set: { partyOrder: sanitizedOrder, updatedAt: new Date() } }
+            );
+        }
 
         return NextResponse.json({ parties });
     } catch (err) {

@@ -255,9 +255,7 @@ export function autoSelectTop3Raids(
     prev?: CharacterTaskPrefs,
     sortType: "latest" | "gold" = "latest"
 ): CharacterTaskPrefs {
-    const raidEntries = Object.entries(raidInformation).filter(
-        ([raidName]) => raidName !== "2막-아브렐슈드 EX"
-    );
+    const raidEntries = Object.entries(raidInformation);
     const updatedRaids: CharacterTaskPrefs["raids"] = { ...(prev?.raids ?? {}) };
     const candidates: {
         raidName: string;
@@ -292,7 +290,7 @@ export function autoSelectTop3Raids(
         }
 
         // 💰 일반 골드와 귀속 골드를 합산하여 비교 기준 생성
-        const totalGold = (diffInfo.gates ?? []).reduce((sum, g) => sum + (g.gold || 0) + ((g as any).boundGold || 0), 0);
+        const totalGold = (diffInfo.gates ?? []).reduce((sum, g) => sum + (g.gold || 0) + (g.boundGold || 0), 0);
 
         candidates.push({
             raidName,
@@ -394,28 +392,6 @@ export function buildAutoSetupForRoster(
         nextPrefsByChar[c.name] = autoSelectTop3Raids(ilvlNum, prevPrefs, sortType);
     }
 
-    for (const c of roster) {
-        const charName = c.name;
-        const oldPref = prevPrefsByChar[charName];
-        const newPref = nextPrefsByChar[charName];
-
-        if (oldPref && newPref) {
-            const exRaidOld = (oldPref.raids as any)?.["2막-아브렐슈드 EX"];
-
-            if (exRaidOld && exRaidOld.enabled) {
-                (newPref.raids as any)["2막-아브렐슈드 EX"] = exRaidOld;
-                if (!newPref.order?.includes("2막-아브렐슈드 EX")) {
-                    newPref.order = [...(newPref.order || []), "2막-아브렐슈드 EX"];
-                }
-            } else {
-                if ((newPref.raids as any)?.["2막-아브렐슈드 EX"]) {
-                    delete (newPref.raids as any)["2막-아브렐슈드 EX"];
-                    newPref.order = (newPref.order || []).filter((r: string) => r !== "2막-아브렐슈드 EX");
-                }
-            }
-        }
-    }
-
     return {
         nextPrefsByChar,
         nextVisibleByChar,
@@ -430,19 +406,30 @@ export function buildAutoSetupForRoster(
 export function migrateLegacyPrefs(prefs: CharacterTaskPrefs): CharacterTaskPrefs {
     if (!prefs || !prefs.raids) return prefs;
 
+    const nextRaids = Object.fromEntries(
+        Object.entries(prefs.raids).filter(([raidName]) => !!raidInformation[raidName])
+    ) as CharacterTaskPrefs["raids"];
+    const nextOrder = prefs.order?.filter((raidName) => !!nextRaids[raidName]);
+    const prefsWithoutOrder = { ...prefs };
+    delete prefsWithoutOrder.order;
+    const sanitizedPrefs: CharacterTaskPrefs = {
+        ...prefsWithoutOrder,
+        raids: nextRaids,
+        ...(nextOrder && nextOrder.length > 0 ? { order: nextOrder } : {}),
+    };
+
     // 이미 isGold가 명시적으로 true인 레이드가 하나라도 있다면 최신 데이터이므로 그대로 통과
-    const hasGoldSet = Object.values(prefs.raids).some((r: any) => r.isGold === true);
-    if (hasGoldSet) return prefs;
+    const hasGoldSet = Object.values(nextRaids).some((r) => r.isGold === true);
+    if (hasGoldSet) return sanitizedPrefs;
 
     // 과거 데이터 처리: 켜져있는(enabled) 레이드 중 골드량이 높은 상위 3개 추출
-    const nextRaids: any = { ...prefs.raids };
     const enabledRaids = Object.entries(nextRaids)
-        .filter(([_, r]: [string, any]) => r.enabled)
-        .map(([raidName, r]: [string, any]) => {
+        .filter(([, r]) => r.enabled)
+        .map(([raidName, r]) => {
             const info = raidInformation[raidName];
             const diffInfo = info?.difficulty[r.difficulty as DifficultyKey];
             // 난이도별 총 획득 골드 계산
-            const totalGold = (diffInfo?.gates ?? []).reduce((sum: number, g: any) => sum + (g.gold || 0), 0);
+            const totalGold = (diffInfo?.gates ?? []).reduce((sum, g) => sum + (g.gold || 0), 0);
             return { raidName, totalGold };
         })
         .sort((a, b) => b.totalGold - a.totalGold) // 골드 높은 순 정렬
@@ -460,5 +447,5 @@ export function migrateLegacyPrefs(prefs: CharacterTaskPrefs): CharacterTaskPref
         }
     });
 
-    return { ...prefs, raids: nextRaids };
+    return { ...sanitizedPrefs, raids: nextRaids };
 }

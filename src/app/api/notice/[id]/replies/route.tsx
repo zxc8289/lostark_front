@@ -3,9 +3,9 @@ import { getDb } from "@/db/client";
 
 const SERVER_ADMIN_SECRET = process.env.SUPPORT_ADMIN_SECRET || "default_secret_key";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const { id: noticeId } = params;
+        const { id: noticeId } = await params;
         const { content, isAnonymous, author, authorImage, parentId } = await req.json();
 
         if (!content || !content.trim()) {

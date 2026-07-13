@@ -198,7 +198,9 @@ function SortableCharacterRow({
     const overStyle = isOver && !isDragging ? "bg-white/10 ring-2 ring-inset ring-[#5B69FF]" : "";
     const style: CSSProperties = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 };
 
-    const hasAnyRaid = !!prefs && Object.values(prefs.raids ?? {}).some((r) => r?.enabled);
+    const hasAnyRaid = !!prefs && Object.entries(prefs.raids ?? {}).some(
+        ([raidName, r]) => !!raidInformation[raidName] && r?.enabled
+    );
     const dragListeners = isDragEnabled ? listeners : {};
     const dragAttributes = isDragEnabled ? attributes : {};
 
@@ -448,7 +450,7 @@ export default function TaskTable({
             const prefs = prefsByChar[char.name];
             if (!prefs) return;
             Object.keys(prefs.raids).forEach((r) => {
-                if (prefs.raids[r].enabled) set.add(r);
+                if (raidInformation[r] && prefs.raids[r].enabled) set.add(r);
             });
         });
         return set;

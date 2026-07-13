@@ -161,7 +161,7 @@ export default function AuctionCalculatorPage() {
                                             placeholder="0"
                                             value={marketPriceRaw}
                                             onChange={(e) => onChangePrice(e.target.value)}
-                                            className="w-full bg-transparent px-4 py-3 text-white outline-none font-mono text-2xl font-bold placeholder:text-gray-700"
+                                            className="w-full bg-transparent px-4 py-3 text-white outline-none text-2xl font-bold placeholder:text-gray-700"
                                             aria-label="거래소 시세 입력"
                                         />
                                         <span className="pr-4 text-sm text-gray-600 font-bold">G</span>
@@ -184,7 +184,7 @@ export default function AuctionCalculatorPage() {
                                         추천 최적가
                                     </label>
                                     <div className="flex items-center rounded-lg bg-[#0F1014] border border-white/10 transition-all px-4 py-3">
-                                        <span className="w-full bg-transparent text-white outline-none font-mono text-2xl font-bold">
+                                        <span className="w-full bg-transparent text-white outline-none text-2xl font-bold">
                                             {fmt(calc.nbbSnipeBid)}
                                         </span>
                                         <span className="text-sm text-gray-600 font-bold">G</span>
@@ -195,7 +195,7 @@ export default function AuctionCalculatorPage() {
                                         <span className="text-[11px] text-gray-500 font-medium">
                                             분배금 포기 대비 얻는 추가 이익
                                         </span>
-                                        <span className="text-2xl font-bold font-mono text-white">
+                                        <span className="text-2xl font-bold text-white">
                                             {fmt(calc.nbbSnipeMyNet - calc.nbbSnipeDividend)} G
                                         </span>
                                     </div>
@@ -229,7 +229,7 @@ export default function AuctionCalculatorPage() {
                                         최대 허용가
                                     </label>
                                     <div className="flex items-center rounded-lg bg-[#0F1014] border border-white/10 transition-all px-4 py-3">
-                                        <span className="w-full bg-transparent text-white outline-none font-mono text-2xl font-bold">
+                                        <span className="w-full bg-transparent text-white outline-none text-2xl font-bold">
                                             {fmt(calc.nbbBid)}
                                         </span>
                                         <span className="text-sm text-gray-600 font-bold">G</span>
@@ -240,7 +240,7 @@ export default function AuctionCalculatorPage() {
                                         <span className="text-[11px] text-gray-500 font-medium">
                                             분배금 포기 대비 얻는 추가 이익
                                         </span>
-                                        <span className="text-2xl font-bold font-mono text-white">
+                                        <span className="text-2xl font-bold text-white">
                                             {fmt(calc.nbbMyNet - calc.nbbDividend)} G
                                         </span>
                                     </div>

@@ -83,7 +83,17 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
         if (!open) return;
 
         const base: CharacterTaskPrefs = initial ?? { raids: {} };
-        const filled: CharacterTaskPrefs = { raids: { ...base.raids } };
+        const raids = Object.fromEntries(
+            Object.entries(base.raids ?? {}).filter(([raidName]) => !!raidInformation[raidName])
+        ) as CharacterTaskPrefs["raids"];
+        const order = base.order?.filter((raidName) => !!raids[raidName]);
+        const baseWithoutOrder = { ...base };
+        delete baseWithoutOrder.order;
+        const filled: CharacterTaskPrefs = {
+            ...baseWithoutOrder,
+            raids,
+            ...(order && order.length > 0 ? { order } : {}),
+        };
 
         for (const [raidName, info] of Object.entries(raidInformation)) {
             if (!filled.raids[raidName]) {
@@ -101,10 +111,9 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
     const goldCount = useMemo(
         () =>
             Object.entries(state.raids ?? {}).filter(
-                ([rName, raid]) =>
+                ([, raid]) =>
                     raid.enabled &&
-                    raid.isGold &&
-                    rName !== "1막-에기르 EX"
+                    raid.isGold
             ).length,
         [state.raids]
     );
@@ -258,7 +267,6 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                         const normalOk = !!(normal && ilvl >= normal.level);
                                         const singleOk = !!(single && ilvl >= single.level);
 
-                                        const curInfo = pref.difficulty === "나메" ? nightmare : pref.difficulty === "하드" ? hard : pref.difficulty === "싱글" ? single : normal;
                                         const displayDiff = getDisplayDifficulty(raidName, pref.difficulty);
                                         const curText = pref.difficulty === "나메" ? (nightmare ? `${displayDiff} ${nightmare.level}` : displayDiff)
                                             : pref.difficulty === "하드" ? (hard ? `${displayDiff} ${hard.level}` : displayDiff)
@@ -283,8 +291,8 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                                         <button
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
-                                                                                if (raidName !== "1막-에기르 EX" && !pref.isGold && goldCount >= 3) {
-                                                                                    alert("골드 획득은 캐릭터당 최대 3개까지만 지정할 수 있습니다. (익스트림 제외)");
+                                                                                if (!pref.isGold && goldCount >= 3) {
+                                                                                    alert("골드 획득은 캐릭터당 최대 3개까지만 지정할 수 있습니다.");
                                                                                     return;
                                                                                 }
                                                                                 setState((s) => ({
@@ -301,7 +309,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                                                     ? "bg-[#EAB308]/10 text-[#FDE047] border-[#EAB308]/30"
                                                                                     : "bg-[#121418] text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300 hover:border-white/10"
                                                                                 }
-                                                                                ${raidName !== "1막-에기르 EX" && !pref.isGold && goldCount >= 3 ? "opacity-50 cursor-not-allowed" : ""}
+                                                                                ${!pref.isGold && goldCount >= 3 ? "opacity-50 cursor-not-allowed" : ""}
                                                                             `}
                                                                         >
                                                                             <div className={`w-1.5 h-1.5 rounded-full transition-colors ${pref.isGold

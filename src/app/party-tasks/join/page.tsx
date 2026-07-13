@@ -1,21 +1,37 @@
-// app/party-tasks/join/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useSession, signIn } from "next-auth/react";
-import { Loader2, AlertCircle, ArrowLeft, Ticket } from "lucide-react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
+import { AlertCircle, ArrowLeft, Loader2, Ticket } from "lucide-react";
 
-export default function PartyJoinPage() {
+const PageLayout = ({ children }: { children: ReactNode }) => (
+    <div className="relative flex min-h-[80vh] w-full items-center justify-center overflow-hidden px-4">
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#5B69FF]/20 opacity-50 blur-[100px]" />
+        <div className="relative z-10 w-full max-w-sm animate-in rounded-2xl border border-white/10 bg-[#16181D]/80 p-8 text-center shadow-2xl backdrop-blur-xl fade-in zoom-in-95 duration-300">
+            {children}
+        </div>
+    </div>
+);
+
+function JoinLoadingFallback() {
+    return (
+        <PageLayout>
+            <div className="flex flex-col items-center gap-6 py-4">
+                <Loader2 className="h-10 w-10 animate-spin text-[#5B69FF]" />
+                <p className="text-sm text-gray-400">초대 링크 확인 중...</p>
+            </div>
+        </PageLayout>
+    );
+}
+
+function PartyJoinContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const { status } = useSession();
-
     const [error, setError] = useState<string | null>(null);
 
-    // 🔹 code 또는 invite 둘 다 허용
-    const rawCode =
-        searchParams.get("code") ?? searchParams.get("invite");
+    const rawCode = searchParams.get("code") ?? searchParams.get("invite");
     const code = rawCode?.trim() || null;
 
     useEffect(() => {
@@ -27,7 +43,7 @@ export default function PartyJoinPage() {
         if (status === "loading") return;
 
         if (status === "unauthenticated") {
-            signIn("discord", {
+            void signIn("discord", {
                 callbackUrl: `/party-tasks/join?code=${encodeURIComponent(code)}`,
             });
             return;
@@ -35,8 +51,7 @@ export default function PartyJoinPage() {
 
         const join = async () => {
             try {
-                // 약간의 인위적인 딜레이(0.5초)를 줘서 "처리 중" 애니메이션을 보여줌 (선택사항)
-                await new Promise((r) => setTimeout(r, 600));
+                await new Promise((resolve) => setTimeout(resolve, 600));
 
                 const res = await fetch("/api/party-tasks/join", {
                     method: "POST",
@@ -56,46 +71,30 @@ export default function PartyJoinPage() {
                 }
 
                 router.replace(`/party-tasks/${partyId}`);
-            } catch (e: any) {
-                setError(e?.message ?? "파티 참가에 실패했습니다.");
+            } catch (e: unknown) {
+                setError(e instanceof Error ? e.message : "파티 참가에 실패했습니다.");
             }
         };
 
         void join();
     }, [code, status, router]);
 
-    // ───────── UI 렌더링 부분 ─────────
-
-    // 공통 배경 및 카드 래퍼
-    const PageLayout = ({ children }: { children: React.ReactNode }) => (
-        <div className="relative w-full min-h-[80vh] flex items-center justify-center overflow-hidden px-4">
-            {/* 배경 글로우 효과 */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#5B69FF]/20 blur-[100px] rounded-full pointer-events-none opacity-50" />
-
-            {/* 카드 컨테이너 */}
-            <div className="relative z-10 w-full max-w-sm bg-[#16181D]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 text-center animate-in fade-in zoom-in-95 duration-300">
-                {children}
-            </div>
-        </div>
-    );
-
-    // 1. 코드가 없거나 에러가 발생했을 때
     if (!code || error) {
         return (
             <PageLayout>
                 <div className="flex flex-col items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500 border border-red-500/20 mb-2">
+                    <div className="mb-2 flex h-14 w-14 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10 text-red-500">
                         <AlertCircle className="h-7 w-7" />
                     </div>
                     <div className="space-y-2">
                         <h2 className="text-xl font-bold text-white">참가 실패</h2>
-                        <p className="text-sm text-gray-400 leading-relaxed break-keep">
+                        <p className="break-keep text-sm leading-relaxed text-gray-400">
                             {error || "초대 코드를 찾을 수 없습니다."}
                         </p>
                     </div>
                     <button
                         onClick={() => router.push("/party-tasks")}
-                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white/5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition-all border border-white/5"
+                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/5 bg-white/5 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10"
                     >
                         <ArrowLeft className="h-4 w-4" />
                         파티 목록으로 돌아가기
@@ -105,32 +104,34 @@ export default function PartyJoinPage() {
         );
     }
 
-    // 2. 로딩 중 (정상 처리 중)
     return (
         <PageLayout>
             <div className="flex flex-col items-center gap-6 py-4">
                 <div className="relative">
-                    {/* 빙글빙글 도는 로더 */}
                     <div className="absolute inset-0 rounded-full border-4 border-[#5B69FF]/30" />
-                    <div className="absolute inset-0 rounded-full border-4 border-t-[#5B69FF] animate-spin" />
-
-                    {/* 가운데 아이콘 */}
+                    <div className="absolute inset-0 animate-spin rounded-full border-4 border-t-[#5B69FF]" />
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#16181D]">
-                        <Ticket className="h-7 w-7 text-[#5B69FF] animate-pulse" />
+                        <Ticket className="h-7 w-7 animate-pulse text-[#5B69FF]" />
                     </div>
                 </div>
 
                 <div className="space-y-1">
                     <h2 className="text-lg font-bold text-white">파티 확인 중...</h2>
-                    <p className="text-xs text-gray-500 font-mono tracking-wider">
-                        CODE: {code}
-                    </p>
+                    <p className="text-xs tracking-wider text-gray-500">CODE: {code}</p>
                 </div>
 
                 <p className="text-sm text-gray-400">
-                    멤버십을 확인하고 입장하고 있습니다.
+                    멤버 정보를 확인하고 입장하고 있습니다.
                 </p>
             </div>
         </PageLayout>
+    );
+}
+
+export default function PartyJoinPage() {
+    return (
+        <Suspense fallback={<JoinLoadingFallback />}>
+            <PartyJoinContent />
+        </Suspense>
     );
 }

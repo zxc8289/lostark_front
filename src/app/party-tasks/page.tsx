@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     Users,
@@ -24,7 +24,24 @@ import {
     LogIn,
 } from "lucide-react";
 import { signIn, useSession } from "next-auth/react";
+import DiscordAvatar from "../components/DiscordAvatar";
 import PartyDemoPage from "./demo/page";
+import {
+    closestCenter,
+    DndContext,
+    type DragEndEvent,
+    PointerSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+} from "@dnd-kit/core";
+import {
+    arrayMove,
+    rectSortingStrategy,
+    SortableContext,
+    useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 /* ───────── 타입 ───────── */
 type PartyMember = {
@@ -66,6 +83,11 @@ export default function PartyTasksPage() {
     // 모달 상태
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [joinModalOpen, setJoinModalOpen] = useState(false);
+    const partySensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 8 } })
+    );
+    const partyIds = useMemo(() => parties.map((party) => party.id), [parties]);
 
     // 한 글자 정규화: 영문/숫자만, 대문자로
     const normalizeChar = (v: string) =>
@@ -160,6 +182,36 @@ export default function PartyTasksPage() {
                 target.select();
             });
         }
+    };
+
+    const savePartyOrder = async (partyOrder: string[]) => {
+        try {
+            const res = await fetch("/api/party-tasks/order", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ partyOrder }),
+            });
+
+            if (!res.ok) {
+                throw new Error("파티 순서 저장에 실패했습니다.");
+            }
+        } catch (error) {
+            console.error(error);
+            setErr("파티 순서를 서버에 저장하지 못했습니다. 새로고침하면 이전 순서로 보일 수 있어요.");
+        }
+    };
+
+    const handlePartyDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        const oldIndex = parties.findIndex((party) => party.id === active.id);
+        const newIndex = parties.findIndex((party) => party.id === over.id);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const nextParties = arrayMove(parties, oldIndex, newIndex);
+        setParties(nextParties);
+        void savePartyOrder(nextParties.map((party) => party.id));
     };
 
 
@@ -361,17 +413,25 @@ export default function PartyTasksPage() {
                             ))}
                         </div>
                     ) : hasParties ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch sm:px-0">
-                            {parties.map((p) => (
-                                <PartyCard
-                                    key={p.id}
-                                    party={p}
-                                    onClick={() => router.push(`/party-tasks/${p.id}`)}
-                                />
-                            ))}
+                        <DndContext
+                            sensors={partySensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={handlePartyDragEnd}
+                        >
+                            <SortableContext items={partyIds} strategy={rectSortingStrategy}>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch sm:px-0">
+                                    {parties.map((p) => (
+                                        <SortablePartyCard
+                                            key={p.id}
+                                            party={p}
+                                            onClick={() => router.push(`/party-tasks/${p.id}`)}
+                                        />
+                                    ))}
 
-                            <AddPartyPromoCard onCreateClick={() => setCreateModalOpen(true)} />
-                        </div>
+                                    <AddPartyPromoCard onCreateClick={() => setCreateModalOpen(true)} />
+                                </div>
+                            </SortableContext>
+                        </DndContext>
                     ) : (
                         <div className="rounded-2xl border border-dashed border-white/10 bg-[#16181D]/50 p-16 text-center">
                             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
@@ -581,13 +641,54 @@ function PartyTasksLoading() {
 
 
 
-/* ───────── 수정된 PartyCard 컴포넌트 ───────── */
-function PartyCard({
+function SortablePartyCard({
     party,
     onClick,
 }: {
     party: PartySummary;
     onClick: () => void;
+}) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: party.id });
+
+    const style: React.CSSProperties = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.65 : 1,
+        zIndex: isDragging ? 20 : undefined,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className={isDragging ? "relative" : undefined}>
+            <PartyCard
+                party={party}
+                onClick={() => {
+                    if (!isDragging) onClick();
+                }}
+                dragProps={{ ...attributes, ...listeners }}
+                isDragging={isDragging}
+            />
+        </div>
+    );
+}
+
+/* ───────── 수정된 PartyCard 컴포넌트 ───────── */
+function PartyCard({
+    party,
+    onClick,
+    dragProps,
+    isDragging,
+}: {
+    party: PartySummary;
+    onClick: () => void;
+    dragProps?: React.HTMLAttributes<HTMLDivElement>;
+    isDragging?: boolean;
 }) {
     const [showNames, setShowNames] = useState(false);
 
@@ -596,8 +697,9 @@ function PartyCard({
 
     return (
         <div
+            {...dragProps}
             onClick={onClick}
-            className="group relative flex flex-col min-h-[230px] justify-between rounded-none sm:rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 hover:border-[#5B69FF]/50 hover:shadow-[0_0_30px_-10px_rgba(91,105,255,0.15)] hover:-translate-y-1 cursor-pointer overflow-hidden"
+            className={`group relative flex flex-col min-h-[230px] justify-between rounded-none sm:rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 hover:border-[#5B69FF]/50 hover:shadow-[0_0_30px_-10px_rgba(91,105,255,0.15)] hover:-translate-y-1 overflow-hidden touch-none ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
         >
             <div className="absolute inset-0 bg-gradient-to-br from-[#5B69FF]/0 via-[#5B69FF]/0 to-[#5B69FF]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
@@ -708,17 +810,11 @@ function MemberAvatar({
                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900/95" />
             </div>
 
-            {member.image ? (
-                <img
-                    src={member.image}
-                    alt={member.name || ""}
-                    className="h-full w-full rounded-full object-cover bg-gray-800"
-                />
-            ) : (
-                <div className="flex h-full w-full items-center justify-center rounded-full bg-gray-700 text-[10px] text-gray-300">
-                    {(member.name || "?").slice(0, 2)}
-                </div>
-            )}
+            <DiscordAvatar
+                src={member.image}
+                alt={member.name || ""}
+                className="h-full w-full rounded-full object-cover bg-gray-800"
+            />
         </div>
     );
 }

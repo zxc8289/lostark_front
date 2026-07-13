@@ -28,6 +28,7 @@ import type { TaskItem } from "../components/tasks/CharacterTaskStrip";
 import { MyTasksContext } from "./MyTasksContext";
 import WeeklyRaidTab from "../components/tasks/tabs/my-tasks/WeeklyRaidTab";
 import GeneralTaskTab from "../components/tasks/tabs/my-tasks/GeneralTaskTab";
+import WeeklyIncomeTab from "../components/tasks/tabs/my-tasks/WeeklyIncomeTab";
 
 const DEMO_ACCOUNT_ID = "__demo__";
 
@@ -92,6 +93,8 @@ function buildDemoPrefsByChar(charNames: string[]): Record<string, CharacterTask
         enabled: true,
         difficulty,
         gates,
+        isBonus: false,
+        isGold: true,
       } as any;
     }
 
@@ -174,7 +177,7 @@ export default function MyTasksPage() {
   const [showAllViewWarning, setShowAllViewWarning] = useState(false);
 
 
-  const [activeTab, setActiveTab] = useState<"weekly" | "daily">("weekly");
+  const [activeTab, setActiveTab] = useState<"weekly" | "income" | "daily">("weekly");
 
   const [isDragEnabled, setIsDragEnabled] = useState<boolean>(() => {
     const saved = loadSavedFilters();
@@ -321,7 +324,11 @@ export default function MyTasksPage() {
         const msg = JSON.parse(event.data);
 
         if (msg.type === "memberUpdated" && msg.userId === myUserId) {
-          if (msg.prefsByChar) setPrefsByChar(msg.prefsByChar);
+          if (msg.prefsByChar) {
+            setPrefsByChar(Object.fromEntries(
+              Object.entries(msg.prefsByChar).map(([char, pref]) => [char, migrateLegacyPrefs(pref as CharacterTaskPrefs)])
+            ));
+          }
           if (msg.visibleByChar) setVisibleByChar(msg.visibleByChar);
           if (msg.tableOrder) setTableOrder(msg.tableOrder);
           if (msg.rosterOrder) setRosterOrder(msg.rosterOrder);
@@ -377,7 +384,11 @@ export default function MyTasksPage() {
       for (const acc of accounts) {
         for (const c of acc.summary?.roster ?? []) {
           const loaded = readPrefs(c.name);
-          next[c.name] = migrateLegacyPrefs(loaded ?? next[c.name] ?? { raids: {} });
+          const migrated = migrateLegacyPrefs(loaded ?? next[c.name] ?? { raids: {} });
+          next[c.name] = migrated;
+          if (loaded && JSON.stringify(loaded) !== JSON.stringify(migrated)) {
+            writePrefs(c.name, migrated);
+          }
         }
       }
       return next;
@@ -976,7 +987,8 @@ export default function MyTasksPage() {
     tableRoster, tablePrefsByChar, tableOrderForView, setMemoTarget, setTableOrder,
     handleTableToggleGate, setEditingChar, rosterOrder, isDragEnabled, setRosterOrder,
     visibleRoster, cardRosterOrder, buildTasksFor, effectivePrefsByChar,
-    handleSingleCharacterAllClear, setCharPrefs, setCardRosterOrder, currentActiveAccount
+    handleSingleCharacterAllClear, setCharPrefs, setCardRosterOrder, currentActiveAccount,
+    safeGoldDesignatedByChar
   };
 
   return (
@@ -1000,12 +1012,20 @@ export default function MyTasksPage() {
                 주간 레이드
                 {activeTab === "weekly" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
               </button>
+
               <button
                 onClick={() => setActiveTab("daily")}
                 className={`pb-2 text-[13px] sm:text-lg font-bold transition-colors relative ${activeTab === "daily" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
               >
-                일일 및 주간 숙제 (테스트)
+                일일 및 주간 숙제
                 {activeTab === "daily" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
+              </button>
+              <button
+                onClick={() => setActiveTab("income")}
+                className={`pb-2 text-[13px] sm:text-lg font-bold transition-colors relative ${activeTab === "income" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+              >
+                주간 레이드 골드
+                {activeTab === "income" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
               </button>
             </div>
           </div>
@@ -1061,6 +1081,9 @@ export default function MyTasksPage() {
             <div className="flex-1 min-w-0 w-full flex flex-col gap-4 sm:gap-4.5">
               <div className={activeTab === "weekly" ? "block w-full" : "hidden"}>
                 <WeeklyRaidTab />
+              </div>
+              <div className={activeTab === "income" ? "block w-full" : "hidden"}>
+                <WeeklyIncomeTab />
               </div>
               <div className={activeTab === "daily" ? "block w-full" : "hidden"}>
                 <GeneralTaskTab />

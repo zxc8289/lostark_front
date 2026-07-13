@@ -10,21 +10,22 @@ function isAdmin(req: Request) {
     return !!process.env.SUPPORT_ADMIN_SECRET && secret === process.env.SUPPORT_ADMIN_SECRET;
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
     if (!isAdmin(req)) {
         return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
 
+    const { id } = await params;
     const body = await req.json().catch(() => null);
     if (!body?.content) {
         return NextResponse.json({ ok: false, error: "content required" }, { status: 400 });
     }
 
-    if (!ObjectId.isValid(params.id)) {
+    if (!ObjectId.isValid(id)) {
         return NextResponse.json({ ok: false, error: "invalid id" }, { status: 400 });
     }
 
-    const postId = new ObjectId(params.id);
+    const postId = new ObjectId(id);
     const content = String(body.content).trim().slice(0, 5000);
     if (!content) {
         return NextResponse.json({ ok: false, error: "empty content" }, { status: 400 });

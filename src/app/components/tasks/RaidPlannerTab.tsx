@@ -19,6 +19,7 @@ import type { PartyMemberTasks } from "@/app/party-tasks/[partyId]/page";
 import { raidInformation } from "@/server/data/raids";
 import { CSS } from "@dnd-kit/utilities";
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from "@dnd-kit/sortable";
+import { classIconMap } from "./ClassIconMap";
 
 export type RaidGroup = {
     id: string;
@@ -90,15 +91,6 @@ const DIFF_STYLES = {
     나메: { check: "bg-[#6D28D9] text-white border-[#6D28D9]", idle: "bg-[#6D28D9]/8 text-[#D6BCFA]/85 border-[#6D28D9]/75", hover: "hover:bg-[#6D28D9] hover:text-white" },
     싱글: { check: "bg-[#F1F5F9] text-[#111217] border-[#F1F5F9]", idle: "bg-white/5 text-white/70 border-white/20", hover: "hover:bg-[#F1F5F9] hover:text-[#111217]" },
 } as const;
-
-const classIconMap: Record<string, string> = {
-    "버서커": "berserker.svg", "디스트로이어": "destroyer.svg", "워로드": "warlord.svg", "홀리나이트": "holyknight.svg", "슬레이어": "slayer.svg",
-    "배틀마스터": "battlemaster.svg", "인파이터": "infighter.svg", "기공사": "soulmaster.svg", "창술사": "lancemaster.svg", "스트라이커": "striker.svg",
-    "브레이커": "Breaker.svg", "데빌헌터": "devilhunter.svg", "블래스터": "blaster.svg", "호크아이": "hawkeye.svg", "스카우터": "scouter.svg",
-    "건슬링어": "gunslinger.svg", "바드": "bard.svg", "서머너": "summoner.svg", "아르카나": "arcana.svg", "소서리스": "elementalmaster.svg",
-    "블레이드": "blade.svg", "데모닉": "demonic.svg", "리퍼": "reaper.svg", "소울이터": "souleater.svg", "도화가": "artist.svg",
-    "기상술사": "aeromancer.svg", "발키리": "valkyrie.svg", "환수사": "wildsoul.svg", "가디언나이트": "dragon_knight.svg",
-};
 
 const POSITIONAL_TYPES: Record<string, "BACK_HEAD" | "HIT_MASTER" | "QUASI"> = {
     "디스트로이어(분노의 망치)": "BACK_HEAD", "디스트로이어(중력 수련)": "BACK_HEAD", "슬레이어(포식자)": "BACK_HEAD", "슬레이어(처단자)": "BACK_HEAD",

@@ -33,6 +33,8 @@ export const classIconMap: Record<string, string> = {
     "발키리": "valkyrie.svg",
     "환수사": "wildsoul.svg",
     "가디언나이트": "dragon_knight.svg",
+    "차원술사": "dimension_master.svg",
+
 };
 
 export function getClassIconUrl(className?: string | null) {

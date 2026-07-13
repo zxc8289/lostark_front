@@ -69,6 +69,9 @@ const items: NavItem[] = [
         subItems: [
             { href: "/calculator/auction", label: "경매 계산기" },
             { href: "/calculator/more-reward", label: "더보기 계산기" },
+            { href: "/calculator/gem", label: "보석 계산기" },
+            { href: "/calculator/weekly-gold", label: "주간 레이드 계산기" },
+            { href: "/calculator/craft", label: "영지 제작 계산기" },
         ]
     },
     // { href: "/guide", label: "가이드" },

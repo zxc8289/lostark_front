@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Info, HelpCircle, BarChart3, Target, Users, AlertTriangle } from "lucide-react";
+import { Check, Info, HelpCircle, BarChart3, AlertTriangle } from "lucide-react";
 
 type RaidCategory = "카제로스" | "그림자" | "어비스 던전";
 type DiffKey = "노말" | "하드" | "나메";
@@ -86,15 +86,10 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
                 { gate: 2, hp: 7629, range: [1050, 1400] },
             ],
             하드: [
-                { gate: 1, hp: 16222, range: [2400, 3200] },
-                { gate: 2, hp: 24431, range: [4275, 5700] },
+                { gate: 1, hp: 13719, range: [2030, 2706] },
+                { gate: 2, hp: 19619, range: [3433, 4577] },
             ],
             나메: [],
-        },
-        "2막-EX": {
-            노말: [{ gate: 1, hp: 11966, range: [1542, 2056] }],
-            하드: [{ gate: 1, hp: 32449, range: [4174, 5565] }],
-            나메: [{ gate: 1, hp: 73669, range: [9477, 12635] }],
         },
     },
     그림자: {
@@ -151,7 +146,7 @@ export default function DpsSharePage() {
     const handleActChange = (nextAct: string) => {
         setAct(nextAct);
 
-        const isNightmareAvailable = category !== "카제로스" || nextAct === "2막-EX";
+        const isNightmareAvailable = category !== "카제로스";
 
         if (!isNightmareAvailable && diff === "나메") {
             setDiff("노말");
@@ -200,7 +195,7 @@ export default function DpsSharePage() {
     }, [category, act, diff, dmgInput, bleedCut]);
 
     const rows = RAID_DATA[category][act][diff] || [];
-    const isNightmareAvailable = category !== "카제로스" || act === "2막-EX";
+    const isNightmareAvailable = category !== "카제로스";
 
     return (
         <>

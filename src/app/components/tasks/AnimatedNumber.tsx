@@ -50,7 +50,7 @@ export default function AnimatedNumber({ value, className }: AnimatedNumberProps
     return (
         <span
             className={[
-                "inline-flex justify-end font-mono tabular-nums",
+                "inline-flex justify-end tabular-nums",
                 className ?? "",
             ].join(" ")}
         >

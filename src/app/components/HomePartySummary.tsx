@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { UsersRound, ChevronRight, User, Users, Clock, UserCheck } from "lucide-react";
+import DiscordAvatar from "./DiscordAvatar";
 
 /* ───────── 타입 및 컨텍스트 ───────── */
 type PartyMember = { id: string; name: string | null; image: string | null; };
@@ -178,7 +179,11 @@ function MemberAvatar({ member, className, style }: { member: PartyMember; class
                 {member.name || "이름 없음"}
                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900/95" />
             </div>
-            {member.image ? <img src={member.image} alt={member.name || ""} className="h-full w-full rounded-full object-cover bg-gray-800" /> : <div className="flex h-full w-full items-center justify-center rounded-full bg-gray-700 text-[10px] text-gray-300 font-bold uppercase">{(member.name || "?").slice(0, 1)}</div>}
+            <DiscordAvatar
+                src={member.image}
+                alt={member.name || ""}
+                className="h-full w-full rounded-full object-cover bg-gray-800"
+            />
         </div>
     );
 }

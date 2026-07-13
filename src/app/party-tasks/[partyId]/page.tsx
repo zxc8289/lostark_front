@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
+import DiscordAvatar from "../../components/DiscordAvatar";
 import {
     UsersRound,
     Loader2,
@@ -231,7 +232,8 @@ function buildTasksForCharacter(
     const prefs = prefsByChar[c.name];
     if (!prefs) return [];
 
-    const baseRaidNames = prefs.order?.filter((r) => prefs.raids[r]) ?? Object.keys(prefs.raids);
+    const baseRaidNames = prefs.order?.filter((r) => prefs.raids[r] && raidInformation[r])
+        ?? Object.keys(prefs.raids).filter((r) => !!raidInformation[r]);
     const raidNames = prefs.order
         ? baseRaidNames
         : [...baseRaidNames].sort((a, b) => getRaidBaseLevel(b) - getRaidBaseLevel(a));
@@ -3818,17 +3820,11 @@ function MemberAvatar({
         <div
             className={`group/avatar relative flex items-center justify-center overflow-hidden ${className}`}
         >
-            {member.image ? (
-                <img
-                    src={member.image}
-                    alt={member.name || ""}
-                    className="h-full w-full rounded-full object-cover bg-gray-800"
-                />
-            ) : (
-                <div className="flex h-full w-full items-center justify-center rounded-full bg-gray-700 text-[10px] text-gray-200">
-                    {(member.name || "?").slice(0, 2)}
-                </div>
-            )}
+            <DiscordAvatar
+                src={member.image}
+                alt={member.name || ""}
+                className="h-full w-full rounded-full object-cover bg-gray-800"
+            />
         </div>
     );
 }

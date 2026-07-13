@@ -2,10 +2,58 @@ import { NextResponse } from 'next/server';
 
 export const revalidate = 600;
 
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const STALE_TTL_MS = 30 * 60 * 1000;
+
+type MarketPriceMap = Record<string, number>;
+type MarketCacheState = "HIT" | "MISS" | "STALE";
+
+let cachedMarketPrices: MarketPriceMap | null = null;
+let cacheExpiresAt = 0;
+let staleUntil = 0;
+let cachedAt = "";
+let marketRefreshPromise: Promise<MarketPriceMap> | null = null;
+
+function hasFreshCache(now: number) {
+    return cachedMarketPrices !== null && now < cacheExpiresAt;
+}
+
+function hasStaleCache(now: number) {
+    return cachedMarketPrices !== null && now < staleUntil;
+}
+
+function storeMarketCache(priceMap: MarketPriceMap) {
+    const now = Date.now();
+    cachedMarketPrices = priceMap;
+    cacheExpiresAt = now + CACHE_TTL_MS;
+    staleUntil = now + STALE_TTL_MS;
+    cachedAt = new Date(now).toISOString();
+}
+
+function marketResponse(priceMap: MarketPriceMap, cacheState: MarketCacheState) {
+    return NextResponse.json(priceMap, {
+        headers: {
+            "Cache-Control": "public, max-age=60, s-maxage=600, stale-while-revalidate=1800",
+            "X-Loacheck-Cache": cacheState,
+            "X-Loacheck-Cache-At": cachedAt,
+        },
+    });
+}
+
 export async function GET() {
+    const now = Date.now();
+
+    if (hasFreshCache(now)) {
+        return marketResponse(cachedMarketPrices!, "HIT");
+    }
+
     const rawToken = process.env.LOSTARK_OPENAPI_JWT;
 
     if (!rawToken) {
+        if (hasStaleCache(now)) {
+            return marketResponse(cachedMarketPrices!, "STALE");
+        }
+
         console.error("❌ [서버 에러] 환경변수가 설정되지 않았습니다.");
         return NextResponse.json({ error: "API Key is missing" }, { status: 500 });
     }
@@ -47,6 +95,12 @@ export async function GET() {
     };
 
     try {
+        if (marketRefreshPromise) {
+            const priceMap = await marketRefreshPromise;
+            return marketResponse(priceMap, "HIT");
+        }
+
+        marketRefreshPromise = (async () => {
         // ✨ 파편 주머니(대) 검색 추가
         const [destRes, guardRes, leapRes, shardRes] = await Promise.all([
             fetchPrices("파괴"),
@@ -72,10 +126,21 @@ export async function GET() {
             }
         });
 
-        return NextResponse.json(priceMap);
+        storeMarketCache(priceMap);
+        return priceMap;
+        })();
+
+        const priceMap = await marketRefreshPromise;
+        return marketResponse(priceMap, "MISS");
 
     } catch (error) {
+        if (hasStaleCache(Date.now())) {
+            return marketResponse(cachedMarketPrices!, "STALE");
+        }
+
         console.error("❌ [서버 내부 에러] API 통신 중 문제가 발생했습니다:", error);
         return NextResponse.json({ error: "Failed to fetch market prices" }, { status: 500 });
+    } finally {
+        marketRefreshPromise = null;
     }
 }
