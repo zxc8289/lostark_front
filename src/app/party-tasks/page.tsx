@@ -699,7 +699,7 @@ function PartyCard({
         <div
             {...dragProps}
             onClick={onClick}
-            className={`group relative flex flex-col min-h-[230px] justify-between rounded-none sm:rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 hover:border-[#5B69FF]/50 hover:shadow-[0_0_30px_-10px_rgba(91,105,255,0.15)] hover:-translate-y-1 overflow-hidden touch-none ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+            className={`group relative flex flex-col ${showNames ? "min-h-[246px]" : "h-[246px]"} justify-between rounded-none sm:rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 hover:border-[#5B69FF]/50 hover:shadow-[0_0_30px_-10px_rgba(91,105,255,0.15)] hover:-translate-y-1 overflow-hidden touch-none ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
         >
             <div className="absolute inset-0 bg-gradient-to-br from-[#5B69FF]/0 via-[#5B69FF]/0 to-[#5B69FF]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
@@ -749,7 +749,7 @@ function PartyCard({
                         </button>
                     </div>
 
-                    <div className="min-h-[40px]">
+                    <div className={showNames ? "min-h-[40px]" : "h-[88px] overflow-hidden"}>
                         {showNames ? (
                             // 펼침 상태 (이름 보이기)
                             <div className="flex flex-wrap gap-2 animate-in fade-in zoom-in-95 duration-200">
@@ -768,7 +768,7 @@ function PartyCard({
                         ) : (
                             // 닫힘 상태 (아바타만 겹쳐 보이기)
                             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
-                                {/* 줄바꿈 허용 */}
+                                {/* 닫힘 상태에서는 최대 2줄까지만 보여주고, 전체 목록은 닉네임 보기에서 확인합니다. */}
                                 <div className="flex flex-wrap -space-x-3 gap-y-2 hover:space-x-1 transition-all duration-300">
                                     {members.map((m) => (
                                         <MemberAvatar
@@ -823,7 +823,7 @@ function AddPartyPromoCard({ onCreateClick }: { onCreateClick: () => void }) {
     return (
         <button
             onClick={onCreateClick}
-            className="group relative flex h-full min-h-[240px] flex-col items-center justify-center gap-3 sm:rounded-xl rounded-none border border-dashed border-white/10 bg-white/[0.02]  text-center transition-all duration-300 hover:border-[#5B69FF]/40 hover:bg-white/[0.04] hover:scale-[1.01]"
+            className="group relative flex h-full min-h-[246px] flex-col items-center justify-center gap-3 sm:rounded-xl rounded-none border border-dashed border-white/10 bg-white/[0.02]  text-center transition-all duration-300 hover:border-[#5B69FF]/40 hover:bg-white/[0.04] hover:scale-[1.01]"
         >
             <div className="relative mb-1">
                 <div className="absolute -inset-2 bg-[#5B69FF]/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
