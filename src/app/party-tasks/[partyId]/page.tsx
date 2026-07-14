@@ -32,6 +32,7 @@ import {
     MoreVertical,
     Wand2,
     RefreshCcw,
+    Bot,
 } from "lucide-react";
 import { CSS } from "@dnd-kit/utilities";
 import CharacterTaskStrip, {
@@ -63,8 +64,10 @@ import TaskSidebar from "@/app/components/tasks/TaskSidebar";
 import { useGlobalWebSocket } from "@/app/components/WebSocketProvider";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import RaidPlannerTab from "@/app/components/tasks/RaidPlannerTab";
+import RaidPlannerTab, { type RaidGroup } from "@/app/components/tasks/RaidPlannerTab";
 import MemoModal from "@/app/components/tasks/MemoModal";
+
+const DISCORD_BOT_INVITE_URL = "https://discord.com/oauth2/authorize?client_id=1500722739986829452&permissions=84992&scope=bot%20applications.commands";
 
 /* ─────────────────────────────
 * 타입 정의
@@ -385,6 +388,11 @@ export default function PartyDetailPage() {
     const sendGlobalMessage = wsContext?.sendMessage;
     const joinRoom = wsContext?.joinRoom;
     const addPartyId = wsContext?.addPartyId;
+    const [plannerRealtimeUpdate, setPlannerRealtimeUpdate] = useState<{
+        mode: "planner" | "temp_planner";
+        groups: RaidGroup[];
+        updatedAt: number;
+    } | null>(null);
 
     const [editOpen, setEditOpen] = useState(false);
     const [editTarget, setEditTarget] = useState<{
@@ -1154,6 +1162,23 @@ export default function PartyDetailPage() {
 
             setRefreshErr(null);
 
+            const previousRosterNames = new Set(target.summary?.roster?.map((c) => c.name) ?? []);
+            const nextVisibleByChar = { ...(target.visibleByChar ?? {}) };
+            const nextGoldDesignatedByChar = { ...(target.goldDesignatedByChar ?? {}) };
+            let hasNewRosterCharacter = false;
+
+            for (const character of json.roster ?? []) {
+                if (!previousRosterNames.has(character.name)) {
+                    hasNewRosterCharacter = true;
+                    if (nextVisibleByChar[character.name] === undefined) {
+                        nextVisibleByChar[character.name] = false;
+                    }
+                    if (nextGoldDesignatedByChar[character.name] === undefined) {
+                        nextGoldDesignatedByChar[character.name] = false;
+                    }
+                }
+            }
+
             setPartyTasks((prev) => {
                 if (!prev) return prev;
                 return prev.map((m) =>
@@ -1161,7 +1186,9 @@ export default function PartyDetailPage() {
                         ? {
                             ...m,
                             summary: json,
-                            nickname: successNickname || m.nickname
+                            nickname: successNickname || m.nickname,
+                            visibleByChar: hasNewRosterCharacter ? nextVisibleByChar : m.visibleByChar,
+                            goldDesignatedByChar: hasNewRosterCharacter ? nextGoldDesignatedByChar : m.goldDesignatedByChar
                         }
                         : m
                 );
@@ -1174,7 +1201,8 @@ export default function PartyDetailPage() {
                     userId: memberUserId,
                     summary: json,
                     prefsByChar: target.prefsByChar,
-                    visibleByChar: target.visibleByChar,
+                    visibleByChar: hasNewRosterCharacter ? nextVisibleByChar : target.visibleByChar,
+                    goldDesignatedByChar: hasNewRosterCharacter ? nextGoldDesignatedByChar : target.goldDesignatedByChar,
                     nickname: successNickname
                 }),
             });
@@ -1183,7 +1211,11 @@ export default function PartyDetailPage() {
                 party.id,
                 memberUserId,
                 target.prefsByChar,
-                target.visibleByChar
+                hasNewRosterCharacter ? nextVisibleByChar : target.visibleByChar,
+                target.tableOrder,
+                target.rosterOrder,
+                target.cardRosterOrder,
+                hasNewRosterCharacter ? nextGoldDesignatedByChar : target.goldDesignatedByChar
             );
 
         } catch (e: any) {
@@ -1950,6 +1982,17 @@ export default function PartyDetailPage() {
 
                     void reloadPartyTasks(false);
                 }
+                else if (msg.type === "plannerUpdated" && String(msg.partyId) === String(party.id)) {
+                    if (myUserId && msg.userId && String(msg.userId) === String(myUserId)) return;
+                    if (!Array.isArray(msg.groups)) return;
+
+                    const mode = msg.mode === "temp_planner" ? "temp_planner" : "planner";
+                    setPlannerRealtimeUpdate({
+                        mode,
+                        groups: msg.groups as RaidGroup[],
+                        updatedAt: Number(msg.updatedAt) || Date.now(),
+                    });
+                }
                 else if (msg.type === "memberKicked" && String(msg.partyId) === String(party.id)) {
                     const kickedUserId = String(msg.userId);
 
@@ -2277,16 +2320,29 @@ export default function PartyDetailPage() {
                             )}
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={openInviteModal}
-                        // 🔥 맨 끝에 mb-1.5 sm:mb-2 를 추가해서 위로 살짝 올려줌
-                        className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#5B69FF]/80 p-2 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#4a57e0] transition-colors mb-1.5 sm:mb-2"
-                        title="파티 코드 생성"
-                    >
-                        <Link2 className="h-3.5 w-3.5 sm:h-3.5 sm:w-3.5 shrink-0" />
-                        <span className="hidden sm:inline">파티 코드 생성</span>
-                    </button>
+                    <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+                        {activeTab !== "tasks" && (
+                            <a
+                                href={DISCORD_BOT_INVITE_URL}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#5B69FF]/80 p-2 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#4a57e0] transition-colors"
+                                title="디스코드 서버에 로아체크 봇을 추가합니다."
+                            >
+                                <Bot className="h-3.5 w-3.5 shrink-0" />
+                                <span className="hidden sm:inline">봇 추가</span>
+                            </a>
+                        )}
+                        <button
+                            type="button"
+                            onClick={openInviteModal}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#5B69FF]/80 p-2 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#4a57e0] transition-colors"
+                            title="파티 코드 생성"
+                        >
+                            <Link2 className="h-3.5 w-3.5 sm:h-3.5 sm:w-3.5 shrink-0" />
+                            <span className="hidden sm:inline">파티 코드 생성</span>
+                        </button>
+                    </div>
                 </div>
                 {activeTab === "tasks" ? (
                     <div className="relative w-full flex flex-col xl:flex-row gap-4 xl:gap-6">
@@ -2508,6 +2564,18 @@ export default function PartyDetailPage() {
                             partyId={party.id}
                             partyTasks={partyTasks ?? []}
                             onBulkToggleGate={handleBulkToggleGate}
+                            onPlannerUpdate={(groups) => {
+                                if (!sendGlobalMessage) return;
+                                sendGlobalMessage({
+                                    type: "plannerUpdate",
+                                    partyId: party.id,
+                                    userId: myUserId,
+                                    mode: "planner",
+                                    groups,
+                                    updatedAt: Date.now(),
+                                });
+                            }}
+                            realtimeUpdate={plannerRealtimeUpdate?.mode === "planner" ? plannerRealtimeUpdate : null}
                             isTemporaryMode={false}
                         />
                     </div>
@@ -2519,6 +2587,18 @@ export default function PartyDetailPage() {
                             partyId={party.id}
                             partyTasks={partyTasks ?? []}
                             onBulkToggleGate={handleBulkToggleGate}
+                            onPlannerUpdate={(groups) => {
+                                if (!sendGlobalMessage) return;
+                                sendGlobalMessage({
+                                    type: "plannerUpdate",
+                                    partyId: party.id,
+                                    userId: myUserId,
+                                    mode: "temp_planner",
+                                    groups,
+                                    updatedAt: Date.now(),
+                                });
+                            }}
+                            realtimeUpdate={plannerRealtimeUpdate?.mode === "temp_planner" ? plannerRealtimeUpdate : null}
                             isTemporaryMode={true}
                         />
                     </div>

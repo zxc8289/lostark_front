@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronDown, ExternalLink, Megaphone, Diamond, Calculator, ArrowUpRight } from "lucide-react";
+import { ChevronRight, ChevronDown, ExternalLink, Megaphone, Gem, Calculator, ArrowUpRight } from "lucide-react";
 import Card from "./components/Card";
 import HomeMyTasksSummary, { HomeMyTasksHeader, HomeMyTasksDetails, HomeMyTasksGuard } from "./components/HomeMyTasksSummary";
 import HomePartySummaryProvider, { HomePartyGuard, HomePartyHeader, HomePartyDetails } from "./components/HomePartySummary";
@@ -69,8 +69,8 @@ export default async function HomePage() {
       a: "실전에서 시너지, 기믹 수행, 서포터 구성, 관문 편차 같은 요소가 있기 때문에 참고용 분석 지표로 보는 것이 가장 적절합니다.",
     },
     {
-      q: "젬 세팅 결과가 여러 개 나오면 무엇을 기준으로 고르면 되나요?",
-      a: "최소 포인트 충족이 목적이면 포인트 우선, 도달 가능한 최고 포인트를 유지하면서 스탯을 챙기고 싶다면 스탯 상위, 체감 성능을 우선하면 스탯 우선 기준으로 보면 됩니다.",
+      q: "보석 합성 계산기는 어떤 기준으로 보면 되나요?",
+      a: "목표 보석을 바로 구매하는 비용과 하위 보석 3개를 합성하는 비용을 비교하면 됩니다. 계산 결과에서 더 저렴한 쪽을 기준으로 보되, 실제 보석 옵션과 거래소 매물 상황도 함께 확인하는 것이 좋습니다.",
     },
     {
       q: "파티 숙제는 어떻게 활용하면 좋나요?",
@@ -238,14 +238,14 @@ export default async function HomePage() {
               </HomeMyTasksSummary>
             </Card>
 
-            <a href="/gem-setup" className="group relative w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl p-4 md:p-5 flex items-center justify-between hover:border-[#5B69FF]/50 transition-all duration-300 overflow-hidden">
+            <a href="/calculator/gem" className="group relative w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl p-4 md:p-5 flex items-center justify-between hover:border-[#5B69FF]/50 transition-all duration-300 overflow-hidden">
               <div className="flex items-center gap-3 md:gap-4 z-10">
                 <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-[#1F222B] flex items-center justify-center text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors border border-white/5">
-                  <Diamond size={20} className="md:w-[24px] md:h-[24px]" />
+                  <Gem size={20} className="md:w-[24px] md:h-[24px]" />
                 </div>
                 <div className="flex flex-col">
-                  <h3 className="text-base md:text-lg font-bold text-gray-100 group-hover:text-white transition-colors">젬 세팅 최적화</h3>
-                  <p className="text-xs md:text-sm text-gray-500 group-hover:text-gray-400 transition-colors">보유한 젬으로 최적의 효율 찾기</p>
+                  <h3 className="text-base md:text-lg font-bold text-gray-100 group-hover:text-white transition-colors">보석 합성 계산기</h3>
+                  <p className="text-xs md:text-sm text-gray-500 group-hover:text-gray-400 transition-colors">T4 보석 구매와 합성 비용 비교</p>
                 </div>
               </div>
               <div className="text-gray-400 hover:text-gray-200 transition-colors">
@@ -313,7 +313,7 @@ export default async function HomePage() {
             <span className="text-blue-500">GUIDE</span> 로아체크 이용 가이드
           </h2>
           <p className="text-sm text-gray-500 leading-relaxed max-w-3xl">
-            로아체크는 단순 링크 모음이 아니라, 숙제 관리와 파티 공유, 딜 분석, 젬 세팅, 경매 판단처럼 실제 플레이 도중 반복되는 계산과 확인 과정을 줄이기 위해 만든 보조 도구입니다. 아래 설명에서 각 기능이 어떤 상황에서 도움이 되는지 확인할 수 있습니다.
+            로아체크는 단순 링크 모음이 아니라, 숙제 관리와 파티 공유, 딜 분석, 보석 합성, 경매 판단처럼 실제 플레이 도중 반복되는 계산과 확인 과정을 줄이기 위해 만든 보조 도구입니다. 아래 설명에서 각 기능이 어떤 상황에서 도움이 되는지 확인할 수 있습니다.
           </p>
         </div>
 
@@ -354,8 +354,8 @@ export default async function HomePage() {
           </div>
 
           <div className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
-            <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">아크 그리드 최적화 및 젬 세팅 가이드</h3>
-            <p className="text-xs text-gray-400 leading-relaxed mb-4">한정된 젬과 코어 포인트를 효율적으로 배치해 도달 가능한 포인트와 스탯 효율을 함께 살피는 데 초점을 맞췄습니다.</p>
+            <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">T4 보석 합성 및 구매 비교 가이드</h3>
+            <p className="text-xs text-gray-400 leading-relaxed mb-4">목표 보석을 바로 구매할지, 하위 보석 3개를 합성할지 비교해 골드 차이를 빠르게 확인하는 데 초점을 맞췄습니다.</p>
             <details className="group mt-auto">
               <summary className="text-xs text-[#5B69FF] hover:text-[#7f8aff] font-bold cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center gap-1 transition-colors w-fit">
                 <span className="group-open:hidden">가이드 읽기</span>
@@ -363,11 +363,11 @@ export default async function HomePage() {
                 <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
               </summary>
               <div className="pt-4 mt-4 border-t border-white/5 text-xs text-gray-500 leading-relaxed space-y-3">
-                <p>로아체크의 젬 세팅 최적화는 현재 보유 중인 젬 상태를 바탕으로, 어떤 방식으로 배치해야 원하는 포인트와 스탯을 가장 효율적으로 맞출 수 있는지 계산하는 도구입니다.</p>
+                <p>로아체크의 보석 합성 계산기는 T4 보석 시세를 기준으로, 목표 보석을 바로 구매하는 비용과 하위 보석 3개를 합성하는 비용을 비교하는 도구입니다.</p>
                 <ul className="space-y-1.5 pl-2">
-                  <li><strong className="text-gray-300">• 포인트 우선:</strong> 핵심 코어 활성화에 필요한 최소 조건 충족에 집중합니다.</li>
-                  <li><strong className="text-gray-300">• 스탯 상위:</strong> 도달 가능한 높은 포인트를 유지하면서 전투 스탯 효율을 함께 끌어올리는 방식입니다.</li>
-                  <li><strong className="text-gray-300">• 스탯 우선:</strong> 실제 체감 성능과 수치 효율을 더 중시하는 방향입니다.</li>
+                  <li><strong className="text-gray-300">• 바로 구매:</strong> 목표 레벨 보석의 현재 최저가를 기준으로 계산합니다.</li>
+                  <li><strong className="text-gray-300">• 합성 비용:</strong> 하위 레벨 보석 3개를 구매해 한 단계 올리는 비용으로 계산합니다.</li>
+                  <li><strong className="text-gray-300">• 판단 기준:</strong> 구매와 합성 중 골드가 덜 드는 쪽을 먼저 확인하면 됩니다.</li>
                 </ul>
               </div>
             </details>

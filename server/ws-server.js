@@ -76,6 +76,14 @@ wss.on("connection", (ws, req) => {
             }
 
             if (msg.userId) broadcastToRoom(`user:${msg.userId}`, outMsg);
+        } else if (msg.type === "plannerUpdate") {
+            const outMsg = { ...msg, type: "plannerUpdated" };
+
+            if (msg.partyIds && Array.isArray(msg.partyIds)) {
+                msg.partyIds.forEach(pid => broadcastToRoom(`party:${pid}`, outMsg));
+            } else if (msg.partyId) {
+                broadcastToRoom(`party:${msg.partyId}`, outMsg);
+            }
         }
     });
 

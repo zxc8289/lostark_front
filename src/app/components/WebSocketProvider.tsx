@@ -35,7 +35,8 @@ export default function WebSocketProvider({ children }: { children: React.ReactN
         const isTargetType =
             finalMsg.type === "gateUpdate" ||
             finalMsg.type === "activeAccountUpdate" ||
-            finalMsg.type === "tableOrderUpdate";
+            finalMsg.type === "tableOrderUpdate" ||
+            finalMsg.type === "plannerUpdate";
 
         // 내 데이터를 보낼 때 무조건 브라우저가 기억하는 '모든 파티방' 아이디를 쑤셔 넣음
         if (isTargetType && isMyUpdate) {

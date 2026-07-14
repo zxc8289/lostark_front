@@ -712,6 +712,44 @@ export default function MyTasksPage() {
       const json = (await r.json()) as CharacterSummary;
       if (!json || !json.roster || json.roster.length === 0) throw new Error("캐릭터 정보를 찾을 수 없습니다. (원정대 정보 없음)");
 
+      const existingAccount = accounts.find((a) => a.nickname.toLowerCase() === trimmed.toLowerCase()) ?? null;
+      const previousRosterNames = new Set(existingAccount?.summary?.roster?.map((c) => c.name) ?? []);
+      const newlyAddedNames = existingAccount
+        ? json.roster.map((c) => c.name).filter((charName) => !previousRosterNames.has(charName))
+        : [];
+
+      if (newlyAddedNames.length > 0) {
+        setVisibleByChar((prev) => {
+          const next = { ...prev };
+          let changed = false;
+          for (const charName of newlyAddedNames) {
+            if (next[charName] === undefined) {
+              next[charName] = false;
+              changed = true;
+            }
+          }
+          if (changed && !isAuthed) {
+            try { localStorage.setItem(VISIBLE_KEY, JSON.stringify(next)); } catch { }
+          }
+          return changed ? next : prev;
+        });
+
+        setGoldDesignatedByChar((prev) => {
+          const next = { ...prev };
+          let changed = false;
+          for (const charName of newlyAddedNames) {
+            if (next[charName] === undefined) {
+              next[charName] = false;
+              changed = true;
+            }
+          }
+          if (changed && !isAuthed) {
+            try { localStorage.setItem(GOLD_KEY, JSON.stringify(next)); } catch { }
+          }
+          return changed ? next : prev;
+        });
+      }
+
       let newActiveId: string | null = null;
       setAccounts((prev) => {
         let next = [...prev];
