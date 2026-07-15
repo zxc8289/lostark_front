@@ -13,6 +13,7 @@ import {
     recommendWeeklyGoldRaids,
     type WeeklyGoldSortMode,
 } from "@/app/lib/calculators/weekly-gold";
+import { getRaidDifficultyLabel } from "@/app/lib/tasks/raid-display";
 
 type CharacterForm = {
     id: string;
@@ -463,7 +464,7 @@ export default function WeeklyGoldCalculatorPage() {
                                                                     key={raid.id}
                                                                     className="rounded-full bg-white/5 px-2.5 py-1 text-xs font-bold text-gray-300"
                                                                 >
-                                                                    {raid.raidName} {raid.difficulty}
+                                                                    {raid.raidName} {getRaidDifficultyLabel(raid.raidName, raid.difficulty)}
                                                                 </span>
                                                             ))
                                                         ) : (

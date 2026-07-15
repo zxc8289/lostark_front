@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useMyTasksCtx } from "@/app/my-tasks/MyTasksContext";
 import { raidInformation, type DifficultyKey } from "@/server/data/raids";
+import { getRaidDifficultyLabel } from "@/app/lib/tasks/raid-display";
 
 type RaidIncomeRow = {
     raidName: string;
@@ -187,7 +188,7 @@ export default function WeeklyIncomeTab() {
                                         <div className="flex flex-wrap justify-center gap-2">
                                             {row.raids.map((raid) => (
                                                 <span key={`${row.name}-${raid.raidName}`} className="rounded-full bg-white/5 px-2.5 py-1 text-xs font-bold text-gray-300">
-                                                    {raid.raidName} {raid.difficulty}
+                                                    {raid.raidName} {getRaidDifficultyLabel(raid.raidName, raid.difficulty)}
                                                 </span>
                                             ))}
                                         </div>
