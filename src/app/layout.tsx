@@ -35,6 +35,12 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.ico",
   },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "로아체크",
+    statusBarStyle: "black-translucent",
+  },
   openGraph: {
     title: "로아체크 - 로스트아크 레이드 체크",
     description:
