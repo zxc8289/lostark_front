@@ -5,7 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import { raidInformation, type DifficultyKey } from "@/server/data/raids";
 import type { RosterCharacter } from "../AddAccount";
 import { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
-import { Lock, Swords } from "lucide-react";
+import {
+    RAID_PRIORITY_SORT_OPTIONS,
+    sortRaidEntriesByPriority,
+    type RaidPrioritySortMode,
+} from "@/app/lib/tasks/raid-utils";
+import { Lock, Search, Swords } from "lucide-react";
 
 const DIFF_STYLES = {
     하드: {
@@ -69,6 +74,8 @@ function getDisplayDifficulty(raidName: string, difficulty: DifficultyKey | stri
 export default function EditTasksModal({ open, onClose, character, initial, onSave }: Props) {
     const ilvl = character.itemLevelNum ?? 0;
     const [state, setState] = useState<CharacterTaskPrefs>({ raids: {} });
+    const [sortMode, setSortMode] = useState<RaidPrioritySortMode>("recommended");
+    const [raidSearch, setRaidSearch] = useState("");
 
     useEffect(() => {
         if (!open) return;
@@ -117,6 +124,16 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
             ).length,
         [state.raids]
     );
+
+    const displayedRaidEntries = useMemo(() => {
+        const query = raidSearch.trim().toLowerCase();
+        const entries = Object.entries(raidInformation).filter(([raidName, info]) => {
+            if (!query) return true;
+            return raidName.toLowerCase().includes(query) || info.kind.toLowerCase().includes(query);
+        });
+
+        return sortRaidEntriesByPriority(entries, sortMode, ilvl);
+    }, [ilvl, raidSearch, sortMode]);
 
     const handleAutoSelect = (mode: "top3" | "all" | "none") => {
         setState((s) => {
@@ -229,28 +246,67 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                 </header>
 
                 <div className="flex-1 overflow-y-auto max-h-[55vh] p-4 sm:max-h-[65vh] sm:p-5 bg-[#121418] custom-scrollbar">
-                    <div className="flex gap-2 mb-4">
-                        <button onClick={() => handleAutoSelect("top3")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
-                            상위 3개 레이드
-                        </button>
-                        <button onClick={() => handleAutoSelect("all")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
-                            전체 선택
-                        </button>
-                        <button onClick={() => handleAutoSelect("none")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
-                            전체 해제
-                        </button>
+                    <div className="mb-5 space-y-3">
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                            <button onClick={() => handleAutoSelect("top3")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
+                                상위 3개 레이드
+                            </button>
+                            <button onClick={() => handleAutoSelect("all")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
+                                전체 선택
+                            </button>
+                            <button onClick={() => handleAutoSelect("none")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
+                                전체 해제
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-[#16181D] p-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <div className="text-xs font-bold text-gray-300">정렬 기준</div>
+                                <div className="text-[11px] text-gray-500">캐릭터 Lv. {ilvl.toLocaleString()} 기준</div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1 rounded-lg bg-[#0F1116] p-1">
+                                {RAID_PRIORITY_SORT_OPTIONS.map((option) => (
+                                    <button
+                                        key={option.key}
+                                        type="button"
+                                        onClick={() => setSortMode(option.key)}
+                                        className={`rounded-md px-2 py-1.5 text-[11px] font-bold transition-colors ${sortMode === option.key
+                                            ? "bg-[#5B69FF] text-white"
+                                            : "text-gray-400 hover:bg-white/5 hover:text-white"
+                                            }`}
+                                    >
+                                        {option.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="relative">
+                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                            <input
+                                value={raidSearch}
+                                onChange={(e) => setRaidSearch(e.target.value)}
+                                placeholder="레이드 검색"
+                                className="h-11 w-full rounded-xl border border-white/10 bg-[#0F1116] pl-9 pr-3 text-sm font-medium text-white outline-none transition-colors placeholder:text-gray-600 focus:border-[#5B69FF]/60"
+                            />
+                        </div>
                     </div>
 
-                    {(["군단장", "카제로스", "어비스", "에픽", "그림자"] as const).map((kind) => {
-                        const entries = Object.entries(raidInformation).filter(([, v]) => v.kind === kind);
-                        if (!entries.length) return null;
+                    {[displayedRaidEntries].map((entries) => {
+                        if (!entries.length) {
+                            return (
+                                <div key="empty-raids" className="rounded-xl border border-white/10 bg-[#16181D] px-4 py-8 text-center text-sm text-gray-500">
+                                    검색 결과가 없습니다.
+                                </div>
+                            );
+                        }
 
                         return (
-                            <section key={kind} className="space-y-4 pb-8">
+                            <section key="all-raids" className="space-y-4 pb-8">
                                 <div className="top-0 z-10 py-2 -mx-2 px-2 bg-[#121418]/95 backdrop-blur border-b border-white/5">
                                     <h4 className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-[0.18em]">
                                         <Swords size={14} className="text-[#5B69FF]" />
-                                        {kind}
+                                        레이드 목록
                                     </h4>
                                 </div>
 
@@ -282,8 +338,11 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                     <div className="flex items-center gap-3">
                                                         <div className={`w-1 h-8 rounded-full ${pref.enabled ? "bg-[#5B69FF]" : "bg-gray-700"}`} />
                                                         <div>
-                                                            <div className={`font-bold flex items-center gap-2.5 ${pref.enabled ? "text-white" : "text-gray-400"}`}>
+                                                            <div className={`font-bold flex flex-wrap items-center gap-2.5 ${pref.enabled ? "text-white" : "text-gray-400"}`}>
                                                                 <span className="text-[14px] sm:text-[15px]">{raidName}</span>
+                                                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-gray-500">
+                                                                    {info.kind}
+                                                                </span>
 
                                                                 {pref.enabled && (
                                                                     <div className="flex items-center gap-1.5">

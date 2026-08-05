@@ -40,6 +40,8 @@ const REWARD_ICONS: Record<string, string> = {
     "명예의 파편": "/icons/materials/shard-of-honor.png",
     "운명의 파편": "/icons/materials/shard-of-destiny.png",
     "클리어 메달": "/icons/materials/clear-medal.png",
+    "사령의 잔영": "/icons/materials/echo-of-the-dead.png",
+    "죽음의 손": "/icons/materials/hand-of-death.png",
 };
 
 const RewardList = ({ text, cost }: { text: string; cost?: number }) => {

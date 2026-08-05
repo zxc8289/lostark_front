@@ -33,7 +33,7 @@ const DIFF = {
 // 8인 레이드: 잔혈 20% / 강투 15%
 // 4인 레이드(세르카, 지평의 성당): 잔혈 40% / 강투 30%
 const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>> = {
-    카제로스: {
+    "카제로스": {
         "1막": {
             노말: [
                 { gate: 1, hp: 1615, range: [270, 365] },
@@ -92,8 +92,8 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
             나메: [],
         },
     },
-    그림자: {
-        세르카: {
+    "그림자": {
+        "세르카": {
             노말: [
                 { gate: 1, hp: 3699, range: [1100, 1480] },
                 { gate: 2, hp: 4768, range: [1430, 1900] },
@@ -105,6 +105,20 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
             나메: [
                 { gate: 1, hp: 11941, range: [3580, 4770] },
                 { gate: 2, hp: 15392, range: [4620, 6160] },
+            ],
+        },
+        "벨가르딘": {
+            노말: [
+                { gate: 1, hp: 0, range: [0, 0] },
+                { gate: 2, hp: 0, range: [0, 0] },
+            ],
+            하드: [
+                { gate: 1, hp: 0, range: [0, 0] },
+                { gate: 2, hp: 0, range: [0, 0] },
+            ],
+            나메: [
+                { gate: 1, hp: 11941, range: [0, 0] },
+                { gate: 2, hp: 15392, range: [0, 0] },
             ],
         },
     },

@@ -79,6 +79,101 @@
         return { level: getRaidBaseLevel(raidId), gold: 0 };
     }
 
+    export type RaidPrioritySortMode = "recommended" | "levelDesc" | "levelAsc";
+
+    export const RAID_PRIORITY_SORT_OPTIONS: { key: RaidPrioritySortMode; label: string }[] = [
+        { key: "recommended", label: "템렙 추천순" },
+        { key: "levelDesc", label: "레이드 높은순" },
+        { key: "levelAsc", label: "레이드 낮은순" },
+    ];
+
+    type RaidInfoEntry = [string, (typeof raidInformation)[string]];
+
+    function getRaidLevelValues(info: (typeof raidInformation)[string]): number[] {
+        return Object.values(info.difficulty)
+            .map((difficulty) => difficulty?.level)
+            .filter((level): level is number => typeof level === "number");
+    }
+
+    function getRaidMaxLevel(info: (typeof raidInformation)[string]): number {
+        const levels = getRaidLevelValues(info);
+        return levels.length ? Math.max(...levels) : 0;
+    }
+
+    function getRaidMinLevel(info: (typeof raidInformation)[string]): number {
+        const levels = getRaidLevelValues(info);
+        return levels.length ? Math.min(...levels) : Number.MAX_SAFE_INTEGER;
+    }
+
+    function getBestEligibleRaidSortKey(info: (typeof raidInformation)[string], itemLevel: number) {
+        const effectiveItemLevel = Number.isFinite(itemLevel) && itemLevel > 0 ? itemLevel : Number.MAX_SAFE_INTEGER;
+        const available = Object.values(info.difficulty)
+            .filter((difficulty) => difficulty && difficulty.level <= effectiveItemLevel)
+            .map((difficulty) => ({
+                level: difficulty!.level,
+                gold: (difficulty!.gates ?? []).reduce(
+                    (sum, gate) => sum + (gate.gold ?? 0) + (gate.boundGold ?? 0),
+                    0
+                ),
+            }))
+            .sort((a, b) => {
+                if (b.level !== a.level) return b.level - a.level;
+                return b.gold - a.gold;
+            });
+
+        if (available[0]) {
+            return {
+                eligible: true,
+                level: available[0].level,
+                gold: available[0].gold,
+                nextLevel: available[0].level,
+            };
+        }
+
+        return {
+            eligible: false,
+            level: 0,
+            gold: 0,
+            nextLevel: getRaidMinLevel(info),
+        };
+    }
+
+    export function sortRaidEntriesByPriority<T extends RaidInfoEntry>(
+        entries: T[],
+        sortMode: RaidPrioritySortMode,
+        itemLevel: number
+    ): T[] {
+        return [...entries].sort((a, b) => {
+            const [raidNameA, infoA] = a;
+            const [raidNameB, infoB] = b;
+
+            if (sortMode === "levelDesc") {
+                const levelDiff = getRaidMaxLevel(infoB) - getRaidMaxLevel(infoA);
+                if (levelDiff !== 0) return levelDiff;
+            } else if (sortMode === "levelAsc") {
+                const levelDiff = getRaidMinLevel(infoA) - getRaidMinLevel(infoB);
+                if (levelDiff !== 0) return levelDiff;
+            } else {
+                const keyA = getBestEligibleRaidSortKey(infoA, itemLevel);
+                const keyB = getBestEligibleRaidSortKey(infoB, itemLevel);
+
+                if (keyA.eligible !== keyB.eligible) return keyA.eligible ? -1 : 1;
+
+                if (keyA.eligible && keyB.eligible) {
+                    if (keyB.level !== keyA.level) return keyB.level - keyA.level;
+                    if (keyB.gold !== keyA.gold) return keyB.gold - keyA.gold;
+                } else if (keyA.nextLevel !== keyB.nextLevel) {
+                    return keyA.nextLevel - keyB.nextLevel;
+                }
+            }
+
+            const releaseA = infoA.releaseDate || "2000-01-01";
+            const releaseB = infoB.releaseDate || "2000-01-01";
+            if (releaseA !== releaseB) return releaseB.localeCompare(releaseA);
+            return raidNameA.localeCompare(raidNameB, "ko");
+        });
+    }
+
     /** 관문 토글 규칙 (my-tasks / party 공통)
      *  - 아무 것도 안 켜져 있을 때 → 클릭한 관문까지 모두 켜기
      *  - 현재 가장 오른쪽보다 더 오른쪽 관문을 클릭 → 거기까지 확장

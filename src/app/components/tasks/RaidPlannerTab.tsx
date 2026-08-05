@@ -17,6 +17,11 @@ import {
 } from "@dnd-kit/core";
 import type { PartyMemberTasks } from "@/app/party-tasks/[partyId]/page";
 import { raidInformation } from "@/server/data/raids";
+import {
+    RAID_PRIORITY_SORT_OPTIONS,
+    sortRaidEntriesByPriority,
+    type RaidPrioritySortMode,
+} from "@/app/lib/tasks/raid-utils";
 import { CSS } from "@dnd-kit/utilities";
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from "@dnd-kit/sortable";
 import { classIconMap } from "./ClassIconMap";
@@ -242,6 +247,8 @@ export default function RaidPlannerTab({
     const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
     const [selectedRaidName, setSelectedRaidName] = useState<string | null>(null);
     const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
+    const [raidSelectSortMode, setRaidSelectSortMode] = useState<RaidPrioritySortMode>("recommended");
+    const [raidSelectSearch, setRaidSelectSearch] = useState("");
 
     const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
     const [activeDragChar, setActiveDragChar] = useState<any | null>(null);
@@ -603,6 +610,25 @@ export default function RaidPlannerTab({
                 }));
         });
     }, [partyTasks]);
+
+    const partyAverageItemLevel = useMemo(() => {
+        const levels = baseCharacters
+            .map((char: any) => Number(char.itemLevelNum || 0))
+            .filter((level) => Number.isFinite(level) && level > 0);
+
+        if (!levels.length) return 0;
+        return levels.reduce((sum, level) => sum + level, 0) / levels.length;
+    }, [baseCharacters]);
+
+    const raidSelectEntries = useMemo(() => {
+        const query = raidSelectSearch.trim().toLowerCase();
+        const entries = Object.entries(raidInformation).filter(([raidName, info]) => {
+            if (!query) return true;
+            return raidName.toLowerCase().includes(query) || info.kind.toLowerCase().includes(query);
+        });
+
+        return sortRaidEntriesByPriority(entries, raidSelectSortMode, partyAverageItemLevel);
+    }, [partyAverageItemLevel, raidSelectSearch, raidSelectSortMode]);
 
 
     const allAvailableRaidDiffs = useMemo(() => {
@@ -1255,7 +1281,7 @@ export default function RaidPlannerTab({
                 if ((info as any).maxMembers) {
                     maxMembers = (info as any).maxMembers;
                 } else {
-                    if (info.kind === "어비스" || info.kind === "그림자" || raidName.includes("쿠크") || raidName.includes("세르카") || raidName.includes("카양겔") || raidName.includes("상아탑")) maxMembers = 4;
+                    if (info.kind === "어비스" || raidName.includes("쿠크") || raidName.includes("세르카") || raidName.includes("카양겔") || raidName.includes("상아탑")) maxMembers = 4;
                     else if (info.kind === "에픽") maxMembers = 16;
                 }
                 const ownerCounts = new Map<string, number>();
@@ -1476,7 +1502,7 @@ export default function RaidPlannerTab({
         if ((info as any).maxMembers) {
             max = (info as any).maxMembers;
         } else {
-            if (info.kind === "어비스" || info.kind === "그림자") max = 4;
+            if (info.kind === "어비스") max = 4;
             else if (info.kind === "에픽") max = 16;
             if (raidName.includes("쿠크") || raidName.includes("세르카") || raidName.includes("카양겔") || raidName.includes("상아탑")) {
                 max = 4;
@@ -2444,16 +2470,55 @@ export default function RaidPlannerTab({
                         </header>
 
                         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#121418] custom-scrollbar space-y-8">
-                            {(["군단장", "카제로스", "어비스", "에픽", "그림자"] as const).map((kind) => {
-                                const entries = Object.entries(raidInformation).filter(([, v]) => v.kind === kind);
-                                if (!entries.length) return null;
+                            <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-[#16181D] p-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <div className="text-xs font-bold text-gray-300">정렬 기준</div>
+                                    <div className="text-[11px] text-gray-500">
+                                        파티 평균 Lv. {partyAverageItemLevel > 0 ? Math.round(partyAverageItemLevel).toLocaleString() : "-"} 기준
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-1 rounded-lg bg-[#0F1116] p-1">
+                                    {RAID_PRIORITY_SORT_OPTIONS.map((option) => (
+                                        <button
+                                            key={option.key}
+                                            type="button"
+                                            onClick={() => setRaidSelectSortMode(option.key)}
+                                            className={`rounded-md px-2 py-1.5 text-[11px] font-bold transition-colors ${raidSelectSortMode === option.key
+                                                ? "bg-[#5B69FF] text-white"
+                                                : "text-gray-400 hover:bg-white/5 hover:text-white"
+                                                }`}
+                                        >
+                                            {option.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="relative">
+                                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                                <input
+                                    value={raidSelectSearch}
+                                    onChange={(e) => setRaidSelectSearch(e.target.value)}
+                                    placeholder="레이드 검색"
+                                    className="h-11 w-full rounded-xl border border-white/10 bg-[#0F1116] pl-9 pr-3 text-sm font-medium text-white outline-none transition-colors placeholder:text-gray-600 focus:border-[#5B69FF]/60"
+                                />
+                            </div>
+
+                            {[raidSelectEntries].map((entries) => {
+                                if (!entries.length) {
+                                    return (
+                                        <div key="empty-raids" className="rounded-xl border border-white/10 bg-[#16181D] px-4 py-8 text-center text-sm text-gray-500">
+                                            검색 결과가 없습니다.
+                                        </div>
+                                    );
+                                }
 
                                 return (
-                                    <section key={kind} className="space-y-3">
+                                    <section key="all-raids" className="space-y-3">
                                         <div className="py-2 -mx-2 px-2 border-b border-white/5">
                                             <h4 className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-[0.18em]">
                                                 <Swords size={14} className="text-[#5B69FF]" />
-                                                {kind}
+                                                레이드 목록
                                             </h4>
                                         </div>
 
@@ -2473,8 +2538,11 @@ export default function RaidPlannerTab({
                                                         <div className="flex items-center justify-between mb-4">
                                                             <div className="flex items-center gap-3">
                                                                 <div className={`w-1 h-8 rounded-full ${isRaidSelected ? "bg-[#5B69FF]" : "bg-gray-700"}`} />
-                                                                <div className={`font-bold flex items-center gap-2.5 ${isRaidSelected ? "text-white" : "text-gray-300"}`}>
+                                                                <div className={`font-bold flex flex-wrap items-center gap-2.5 ${isRaidSelected ? "text-white" : "text-gray-300"}`}>
                                                                     <span className="text-[14px] sm:text-[15px]">{raidName}</span>
+                                                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-gray-500">
+                                                                        {info.kind}
+                                                                    </span>
                                                                 </div>
                                                             </div>
 
