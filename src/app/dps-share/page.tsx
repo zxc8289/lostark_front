@@ -109,16 +109,16 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
         },
         "벨가르딘": {
             노말: [
-                { gate: 1, hp: 0, range: [0, 0] },
-                { gate: 2, hp: 0, range: [0, 0] },
+                { gate: 1, hp: 17393, range: [2609, 3479] },
+                { gate: 2, hp: 19506, range: [2926, 3901] },
             ],
             하드: [
-                { gate: 1, hp: 0, range: [0, 0] },
-                { gate: 2, hp: 0, range: [0, 0] },
+                { gate: 1, hp: 27686, range: [4153, 5537] },
+                { gate: 2, hp: 31340, range: [4701, 6268] },
             ],
             나메: [
-                { gate: 1, hp: 11941, range: [0, 0] },
-                { gate: 2, hp: 15392, range: [0, 0] },
+                { gate: 1, hp: 49516, range: [7427, 9903] },
+                { gate: 2, hp: 56051, range: [8408, 11210] },
             ],
         },
     },
@@ -167,7 +167,9 @@ export default function DpsSharePage() {
         }
     };
 
-    const is4PlayerRaid = category === "그림자" || category === "어비스 던전";
+    const is4PlayerRaid =
+        category === "어비스 던전" ||
+        (category === "그림자" && act === "세르카");
 
     const strongCut = is4PlayerRaid ? 30 : 15;
     const bleedCut = is4PlayerRaid ? 40 : 20;
