@@ -1,0 +1,1337 @@
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import TaskCard from "../components/tasks/TaskCard";
+import EditTasksModal from "../components/tasks/EditTasksModal";
+import type { CharacterSummary, RosterCharacter } from "../components/AddAccount";
+import { raidInformation } from "@/server/data/raids";
+import type { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
+import { clearAllPrefs, clearCharPrefs, readPrefs, writePrefs } from "@/app/lib/tasks/raid-prefs";
+import CharacterSettingModal from "../components/tasks/CharacterSettingModal";
+import { useSession } from "next-auth/react";
+import {
+  getRaidBaseLevel,
+  calcNextGates,
+  computeRaidSummaryForRoster,
+  buildAutoSetupForRoster,
+  migrateLegacyPrefs,
+  type RaidSummary,
+} from "../lib/tasks/raid-utils";
+import EmptyCharacterState from "../components/tasks/EmptyCharacterState";
+import { AlertTriangle } from "lucide-react";
+import TaskSidebar from "../components/tasks/TaskSidebar";
+import { useGlobalWebSocket } from "../components/WebSocketProvider";
+import MemoModal from "../components/tasks/MemoModal";
+import type { TaskItem } from "../components/tasks/CharacterTaskStrip";
+
+// 🔥 Context & Tabs 임포트
+import { MyTasksContext } from "./MyTasksContext";
+import WeeklyRaidTab from "../components/tasks/tabs/my-tasks/WeeklyRaidTab";
+import GeneralTaskTab from "../components/tasks/tabs/my-tasks/GeneralTaskTab";
+import WeeklyIncomeTab from "../components/tasks/tabs/my-tasks/WeeklyIncomeTab";
+
+const DEMO_ACCOUNT_ID = "__demo__";
+const DEMO_RAIDS = [
+  { name: "벨가르딘", difficulty: "나메" },
+  { name: "세르카", difficulty: "나메" },
+  { name: "종막-카제로스", difficulty: "하드" },
+] as const;
+
+function buildDemoPrefsByChar(charNames: string[]): Record<string, CharacterTaskPrefs> {
+  const result: Record<string, CharacterTaskPrefs> = {};
+  for (const name of charNames) {
+
+    const raidsObj: CharacterTaskPrefs["raids"] = {};
+    for (const raid of DEMO_RAIDS) {
+      if (!raidInformation[raid.name]) continue;
+
+      raidsObj[raid.name] = {
+        enabled: true,
+        difficulty: raid.difficulty as any,
+        gates: [],
+        isBonus: false,
+        isGold: true,
+      } as any;
+    }
+
+    result[name] = {
+      raids: raidsObj,
+      order: DEMO_RAIDS.filter((raid) => raidInformation[raid.name]).map((raid) => raid.name),
+    };
+  }
+
+  return result;
+}
+
+const DEMO_ROSTER: RosterCharacter[] = [
+  { name: "샘플워로드", className: "워로드", serverName: "루페온", itemLevel: "1800.00", itemLevelNum: 1800, image: null } as any as RosterCharacter,
+  { name: "샘플소서리스", className: "소서리스", serverName: "루페온", itemLevel: "1790.00", itemLevelNum: 1790, image: null } as any as RosterCharacter,
+  { name: "샘플바드", className: "바드", serverName: "루페온", itemLevel: "1780.00", itemLevelNum: 1780, image: null } as any as RosterCharacter,
+  { name: "샘플기상술사", className: "기상술사", serverName: "루페온", itemLevel: "1780.00", itemLevelNum: 1780, image: null } as any as RosterCharacter,
+  { name: "샘플건슬링어", className: "건슬링어", serverName: "루페온", itemLevel: "1780.00", itemLevelNum: 1780, image: null } as any as RosterCharacter,
+  { name: "샘플블레이드", className: "블레이드", serverName: "루페온", itemLevel: "1780.00", itemLevelNum: 1780, image: null } as any as RosterCharacter,
+];
+
+const DEMO_CHAR_NAMES = DEMO_ROSTER.map((c) => c.name);
+const DEMO_PREFS_BY_CHAR = buildDemoPrefsByChar(DEMO_CHAR_NAMES);
+const DEMO_VISIBLE_BY_CHAR = Object.fromEntries(DEMO_CHAR_NAMES.map((n) => [n, true])) as Record<string, boolean>;
+
+const DEMO_SUMMARY: CharacterSummary = {
+  roster: DEMO_ROSTER,
+} as any as CharacterSummary;
+
+type SavedFilters = {
+  onlyRemain?: boolean;
+  isCardView?: boolean;
+  selectedRaids?: string[];
+  isDragEnabled?: boolean;
+};
+
+type SavedAccount = {
+  id: string;
+  nickname: string;
+  summary: CharacterSummary;
+  isPrimary?: boolean;
+  isSelected?: boolean;
+};
+
+const FILTER_KEY = "raidTaskFilters";
+const LOCAL_KEY = "raidTaskLastAccount";
+const VISIBLE_KEY = "raidTaskVisibleByChar";
+const GOLD_KEY = "raidTaskGoldByChar";
+const TABLE_ORDER_KEY = "raidTaskTableOrder";
+const ROSTER_ORDER_KEY = "raidTaskRosterOrder";
+const CARD_ROSTER_ORDER_KEY = "raidTaskCardRosterOrder";
+const POWER_LOCKED_KEY = "raidTaskPowerLockedByChar";
+
+const ACCOUNTS_KEY = "raidTaskAccounts";
+const ACTIVE_ACCOUNT_KEY = "raidTaskActiveAccount";
+
+function loadSavedFilters(): SavedFilters | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(FILTER_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+
+    if (typeof (saved as any).tableView === "boolean" && (saved as any).isCardView === undefined) {
+      (saved as any).isCardView = !(saved as any).tableView;
+    }
+    return saved as SavedFilters;
+  } catch {
+    return null;
+  }
+}
+
+export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boolean }) {
+  const { data: session, status: authStatus } = useSession();
+  const [syncedWithServer, setSyncedWithServer] = useState(false);
+  const [syncingServer, setSyncingServer] = useState(false);
+  const isAuthed = authStatus === "authenticated" && !!session?.user;
+  const [showAutoSetupSettings, setShowAutoSetupSettings] = useState(false);
+  const [autoSetupConfirmOpen, setAutoSetupConfirmOpen] = useState(false);
+  const [showAllViewWarning, setShowAllViewWarning] = useState(false);
+
+
+  const [activeTab, setActiveTab] = useState<"weekly" | "income" | "daily">("weekly");
+
+  const [isDragEnabled, setIsDragEnabled] = useState<boolean>(() => {
+    const saved = loadSavedFilters();
+    return typeof saved?.isDragEnabled === "boolean" ? saved.isDragEnabled : false;
+  });
+
+  const [autoSetupCharCount, setAutoSetupCharCount] = useState<number>(() => {
+    if (typeof window === "undefined") return 6;
+    try {
+      const saved = localStorage.getItem("raidTaskAutoSetupCount");
+      return saved ? Number(saved) : 6;
+    } catch {
+      return 6;
+    }
+  });
+
+  const [autoSetupSortType, setAutoSetupSortType] = useState<"latest" | "gold">(() => {
+    if (typeof window === "undefined") return "latest";
+    try {
+      const saved = localStorage.getItem("raidTaskAutoSetupSortType");
+      return saved === "gold" ? "gold" : "latest";
+    } catch {
+      return "latest";
+    }
+  });
+
+  const wsContext = useGlobalWebSocket();
+  const ws = wsContext?.ws;
+  const sendMessage = wsContext?.sendMessage;
+
+  const [onlyRemain, setOnlyRemain] = useState<boolean>(() => {
+    const saved = loadSavedFilters();
+    return typeof saved?.onlyRemain === "boolean" ? saved.onlyRemain : false;
+  });
+
+  const [isCardView, setIsCardView] = useState<boolean>(() => {
+    const saved = loadSavedFilters();
+    return typeof saved?.isCardView === "boolean" ? saved.isCardView : false;
+  });
+
+  const [selectedRaids, setSelectedRaids] = useState<string[]>(() => {
+    const saved = loadSavedFilters();
+    return Array.isArray(saved?.selectedRaids) ? saved.selectedRaids : [];
+  });
+
+  const clearClientStorage = () => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.removeItem(LOCAL_KEY);
+      localStorage.removeItem(VISIBLE_KEY);
+      localStorage.removeItem(ACCOUNTS_KEY);
+      localStorage.removeItem(ROSTER_ORDER_KEY);
+      clearAllPrefs();
+    } catch { }
+  };
+
+  const [accounts, setAccounts] = useState<SavedAccount[]>([]);
+  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+
+  const isAllView = activeAccountId === "ALL";
+  const effectiveAccount = useMemo(() => {
+    if (isAllView) {
+      const allRoster = accounts.flatMap(a => a.summary?.roster || []);
+      const uniqueRoster = Array.from(new Map(allRoster.map(item => [item.name, item])).values());
+      uniqueRoster.sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0));
+
+      return {
+        id: "ALL",
+        nickname: "모두 보기",
+        summary: { name: "모두 보기", roster: uniqueRoster },
+        isSelected: true,
+      } as SavedAccount;
+    }
+
+    return accounts.find((a) => a.id === activeAccountId) ?? accounts.find((a) => a.isPrimary) ?? accounts[0] ?? null;
+  }, [accounts, activeAccountId, isAllView]);
+
+  const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const [memoTarget, setMemoTarget] = useState<{ charName: string; currentMemo: string; } | null>(null);
+
+  const handleSaveMemo = (charName: string, newMemo: string) => {
+    setCharPrefs(charName, (cur) => ({ ...cur, memo: newMemo }));
+  };
+
+  const [loading, setLoading] = useState(false);
+  const [booting, setBooting] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [accountSearchErr, setAccountSearchErr] = useState<string | null>(null);
+
+  const [prefsByChar, setPrefsByChar] = useState<Record<string, CharacterTaskPrefs>>({});
+  const [tableOrder, setTableOrder] = useState<string[]>([]);
+  const [editingChar, setEditingChar] = useState<RosterCharacter | null>(null);
+  const [isCharSettingOpen, setIsCharSettingOpen] = useState(false);
+  const [rosterOrder, setRosterOrder] = useState<string[]>([]);
+  const [cardRosterOrder, setCardRosterOrder] = useState<string[]>([]);
+  const [visibleByChar, setVisibleByChar] = useState<Record<string, boolean>>({});
+  const [goldDesignatedByChar, setGoldDesignatedByChar] = useState<Record<string, boolean>>({});
+  const [powerLockedByChar, setPowerLockedByChar] = useState<Record<string, boolean>>({});
+
+  const [demoEnabled, setDemoEnabled] = useState(true);
+  const [demoPrefsByChar, setDemoPrefsByChar] = useState<Record<string, CharacterTaskPrefs>>(() => DEMO_PREFS_BY_CHAR);
+  const [demoVisibleByChar, setDemoVisibleByChar] = useState<Record<string, boolean>>(() => DEMO_VISIBLE_BY_CHAR);
+  const [demoGoldDesignatedByChar, setDemoGoldDesignatedByChar] = useState<Record<string, boolean>>(() => DEMO_VISIBLE_BY_CHAR);
+  const [demoPowerLockedByChar, setDemoPowerLockedByChar] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (isAuthed) return;
+    try {
+      const saved = localStorage.getItem(CARD_ROSTER_ORDER_KEY);
+      if (saved) setCardRosterOrder(JSON.parse(saved));
+    } catch { }
+  }, [isAuthed]);
+
+  useEffect(() => { try { localStorage.setItem("raidTaskAutoSetupCount", String(autoSetupCharCount)); } catch { } }, [autoSetupCharCount]);
+  useEffect(() => { try { localStorage.setItem("raidTaskAutoSetupSortType", autoSetupSortType); } catch { } }, [autoSetupSortType]);
+
+  useEffect(() => {
+    if (isAuthed) return;
+    try {
+      const saved = localStorage.getItem(TABLE_ORDER_KEY);
+      if (saved) setTableOrder(JSON.parse(saved));
+    } catch { }
+  }, [isAuthed]);
+
+  useEffect(() => {
+    if (isAuthed) return;
+    try {
+      const saved = localStorage.getItem(ROSTER_ORDER_KEY);
+      if (saved) setRosterOrder(JSON.parse(saved));
+    } catch { }
+  }, [isAuthed]);
+
+  useEffect(() => {
+    if (!ws || !isAuthed || !session?.user) return;
+
+    const myUserId = (session.user as any).id || (session.user as any).userId;
+
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(event.data);
+
+        if (msg.type === "memberUpdated" && msg.userId === myUserId) {
+          if (msg.prefsByChar) {
+            setPrefsByChar(Object.fromEntries(
+              Object.entries(msg.prefsByChar).map(([char, pref]) => [char, migrateLegacyPrefs(pref as CharacterTaskPrefs)])
+            ));
+          }
+          if (msg.visibleByChar) setVisibleByChar(msg.visibleByChar);
+          if (msg.tableOrder) setTableOrder(msg.tableOrder);
+          if (msg.rosterOrder) setRosterOrder(msg.rosterOrder);
+          if (msg.cardRosterOrder) setCardRosterOrder(msg.cardRosterOrder);
+          if (msg.goldDesignatedByChar) setGoldDesignatedByChar(msg.goldDesignatedByChar);
+          if (msg.powerLockedByChar) setPowerLockedByChar(msg.powerLockedByChar);
+        }
+
+        if (msg.type === "activeAccountUpdated" && msg.userId === myUserId) {
+          if (msg.activeAccountId) setActiveAccountId(msg.activeAccountId);
+        }
+      } catch (e) {
+        console.error("WS Parse Error", e);
+      }
+    };
+
+    ws.addEventListener("message", handleMessage);
+    return () => ws.removeEventListener("message", handleMessage);
+  }, [ws, isAuthed, session]);
+
+  useEffect(() => {
+    try {
+      const rawAccounts = localStorage.getItem(ACCOUNTS_KEY);
+      if (rawAccounts) {
+        const parsed = JSON.parse(rawAccounts) as SavedAccount[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAccounts(parsed);
+          setBooting(false);
+          return;
+        }
+      }
+
+      const rawLegacy = localStorage.getItem(LOCAL_KEY);
+      if (rawLegacy) {
+        const legacy = JSON.parse(rawLegacy) as { nickname: string; data: CharacterSummary };
+        const migrated: SavedAccount = { id: legacy.nickname, nickname: legacy.nickname, summary: legacy.data, isPrimary: true };
+        const list = [migrated];
+        setAccounts(list);
+        localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(list));
+      }
+    } catch {
+    } finally {
+      setBooting(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthed) return;
+    if (!accounts.length) return;
+
+    setPrefsByChar((prev) => {
+      const next = { ...prev };
+      for (const acc of accounts) {
+        for (const c of acc.summary?.roster ?? []) {
+          const loaded = readPrefs(c.name);
+          const migrated = migrateLegacyPrefs(loaded ?? next[c.name] ?? { raids: {} });
+          next[c.name] = migrated;
+          if (loaded && JSON.stringify(loaded) !== JSON.stringify(migrated)) {
+            writePrefs(c.name, migrated);
+          }
+        }
+      }
+      return next;
+    });
+  }, [accounts, isAuthed]);
+
+  useEffect(() => {
+    if (isAuthed) return;
+    if (!accounts.length) return;
+
+    try {
+      const raw = localStorage.getItem(VISIBLE_KEY);
+      const saved = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+      const next: Record<string, boolean> = {};
+      for (const acc of accounts) {
+        for (const c of acc.summary?.roster ?? []) {
+          next[c.name] = saved[c.name] ?? true;
+        }
+      }
+      setVisibleByChar(next);
+      localStorage.setItem(VISIBLE_KEY, JSON.stringify(next));
+    } catch { }
+  }, [accounts, isAuthed]);
+
+  useEffect(() => {
+    if (isAuthed) return;
+    if (!accounts.length) return;
+
+    try {
+      const raw = localStorage.getItem(GOLD_KEY);
+      const saved = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+      const next: Record<string, boolean> = {};
+      let goldCount = 0;
+
+      for (const acc of accounts) {
+        for (const c of acc.summary?.roster ?? []) {
+          if (saved[c.name] !== undefined) {
+            next[c.name] = saved[c.name];
+          } else {
+            next[c.name] = goldCount < 6;
+          }
+          if (next[c.name]) goldCount++;
+        }
+      }
+      setGoldDesignatedByChar(next);
+      localStorage.setItem(GOLD_KEY, JSON.stringify(next));
+    } catch { }
+  }, [accounts, isAuthed]);
+
+  useEffect(() => {
+    if (isAuthed) return;
+    if (!accounts.length) return;
+
+    try {
+      const raw = localStorage.getItem(POWER_LOCKED_KEY);
+      const saved = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+      const next: Record<string, boolean> = {};
+      for (const acc of accounts) {
+        for (const c of acc.summary?.roster ?? []) {
+          next[c.name] = saved[c.name] ?? false;
+        }
+      }
+      setPowerLockedByChar(next);
+      localStorage.setItem(POWER_LOCKED_KEY, JSON.stringify(next));
+    } catch { }
+  }, [accounts, isAuthed]);
+
+  useEffect(() => {
+    if (!accounts.length) {
+      setActiveAccountId(null);
+      return;
+    }
+    setActiveAccountId((prev) => {
+      if (prev === "ALL") return prev;
+      if (prev && accounts.some((a) => a.id === prev)) return prev;
+
+      let nextId: string | null = null;
+      if (typeof window !== "undefined") {
+        try {
+          const savedId = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
+          if (savedId === "ALL") return "ALL";
+          if (savedId && accounts.some((a) => a.id === savedId)) nextId = savedId;
+        } catch { }
+      }
+      if (!nextId) {
+        const base = accounts.find((a) => a.isPrimary) ?? accounts[0];
+        nextId = base.id;
+      }
+      if (typeof window !== "undefined") {
+        try { localStorage.setItem(ACTIVE_ACCOUNT_KEY, nextId); } catch { }
+      }
+      return nextId;
+    });
+  }, [accounts]);
+
+  useEffect(() => {
+    try {
+      const payload: SavedFilters = { onlyRemain, isCardView, selectedRaids, isDragEnabled };
+      localStorage.setItem(FILTER_KEY, JSON.stringify(payload));
+    } catch { }
+  }, [onlyRemain, isCardView, selectedRaids, isAuthed, isDragEnabled]);
+
+  const hasRealRoster = !!effectiveAccount && !!effectiveAccount.summary?.roster?.length;
+  const isAuthLoading = authStatus === "loading";
+  const waitingInitialData = !forceDemo && (isAuthLoading || (isAuthed && !syncedWithServer));
+  const showInitialLoading = !forceDemo && !hasRealRoster && (waitingInitialData || booting || syncingServer || loading || isRefreshing);
+  const usingDemo = (forceDemo || demoEnabled) && !hasRealRoster && !showInitialLoading;
+
+  const currentActiveAccount: SavedAccount | null = usingDemo ? { id: DEMO_ACCOUNT_ID, nickname: "샘플 원정대", summary: DEMO_SUMMARY, isPrimary: true } : effectiveAccount;
+
+  const effectivePrefsByChar = usingDemo ? demoPrefsByChar : prefsByChar;
+  const effectiveVisibleByChar = usingDemo ? demoVisibleByChar : visibleByChar;
+  const effectivePowerLockedByChar = usingDemo ? demoPowerLockedByChar : powerLockedByChar;
+  const effectiveHasRoster = !!currentActiveAccount && !!currentActiveAccount.summary?.roster?.length;
+
+  const showEmptyState = !showInitialLoading && !hasRealRoster && !usingDemo && (authStatus === "unauthenticated" || (authStatus === "authenticated" && syncedWithServer));
+
+  const isRaidFilterActive = selectedRaids.length > 0;
+
+  const raidFilteredPrefsByChar = useMemo(() => {
+    if (!isRaidFilterActive) return effectivePrefsByChar;
+    const next: Record<string, CharacterTaskPrefs> = {};
+    for (const [char, pref] of Object.entries(effectivePrefsByChar)) {
+      const filteredRaids: any = {};
+      for (const [rName, rData] of Object.entries(pref.raids ?? {})) {
+        if (selectedRaids.includes(rName)) filteredRaids[rName] = rData;
+      }
+      next[char] = { ...pref, raids: filteredRaids, order: pref.order?.filter((r) => selectedRaids.includes(r)) };
+    }
+    return next;
+  }, [effectivePrefsByChar, isRaidFilterActive, selectedRaids]);
+
+  function setCharPrefs(name: string, updater: (cur: CharacterTaskPrefs) => CharacterTaskPrefs) {
+    if (usingDemo) {
+      setDemoPrefsByChar((prev) => {
+        const cur = prev[name] ?? { raids: {} };
+        const nextVal = updater(cur);
+        return { ...prev, [name]: nextVal };
+      });
+      return;
+    }
+
+    setPrefsByChar((prev) => {
+      const cur = prev[name] ?? { raids: {} };
+      const nextVal = updater(cur);
+      const next = { ...prev, [name]: nextVal };
+
+      if (!isAuthed) {
+        writePrefs(name, nextVal);
+      } else if (session?.user && sendMessage) {
+        const userId = (session.user as any).id || (session.user as any).userId;
+        sendMessage({ type: "gateUpdate", userId, prefsByChar: next, visibleByChar });
+      }
+      return next;
+    });
+  }
+
+  function buildServerStatePayload() {
+    const primaryAccount = accounts.find((a) => a.isPrimary) ?? accounts[0] ?? null;
+    const accountsForServer = accounts.map(({ isSelected, ...rest }) => rest);
+    return {
+      nickname: primaryAccount?.nickname ?? null,
+      summary: primaryAccount?.summary ?? null,
+      accounts: accountsForServer,
+      prefsByChar, visibleByChar, tableOrder, rosterOrder, cardRosterOrder,
+      activeAccountId, goldDesignatedByChar, powerLockedByChar,
+    };
+  }
+
+  function applyServerState(state: any) {
+    try {
+      if (state.accounts && Array.isArray(state.accounts)) {
+        setAccounts(state.accounts as SavedAccount[]);
+      } else if (state.nickname && state.summary) {
+        setAccounts([{ id: state.nickname, nickname: state.nickname, summary: state.summary, isPrimary: true }]);
+      }
+      if (state.prefsByChar) {
+        const migratedPrefs: Record<string, CharacterTaskPrefs> = {};
+        for (const [char, p] of Object.entries(state.prefsByChar)) {
+          migratedPrefs[char] = migrateLegacyPrefs(p as CharacterTaskPrefs);
+        }
+        setPrefsByChar(migratedPrefs);
+      }
+      if (state.visibleByChar) setVisibleByChar(state.visibleByChar);
+      if (state.tableOrder) setTableOrder(state.tableOrder);
+      if (state.rosterOrder) setRosterOrder(state.rosterOrder);
+      if (state.cardRosterOrder) setCardRosterOrder(state.cardRosterOrder);
+      if (state.activeAccountId) setActiveAccountId(state.activeAccountId);
+      if (state.goldDesignatedByChar) setGoldDesignatedByChar(state.goldDesignatedByChar);
+      if (state.powerLockedByChar) setPowerLockedByChar(state.powerLockedByChar);
+    } catch { }
+  }
+
+  const handleSelectAccount = (id: string) => {
+    setActiveAccountId(id);
+    try { if (typeof window !== "undefined") localStorage.setItem(ACTIVE_ACCOUNT_KEY, id); } catch { }
+
+    if (isAuthed && session?.user && sendMessage) {
+      const userId = (session.user as any).id || (session.user as any).userId;
+      sendMessage({ type: "activeAccountUpdate", userId, activeAccountId: id });
+      const payload = buildServerStatePayload();
+      payload.activeAccountId = id;
+      fetch("/api/raid-tasks/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).catch(e => console.error(e));
+    }
+  };
+
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !syncedWithServer || booting) return;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      const payload = buildServerStatePayload();
+      fetch("/api/raid-tasks/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: controller.signal })
+        .catch((e: any) => { if (e?.name !== "AbortError") console.error("raid-tasks autosave failed", e); });
+    }, 400);
+    return () => { controller.abort(); clearTimeout(timeoutId); };
+  }, [authStatus, syncedWithServer, booting, accounts, prefsByChar, visibleByChar, tableOrder, rosterOrder, cardRosterOrder, activeAccountId, goldDesignatedByChar, powerLockedByChar]);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated" || syncedWithServer || booting) return;
+    let cancelled = false;
+
+    async function syncWithServer() {
+      let didSync = false;
+      setSyncingServer(true);
+      try {
+        const res = await fetch("/api/raid-tasks/state", { method: "GET", headers: { "Content-Type": "application/json" }, cache: "no-store" });
+        if (cancelled) return;
+
+        if (res.status === 200) {
+          const serverState = await res.json();
+          applyServerState(serverState);
+          didSync = true;
+        } else if (res.status === 204 || res.status === 404) {
+          if (accounts.length > 0 || Object.keys(prefsByChar).length > 0 || Object.keys(visibleByChar).length > 0) {
+            const payload = buildServerStatePayload();
+            await fetch("/api/raid-tasks/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+          }
+          didSync = true;
+        }
+      } catch (e) {
+        console.error("raid-tasks state sync failed", e);
+      } finally {
+        if (!cancelled && didSync) { clearClientStorage(); setSyncedWithServer(true); }
+        if (!cancelled) setSyncingServer(false);
+      }
+    }
+    syncWithServer();
+    return () => { cancelled = true; };
+  }, [authStatus, syncedWithServer, booting, accounts, prefsByChar, visibleByChar]);
+
+  const buildTasksFor = (c: RosterCharacter): TaskItem[] => {
+    const prefs = effectivePrefsByChar[c.name];
+    if (!prefs) return [];
+
+    const baseRaidNames = prefs.order?.filter((r) => (prefs.raids as any)?.[r]) ?? Object.keys(prefs.raids ?? {});
+    const raidNames = prefs.order ? baseRaidNames : [...baseRaidNames].sort((a, b) => getRaidBaseLevel(b) - getRaidBaseLevel(a));
+    const items: TaskItem[] = [];
+
+    for (const raidName of raidNames) {
+      if (isRaidFilterActive && !selectedRaids.includes(raidName)) continue;
+      const p = (prefs.raids as any)?.[raidName];
+      if (!p?.enabled) continue;
+      const info = raidInformation[raidName];
+      if (!info) continue;
+      const diff = (info.difficulty as any)?.[p.difficulty];
+      if (!diff) continue;
+
+      if (onlyRemain) {
+        const gatesDef = diff.gates ?? [];
+        if (gatesDef.length) {
+          const lastGateIndex = gatesDef.reduce((max: number, g: any) => (g.index > max ? g.index : max), gatesDef[0].index);
+          const gates = p.gates ?? [];
+          if (gates.includes(lastGateIndex)) continue;
+        }
+      }
+
+      const isGoldEarn = safeGoldDesignatedByChar[c.name] ?? false;
+      const totalGold = (p.gates ?? []).reduce((sum: number, gi: number) => {
+        const g = diff.gates.find((x: any) => x.index === gi);
+        if (!g) return sum;
+        const baseGold = (isGoldEarn && p.isGold) ? (g.gold ?? 0) : 0;
+        const bGold = (isGoldEarn && p.isGold) ? (g.boundGold ?? 0) : 0;
+        let cost = p.isBonus ? (g.bonusCost ?? 0) : 0;
+        const netBoundGold = Math.max(0, bGold - cost);
+        cost = Math.max(0, cost - bGold);
+        const netGold = Math.max(0, baseGold - cost);
+        return sum + netGold + netBoundGold;
+      }, 0);
+
+      const right = <span className="text-xs px-2 py-1 rounded bg-yellow-500/10 text-yellow-300 border border-yellow-300/20">{totalGold.toLocaleString()}g</span>;
+
+      items.push({
+        id: raidName,
+        element: (
+          <TaskCard
+            key={`${c.name}-${raidName}-${p.difficulty}`}
+            kind={info.kind} raidName={raidName} difficulty={p.difficulty} isBonus={p.isBonus} gates={p.gates} right={right}
+            onToggleGate={(gate) => {
+              const allGateIdx = (diff.gates ?? []).map((g: any) => g.index);
+              setCharPrefs(c.name, (cur) => {
+                const curRaid = (cur.raids as any)?.[raidName] ?? p;
+                const next = calcNextGates(gate, curRaid.gates ?? [], allGateIdx);
+                return { ...cur, raids: { ...(cur.raids ?? {}), [raidName]: { ...curRaid, gates: next } } };
+              });
+            }}
+          />
+        ),
+      });
+    }
+    return items;
+  };
+
+  const handleCharacterSearch = async (name: string): Promise<boolean> => {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    setLoading(true); setErr(null); setAccountSearchErr(null);
+
+    try {
+      const r = await fetch(`/api/lostark/character/${encodeURIComponent(trimmed)}`, { cache: "no-store" });
+      if (!r.ok) throw new Error("캐릭터 정보를 불러오지 못했습니다. 닉네임을 확인해주세요.");
+      const json = (await r.json()) as CharacterSummary;
+      if (!json || !json.roster || json.roster.length === 0) throw new Error("캐릭터 정보를 찾을 수 없습니다. (원정대 정보 없음)");
+
+      const existingAccount = accounts.find((a) => a.nickname.toLowerCase() === trimmed.toLowerCase()) ?? null;
+      const previousRosterNames = new Set(existingAccount?.summary?.roster?.map((c) => c.name) ?? []);
+      const newlyAddedNames = existingAccount
+        ? json.roster.map((c) => c.name).filter((charName) => !previousRosterNames.has(charName))
+        : [];
+
+      if (newlyAddedNames.length > 0) {
+        setVisibleByChar((prev) => {
+          const next = { ...prev };
+          let changed = false;
+          for (const charName of newlyAddedNames) {
+            if (next[charName] === undefined) {
+              next[charName] = false;
+              changed = true;
+            }
+          }
+          if (changed && !isAuthed) {
+            try { localStorage.setItem(VISIBLE_KEY, JSON.stringify(next)); } catch { }
+          }
+          return changed ? next : prev;
+        });
+
+        setGoldDesignatedByChar((prev) => {
+          const next = { ...prev };
+          let changed = false;
+          for (const charName of newlyAddedNames) {
+            if (next[charName] === undefined) {
+              next[charName] = false;
+              changed = true;
+            }
+          }
+          if (changed && !isAuthed) {
+            try { localStorage.setItem(GOLD_KEY, JSON.stringify(next)); } catch { }
+          }
+          return changed ? next : prev;
+        });
+      }
+
+      let newActiveId: string | null = null;
+      setAccounts((prev) => {
+        let next = [...prev];
+        const idx = next.findIndex((a) => a.nickname.toLowerCase() === trimmed.toLowerCase());
+        if (idx >= 0) {
+          const existing = next[idx];
+          if (existing.summary && existing.summary.roster) {
+            json.roster = json.roster.map((newChar) => {
+              if (effectivePowerLockedByChar[newChar.name]) {
+                const oldChar = existing.summary.roster.find((c) => c.name === newChar.name);
+                if (oldChar) return oldChar;
+              }
+              return newChar;
+            });
+          }
+          const updated = { ...existing, summary: json };
+          next[idx] = updated;
+          newActiveId = updated.id;
+        } else {
+          const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${trimmed}-${Date.now()}`;
+          next = [...prev, { id, nickname: trimmed, summary: json, isPrimary: prev.length === 0 }];
+          newActiveId = id;
+        }
+        if (!isAuthed) try { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(next)); } catch { }
+        return next;
+      });
+
+      if (newActiveId) {
+        setActiveAccountId(newActiveId);
+        try { if (typeof window !== "undefined") localStorage.setItem(ACTIVE_ACCOUNT_KEY, newActiveId); } catch { }
+      }
+      return true;
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+      setAccountSearchErr(e?.message ?? String(e));
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMyRefreshAccount = async () => {
+    if (!currentActiveAccount || isAllView) return;
+    try { setIsRefreshing(true); await handleCharacterSearch(currentActiveAccount.nickname); }
+    catch (e) { console.error(e); }
+    finally { setIsRefreshing(false); }
+  };
+
+  const handleSearchSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!searchInput.trim()) return;
+    void handleCharacterSearch(searchInput);
+  };
+
+  const handleDeleteAccount = () => {
+    if (!currentActiveAccount || usingDemo || isAllView) return;
+    setDeleteConfirmOpen(false); setIsCharSettingOpen(false);
+    try {
+      const namesToRemove = new Set(currentActiveAccount.summary?.roster?.map((c) => c.name) ?? []);
+      if (!isAuthed) { for (const name of namesToRemove) clearCharPrefs(name); }
+
+      setPrefsByChar((prev) => {
+        const next: typeof prev = {};
+        for (const [charName, prefs] of Object.entries(prev)) if (!namesToRemove.has(charName)) next[charName] = prefs;
+        return next;
+      });
+
+      setVisibleByChar((prev) => {
+        const next = { ...prev };
+        for (const name of namesToRemove) delete next[name];
+        return next;
+      });
+
+      let nextActiveId: string | null = null;
+      setAccounts((prev) => {
+        const without = prev.filter((a) => a.id !== currentActiveAccount.id);
+        if (without.length === 0) {
+          if (!isAuthed) try { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify([])); } catch { }
+          nextActiveId = null; return [];
+        }
+        nextActiveId = (without.find((a) => a.isPrimary) ?? without[0]).id;
+        if (!isAuthed) try { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(without)); } catch { }
+        return without;
+      });
+
+      if (typeof window !== "undefined") {
+        try { if (nextActiveId) localStorage.setItem(ACTIVE_ACCOUNT_KEY, nextActiveId); else localStorage.removeItem(ACTIVE_ACCOUNT_KEY); } catch { }
+      }
+      setActiveAccountId(nextActiveId);
+    } catch (e) { console.error("계정 삭제 중 오류 발생:", e); }
+  };
+
+  const handleAutoSetup = (charCount: number = 6, sortType: "latest" | "gold" = "latest") => {
+    if (!currentActiveAccount?.summary?.roster || currentActiveAccount.summary.roster.length === 0) return;
+    const roster = currentActiveAccount.summary.roster;
+    const { nextPrefsByChar, nextVisibleByChar, nextGoldByChar } = buildAutoSetupForRoster(roster, effectivePrefsByChar, charCount, sortType);
+    const RESET_TABLE_ORDER = ["__empty_0"];
+
+    const nextVisibleMerged: Record<string, boolean> = usingDemo ? { ...demoVisibleByChar } : { ...visibleByChar };
+    const nextGoldMerged: Record<string, boolean> = usingDemo ? { ...demoGoldDesignatedByChar } : { ...goldDesignatedByChar };
+    for (const c of roster) {
+      nextVisibleMerged[c.name] = nextVisibleByChar[c.name] ?? false;
+      nextGoldMerged[c.name] = nextGoldByChar[c.name] ?? false;
+    }
+
+    const nextPrefsMerged: Record<string, CharacterTaskPrefs> = usingDemo ? { ...demoPrefsByChar, ...nextPrefsByChar } : { ...prefsByChar, ...nextPrefsByChar };
+
+    if (usingDemo) {
+      setDemoPrefsByChar(nextPrefsMerged); setDemoVisibleByChar(nextVisibleMerged); setDemoGoldDesignatedByChar(nextGoldMerged); setTableOrder(RESET_TABLE_ORDER);
+      return;
+    }
+
+    setPrefsByChar(nextPrefsMerged); setVisibleByChar(nextVisibleMerged); setGoldDesignatedByChar(nextGoldMerged); setTableOrder(RESET_TABLE_ORDER);
+
+    if (!isAuthed) {
+      try {
+        for (const [name, prefs] of Object.entries(nextPrefsByChar)) writePrefs(name, prefs);
+        localStorage.setItem(VISIBLE_KEY, JSON.stringify(nextVisibleMerged));
+        localStorage.setItem(GOLD_KEY, JSON.stringify(nextGoldMerged));
+        localStorage.setItem(TABLE_ORDER_KEY, JSON.stringify(RESET_TABLE_ORDER));
+      } catch { }
+      return;
+    }
+
+    if (session?.user && sendMessage) {
+      const userId = (session.user as any).id || (session.user as any).userId;
+      sendMessage({ type: "gateUpdate", userId, prefsByChar: nextPrefsMerged, visibleByChar: nextVisibleMerged, goldDesignatedByChar: nextGoldMerged });
+      sendMessage({ type: "tableOrderUpdate", userId, tableOrder: RESET_TABLE_ORDER });
+    }
+  };
+
+  const gateAllClear = () => {
+    if (usingDemo) {
+      setDemoPrefsByChar((prev) => {
+        const next: typeof prev = {};
+        for (const [name, prefs] of Object.entries(prev)) {
+          const cleared: any = {};
+          for (const [raidName, raidPref] of Object.entries(prefs.raids ?? {})) cleared[raidName] = { ...(raidPref as any), gates: [] };
+          next[name] = { ...prefs, raids: cleared };
+        }
+        return next;
+      });
+      return;
+    }
+
+    setPrefsByChar((prev) => {
+      const next: typeof prev = {};
+      for (const [name, prefs] of Object.entries(prev)) {
+        const clearedRaids: any = {};
+        for (const [raidName, raidPref] of Object.entries(prefs.raids ?? {})) clearedRaids[raidName] = { ...(raidPref as any), gates: [] };
+        const updated = { ...prefs, raids: clearedRaids };
+        next[name] = updated;
+        if (!isAuthed) try { writePrefs(name, updated); } catch { }
+      }
+      if (isAuthed && session?.user && sendMessage) {
+        const userId = (session.user as any).id || (session.user as any).userId;
+        sendMessage({ type: "gateUpdate", userId, prefsByChar: next, visibleByChar });
+      }
+      return next;
+    });
+  };
+
+  const handleSingleCharacterAllClear = (charName: string) => {
+    setCharPrefs(charName, (cur) => {
+      const raids = cur.raids ?? {};
+      let isAllCurrentlyCleared = true;
+      for (const [raidName, raidPref] of Object.entries(raids as any)) {
+        if (!raidPref || !(raidPref as any).enabled) continue;
+        const diff = (raidInformation[raidName]?.difficulty as any)?.[(raidPref as any).difficulty];
+        const allGateIndices = (diff?.gates ?? []).map((g: any) => g.index);
+        if (allGateIndices.length !== ((raidPref as any).gates ?? []).length) { isAllCurrentlyCleared = false; break; }
+      }
+
+      const nextRaids: any = {};
+      for (const [raidName, raidPref] of Object.entries(raids as any)) {
+        if (!raidPref || !(raidPref as any).enabled) { nextRaids[raidName] = raidPref; continue; }
+        if (isAllCurrentlyCleared) {
+          nextRaids[raidName] = { ...(raidPref as any), gates: [] };
+        } else {
+          const diff = (raidInformation[raidName]?.difficulty as any)?.[(raidPref as any).difficulty];
+          const allGateIndices = (diff?.gates ?? []).map((g: any) => g.index);
+          nextRaids[raidName] = { ...(raidPref as any), gates: allGateIndices };
+        }
+      }
+      return { ...cur, raids: nextRaids };
+    });
+  };
+
+  const handleTableToggleGate = (charName: string, raidName: string, gate: number, currentGates: number[], allGates: number[]) => {
+    setCharPrefs(charName, (cur) => {
+      const curRaid = (cur.raids as any)?.[raidName];
+      if (!curRaid) return cur;
+      const nextGates = calcNextGates(gate, currentGates ?? [], allGates ?? []);
+      return { ...cur, raids: { ...(cur.raids ?? {}), [raidName]: { ...curRaid, gates: nextGates } } };
+    });
+  };
+
+  const visibleRoster = (currentActiveAccount?.summary?.roster ?? []).filter((c) => (effectiveVisibleByChar[c.name] ?? true)) ?? [];
+
+  const safeGoldDesignatedByChar = useMemo(() => {
+    const baseGoldData = usingDemo ? demoGoldDesignatedByChar : goldDesignatedByChar;
+    if (baseGoldData && Object.keys(baseGoldData).length > 0) return baseGoldData;
+    const sorted = [...(currentActiveAccount?.summary?.roster ?? [])].sort((a, b) => (b.itemLevelNum ?? 0) - (a.itemLevelNum ?? 0));
+    const fallback: Record<string, boolean> = {};
+    sorted.forEach((c, index) => { fallback[c.name] = index < 6; });
+    return fallback;
+  }, [usingDemo, demoGoldDesignatedByChar, goldDesignatedByChar, currentActiveAccount]);
+
+  const { totalRemainingTasks, remainingCharacters, totalRemainingGold, totalGold, totalRemainingBoundGold = 0, totalBoundGold = 0 } = useMemo<RaidSummary & { totalRemainingBoundGold?: number; totalBoundGold?: number }>(() => {
+    return computeRaidSummaryForRoster(visibleRoster, effectivePrefsByChar, safeGoldDesignatedByChar) as any;
+  }, [visibleRoster, effectivePrefsByChar, safeGoldDesignatedByChar]);
+
+  const isAllCleared = (totalRemainingGold === 0 && totalRemainingBoundGold === 0) && (totalGold > 0 || totalBoundGold > 0);
+
+  const tablePrefsByChar = useMemo(() => {
+    const base = raidFilteredPrefsByChar;
+    if (!onlyRemain) return base;
+    const next: Record<string, CharacterTaskPrefs> = {};
+    for (const [charName, pref] of Object.entries(base)) {
+      const filteredRaids: any = {};
+      for (const [raidName, raidPref] of Object.entries(pref.raids ?? {} as any)) {
+        if (!(raidPref as any)?.enabled) continue;
+        const diff = (raidInformation[raidName]?.difficulty as any)?.[(raidPref as any).difficulty];
+        if (!diff || !(diff.gates ?? []).length) { filteredRaids[raidName] = raidPref; continue; }
+        const lastGateIndex = diff.gates.reduce((max: number, g: any) => (g.index > max ? g.index : max), diff.gates[0].index);
+        if (((raidPref as any).gates ?? []).includes(lastGateIndex)) continue;
+        filteredRaids[raidName] = raidPref;
+      }
+      next[charName] = { ...pref, raids: filteredRaids, order: pref.order?.filter((r) => filteredRaids[r]) ?? Object.keys(filteredRaids) };
+    }
+    return next;
+  }, [raidFilteredPrefsByChar, onlyRemain]);
+
+  const tableRoster = useMemo(() => {
+    if (!isRaidFilterActive && !onlyRemain) return visibleRoster;
+    return visibleRoster.filter((c) => Object.values(tablePrefsByChar[c.name]?.raids ?? {} as any).some((r: any) => r?.enabled));
+  }, [visibleRoster, tablePrefsByChar, isRaidFilterActive, onlyRemain]);
+
+  const tableOrderForView = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of tableRoster) {
+      for (const [raidName, raidPref] of Object.entries(tablePrefsByChar[c.name]?.raids ?? {} as any)) {
+        if ((raidPref as any)?.enabled) set.add(raidName);
+      }
+    }
+    const available = Array.from(set);
+    if (!available.length) return [];
+    const availableSet = new Set(available);
+    const saved = (tableOrder ?? []).filter((r) => availableSet.has(r) || String(r).startsWith("__empty_"));
+
+    let startIndex = 0; let endIndex = saved.length - 1;
+    while (startIndex <= endIndex && saved[startIndex].startsWith("__empty_")) startIndex++;
+    while (endIndex >= startIndex && saved[endIndex].startsWith("__empty_")) endIndex--;
+    const trimmedSaved = startIndex <= endIndex ? saved.slice(startIndex, endIndex + 1) : [];
+
+    const sortByReleaseDate = (a: string, b: string) => (raidInformation[a]?.releaseDate || "2000-01-01").localeCompare(raidInformation[b]?.releaseDate || "2000-01-01");
+    const missing = available.filter((r) => !trimmedSaved.includes(r)).sort(sortByReleaseDate);
+    const merged = [...trimmedSaved, ...missing];
+    return merged.length ? merged : [...available].sort(sortByReleaseDate);
+  }, [tableOrder, tableRoster, tablePrefsByChar]);
+
+  const isTableEmpty = tableRoster.length === 0;
+
+  // 🔥 Context 값 통합
+  const contextValue = {
+    usingDemo, totalRemainingTasks, remainingCharacters, totalRemainingGold, isAllCleared,
+    totalGold, totalBoundGold, totalRemainingBoundGold, isAllView, setShowAllViewWarning,
+    handleMyRefreshAccount, isRefreshing, setAutoSetupConfirmOpen, showAutoSetupSettings,
+    setShowAutoSetupSettings, autoSetupCharCount, setAutoSetupCharCount, autoSetupSortType,
+    setAutoSetupSortType, gateAllClear, effectiveHasRoster, setIsCharSettingOpen,
+    showEmptyState, handleSearchSubmit, searchInput, setSearchInput, loading, accountSearchErr,
+    showInitialLoading, isCardView, isTableEmpty, isRaidFilterActive, onlyRemain,
+    tableRoster, tablePrefsByChar, tableOrderForView, setMemoTarget, setTableOrder,
+    handleTableToggleGate, setEditingChar, rosterOrder, isDragEnabled, setRosterOrder,
+    visibleRoster, cardRosterOrder, buildTasksFor, effectivePrefsByChar,
+    handleSingleCharacterAllClear, setCharPrefs, setCardRosterOrder, currentActiveAccount,
+    safeGoldDesignatedByChar
+  };
+
+  return (
+    <MyTasksContext.Provider value={contextValue}>
+      <div className="w-full text-white py-8 sm:py-12">
+        <div className="mx-auto max-w-7xl space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-0 sm:py-2 px-4 sm:px-0">
+            <div className="flex flex-col gap-1 flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight truncate break-keep">
+                내 숙제
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between px-4 sm:px-0 mb-4 border-b border-white/5 sm:border-transparent">
+            <div className="flex gap-6">
+              <button
+                onClick={() => setActiveTab("weekly")}
+                className={`pb-2 text-[13px] sm:text-lg font-bold transition-colors relative ${activeTab === "weekly" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+              >
+                주간 레이드
+                {activeTab === "weekly" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
+              </button>
+
+              <button
+                onClick={() => setActiveTab("daily")}
+                className={`pb-2 text-[13px] sm:text-lg font-bold transition-colors relative ${activeTab === "daily" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+              >
+                일일 및 주간 숙제
+                {activeTab === "daily" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
+              </button>
+              <button
+                onClick={() => setActiveTab("income")}
+                className={`pb-2 text-[13px] sm:text-lg font-bold transition-colors relative ${activeTab === "income" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+              >
+                주간 레이드 골드
+                {activeTab === "income" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="relative w-full flex flex-col xl:flex-row gap-4 xl:gap-6">
+            {/* 사이드바 영역 */}
+            <div className="flex flex-col gap-4 w-full xl:w-[220px] shrink-0 min-[1760px]:absolute min-[1760px]:top-0 min-[1760px]:-left-[240px] z-10">
+              {usingDemo && (
+                <section className="overflow-hidden rounded-none sm:rounded-lg bg-[#16181D] border border-white/5">
+                  <div className="flex items-center gap-2 px-4 py-3 bg-white/5 border-b border-white/5">
+                    <div className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#5B69FF] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#5B69FF]"></span>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#5B69FF] tracking-widest">체험 모드</span>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-base font-bold text-white tracking-tight">샘플 원정대</span>
+                    </div>
+                    <div className="space-y-2.5">
+                      <p className="text-[11px] text-gray-400 leading-relaxed break-keep">
+                        캐릭터 등록 없이 체험할 수 있는 <span className="text-gray-200 font-medium">샘플 데이터</span> 입니다.
+                      </p>
+                      <button
+                        onClick={() => setIsAddAccountOpen(true)}
+                        className="group w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#5B69FF] hover:bg-[#4A57E6] text-xs font-bold text-white transition-all duration-200 active:scale-[0.98]"
+                      >
+                        내 계정 불러오기
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              <TaskSidebar
+                accounts={usingDemo && currentActiveAccount ? [currentActiveAccount] : accounts}
+                activeAccountId={activeAccountId}
+                onSelectAccount={handleSelectAccount}
+                onAddAccount={() => setIsAddAccountOpen(true)}
+                onlyRemain={onlyRemain}
+                setOnlyRemain={setOnlyRemain}
+                isCardView={isCardView}
+                setIsCardView={setIsCardView}
+                selectedRaids={selectedRaids}
+                setSelectedRaids={setSelectedRaids}
+                isDragEnabled={isDragEnabled}
+                setIsDragEnabled={setIsDragEnabled}
+              />
+              {accountSearchErr && <p className="mt-2 text-[11px] text-red-400 px-1">에러: {accountSearchErr}</p>}
+            </div>
+
+            <div className="flex-1 min-w-0 w-full flex flex-col gap-4 sm:gap-4.5">
+              <div className={activeTab === "weekly" ? "block w-full" : "hidden"}>
+                <WeeklyRaidTab />
+              </div>
+              <div className={activeTab === "income" ? "block w-full" : "hidden"}>
+                <WeeklyIncomeTab />
+              </div>
+              <div className={activeTab === "daily" ? "block w-full" : "hidden"}>
+                <GeneralTaskTab />
+              </div>
+              {usingDemo && activeTab === "weekly" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 ">
+                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">
+                    <div className="font-semibold text-sm text-[#5B69FF] flex items-center gap-1.5">1. 캐릭터 연동</div>
+                    <div className="text-[12px] text-gray-400 break-keep">내 계정 불러오기를 통해 대표 캐릭터 닉네임을 입력하고 원정대 정보를 한 번에 가져오세요.</div>
+                  </div>
+                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">
+                    <div className="font-semibold text-sm text-[#5B69FF] flex items-center gap-1.5">2. 편리한 세팅</div>
+                    <div className="text-[12px] text-gray-400 break-keep">자동 세팅으로 주력 캐릭터의 레이드를 구성하고, 클릭 한 번으로 관문 클리어 여부와 골드를 체크하세요.</div>
+                  </div>
+                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">
+                    <div className="font-semibold text-sm text-[#5B69FF] flex items-center gap-1.5">3. 데이터 저장 및 동기화</div>
+                    <div className="text-[12px] text-gray-400 break-keep">비로그인 시에는 내 PC(웹)에 자동 저장되며, 로그인 시 클라우드에 안전하게 저장되어 어디서든 연동됩니다.</div>
+                  </div>
+                </div>
+              )}
+
+              {!showInitialLoading && !hasRealRoster && (
+                <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                  <div className="flex flex-col gap-2">
+                    <h2 className="text-base sm:text-lg font-semibold text-white">
+                      내 숙제 관리란?
+                    </h2>
+
+                    <p className="text-[12px] sm:text-sm leading-6 text-gray-300 break-keep">
+                      로스트아크 캐릭터별 주간 레이드, 일일 숙제, 휴식게이지, 예상 골드 보상을 한 화면에서 확인하는 기능입니다.
+                      캐릭터를 등록하면 완료한 숙제와 남은 숙제를 체크하고, 원정대 단위로 주간 보상 현황을 관리할 수 있습니다.
+                    </p>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl bg-black/20 p-4 border border-white/5">
+                      <h3 className="text-sm font-semibold text-white">
+                        주간 레이드 관리
+                      </h3>
+                      <p className="mt-2 text-[12px] leading-5 text-gray-400 break-keep">
+                        캐릭터별 레이드 완료 여부와 예상 골드 보상을 확인할 수 있습니다.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-black/20 p-4 border border-white/5">
+                      <h3 className="text-sm font-semibold text-white">
+                        일일 숙제 체크
+                      </h3>
+                      <p className="mt-2 text-[12px] leading-5 text-gray-400 break-keep">
+                        혼돈의 균열, 가디언 토벌 같은 일일 숙제 진행 여부를 관리할 수 있습니다.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-black/20 p-4 border border-white/5">
+                      <h3 className="text-sm font-semibold text-white">
+                        휴식게이지 반영
+                      </h3>
+                      <p className="mt-2 text-[12px] leading-5 text-gray-400 break-keep">
+                        숙제를 진행하지 않은 날의 휴식게이지 증가와 사용 여부를 함께 확인할 수 있습니다.
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {showEmptyState && (
+                <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 rounded-none sm:rounded-2xl animate-in fade-in zoom-in-95 duration-500">
+                  <div className="relative mb-6">
+                    <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10">
+                      <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">LOA</span>
+                    </div>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">원정대 캐릭터를 불러오세요</h2>
+                  <p className="text-gray-400 max-w-md mb-6 sm:mb-8 leading-relaxed text-[12px] sm:text-base">
+                    아직 등록된 캐릭터 데이터가 없습니다.
+                    <br />
+                    <span className="text-gray-400">대표 캐릭터 닉네임을 입력하면 전투정보실에서 정보를 가져옵니다.</span>
+                  </p>
+                  <form onSubmit={handleSearchSubmit} className="relative flex items-center w-full max-w-md">
+                    <input
+                      type="text"
+                      placeholder="캐릭터 닉네임 입력"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      disabled={loading}
+                      className="w-full h-11 sm:h-12 pl-4 pr-11 sm:pr-12 rounded-lg bg-[#0F1115] border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
+                    />
+                    <button
+                      type="submit"
+                      disabled={loading || !searchInput.trim()}
+                      className="absolute right-1.5 px-3 py-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-400 transition-colors text-xs sm:text-sm"
+                    >
+                      {loading ? <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "검색"}
+                    </button>
+                  </form>
+                  {accountSearchErr && <p className="mt-3 text-sm text-red-400">{accountSearchErr}</p>}
+                </div>
+              )}
+
+
+            </div>
+          </div>
+        </div>
+
+        {/* --- 이하 공통 모달들 --- */}
+        {deleteConfirmOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 animate-in zoom-in-95 duration-200">
+              <div className="p-6 text-center">
+                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+                  <AlertTriangle className="h-7 w-7" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">계정을 삭제하시겠습니까?</h3>
+                <p className="text-sm text-gray-400 leading-relaxed mb-6">
+                  현재 선택된 계정의 모든 캐릭터와<br />숙제 설정 데이터가 삭제됩니다.<br />
+                  <span className="text-red-400/80 text-xs mt-1 block">(이 작업은 되돌릴 수 없습니다)</span>
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setDeleteConfirmOpen(false)} className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium transition-colors text-sm">
+                    취소
+                  </button>
+                  <button onClick={handleDeleteAccount} className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold transition-colors text-sm">
+                    삭제하기
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {autoSetupConfirmOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 animate-in zoom-in-95 duration-200">
+              <div className="p-6 text-center">
+                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-500">
+                  <AlertTriangle className="h-7 w-7" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">자동 세팅을 진행하시겠습니까?</h3>
+                <p className="text-sm text-gray-400 leading-relaxed mb-6">
+                  진행 시 기존에 직접 설정해둔 레이드 세팅이<br />
+                  모두 <strong className="text-white">초기화</strong>되고 새로 덮어씌워집니다.<br />
+                  <span className="text-yellow-500/80 text-xs mt-1 block">(정말 진행하시겠습니까?)</span>
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setAutoSetupConfirmOpen(false)} className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium transition-colors text-sm">
+                    취소
+                  </button>
+                  <button onClick={() => { handleAutoSetup(autoSetupCharCount, autoSetupSortType); setAutoSetupConfirmOpen(false); }} className="flex-1 py-3 rounded-xl bg-[#5B69FF] hover:bg-[#4A57E6] text-white font-bold transition-colors text-sm">
+                    적용하기
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showAllViewWarning && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+              <div className="p-6 text-center">
+                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+                  <AlertTriangle className="h-7 w-7" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">기능 사용 불가</h3>
+                <p className="text-sm text-gray-400 leading-relaxed mb-6 break-keep">
+                  <span className="text-white font-medium">'모두 보기'</span> 상태에서는 데이터 꼬임을 방지하기 위해 해당 기능을 이용할 수 없습니다.<br /><br />
+                  단일 계정을 선택한 후 다시 시도해주세요.
+                </p>
+                <button onClick={() => setShowAllViewWarning(false)} className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold transition-colors text-sm">
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {editingChar && (
+          <EditTasksModal
+            open
+            onClose={() => setEditingChar(null)}
+            character={editingChar}
+            initial={effectivePrefsByChar[editingChar.name] ?? null}
+            onSave={(prefs) => {
+              setCharPrefs(editingChar.name, () => prefs);
+              setEditingChar(null);
+            }}
+          />
+        )}
+
+        {isCharSettingOpen && (
+          <CharacterSettingModal
+            open
+            onClose={() => { setIsCharSettingOpen(false); setAccountSearchErr(null); }}
+            goldDesignatedByChar={safeGoldDesignatedByChar}
+            powerLockedByChar={effectivePowerLockedByChar}
+            roster={currentActiveAccount?.summary?.roster ?? []}
+            onDeleteAccount={usingDemo || isAllView ? undefined : () => setDeleteConfirmOpen(true)}
+            visibleByChar={effectiveVisibleByChar}
+            refreshError={accountSearchErr}
+            onRefreshAccount={isAllView ? undefined : handleMyRefreshAccount}
+            onChangeSettings={(nextVisible, nextGold, nextLocked) => {
+              if (usingDemo) {
+                setDemoVisibleByChar((prev) => ({ ...prev, ...nextVisible }));
+                setDemoGoldDesignatedByChar((prev) => ({ ...prev, ...nextGold }));
+                setDemoPowerLockedByChar((prev) => ({ ...prev, ...nextLocked }));
+                return;
+              }
+              setVisibleByChar((prev) => {
+                const mergedVisible = { ...prev, ...nextVisible };
+                const mergedGold = { ...goldDesignatedByChar, ...nextGold };
+                const mergedLocked = { ...powerLockedByChar, ...nextLocked };
+                setGoldDesignatedByChar(mergedGold);
+                setPowerLockedByChar(mergedLocked);
+                try {
+                  if (!isAuthed) {
+                    localStorage.setItem(VISIBLE_KEY, JSON.stringify(mergedVisible));
+                    localStorage.setItem(GOLD_KEY, JSON.stringify(mergedGold));
+                    localStorage.setItem(POWER_LOCKED_KEY, JSON.stringify(mergedLocked));
+                  } else if (session?.user && sendMessage) {
+                    const userId = (session.user as any).id || (session.user as any).userId;
+                    sendMessage({ type: "gateUpdate", userId, prefsByChar, visibleByChar: mergedVisible, goldDesignatedByChar: mergedGold, powerLockedByChar: mergedLocked });
+                  }
+                } catch { }
+                return mergedVisible;
+              });
+            }}
+          />
+        )}
+
+        {memoTarget && (
+          <MemoModal
+            isOpen={!!memoTarget}
+            onClose={() => setMemoTarget(null)}
+            charName={memoTarget.charName}
+            initialMemo={memoTarget.currentMemo}
+            onSave={(newMemo) => {
+              handleSaveMemo(memoTarget.charName, newMemo);
+              setMemoTarget(null);
+            }}
+          />
+        )}
+
+        <EmptyCharacterState
+          open={isAddAccountOpen}
+          onClose={() => { setIsAddAccountOpen(false); setAccountSearchErr(null); }}
+          loading={loading}
+          error={accountSearchErr}
+          onSearch={async (nickname) => {
+            const success = await handleCharacterSearch(nickname);
+            if (success) setIsAddAccountOpen(false);
+          }}
+        />
+      </div>
+    </MyTasksContext.Provider>
+  );
+}

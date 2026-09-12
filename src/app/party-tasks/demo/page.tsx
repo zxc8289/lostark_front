@@ -31,6 +31,7 @@
         MoreVertical,
         Wand2,
         RefreshCcw,
+        Bot,
     } from "lucide-react";
     import { CSS } from "@dnd-kit/utilities";
     import CharacterTaskStrip, {
@@ -72,39 +73,48 @@
     const MOCK_OTHER_USER_ID_A = "demo-user-other-a";
     const MOCK_OTHER_USER_ID_B = "demo-user-other-b";
     const MOCK_PARTY_ID = 9999;
+    const DISCORD_BOT_INVITE_URL = "https://discord.com/oauth2/authorize?client_id=1500722739986829452&permissions=84992&scope=bot%20applications.commands";
 
     const MOCK_ROSTER_ME = [
-        { name: "데모캐릭_본캐", itemLevel: "1630.00", itemLevelNum: 1630, serverName: "루페온", className: "워로드" },
-        { name: "데모캐릭_부캐1", itemLevel: "1610.00", itemLevelNum: 1610, serverName: "루페온", className: "소서리스" },
-        { name: "데모캐릭_부캐2", itemLevel: "1600.00", itemLevelNum: 1600, serverName: "루페온", className: "바드" },
+        { name: "데모캐릭_본캐", itemLevel: "1780.00", itemLevelNum: 1780, serverName: "루페온", className: "워로드" },
+        { name: "데모캐릭_부캐1", itemLevel: "1770.00", itemLevelNum: 1770, serverName: "루페온", className: "소서리스" },
+        { name: "데모캐릭_부캐2", itemLevel: "1760.00", itemLevelNum: 1760, serverName: "루페온", className: "바드" },
     ] as unknown as RosterCharacter[];
 
     const MOCK_ROSTER_OTHER_A = [
-        { name: "파티원A_본캐", itemLevel: "1620.00", itemLevelNum: 1620, serverName: "실리안", className: "건슬링어" },
-        { name: "파티원A_부캐", itemLevel: "1580.00", itemLevelNum: 1580, serverName: "실리안", className: "기상술사" },
+        { name: "파티원A_본캐", itemLevel: "1770.00", itemLevelNum: 1770, serverName: "실리안", className: "건슬링어" },
+        { name: "파티원A_부캐", itemLevel: "1760.00", itemLevelNum: 1760, serverName: "실리안", className: "기상술사" },
     ] as unknown as RosterCharacter[];
 
     const MOCK_ROSTER_OTHER_B = [
-        { name: "파티원B_본캐", itemLevel: "1640.00", itemLevelNum: 1640, serverName: "카마인", className: "블레이드" },
-        { name: "파티원B_부캐", itemLevel: "1600.00", itemLevelNum: 1600, serverName: "카마인", className: "버서커" },
+        { name: "파티원B_본캐", itemLevel: "1780.00", itemLevelNum: 1780, serverName: "카마인", className: "블레이드" },
+        { name: "파티원B_부캐", itemLevel: "1770.00", itemLevelNum: 1770, serverName: "카마인", className: "버서커" },
     ] as unknown as RosterCharacter[];
 
     const MOCK_PREFS_ME: Record<string, CharacterTaskPrefs> = {
         "데모캐릭_본캐": {
             raids: {
-                "카멘": { enabled: true, difficulty: "하드" as any, gates: [1] },
-                "에키드나": { enabled: true, difficulty: "노말" as any, gates: [] },
-                "일리아칸": { enabled: true, difficulty: "하드" as any, gates: [] },
+                "벨가르딘": { enabled: true, difficulty: "나메" as any, gates: [1] },
+                "세르카": { enabled: true, difficulty: "나메" as any, gates: [] },
+                "종막-카제로스": { enabled: true, difficulty: "하드" as any, gates: [] },
             },
-            order: ["카멘", "에키드나", "일리아칸"],
+            order: ["벨가르딘", "세르카", "종막-카제로스"],
         },
         "데모캐릭_부캐1": {
             raids: {
-                "카멘": { enabled: true, difficulty: "하드" as any, gates: [1] },
-                "상아탑": { enabled: true, difficulty: "노말" as any, gates: [] },
-                "일리아칸": { enabled: true, difficulty: "하드" as any, gates: [] },
+                "벨가르딘": { enabled: true, difficulty: "하드" as any, gates: [1] },
+                "세르카": { enabled: true, difficulty: "하드" as any, gates: [] },
+                "종막-카제로스": { enabled: true, difficulty: "하드" as any, gates: [] },
             },
-            order: ["카멘", "상아탑", "일리아칸"],
+            order: ["벨가르딘", "세르카", "종막-카제로스"],
+        },
+        "데모캐릭_부캐2": {
+            raids: {
+                "벨가르딘": { enabled: true, difficulty: "노말" as any, gates: [] },
+                "세르카": { enabled: true, difficulty: "노말" as any, gates: [1] },
+                "종막-카제로스": { enabled: true, difficulty: "노말" as any, gates: [] },
+            },
+            order: ["벨가르딘", "세르카", "종막-카제로스"],
         },
     };
 
@@ -154,14 +164,19 @@
             prefsByChar: {
                 "파티원A_본캐": {
                     raids: {
-                        "카멘": { enabled: true, difficulty: "노말" as any, gates: [] },
-                        "에키드나": { enabled: true, difficulty: "노말" as any, gates: [] }
+                        "벨가르딘": { enabled: true, difficulty: "하드" as any, gates: [] },
+                        "세르카": { enabled: true, difficulty: "하드" as any, gates: [] },
+                        "종막-카제로스": { enabled: true, difficulty: "하드" as any, gates: [1] },
                     },
-                    order: ["카멘", "에키드나"]
+                    order: ["벨가르딘", "세르카", "종막-카제로스"]
                 },
                 "파티원A_부캐": {
-                    raids: { "일리아칸": { enabled: true, difficulty: "노말" as any, gates: [] } },
-                    order: ["일리아칸"]
+                    raids: {
+                        "벨가르딘": { enabled: true, difficulty: "노말" as any, gates: [] },
+                        "세르카": { enabled: true, difficulty: "노말" as any, gates: [] },
+                        "종막-카제로스": { enabled: true, difficulty: "노말" as any, gates: [1] },
+                    },
+                    order: ["벨가르딘", "세르카", "종막-카제로스"]
                 }
             },
             visibleByChar: { "파티원A_본캐": true, "파티원A_부캐": true } as Record<string, boolean>,
@@ -181,10 +196,19 @@
             prefsByChar: {
                 "파티원B_본캐": {
                     raids: {
-                        "베히모스": { enabled: true, difficulty: "노말" as any, gates: [] },
-                        "카멘": { enabled: true, difficulty: "하드" as any, gates: [] }
+                        "벨가르딘": { enabled: true, difficulty: "나메" as any, gates: [] },
+                        "세르카": { enabled: true, difficulty: "나메" as any, gates: [1] },
+                        "종막-카제로스": { enabled: true, difficulty: "하드" as any, gates: [] },
                     },
-                    order: ["베히모스", "카멘"]
+                    order: ["벨가르딘", "세르카", "종막-카제로스"]
+                },
+                "파티원B_부캐": {
+                    raids: {
+                        "벨가르딘": { enabled: true, difficulty: "하드" as any, gates: [] },
+                        "세르카": { enabled: true, difficulty: "하드" as any, gates: [] },
+                        "종막-카제로스": { enabled: true, difficulty: "하드" as any, gates: [1] },
+                    },
+                    order: ["벨가르딘", "세르카", "종막-카제로스"]
                 },
             },
             visibleByChar: { "파티원B_본캐": true, "파티원B_부캐": false } as Record<string, boolean>,
@@ -935,7 +959,7 @@
                             </button>
                             <div className="flex items-center gap-2 sm:gap-1 min-w-0">
                                 <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight truncate break-keep">
-                                    {party.name} <span className="ml-2 text-xs text-[#5B69FF] font-semibold">(데모)</span>
+                                    {party.name}
                                 </h1>
                                 <button
                                     type="button"
@@ -947,10 +971,12 @@
                             </div>
                         </div>
                         <div className="flex items-center gap-2 sm:gap-3">
-                            <button type="button" onClick={openInviteModal} className="inline-flex items-center gap-1.5 rounded-full bg-[#5B69FF]/80 px-3 py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#4a57e0]">
-                                <Link2 className="h-3.5 w-3.5" />
-                                <span>파티 코드 생성</span>
-                            </button>
+                            {party.nextResetAt && (
+                                <div className="inline-flex items-center gap-1.5 rounded-full bg-black/30 px-3 py-1 text-[11px] text-gray-400">
+                                    <Clock className="h-3 w-3" />
+                                    <span>다음 초기화: {party.nextResetAt}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -970,25 +996,58 @@
                                 레이드 그룹
                                 {activeTab === "planner" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
                             </button>
-                            <button
-                                onClick={() => setActiveTab("temp_planner")}
-                                className={`pb-2 text-[13px] sm:text-lg font-bold transition-colors relative ${activeTab === "temp_planner" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
-                            >
-                                자율편성 그룹
+                            <div className="relative flex items-center pb-2">
+                                <button
+                                    onClick={() => setActiveTab("temp_planner")}
+                                    className={`text-[13px] sm:text-lg font-bold transition-colors ${activeTab === "temp_planner" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+                                >
+                                    자율편성 그룹
+                                </button>
+                                <div className="relative group flex items-center justify-center ml-1.5 cursor-help">
+                                    <div className="w-[18px] h-[18px] rounded-full bg-white/10 flex items-center justify-center text-[10px] text-gray-400 font-normal group-hover:text-white group-hover:bg-white/20 transition-colors">
+                                        ?
+                                    </div>
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[260px] p-3 bg-[#1E2028] border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                                        <p className="text-xs text-gray-300 leading-relaxed break-keep text-center font-normal">
+                                            단발성 파티 편성에 적합한 그룹입니다.<br />
+                                            숙제 완료 시 <span className="text-yellow-400 text-opacity-90">10초 뒤 그룹이 자동 삭제</span>되며,<br />
+                                            고정된 파티와 캐릭터는 <span className="text-yellow-400 text-opacity-90">초기화되지 않고 유지</span>됩니다.
+                                        </p>
+                                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1E2028] border-t border-l border-white/10 rotate-45" />
+                                    </div>
+                                </div>
                                 {activeTab === "temp_planner" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+                            {activeTab !== "tasks" && (
+                                <a
+                                    href={DISCORD_BOT_INVITE_URL}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#5B69FF]/80 p-2 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#4a57e0] transition-colors"
+                                    title="디스코드 서버에 로아체크 봇을 추가합니다."
+                                >
+                                    <Bot className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="hidden sm:inline">봇 추가</span>
+                                </a>
+                            )}
+                            <button
+                                type="button"
+                                onClick={openInviteModal}
+                                className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#5B69FF]/80 p-2 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#4a57e0] transition-colors"
+                                title="파티 코드 생성"
+                            >
+                                <Link2 className="h-3.5 w-3.5 shrink-0" />
+                                <span className="hidden sm:inline">파티 코드 생성</span>
                             </button>
                         </div>
                     </div>
 
-                    {/* 그리드 레이아웃 */}
-                    <div className={activeTab === "tasks"
-                        ? "grid grid-cols-1 lg:grid-cols-[minmax(0,210px)_minmax(0,1fr)] gap-5 lg:items-start"
-                        : "grid grid-cols-1 gap-5 lg:items-start"
-                    }>
+                    <div className="relative w-full flex flex-col xl:flex-row gap-4 xl:gap-6">
 
-                        {/* 공용 사이드바 적용 */}
                         {activeTab === "tasks" && (
-                        <div className="space-y-4">
+                        <div className="flex flex-col gap-4 w-full xl:w-[220px] shrink-0 min-[1760px]:absolute min-[1760px]:top-0 min-[1760px]:-left-[240px] z-10">
                             <TaskSidebar
                                 accounts={accounts}
                                 activeAccountId={activeAccountId}
@@ -1006,27 +1065,9 @@
                         </div>
                         )}
 
-                        {/* 파티 멤버 목록 */}
-                        <div className="grid grid-cols-1 gap-4 sm:gap-5">
+                        <div className="w-full grid grid-cols-1 gap-4 sm:gap-5">
                             {activeTab === "tasks" ? (
                                 <>
-
-                            {/* 데모 안내 배너 */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-2">
-                                <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">
-                                    <div className="font-semibold text-sm text-[#5B69FF] flex items-center gap-1.5">1. 실시간 숙제 체크</div>
-                                    <div className="text-[12px] text-gray-400 break-keep">레이드 관문을 클릭해보세요. 골드와 숙제 수가 실시간으로 반영됩니다.</div>
-                                </div>
-                                <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">
-                                    <div className="font-semibold text-sm text-[#5B69FF] flex items-center gap-1.5">2. 수정 권한 테스트</div>
-                                    <div className="text-[12px] text-gray-400 break-keep">파티원 A와 B의 옵션(수정 가능 여부)이 다르게 작동하는 것을 확인해보세요.</div>
-                                </div>
-                                <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">
-                                    <div className="font-semibold text-sm text-[#5B69FF] flex items-center gap-1.5">3. 스마트 기능</div>
-                                    <div className="text-[12px] text-gray-400 break-keep">사이드바에서 모든 계정 통합 보기를 켜보거나, 레이드를 필터링 해보세요.</div>
-                                </div>
-                            </div>
-
                             {tasksLoading && (
                                 <div className="w-full py-6">
                                     <div className="animate-pulse space-y-3">
@@ -1638,40 +1679,52 @@
     }
 
     function PartyMemberSummaryBar({ member, summary, children }: any) {
-        const totalRemainingBoundGold = (summary as any).totalRemainingBoundGold ?? 0;
-        const totalBoundGold = (summary as any).totalBoundGold ?? 0;
         const memberAllCleared =
             summary.totalRemainingGold === 0 &&
-            totalRemainingBoundGold === 0 &&
-            (summary.totalGold > 0 || totalBoundGold > 0);
+            ((summary as any).totalRemainingBoundGold ?? 0) === 0 &&
+            (summary.totalGold > 0 || ((summary as any).totalBoundGold ?? 0) > 0);
         return (
             <div className="relative rounded-md py-2 flex flex-col sm:flex-row sm:items-center w-full">
                 <div className="flex items-center justify-between w-full sm:w-auto">
                     <div className="flex items-center gap-3">
                         <MemberAvatar member={{ id: member.userId, name: member.name, image: member.image, role: "member" }} className="h-8 w-8 sm:h-8 sm:w-8 rounded-full " />
-                        <span className="text-lg sm:text-base md:text-xl font-bold sm:font-semibold text-white truncate">{member.name || "이름 없음"}</span>
+                        <div className="flex flex-col">
+                            <span className="text-lg sm:text-base md:text-xl font-bold sm:font-semibold text-white truncate max-w-[150px] sm:max-w-none">{member.name || "이름 없음"}</span>
+                        </div>
                     </div>
                     <div className="flex sm:hidden items-center gap-1">{children}</div>
                 </div>
-                <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-4 text-sm sm:text-base min-w-0">
+                <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-2.5 sm:gap-4 text-xs sm:text-base min-w-0">
                     <span className="hidden sm:inline h-4 w-px bg-white/10 " />
-                    <div className="flex items-baseline gap-1.5">
-                        <span className="font-semibold text-sm sm:text-base pr-1">남은 숙제</span>
-                        <AnimatedNumber value={summary.totalRemainingTasks} className="text-gray-400 text-xs sm:text-sm font-semibold" />
+                    <div className="flex items-baseline gap-1 sm:gap-1.5">
+                        <span className="font-semibold text-[11px] sm:text-base pr-1">남은 숙제</span>
+                        <AnimatedNumber value={summary.totalRemainingTasks} className="text-gray-400 text-[10px] sm:text-sm font-semibold" />
                     </div>
+                    <span className="inline sm:hidden h-3 w-px bg-white/10 " />
                     <span className="hidden sm:inline h-4 w-px bg-white/10 " />
-                    <div className="flex items-baseline gap-1.5">
-                        <span className="font-semibold text-sm sm:text-base pr-1">남은 골드</span>
-                        <div className={`inline-flex items-baseline justify-end min-w-[50px] text-xs sm:text-sm font-semibold tabular-nums ${memberAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400"}`}>
+                    <div className="flex items-baseline gap-1 sm:gap-1.5">
+                        <span className="font-semibold text-[11px] sm:text-base pr-1">
+                            <span className="sm:hidden">남은 캐릭터</span>
+                            <span className="hidden sm:inline">숙제 남은 캐릭터</span>
+                        </span>
+                        <AnimatedNumber value={summary.remainingCharacters} className="text-gray-400 text-[10px] sm:text-sm font-semibold" />
+                    </div>
+                    <span className="inline sm:hidden h-3 w-px bg-white/10 " />
+                    <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                    <div className="flex items-baseline gap-1 sm:gap-1.5">
+                        <span className="font-semibold text-[11px] sm:text-base pr-1">골드</span>
+                        <div className={`inline-flex items-baseline justify-end min-w-[40px] sm:min-w-[50px] text-[10px] sm:text-sm font-semibold tabular-nums ${memberAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400"}`}>
                             <AnimatedNumber value={memberAllCleared ? summary.totalGold : summary.totalRemainingGold} />
-                            <span className="ml-0.5 text-[0.75em]">g</span>
-                            {(memberAllCleared ? totalBoundGold : totalRemainingBoundGold) > 0 && (
-                                <>
-                                    <span className="mx-1 text-gray-600">+</span>
-                                    <AnimatedNumber value={memberAllCleared ? totalBoundGold : totalRemainingBoundGold} />
-                                    <span className="ml-0.5 text-[0.75em] text-amber-300">귀속</span>
-                                </>
-                            )}
+                            <span className="ml-0.5 text-[0.7em] sm:text-[0.75em]">g</span>
+                        </div>
+                    </div>
+                    <span className="inline sm:hidden h-3 w-px bg-white/10 " />
+                    <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                    <div className="flex items-baseline gap-1 sm:gap-1.5">
+                        <span className="font-semibold text-[11px] sm:text-base pr-1">귀속 골드</span>
+                        <div className={`inline-flex items-baseline justify-end min-w-[40px] sm:min-w-[50px] text-[10px] sm:text-sm font-semibold tabular-nums ${memberAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400"}`}>
+                            <AnimatedNumber value={memberAllCleared ? (summary as any).totalBoundGold : (summary as any).totalRemainingBoundGold} />
+                            <span className="ml-0.5 text-[0.7em] sm:text-[0.75em]">g</span>
                         </div>
                     </div>
                 </div>

@@ -347,7 +347,7 @@ export default async function HomePage() {
                 <p>딜 지분 계산기는 단순히 MVP 화면의 피해량을 다시 보여주는 것이 아니라, 레이드와 관문별 체력을 기준으로 내 딜 기여도를 퍼센트로 환산해 줍니다. 같은 피해량이라도 레이드에 따라 체감 의미가 달라질 수 있어, 비교 기준을 정리하는 데 도움이 됩니다.</p>
                 <ul className="space-y-2 pl-2">
                   <li><strong className="text-gray-300">8인 레이드:</strong> 평균 1인분 기준을 참고해 강투/잔혈 여부를 보다 직관적으로 판단할 수 있습니다.</li>
-                  <li><strong className="text-gray-300">4인 레이드:</strong> 딜러 수가 적기 때문에 한 명의 기여도 차이가 크게 나타나며, 실전 해석 시 관문별 편차도 함께 보는 기 좋습니.</li>
+                  <li><strong className="text-gray-300">4인 레이드:</strong> 딜러 수가 적기 때문에 한 명의 기여도 차이가 크게 나타나며, 실전 해석 시 관문별 편차도 함께 보는 것이 좋습니다.</li>
                 </ul>
               </div>
             </details>

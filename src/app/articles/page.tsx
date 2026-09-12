@@ -33,6 +33,18 @@ const articles = [
     description:
       "파티 인원, 기대 수익, 분배 구조를 기준으로 적정 입찰가를 계산할 때 주의할 점을 안내합니다.",
   },
+  {
+    href: "/articles/weekly-raid-gold-guide",
+    title: "주간 레이드 골드 계산 기준",
+    description:
+      "골드 획득 캐릭터와 관문 진행도를 기준으로 주간 레이드 수익을 정리하는 방법을 안내합니다.",
+  },
+  {
+    href: "/articles/bound-gold-guide",
+    title: "귀속 골드와 거래 가능 골드의 차이",
+    description:
+      "같은 골드라도 사용할 수 있는 범위가 다른 이유와 캐릭터별로 나눠 관리하는 기준을 정리했습니다.",
+  },
 ];
 
 export default function ArticlesPage() {
@@ -53,7 +65,7 @@ export default function ArticlesPage() {
         </p>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
         {articles.map((article) => (
           <Link
             key={article.href}
