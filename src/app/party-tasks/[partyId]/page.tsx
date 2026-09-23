@@ -53,6 +53,7 @@ import {
     calcNextGates,
     computeRaidSummaryForRoster,
     buildAutoSetupForRoster,
+    enforceRosterExtremeLimit,
     migrateLegacyPrefs,
     type RaidSummary,
 } from "@/app/lib/tasks/raid-utils";
@@ -1232,10 +1233,10 @@ export default function PartyDetailPage() {
         const next: PartyMemberTasks[] = partyTasks.map((m) => {
             if (m.userId !== memberUserId) return m;
 
-            const memberPrefsByChar: Record<string, CharacterTaskPrefs> = {
+            const memberPrefsByChar = enforceRosterExtremeLimit({
                 ...(m.prefsByChar ?? {}),
                 [charName]: { ...nextPrefs },
-            };
+            }, charName);
 
             return {
                 ...m,

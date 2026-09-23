@@ -52,6 +52,7 @@
         calcNextGates,
         computeRaidSummaryForRoster,
         buildAutoSetupForRoster,
+        enforceRosterExtremeLimit,
         migrateLegacyPrefs,
         type RaidSummary,
     } from "@/app/lib/tasks/raid-utils";
@@ -772,7 +773,13 @@
             const { memberUserId, charName } = editTarget;
             setPartyTasks(prev => prev!.map((m) => {
                 if (m.userId !== memberUserId) return m;
-                return { ...m, prefsByChar: { ...(m.prefsByChar ?? {}), [charName]: { ...nextPrefs } } };
+                return {
+                    ...m,
+                    prefsByChar: enforceRosterExtremeLimit({
+                        ...(m.prefsByChar ?? {}),
+                        [charName]: { ...nextPrefs },
+                    }, charName),
+                };
             }));
             setEditOpen(false);
         };

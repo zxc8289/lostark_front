@@ -1,6 +1,6 @@
 // raidInformation.ts
 
-export type RaidKind = "군단장" | "카제로스" | "어비스" | "에픽" | "그림자";
+export type RaidKind = "군단장" | "카제로스" | "익스트림" | "어비스" | "에픽" | "그림자";
 export type DifficultyKey = "노말" | "하드" | "나메" | "싱글";
 
 type Gate = {
@@ -481,6 +481,38 @@ export const raidInformation: Record<
                     { index: 1, name: "1관문", gold: 2500, boundGold: 2500, bonusCost: 1650, rewards: "운명의 파괴석 440개, 운명의 수호석 880개, 운명의 돌파석 6개, 운명의 파편 3400개, 우레의 뇌옥 6개, 클리어 메달 600개", bonusRewards: "운명의 파괴석 600개, 운명의 수호석 1200개, 운명의 돌파석 23개, 운명의 파편 5000개, 우레의 뇌옥 6개" },
                     { index: 2, name: "2관문", gold: 4000, boundGold: 4000, bonusCost: 2640, rewards: "운명의 파괴석 520개, 운명의 수호석 1040개, 운명의 돌파석 6개, 운명의 파편 4000개, 우레의 뇌옥 10개, 클리어 메달 700개", bonusRewards: "운명의 파괴석 830개, 운명의 수호석 1660개, 운명의 돌파석 27개, 운명의 파편 7200개, 우레의 뇌옥 10개" },
                     { index: 3, name: "3관문", gold: 7000, boundGold: 7000, bonusCost: 4060, rewards: "운명의 파괴석 640개, 운명의 수호석 1280개, 운명의 돌파석 8개, 운명의 파편 5600개, 우레의 뇌옥 20개, 클리어 메달 1400개", bonusRewards: "운명의 파괴석 1460개, 운명의 수호석 2920개, 운명의 돌파석 45個, 운명의 파편 11760개, 우레의 뇌옥 20개" },
+                ],
+            },
+        },
+    },
+
+    "3막-익스트림": {
+        kind: "익스트림",
+        releaseDate: "2026-09-22",
+        gates: 1,
+        difficulty: {
+            "노말": {
+                level: 1730,
+                gold: 20000,
+                boundGold: 0,
+                gates: [
+                    { index: 1, name: "익스트림 클리어", gold: 20000, boundGold: 0, bonusCost: 0, rewards: "", bonusRewards: "" },
+                ],
+            },
+            "하드": {
+                level: 1770,
+                gold: 50000,
+                boundGold: 0,
+                gates: [
+                    { index: 1, name: "익스트림 클리어", gold: 50000, boundGold: 0, bonusCost: 0, rewards: "", bonusRewards: "" },
+                ],
+            },
+            "나메": {
+                level: 1780,
+                gold: 50000,
+                boundGold: 0,
+                gates: [
+                    { index: 1, name: "익스트림 클리어", gold: 50000, boundGold: 0, bonusCost: 0, rewards: "", bonusRewards: "" },
                 ],
             },
         },

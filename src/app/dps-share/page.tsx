@@ -69,6 +69,12 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
             ],
             나메: [],
         },
+        "3막 익스트림": {
+            // 관문 체력과 딜 지분 기준은 확인 후 추가합니다.
+            노말: [],
+            하드: [],
+            나메: [],
+        },
         "4막": {
             노말: [
                 { gate: 1, hp: 4750, range: [740, 990] },
@@ -140,6 +146,9 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
     },
 };
 
+const isNightmareAvailableFor = (category: RaidCategory, act: string) =>
+    category !== "카제로스" || act === "3막 익스트림";
+
 export default function DpsSharePage() {
     const [category, setCategory] = useState<RaidCategory>("카제로스");
     const [act, setAct] = useState<string>("1막");
@@ -152,7 +161,7 @@ export default function DpsSharePage() {
         const firstAct = Object.keys(RAID_DATA[cat])[0];
         setAct(firstAct);
 
-        if (cat === "카제로스" && diff === "나메") {
+        if (!isNightmareAvailableFor(cat, firstAct) && diff === "나메") {
             setDiff("노말");
         }
     };
@@ -160,7 +169,7 @@ export default function DpsSharePage() {
     const handleActChange = (nextAct: string) => {
         setAct(nextAct);
 
-        const isNightmareAvailable = category !== "카제로스";
+        const isNightmareAvailable = isNightmareAvailableFor(category, nextAct);
 
         if (!isNightmareAvailable && diff === "나메") {
             setDiff("노말");
@@ -211,7 +220,7 @@ export default function DpsSharePage() {
     }, [category, act, diff, dmgInput, bleedCut]);
 
     const rows = RAID_DATA[category][act][diff] || [];
-    const isNightmareAvailable = category !== "카제로스";
+    const isNightmareAvailable = isNightmareAvailableFor(category, act);
 
     return (
         <>

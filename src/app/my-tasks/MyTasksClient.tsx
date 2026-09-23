@@ -14,6 +14,7 @@ import {
   calcNextGates,
   computeRaidSummaryForRoster,
   buildAutoSetupForRoster,
+  enforceRosterExtremeLimit,
   migrateLegacyPrefs,
   type RaidSummary,
 } from "../lib/tasks/raid-utils";
@@ -482,7 +483,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
       setDemoPrefsByChar((prev) => {
         const cur = prev[name] ?? { raids: {} };
         const nextVal = updater(cur);
-        return { ...prev, [name]: nextVal };
+        return enforceRosterExtremeLimit({ ...prev, [name]: nextVal }, name);
       });
       return;
     }
@@ -490,10 +491,10 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
     setPrefsByChar((prev) => {
       const cur = prev[name] ?? { raids: {} };
       const nextVal = updater(cur);
-      const next = { ...prev, [name]: nextVal };
+      const next = enforceRosterExtremeLimit({ ...prev, [name]: nextVal }, name);
 
       if (!isAuthed) {
-        writePrefs(name, nextVal);
+        Object.entries(next).forEach(([charName, prefs]) => writePrefs(charName, prefs));
       } else if (session?.user && sendMessage) {
         const userId = (session.user as any).id || (session.user as any).userId;
         sendMessage({ type: "gateUpdate", userId, prefsByChar: next, visibleByChar });
@@ -1261,6 +1262,13 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
             onClose={() => setEditingChar(null)}
             character={editingChar}
             initial={effectivePrefsByChar[editingChar.name] ?? null}
+            lockedRaidNames={Object.entries(effectivePrefsByChar).some(([charName, prefs]) =>
+              charName !== editingChar.name && Object.entries(prefs.raids ?? {}).some(
+                ([raidName, raid]) => raidInformation[raidName]?.kind === "익스트림" && raid.enabled
+              )
+            )
+              ? Object.keys(raidInformation).filter((raidName) => raidInformation[raidName].kind === "익스트림")
+              : []}
             onSave={(prefs) => {
               setCharPrefs(editingChar.name, () => prefs);
               setEditingChar(null);

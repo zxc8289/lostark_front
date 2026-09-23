@@ -36,6 +36,7 @@ type Props = {
     onClose: () => void;
     character: RosterCharacter;
     initial?: CharacterTaskPrefs | null;
+    lockedRaidNames?: string[];
     onSave: (prefs: CharacterTaskPrefs) => void;
 };
 
@@ -71,7 +72,7 @@ function getDisplayDifficulty(raidName: string, difficulty: DifficultyKey | stri
     return difficulty;
 }
 
-export default function EditTasksModal({ open, onClose, character, initial, onSave }: Props) {
+export default function EditTasksModal({ open, onClose, character, initial, lockedRaidNames = [], onSave }: Props) {
     const ilvl = character.itemLevelNum ?? 0;
     const [state, setState] = useState<CharacterTaskPrefs>({ raids: {} });
     const [sortMode, setSortMode] = useState<RaidPrioritySortMode>("recommended");
@@ -115,12 +116,13 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
         [state.raids]
     );
 
-    const goldCount = useMemo(
+    const regularGoldCount = useMemo(
         () =>
             Object.entries(state.raids ?? {}).filter(
-                ([, raid]) =>
+                ([raidName, raid]) =>
                     raid.enabled &&
-                    raid.isGold
+                    raid.isGold &&
+                    raidInformation[raidName]?.kind !== "익스트림"
             ).length,
         [state.raids]
     );
@@ -147,6 +149,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                     levelReq: number;
                     gold: number;
                 }[] = [];
+                const extremeCandidates: typeof candidates = [];
 
                 for (const [raidName, info] of raidEntries) {
                     const nightmare = info.difficulty["나메"];
@@ -183,7 +186,12 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                         0
                     );
 
-                    candidates.push({ raidName, difficulty: pickedDiff, levelReq, gold: totalGold });
+                    const candidate = { raidName, difficulty: pickedDiff, levelReq, gold: totalGold };
+                    if (info.kind === "익스트림") {
+                        extremeCandidates.push(candidate);
+                    } else {
+                        candidates.push(candidate);
+                    }
                 }
 
                 const top3 = candidates
@@ -198,17 +206,23 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                         return b.levelReq - a.levelReq;
                     })
                     .slice(0, 3);
+                const extreme = lockedRaidNames.length
+                    ? []
+                    : extremeCandidates
+                        .sort((a, b) => b.levelReq - a.levelReq || b.gold - a.gold)
+                        .slice(0, 1);
+                const selectedRaids = [...top3, ...extreme];
 
                 for (const [raidName, pref] of Object.entries(updatedRaids)) {
                     updatedRaids[raidName] = { ...pref, enabled: false, gates: [], isGold: false }; // 초기화 시 골드도 해제
                 }
 
-                for (const { raidName, difficulty } of top3) {
+                for (const { raidName, difficulty } of selectedRaids) {
                     updatedRaids[raidName] = {
                         ...(updatedRaids[raidName] ?? { gates: [] }),
                         enabled: true,
                         difficulty,
-                        isGold: true, // 3. 상위 3개 자동 선택 시 골드도 자동 지정
+                        isGold: true, // 일반 3개와 익스트림 +1 모두 골드 지정
                     };
                 }
             } else if (mode === "all" || mode === "none") {
@@ -240,7 +254,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                             </span>
                         </div>
                         <p className="text-xs sm:text-sm text-gray-400 leading-snug">
-                            이 캐릭터의 군단장 / 카제로스 / 어비스 / 에픽 숙제를 설정합니다.
+                            이 캐릭터의 군단장 / 카제로스 / 익스트림 / 어비스 / 에픽 숙제를 설정합니다.
                         </p>
                     </div>
                 </header>
@@ -249,7 +263,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                     <div className="mb-5 space-y-3">
                         <div className="flex gap-2 overflow-x-auto pb-1">
                             <button onClick={() => handleAutoSelect("top3")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
-                                상위 3개 레이드
+                                상위 3개 + 익스트림
                             </button>
                             <button onClick={() => handleAutoSelect("all")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
                                 전체 선택
@@ -313,6 +327,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                     {entries.map(([raidName, info]) => {
                                         const pref = state.raids[raidName] ?? makeDefaultPref(info, ilvl);
+                                        const isRosterLocked = !pref.enabled && lockedRaidNames.includes(raidName);
                                         const nightmare = info.difficulty["나메"];
                                         const hard = info.difficulty["하드"];
                                         const normal = info.difficulty["노말"];
@@ -350,8 +365,9 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                                         <button
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
-                                                                                if (!pref.isGold && goldCount >= 3) {
-                                                                                    alert("골드 획득은 캐릭터당 최대 3개까지만 지정할 수 있습니다.");
+                                                                                const isExtremeRaid = info.kind === "익스트림";
+                                                                                if (!pref.isGold && !isExtremeRaid && regularGoldCount >= 3) {
+                                                                                    alert("일반 레이드는 캐릭터당 최대 3개, 익스트림은 원정대당 1개까지 골드 지정할 수 있습니다.");
                                                                                     return;
                                                                                 }
                                                                                 setState((s) => ({
@@ -368,7 +384,7 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                                                     ? "bg-[#EAB308]/10 text-[#FDE047] border-[#EAB308]/30"
                                                                                     : "bg-[#121418] text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300 hover:border-white/10"
                                                                                 }
-                                                                                ${!pref.isGold && goldCount >= 3 ? "opacity-50 cursor-not-allowed" : ""}
+                                                                                ${!pref.isGold && info.kind !== "익스트림" && regularGoldCount >= 3 ? "opacity-50 cursor-not-allowed" : ""}
                                                                             `}
                                                                         >
                                                                             <div className={`w-1.5 h-1.5 rounded-full transition-colors ${pref.isGold
@@ -411,11 +427,12 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                         </div>
                                                     </div>
 
-                                                    <label className="relative inline-flex items-center cursor-pointer">
+                                                    <label className={`relative inline-flex items-center ${isRosterLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
                                                         <input
                                                             type="checkbox"
                                                             className="sr-only peer"
                                                             checked={pref.enabled}
+                                                            disabled={isRosterLocked}
                                                             onChange={(e) =>
                                                                 setState((s) => {
                                                                     const prev = s.raids[raidName] ?? makeDefaultPref(info, ilvl);
@@ -479,6 +496,9 @@ export default function EditTasksModal({ open, onClose, character, initial, onSa
                                                         );
                                                     })}
                                                 </div>
+                                                {isRosterLocked && (
+                                                    <p className="mt-2 text-[11px] text-amber-300/80">익스트림은 원정대당 1개 캐릭터만 등록할 수 있습니다.</p>
+                                                )}
                                             </div>
                                         );
                                     })}

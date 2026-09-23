@@ -79,6 +79,48 @@
         return { level: getRaidBaseLevel(raidId), gold: 0 };
     }
 
+    /** 익스트림은 원정대당 하나의 레이드만 활성화할 수 있습니다. */
+    export function enforceRosterExtremeLimit(
+        prefsByChar: Record<string, CharacterTaskPrefs>,
+        preferredCharacterName?: string
+    ): Record<string, CharacterTaskPrefs> {
+        const next = Object.fromEntries(
+            Object.entries(prefsByChar).map(([charName, prefs]) => [
+                charName,
+                { ...prefs, raids: { ...(prefs.raids ?? {}) } },
+            ])
+        ) as Record<string, CharacterTaskPrefs>;
+
+        const characterNames = Object.keys(next);
+        if (preferredCharacterName && characterNames.includes(preferredCharacterName)) {
+            characterNames.splice(characterNames.indexOf(preferredCharacterName), 1);
+            characterNames.unshift(preferredCharacterName);
+        }
+
+        let hasEnabledExtreme = false;
+        for (const charName of characterNames) {
+            const prefs = next[charName];
+            for (const [raidName, raid] of Object.entries(prefs.raids)) {
+                if (raidInformation[raidName]?.kind !== "익스트림" || !raid.enabled) continue;
+
+                if (!hasEnabledExtreme) {
+                    hasEnabledExtreme = true;
+                    continue;
+                }
+
+                prefs.raids[raidName] = {
+                    ...raid,
+                    enabled: false,
+                    gates: [],
+                    isGold: false,
+                    isBonus: false,
+                };
+            }
+        }
+
+        return next;
+    }
+
     export type RaidPrioritySortMode = "recommended" | "levelDesc" | "levelAsc";
 
     export const RAID_PRIORITY_SORT_OPTIONS: { key: RaidPrioritySortMode; label: string }[] = [
@@ -360,6 +402,8 @@
         }[] = [];
 
         for (const [raidName, info] of raidEntries) {
+            if (info.kind === "익스트림") continue;
+
             const nightmare = info.difficulty["나메"];
             const hard = info.difficulty["하드"];
             const normal = info.difficulty["노말"];
@@ -487,8 +531,48 @@
             nextPrefsByChar[c.name] = autoSelectTop3Raids(ilvlNum, prevPrefs, sortType);
         }
 
+        // 익스트림은 기존 3개 레이드를 대체하지 않는 원정대당 +1 레이드입니다.
+        let extremeSelection: { charName: string; raidName: string; difficulty: DifficultyKey } | null = null;
+        for (const character of targetCharacters) {
+            const ilvlNum = character.itemLevelNum ?? 0;
+            for (const [raidName, info] of Object.entries(raidInformation)) {
+                if (info.kind !== "익스트림") continue;
+
+                const difficulty = (["나메", "하드", "노말"] as DifficultyKey[]).find(
+                    (key) => {
+                        const data = info.difficulty[key];
+                        return !!data && ilvlNum >= data.level;
+                    }
+                );
+
+                if (difficulty) {
+                    extremeSelection = { charName: character.name, raidName, difficulty };
+                    break;
+                }
+            }
+            if (extremeSelection) break;
+        }
+
+        if (extremeSelection) {
+            const prefs = nextPrefsByChar[extremeSelection.charName] ?? { raids: {} };
+            nextPrefsByChar[extremeSelection.charName] = {
+                ...prefs,
+                raids: {
+                    ...prefs.raids,
+                    [extremeSelection.raidName]: {
+                        ...(prefs.raids[extremeSelection.raidName] ?? { gates: [] }),
+                        enabled: true,
+                        difficulty: extremeSelection.difficulty,
+                        isGold: true,
+                        isBonus: false,
+                    },
+                },
+                order: [...(prefs.order ?? []), extremeSelection.raidName],
+            };
+        }
+
         return {
-            nextPrefsByChar,
+            nextPrefsByChar: enforceRosterExtremeLimit(nextPrefsByChar, extremeSelection?.charName),
             nextVisibleByChar,
             nextGoldByChar,
         };
