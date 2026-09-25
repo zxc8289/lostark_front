@@ -1,8 +1,10 @@
 "use client";
 
+import HomeTaskPreview from "./HomeTaskPreview";
+
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Coins, CalendarDays, CheckCircle2, ExternalLink, UserCheck, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Coins, CalendarDays, CheckCircle2, ExternalLink, Check, ChevronDown, ChevronUp } from "lucide-react";
 
 import type { CharacterSummary } from "./AddAccount";
 import type { CharacterTaskPrefs } from "../lib/tasks/raid-prefs";
@@ -271,16 +273,7 @@ export function HomeMyTasksGuard({ children }: { children: React.ReactNode }) {
     if (loading) return <HomeMyTasksSkeleton />;
     if (!activeAccount) {
         return (
-            <div className="flex-1 w-full flex flex-col items-center justify-center text-center rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-6">
-                <UserCheck size={32} className="mx-auto mb-2 text-gray-600" />
-                <p className="text-sm font-medium text-gray-400">연동된 원정대가 없습니다.</p>
-                <a
-                    href="/my-tasks"
-                    className="text-[11px] text-[#5B69FF] hover:underline mt-2 inline-block"
-                >
-                    내 숙제에서 등록하기 ›
-                </a>
-            </div>
+            <HomeTaskPreview />
         );
     }
 

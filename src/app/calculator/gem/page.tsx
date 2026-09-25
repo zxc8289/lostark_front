@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { compareGemPrices } from "@/app/lib/calculators/gem-comparison";
 import {
-    AlertCircle,
     Calculator,
     Check,
     Gem,
@@ -61,7 +61,7 @@ function normalizePrices(value: unknown): PriceMap {
         GEM_TYPES.forEach((type) => {
             const raw = source?.[level]?.[type.key];
             const price = typeof raw === "number" ? raw : parseGold(String(raw ?? ""));
-            next[level][type.key] = price > 0 ? String(price) : "";
+            next[level][type.key] = Number.isFinite(price) && price > 0 ? String(price) : "";
         });
     });
 
@@ -83,7 +83,10 @@ export default function GemCalculatorPage() {
             const savedSettings = localStorage.getItem(SETTINGS_KEY);
 
             if (savedPrices) {
-                setPrices(normalizePrices(JSON.parse(savedPrices)));
+                const saved = JSON.parse(savedPrices);
+                setPrices(normalizePrices(saved?.prices ?? saved));
+                setUpdatedAt(typeof saved?.updatedAt === "string" && Number.isFinite(Date.parse(saved.updatedAt)) ? saved.updatedAt : null);
+                setPriceStatus("이전에 저장한 가격입니다. 최신 시세를 확인해 주세요.");
             }
 
             if (savedSettings) {
@@ -100,10 +103,10 @@ export default function GemCalculatorPage() {
         if (!loaded) return;
 
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(prices));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ prices, updatedAt }));
             localStorage.setItem(SETTINGS_KEY, JSON.stringify({ targetLevel, targetType }));
         } catch { }
-    }, [prices, targetLevel, targetType, loaded]);
+    }, [prices, updatedAt, targetLevel, targetType, loaded]);
 
     const fetchGemPrices = async () => {
         setIsFetchingPrices(true);
@@ -117,12 +120,17 @@ export default function GemCalculatorPage() {
             }
 
             const data = await response.json();
-            setPrices(normalizePrices(data?.prices));
-            setUpdatedAt(data?.updatedAt ?? new Date().toISOString());
-            setPriceStatus("T4 보석 최저가를 불러왔습니다.");
+            const nextPrices = normalizePrices(data?.prices);
+            const count = PRICE_LEVELS.flatMap((level) => GEM_TYPES.map((type) => parseGold(nextPrices[level][type.key]))).filter((price) => price > 0).length;
+            if (!count) throw new Error("조회된 보석 가격이 없습니다.");
+            setPrices(nextPrices);
+            setUpdatedAt(typeof data?.updatedAt === "string" && Number.isFinite(Date.parse(data.updatedAt)) ? data.updatedAt : null);
+            setPriceStatus(data?.cache?.stale
+                ? "최신 조회에 실패하여 이전 캐시 가격을 표시합니다. 갱신 시간을 확인해 주세요."
+                : count < 20 ? "일부 보석 가격이 없습니다. 가격이 확인된 조합만 비교합니다." : "T4 보석 최저가를 불러왔습니다.");
         } catch (error) {
             console.error(error);
-            setPriceStatus("시세를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+            setPriceStatus("시세 갱신에 실패했습니다. 표시 중인 가격이 있다면 이전 저장값입니다. 잠시 후 다시 시도해 주세요.");
         } finally {
             setIsFetchingPrices(false);
         }
@@ -133,58 +141,16 @@ export default function GemCalculatorPage() {
         fetchGemPrices();
     }, [loaded]);
 
-    const result = useMemo(() => {
-        const lowerLevel = lowerLevelOf(targetLevel);
-        const targetPrice = parseGold(prices[targetLevel][targetType]);
-        const lowerDamagePrice = parseGold(prices[lowerLevel].damage);
-        const lowerCooldownPrice = parseGold(prices[lowerLevel].cooldown);
-        const lowerUnitPrice = Math.min(
-            lowerDamagePrice || Number.POSITIVE_INFINITY,
-            lowerCooldownPrice || Number.POSITIVE_INFINITY
-        );
-        const normalizedLowerUnitPrice = Number.isFinite(lowerUnitPrice) ? lowerUnitPrice : 0;
-        const synthesisCost = normalizedLowerUnitPrice * 3;
-        const diff = synthesisCost - targetPrice;
-        const canCalculate = targetPrice > 0 && synthesisCost > 0;
+    const result = useMemo(() => ({
+        lowerLevel: lowerLevelOf(targetLevel),
+        ...compareGemPrices(parseGold(prices[targetLevel][targetType]), parseGold(prices[lowerLevelOf(targetLevel)].damage), parseGold(prices[lowerLevelOf(targetLevel)].cooldown)),
+    }), [prices, targetLevel, targetType]);
 
-        return {
-            lowerLevel,
-            targetPrice,
-            lowerUnitPrice: normalizedLowerUnitPrice,
-            synthesisCost,
-            diff,
-            canCalculate,
-            isSynthesisCheaper: canCalculate && diff < 0,
-        };
-    }, [prices, targetLevel, targetType]);
-
-    const synthesisRows = useMemo(() => {
-        return TARGET_LEVELS.map((level) => {
-            const lowerLevel = lowerLevelOf(level);
-            const lowerDamagePrice = parseGold(prices[lowerLevel].damage);
-            const lowerCooldownPrice = parseGold(prices[lowerLevel].cooldown);
-            const lowerUnitPrice = Math.min(
-                lowerDamagePrice || Number.POSITIVE_INFINITY,
-                lowerCooldownPrice || Number.POSITIVE_INFINITY
-            );
-            const normalizedLowerUnitPrice = Number.isFinite(lowerUnitPrice) ? lowerUnitPrice : 0;
-            const synthesisCost = normalizedLowerUnitPrice * 3;
-            const targetPrice = parseGold(prices[level][targetType]);
-            const profit = targetPrice - synthesisCost;
-            const profitRate = synthesisCost > 0 ? (profit / synthesisCost) * 100 : 0;
-            const canCalculate = targetPrice > 0 && synthesisCost > 0;
-
-            return {
-                level,
-                lowerLevel,
-                synthesisCost,
-                targetPrice,
-                profit,
-                profitRate,
-                canCalculate,
-            };
-        });
-    }, [prices, targetType]);
+    const synthesisRows = useMemo(() => TARGET_LEVELS.map((level) => ({
+        level,
+        lowerLevel: lowerLevelOf(level),
+        ...compareGemPrices(parseGold(prices[level][targetType]), parseGold(prices[lowerLevelOf(level)].damage), parseGold(prices[lowerLevelOf(level)].cooldown)),
+    })), [prices, targetType]);
 
     const resetPrices = () => {
         setPrices(EMPTY_PRICES);
@@ -192,16 +158,14 @@ export default function GemCalculatorPage() {
         setPriceStatus(null);
     };
 
-    const recommendationLabel = !result.canCalculate
-        ? "가격 확인 필요"
-        : result.isSynthesisCheaper
-            ? "합성이 더 저렴합니다"
-            : "구매가 더 저렴합니다";
+    const recommendationLabel = isFetchingPrices && !result.canCalculate ? "시세를 불러오는 중입니다" : result.label;
 
     const recommendationTone = "border-white/10 bg-white/5 text-gray-200";
     const targetTypeLabel = GEM_TYPES.find((type) => type.key === targetType)?.shortLabel ?? "";
     const updatedAtLabel = updatedAt
         ? new Date(updatedAt).toLocaleString("ko-KR", {
+            year: "numeric",
+            timeZone: "Asia/Seoul",
             month: "2-digit",
             day: "2-digit",
             hour: "2-digit",
@@ -320,15 +284,15 @@ export default function GemCalculatorPage() {
                             <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                                 <div className="min-w-0 max-w-3xl">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <h2 className="font-semibold text-gray-200">레벨별 합성 수익률</h2>
+                                        <h2 className="font-semibold text-gray-200">목표 타입 획득 시 가격 차이</h2>
                                         {updatedAtLabel && (
                                             <span className="text-[11px] font-medium text-gray-500">
-                                                (마지막 갱신 {updatedAtLabel})
+                                                (가격 조회 {updatedAtLabel} KST)
                                             </span>
                                         )}
                                     </div>
                                     <p className="mt-1 break-keep text-xs text-gray-500">
-                                        같은 레벨 보석 3개를 합성해 한 단계 높은 {targetTypeLabel} 보석을 얻는다고 보고 비교합니다.
+                                        같은 레벨 보석 3개로 한 단계 높은 {targetTypeLabel} 보석을 얻는다고 가정한 비교입니다. 확률을 반영한 기대 수익이나 판매 수수료 차감 후 수익이 아닙니다.
                                         행을 누르면 목표 레벨이 바뀝니다.
                                     </p>
                                 </div>
@@ -345,6 +309,7 @@ export default function GemCalculatorPage() {
                                     <button
                                         type="button"
                                         onClick={resetPrices}
+                                        disabled={isFetchingPrices}
                                         className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0F1014] px-3 py-2 text-xs font-bold text-gray-400 transition hover:bg-white/5 hover:text-gray-200"
                                     >
                                         <RotateCcw className="h-4 w-4" />
@@ -353,9 +318,9 @@ export default function GemCalculatorPage() {
                                 </div>
                             </div>
 
-                            {priceStatus && (
-                                <div className="mb-4 rounded-lg border border-white/10 bg-[#0F1014] px-4 py-3 text-xs font-medium text-gray-300">
-                                    {priceStatus}
+                            {(priceStatus || isFetchingPrices) && (
+                                <div role="status" aria-live="polite" className="mb-4 rounded-lg border border-white/10 bg-[#0F1014] px-4 py-3 text-xs font-medium text-gray-300">
+                                    {isFetchingPrices ? "시세를 불러오는 중입니다. 기존 값이 있으면 갱신 전 가격을 표시합니다." : priceStatus}
                                 </div>
                             )}
 
@@ -365,8 +330,8 @@ export default function GemCalculatorPage() {
                                         <div>합성</div>
                                         <div className="text-right">비용</div>
                                         <div className="text-right">결과 가치</div>
-                                        <div className="text-right">손익</div>
-                                        <div className="text-right">수익률</div>
+                                        <div className="text-right">가격 차이</div>
+                                        <div className="text-right">차이율</div>
                                     </div>
                                     {synthesisRows.map((row) => {
                                         const selected = row.level === targetLevel;
@@ -399,7 +364,7 @@ export default function GemCalculatorPage() {
                                                     {row.canCalculate ? `${formatGold(row.targetPrice)}G` : "-"}
                                                 </div>
                                                 <div className={`text-right font-bold ${profitClass}`}>
-                                                    {row.canCalculate ? `${row.profit > 0 ? "+" : ""}${formatGold(Math.abs(row.profit))}G` : "-"}
+                                                    {row.canCalculate ? `${row.profit > 0 ? "+" : row.profit < 0 ? "−" : ""}${formatGold(Math.abs(row.profit))}G` : "-"}
                                                 </div>
                                                 <div className="text-right">
                                                     <span className={`inline-flex rounded-md border border-white/5 bg-[#0F1014] px-2 py-1 text-xs font-bold ${profitClass}`}>
@@ -416,18 +381,18 @@ export default function GemCalculatorPage() {
                         <section className="grid gap-4 lg:grid-cols-3">
                             <ResultCard
                                 label="바로 구매"
-                                value={`${formatGold(result.targetPrice)} G`}
+                                value={result.targetPrice > 0 ? `${formatGold(result.targetPrice)} G` : "—"}
                                 subText={`${targetLevel}레벨 ${targetTypeLabel} 보석 최저가`}
                             />
                             <ResultCard
                                 label="1회 합성 비용"
-                                value={`${formatGold(result.synthesisCost)} G`}
+                                value={result.synthesisCost > 0 ? `${formatGold(result.synthesisCost)} G` : "—"}
                                 subText={`${result.lowerLevel}레벨 보석 3개 기준`}
                             />
                             <ResultCard
                                 label="차액"
-                                value={`${result.diff > 0 ? "+" : ""}${formatGold(Math.abs(result.diff))} G`}
-                                subText={result.diff > 0 ? "구매가 더 저렴합니다" : "합성 비용이 더 저렴합니다"}
+                                value={result.canCalculate ? `${result.diff > 0 ? "+" : result.diff < 0 ? "−" : ""}${formatGold(Math.abs(result.diff))} G` : "—"}
+                                subText={recommendationLabel}
                             />
                         </section>
 
@@ -441,9 +406,9 @@ export default function GemCalculatorPage() {
                                 </div>
                                 <div className="space-y-3">
                                     <DetailRow label="사용할 하위 보석 레벨" value={`${result.lowerLevel}레벨`} />
-                                    <DetailRow label="하위 보석 최저 단가" value={`${formatGold(result.lowerUnitPrice)} G`} />
+                                    <DetailRow label="하위 보석 최저 단가" value={result.lowerUnitPrice > 0 ? `${formatGold(result.lowerUnitPrice)} G` : "—"} />
                                     <DetailRow label="필요 수량" value="3개" />
-                                    <DetailRow label="1회 합성 비용" value={`${formatGold(result.synthesisCost)} G`} />
+                                    <DetailRow label="1회 합성 비용" value={result.synthesisCost > 0 ? `${formatGold(result.synthesisCost)} G` : "—"} />
                                 </div>
                             </div>
 
@@ -458,14 +423,14 @@ export default function GemCalculatorPage() {
                                             {recommendationLabel}
                                         </div>
                                         <p className="text-sm leading-relaxed text-gray-400">
-                                            {result.isSynthesisCheaper
+                                            {result.diff === 0 ? "목표 보석 구매가와 1회 합성 비용의 차이가 없습니다." : result.isSynthesisCheaper
                                                 ? `바로 구매보다 합성 비용이 ${formatGold(Math.abs(result.diff))} G 저렴합니다.`
                                                 : `합성보다 바로 구매가 ${formatGold(Math.abs(result.diff))} G 저렴합니다.`}
                                         </p>
                                     </div>
                                 ) : (
                                     <p className="break-keep text-sm leading-relaxed">
-                                        T4 보석 시세를 불러오면 구매와 합성 비용을 비교할 수 있습니다.
+                                        {recommendationLabel}. 목표 보석과 하위 보석의 가격이 모두 있어야 비교할 수 있습니다.
                                     </p>
                                 )}
                             </div>

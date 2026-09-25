@@ -151,6 +151,17 @@ export default function PrivacyPage() {
                     </div>
                 </section>
 
+                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                    <h2 className="font-bold text-lg text-gray-100 flex items-center gap-2"><span className="w-1 h-4 bg-blue-500 rounded-full" />7. Google 광고, 쿠키와 브라우저 저장소</h2>
+                    <div className="space-y-4 text-sm leading-7 text-gray-400">
+                        <p>로아체크는 광고 게재를 위한 Google AdSense 코드를 사용합니다. 광고가 게재되는 경우 Google과 제3자 광고 공급업체는 쿠키 등을 이용해 이 사이트 또는 다른 웹사이트의 이전 방문 기록에 기반한 광고를 제공할 수 있습니다. 광고 제공·측정 과정에서 쿠키 식별자, IP 주소, 브라우저·기기 정보와 광고 상호작용 정보 등이 처리될 수 있습니다.</p>
+                        <p>제3자는 브라우저에 쿠키를 저장하거나 읽고, 웹 비콘 등의 기술을 사용할 수 있습니다. Google의 처리 방식은 <a className="text-blue-300 underline" href="https://policies.google.com/technologies/partner-sites?hl=ko">Google 파트너 사이트의 정보 이용 안내</a>와 <a className="text-blue-300 underline" href="https://policies.google.com/privacy?hl=ko">Google 개인정보처리방침</a>에서 확인할 수 있습니다.</p>
+                        <p>개인 맞춤 광고는 <a className="text-blue-300 underline" href="https://myadcenter.google.com/">Google 내 광고 센터</a>에서 관리할 수 있습니다. 제3자 광고 업체의 개인 맞춤 광고 선택은 <a className="text-blue-300 underline" href="https://optout.aboutads.info/">광고 업계의 선택 도구</a>에서도 확인할 수 있습니다. 맞춤 광고를 해제해도 일반 광고는 표시될 수 있습니다.</p>
+                        <p>로그인 상태 유지에는 인증 쿠키가, 비로그인 숙제 기록·계산기 입력·화면 설정 보관에는 브라우저 로컬 저장소가 사용됩니다. 브라우저 설정에서 쿠키를 차단하거나 저장 데이터를 삭제할 수 있으며, 이 경우 로그인이 해제되거나 해당 기기의 비로그인 기록과 설정이 삭제될 수 있습니다. 브라우저 데이터 삭제와 서버에 저장한 계정 데이터 삭제는 별개입니다.</p>
+                        <p>사이트는 Google Tag Manager로 태그를 관리합니다. 태그 관리 도구의 사용만으로 특정 분석 서비스가 항상 실행되는 것은 아니며, 추가 데이터 수집 기능을 도입하거나 처리 목적을 변경하는 경우 이 방침에 반영합니다.</p>
+                    </div>
+                </section>
+
                 {/* 6. 운영자 정보 */}
                 <section className="p-8 rounded-xl border border-blue-500/10 bg-blue-500/[0.02] space-y-6">
                     <div className="flex items-center gap-2">
@@ -172,7 +183,7 @@ export default function PrivacyPage() {
 
             {/* 하단 안내 */}
             <div className="text-center pt-10 border-t border-white/5">
-                <p className="text-[10px] text-gray-600 uppercase tracking-[0.3em]">Last Updated: 2026. 07. 14</p>
+                <p className="text-xs text-gray-400">최종 수정: 2026. 09. 25 · Google 광고 및 브라우저 저장소 안내 보강</p>
             </div>
         </div>
     );

@@ -4,6 +4,9 @@ import HomeMyTasksSummary, { HomeMyTasksHeader, HomeMyTasksDetails, HomeMyTasksG
 import HomePartySummaryProvider, { HomePartyGuard, HomePartyHeader, HomePartyDetails } from "./components/HomePartySummary";
 import TodaySchedule from "./components/TodaySchedule";
 import ClientOnly from "./components/ClientOnly";
+import HomeGuestIntro from "./components/HomeGuestIntro";
+import { getServerSession } from "next-auth";
+import { authOptions } from "./api/auth/[...nextauth]/route";
 
 // --- 유틸리티 함수 ---
 function fmtDate(iso?: string | null) {
@@ -20,15 +23,12 @@ function categoryBadgeClass(category: string) {
 }
 
 export default async function HomePage() {
+  const session = await getServerSession(authOptions);
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
   // 1. 로스트아크 공식 공지사항 가져오기
   let notices = [
-    { title: "로스트아크 정기 점검 안내", category: "공지", date: "NEW", link: "#", isNew: true },
-    { title: "2월 14일(수) 로스트아크 샵 상품 안내", category: "상점", date: "2024.02.10", link: "https://lostark.game.onstove.com/News/Notice/List", isNew: false },
-    { title: "[이벤트] 달콤한 발렌타인 데이 이벤트", category: "이벤트", date: "2024.02.09", link: "https://lostark.game.onstove.com/News/Notice/List", isNew: false },
-    { title: "알려진 버그 수정 사항 안내", category: "수정", date: "2024.02.08", link: "https://lostark.game.onstove.com/News/Notice/List", isNew: false },
-    { title: "클라이언트 패치 노트 (Ver 2.5.1)", category: "패치", date: "2024.02.07", link: "https://lostark.game.onstove.com/News/Notice/List", isNew: false },
+    { title: "로스트아크 공식 공지 확인하기", category: "공식", date: "", link: "https://lostark.game.onstove.com/News/Notice/List", isNew: false },
   ];
 
   try {
@@ -84,6 +84,7 @@ export default async function HomePage() {
 
   return (
     <div className="pt-6 md:pt-17 pb-10 px-0 md:px-4 xl:px-0 text-gray-300 w-full max-w-7xl mx-auto space-y-5 lg:space-y-8">
+      {!session?.user && <HomeGuestIntro />}
 
       {/* 상단 섹션: 스케줄 + 우측 로아체크 공지사항 */}
       <section className="w-full grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-6 items-stretch">
@@ -220,7 +221,7 @@ export default async function HomePage() {
                         <ChevronRight className="w-5 h-5 md:w-6 md:h-6 transition-transform group-hover:translate-x-1" />
                       </div>
                     </a>
-                    <div className="w-full pt-1 md:pt-2"><HomeMyTasksHeader /></div>
+                    <HomeMyTasksHeader />
                   </div>
                   <HomeMyTasksGuard>
                     <div className="w-full mt-2 md:mt-0">

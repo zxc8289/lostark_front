@@ -1,8 +1,10 @@
 "use client";
 
+import HomeTaskPreview from "./HomeTaskPreview";
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
-import { UsersRound, ChevronRight, User, Users, Clock, UserCheck } from "lucide-react";
+import { UsersRound, ChevronRight, User, Users, Clock } from "lucide-react";
 import DiscordAvatar from "./DiscordAvatar";
 
 /* ───────── 타입 및 컨텍스트 ───────── */
@@ -57,16 +59,7 @@ export function HomePartyGuard({ children }: { children: React.ReactNode }) {
     if (loading) return <HomePartySkeleton />;
 
     if (parties.length === 0) return (
-        <div className="flex-1 w-full flex flex-col items-center justify-center text-center rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-6">
-            <UserCheck size={32} className="mx-auto mb-2 text-gray-600" />
-            <p className="text-sm font-medium text-gray-400">참여 중인 파티가 없습니다.</p>
-            <a
-                href="/party-tasks"
-                className="text-[11px] text-[#5B69FF] hover:underline mt-2 inline-block"
-            >
-                파티 숙제에서 등록하기 ›
-            </a>
-        </div>
+        <HomeTaskPreview party />
     );
 
     return <>{children}</>;

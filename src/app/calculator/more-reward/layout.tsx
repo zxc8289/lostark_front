@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ToolMethodNote from "@/app/components/ToolMethodNote";
 
 export const metadata: Metadata = {
     title: "더보기 효율 계산기 | 로아체크",
@@ -17,5 +18,5 @@ export default function MoreRewardCalculatorLayout({
 }: {
     children: React.ReactNode;
 }) {
-    return <>{children}</>;
+    return <>{children}<ToolMethodNote tool="more-reward" calculatorLayout /></>;
 }

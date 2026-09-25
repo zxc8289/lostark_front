@@ -74,7 +74,11 @@ const items: NavItem[] = [
             { href: "/calculator/craft", label: "영지 제작 계산기" },
         ]
     },
-    // { href: "/guide", label: "가이드" },
+    { href: "/articles", label: "가이드", subItems: [
+        { href: "/articles", label: "정보 글" },
+        { href: "/guide", label: "이용 가이드" },
+        { href: "/guide/data", label: "데이터와 계산 기준" },
+    ] },
     { href: "/support", label: "문의하기" },
 ];
 

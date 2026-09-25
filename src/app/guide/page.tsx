@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Calculator, CheckCircle2, Gem, ListChecks, Search, UsersRound } from "lucide-react";
+import GuidePageLayout, { GuideContents, GuidePanel } from "../components/GuidePageLayout";
+import { ArrowRight, Calculator, Gem, ListChecks, Search, UsersRound } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "로아체크 이용 가이드",
@@ -48,67 +49,26 @@ const steps = [
 ];
 
 export default function GuidePage() {
-  return (
-    <div className="w-full max-w-7xl mx-auto px-4 md:px-0 pt-10 md:pt-16 pb-16 text-gray-300 space-y-12">
-      <section className="space-y-4 border-b border-white/5 pb-10">
-        <span className="inline-flex items-center gap-2 text-xs font-bold text-blue-400">
-          <CheckCircle2 size={16} />
-          USER GUIDE
-        </span>
-        <h1 className="text-3xl md:text-5xl font-black text-gray-100 tracking-tight">
-          처음 쓰는 유저를 위한 로아체크 사용 순서
-        </h1>
-        <p className="text-sm md:text-base text-gray-400 leading-8 max-w-4xl">
-          로아체크는 여러 기능이 한 화면에 모여 있지만, 실제 사용 흐름은 단순합니다.
-          캐릭터 현황을 확인하고, 남은 숙제를 체크한 뒤, 레이드 결과를 계산기로 검토하는
-          순서로 사용하면 가장 자연스럽습니다.
-        </p>
-      </section>
-
-      <section className="space-y-4">
+  return <GuidePageLayout title="로아체크 이용 가이드" description="캐릭터 현황을 확인하고, 남은 숙제를 체크한 뒤, 레이드 결과를 계산기로 검토하세요. 처음 사용하는 분들을 위한 기능별 사용 순서입니다." active="guide">
+    <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+      <GuideContents items={steps.map((step, index) => ({id: `step-${index + 1}`, label: step.title}))} />
+      <div className="min-w-0 space-y-4 sm:space-y-6">
         {steps.map((step, index) => {
           const Icon = step.icon;
-          return (
-            <article key={step.title} className="bg-[#16181D] border border-white/5 rounded-lg p-5 md:p-6">
-              <div className="flex flex-col md:flex-row md:items-start gap-5 md:gap-8">
-                <div className="flex items-center gap-3 md:w-80 shrink-0">
-                  <div className="w-10 h-10 rounded-md bg-blue-600/10 text-blue-400 flex items-center justify-center">
-                    <Icon size={20} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 font-bold">STEP {index + 1}</p>
-                    <h2 className="text-base font-bold text-gray-100 leading-6">{step.title}</h2>
-                  </div>
-                </div>
-                <div className="flex-1 space-y-3">
-                  <p className="text-sm text-gray-400 leading-7">{step.body}</p>
-                  <Link href={step.href} className="inline-flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300">
-                    기능 바로가기
-                    <ArrowRight size={14} />
-                  </Link>
-                </div>
-              </div>
-            </article>
-          );
+          return <GuidePanel key={step.title} id={`step-${index + 1}`} title={step.title}>
+            <div className="flex items-center gap-2 text-xs font-medium text-[#A6AEFF]"><Icon size={16} />STEP {index + 1}</div>
+            <p>{step.body}</p>
+            <Link href={step.href} className="inline-flex items-center gap-2 rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-white/10">기능 바로가기<ArrowRight size={14} /></Link>
+          </GuidePanel>;
         })}
-      </section>
-
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-        <div className="bg-[#16181D] border border-white/5 rounded-lg p-5 md:p-6 space-y-3">
-          <h2 className="text-lg font-bold text-gray-100">계산 결과를 볼 때 주의할 점</h2>
-          <p className="text-sm text-gray-400 leading-7">
-            로아체크의 계산기는 빠른 판단을 돕는 보조 지표입니다. 시세, 파티 구성,
-            보스 패턴, 기믹 수행, 캐릭터 세팅에 따라 실제 체감 효율은 달라질 수 있습니다.
-          </p>
-        </div>
-        <div className="bg-[#16181D] border border-white/5 rounded-lg p-5 md:p-6 space-y-3">
-          <h2 className="text-lg font-bold text-gray-100">공개 콘텐츠와 개인 데이터</h2>
-          <p className="text-sm text-gray-400 leading-7">
-            가이드와 정보 글은 누구나 읽을 수 있는 공개 콘텐츠이며, 개인 숙제와 파티 정보는
-            사용자가 직접 입력하거나 연동한 내용을 기준으로 표시됩니다.
-          </p>
-        </div>
-      </section>
+        <GuidePanel title="계산 결과를 볼 때 주의할 점">
+          <p>로아체크의 계산기는 빠른 판단을 돕는 보조 지표입니다. 시세, 파티 구성, 보스 패턴, 기믹 수행, 캐릭터 세팅에 따라 실제 체감 효율은 달라질 수 있습니다.</p>
+          <p>결과가 궁금하다면 <Link className="text-[#A6AEFF] hover:underline" href="/articles">계산 사례가 있는 정보 글</Link>과 <Link className="text-[#A6AEFF] hover:underline" href="/guide/data">데이터 출처·계산 기준</Link>을 함께 확인하세요.</p>
+        </GuidePanel>
+        <GuidePanel title="공개 콘텐츠와 개인 데이터">
+          <p>가이드와 정보 글은 누구나 읽을 수 있는 공개 콘텐츠이며, 개인 숙제와 파티 정보는 사용자가 직접 입력하거나 연동한 내용을 기준으로 표시됩니다.</p>
+        </GuidePanel>
+      </div>
     </div>
-  );
+  </GuidePageLayout>;
 }

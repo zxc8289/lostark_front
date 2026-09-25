@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ToolMethodNote from "@/app/components/ToolMethodNote";
 
 export const metadata: Metadata = {
     title: "젬 세팅 효율 계산기",
@@ -15,5 +16,5 @@ export default function GemSetupLayout({
 }: {
     children: React.ReactNode;
 }) {
-    return <>{children}</>;
+    return <>{children}<ToolMethodNote tool="gem-setup" /></>;
 }

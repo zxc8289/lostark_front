@@ -12,6 +12,7 @@ import Script from "next/script";
 import { GoogleTagManager } from "@next/third-parties/google";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://loacheck.com"),
   title: {
     template: "%s | 로아체크",
     default: "로아체크 - 로스트아크 레이드 체크",
@@ -103,18 +104,17 @@ export default function RootLayout({
 
   return (
     <html lang="ko">
+      <head>
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1712313315461589"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body
         className={`${pretendard.variable} font-pretendard min-h-screen flex flex-col bg-[#1B1D22] text-gray-300`}
       >
         <GoogleTagManager gtmId="GTM-PF49FQBN" />
-
-
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1712313315461589"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
 
         <Script
           id="website-json-ld"
