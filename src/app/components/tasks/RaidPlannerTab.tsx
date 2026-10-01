@@ -43,6 +43,7 @@ export type RaidGroup = {
 type RaidPlannerTabProps = {
     partyId: number;
     partyTasks: PartyMemberTasks[];
+    focusGroupId?: string | null;
     isTemporaryMode?: boolean;
     initialGroups?: RaidGroup[];
     initialOtherGroups?: RaidGroup[];
@@ -197,6 +198,7 @@ const getGroupAvgCP = (slots: any[]): number => {
 export default function RaidPlannerTab({
     partyId,
     partyTasks,
+    focusGroupId,
     isTemporaryMode = false,
     initialGroups,
     initialOtherGroups,
@@ -251,6 +253,7 @@ export default function RaidPlannerTab({
     const [raidSelectSearch, setRaidSelectSearch] = useState("");
 
     const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+    const focusedOnceRef = useRef<string | null>(null);
     const [activeDragChar, setActiveDragChar] = useState<any | null>(null);
 
     const [guestSearchInput, setGuestSearchInput] = useState("");
@@ -830,6 +833,26 @@ export default function RaidPlannerTab({
             return true;
         });
     }, [syncedGroups, selectedRaids, selectedUsers, onlyRemain, isEditMode, partyTasks, now]);
+
+    useEffect(() => {
+        if (!focusGroupId || isLoading || focusedOnceRef.current === focusGroupId) return;
+        if (!groups.some(group => group.id === focusGroupId)) return;
+        setSelectedRaids([]);
+        setSelectedUsers([]);
+        setOnlyRemain(false);
+        setIsScheduleView(false);
+        setIsReorderMode(false);
+        setIsEditMode(false);
+        setActiveGroupId(focusGroupId);
+
+        const timer = window.setTimeout(() => {
+            const element = document.getElementById(`raid-planner-group-${focusGroupId}`);
+            if (!element) return;
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+            focusedOnceRef.current = focusGroupId;
+        }, 150);
+        return () => window.clearTimeout(timer);
+    }, [focusGroupId, groups, isLoading]);
 
     const dayOrderMap = useMemo(() => {
         const days = ["일", "월", "화", "수", "목", "금", "토"];
@@ -2102,6 +2125,7 @@ export default function RaidPlannerTab({
                                         <SortableGroupWrapper key={group.id} id={group.id}>
                                             <ReadOnlyGroupCard
                                                 group={group}
+                                                isFocused={group.id === focusGroupId}
                                                 partyTasks={partyTasks}
                                                 countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined}
                                                 onBulkToggleGate={onBulkToggleGate}
@@ -2129,7 +2153,7 @@ export default function RaidPlannerTab({
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                             {dayGroups.map(group => (
-                                                <ReadOnlyGroupCard key={group.id} onToggleCharPin={toggleCharPin} group={group} now={now} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} isTemporaryMode={isTemporaryMode} onTogglePin={toggleGroupPin} />
+                                                <ReadOnlyGroupCard key={group.id} onToggleCharPin={toggleCharPin} group={group} isFocused={group.id === focusGroupId} now={now} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} isTemporaryMode={isTemporaryMode} onTogglePin={toggleGroupPin} />
                                             ))}
                                         </div>
                                     </div>
@@ -2144,7 +2168,7 @@ export default function RaidPlannerTab({
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                         {groupedBySchedule!.unscheduled.map(group => (
-                                            <ReadOnlyGroupCard key={group.id} onToggleCharPin={toggleCharPin} group={group} now={now} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} isTemporaryMode={isTemporaryMode} onTogglePin={toggleGroupPin} />
+                                            <ReadOnlyGroupCard key={group.id} onToggleCharPin={toggleCharPin} group={group} isFocused={group.id === focusGroupId} now={now} partyTasks={partyTasks} countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined} onBulkToggleGate={onBulkToggleGate} isTemporaryMode={isTemporaryMode} onTogglePin={toggleGroupPin} />
                                         ))}
                                     </div>
                                 </div>
@@ -2166,6 +2190,7 @@ export default function RaidPlannerTab({
                                                 <ReadOnlyGroupCard
                                                     key={group.id}
                                                     group={group}
+                                                    isFocused={group.id === focusGroupId}
                                                     partyTasks={partyTasks}
                                                     countdown={group.expiresAt ? Math.max(0, Math.ceil((group.expiresAt - now) / 1000)) : undefined}
                                                     onBulkToggleGate={onBulkToggleGate}
@@ -2613,6 +2638,7 @@ export default function RaidPlannerTab({
 
 function ReadOnlyGroupCard({
     group,
+    isFocused,
     partyTasks,
     countdown,
     now,
@@ -2622,6 +2648,7 @@ function ReadOnlyGroupCard({
     onToggleCharPin // 🔥 추가
 }: {
     group: RaidGroup;
+    isFocused?: boolean;
     partyTasks: PartyMemberTasks[];
     countdown?: number;
     now: number;
@@ -2671,7 +2698,7 @@ function ReadOnlyGroupCard({
     }, [group.slots, partyTasks, group.raidName, group.difficulty, allGates]);
 
     return (
-        <div className={`bg-[#16181D] rounded-lg flex flex-col h-fit border-[1.5px] border-transparent relative overflow-hidden transition-all`}>
+        <div id={`raid-planner-group-${group.id}`} className={`bg-[#16181D] rounded-lg flex flex-col h-fit border-[1.5px] relative overflow-hidden transition-all ${isFocused ? "border-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.14)]" : "border-transparent"}`}>
             {countdown !== undefined && (
                 <div className="bg-red-500/20 text-red-400 text-xs font-bold text-center py-1.5 border-b border-red-500/20 animate-pulse shadow-sm">
                     그룹이 {countdown}초 뒤 자동 삭제됩니다

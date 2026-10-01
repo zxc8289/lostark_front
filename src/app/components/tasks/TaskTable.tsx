@@ -33,6 +33,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import CharacterInfoCell from "./CharacterInfoCell";
+import PartyAssignmentLabel from "./PartyAssignmentLabel";
+import type { PartyRaidAssignments } from "@/app/lib/tasks/party-assignments";
 
 type Props = {
     roster: RosterCharacter[];
@@ -52,6 +54,7 @@ type Props = {
     ) => void;
     onEdit: (character: RosterCharacter) => void;
     isDragEnabled?: boolean; // 드래그 활성화 여부
+    partyAssignments?: PartyRaidAssignments;
 };
 
 
@@ -179,7 +182,8 @@ function SortableCharacterRow({
     onEdit,
     onToggleGate,
     isDragEnabled,
-    onOpenMemo
+    onOpenMemo,
+    partyAssignments,
 }: {
     char: RosterCharacter;
     prefs: CharacterTaskPrefs | undefined;
@@ -189,6 +193,7 @@ function SortableCharacterRow({
     onToggleGate: Props["onToggleGate"];
     isDragEnabled: boolean;
     onOpenMemo: (charName: string, currentMemo: string) => void;
+    partyAssignments?: PartyRaidAssignments;
 }) {
     const rowId = `${CHAR_ID_PREFIX}${char.name}`;
     const sortable = useSortable({ id: rowId });
@@ -234,26 +239,34 @@ function SortableCharacterRow({
                         const allGates: number[] = diffInfo.gates.map((g: any) => g.index);
                         const diffStyle = DIFF_STYLES[p.difficulty as keyof typeof DIFF_STYLES] ?? DIFF_STYLES["노말"];
                         const isBonus = !!p.isBonus;
+                        const assignedGroups = partyAssignments?.[char.name]?.[raidId] ?? [];
 
                         return (
                             <td key={raidId} className={`${RAID_COL_CLASS} align-middle`}>
-                                <div className="flex items-center justify-center gap-[4px] sm:gap-[5px]">
-                                    {allGates.map((g: number) => {
-                                        const isChecked = checkedSet.has(g);
-                                        return (
-                                            <button
-                                                key={g} type="button" title={`관문 ${g}`} aria-pressed={isChecked}
-                                                onClick={() => onToggleGate(char.name, raidId, g, Array.from(checkedSet), allGates)}
-                                                className={[
-                                                    GATE_BTN_BASE, "relative", "hover:scale-[1.1]",
-                                                    isChecked ? `${diffStyle.check} border-transparent` : [diffStyle.idle, "hover:border-white/30", diffStyle.hover].join(" "),
-                                                ].join(" ")}
-                                            >
-                                                {isChecked ? <svg viewBox="0 0 20 20" className="h-3 w-3 sm:h-4 sm:w-4" fill="none" stroke="currentColor" strokeWidth={2}><path d="M5 10l3 3 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg> : g}
-                                                {isBonus && <span className="absolute -top-[3px] -right-[3px] sm:-top-1 sm:-right-1 flex items-center justify-center w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] bg-[#111217] text-gray-300 text-[10px] sm:text-[12px] font-medium leading-none rounded-full border border-gray-500/60 z-10"><span className="relative bottom-[0.5px]">+</span></span>}
-                                            </button>
-                                        );
-                                    })}
+                                <div className="relative mx-auto w-fit">
+                                    {assignedGroups.length > 0 && (
+                                        <div className="absolute left-full top-1/2 z-[1] ml-2 -translate-y-1/2">
+                                            <PartyAssignmentLabel assignments={assignedGroups} compact />
+                                        </div>
+                                    )}
+                                    <div className="flex items-center justify-center gap-[4px] sm:gap-[5px]">
+                                        {allGates.map((g: number) => {
+                                            const isChecked = checkedSet.has(g);
+                                            return (
+                                                <button
+                                                    key={g} type="button" title={`관문 ${g}`} aria-pressed={isChecked}
+                                                    onClick={() => onToggleGate(char.name, raidId, g, Array.from(checkedSet), allGates)}
+                                                    className={[
+                                                        GATE_BTN_BASE, "relative", "hover:scale-[1.1]",
+                                                        isChecked ? `${diffStyle.check} border-transparent` : [diffStyle.idle, "hover:border-white/30", diffStyle.hover].join(" "),
+                                                    ].join(" ")}
+                                                >
+                                                    {isChecked ? <svg viewBox="0 0 20 20" className="h-3 w-3 sm:h-4 sm:w-4" fill="none" stroke="currentColor" strokeWidth={2}><path d="M5 10l3 3 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg> : g}
+                                                    {isBonus && <span className="absolute -top-[3px] -right-[3px] sm:-top-1 sm:-right-1 flex items-center justify-center w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] bg-[#111217] text-gray-300 text-[10px] sm:text-[12px] font-medium leading-none rounded-full border border-gray-500/60 z-10"><span className="relative bottom-[0.5px]">+</span></span>}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </td>
                         );
@@ -282,7 +295,8 @@ export default function TaskTable({
     onToggleGate,
     onEdit,
     isDragEnabled = false,
-    onOpenMemo
+    onOpenMemo,
+    partyAssignments,
 }: Props) {
     const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -808,6 +822,7 @@ export default function TaskTable({
                                                 onToggleGate={onToggleGate}
                                                 isDragEnabled={isDragEnabled}
                                                 onOpenMemo={onOpenMemo}
+                                                partyAssignments={partyAssignments}
                                             />
                                         );
                                     })}

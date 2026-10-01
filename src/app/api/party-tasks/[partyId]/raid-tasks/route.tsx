@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import type { Session } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/db/client";
+import type { PartyRaidAssignments } from "@/app/lib/tasks/party-assignments";
 
 export const runtime = "nodejs"; // MongoDB 드라이버도 node 런타임에서만 사용
 
@@ -75,6 +76,7 @@ type PartyRaidTasksResponse = {
     members: PartyMemberTasks[];
     plannerData?: any[];
     tempPlannerData?: any[];
+    externalAssignmentsByUser?: Record<string, PartyRaidAssignments>;
 };
 
 type RouteParams = Promise<{ partyId: string }>;
@@ -221,6 +223,69 @@ export async function GET(
 
     // 3) 파티 멤버들의 raid_task_state 조회
     const memberUserIdsForState = memberRows.map((m) => m.user_id);
+    const externalAssignmentsByUser: Record<string, PartyRaidAssignments> = {};
+    const otherMemberships = await partyMembersCol.find<{
+        party_id: number;
+        user_id: string;
+    }>(
+        { user_id: { $in: memberUserIdsForState }, party_id: { $ne: partyIdNum } },
+        { projection: { party_id: 1, user_id: 1 } }
+    ).toArray();
+    const membersByOtherParty = new Map<number, Set<string>>();
+    for (const membership of otherMemberships) {
+        const members = membersByOtherParty.get(membership.party_id) ?? new Set<string>();
+        members.add(membership.user_id);
+        membersByOtherParty.set(membership.party_id, members);
+    }
+
+    if (membersByOtherParty.size > 0) {
+        const otherParties = await partiesCol.find<{
+            id: number;
+            name?: string;
+            planner_data?: any[];
+            temp_planner_data?: any[];
+        }>(
+            { id: { $in: [...membersByOtherParty.keys()] } },
+            { projection: { _id: 0, id: 1, name: 1, planner_data: 1, temp_planner_data: 1 } }
+        ).toArray();
+        const now = Date.now();
+
+        for (const otherParty of otherParties) {
+            const partyMemberIds = membersByOtherParty.get(otherParty.id);
+            if (!partyMemberIds) continue;
+            const groupSets = [
+                { groups: otherParty.planner_data, mode: "planner", fallbackName: "레이드 그룹" },
+                { groups: otherParty.temp_planner_data, mode: "temp_planner", fallbackName: "자율편성 그룹" },
+            ] as const;
+
+            for (const { groups: rawGroups, mode, fallbackName } of groupSets) {
+                if (!Array.isArray(rawGroups)) continue;
+                for (const group of rawGroups) {
+                    if (!group?.raidName || !Array.isArray(group.slots)) continue;
+                    if (group.expiresAt && group.expiresAt <= now) continue;
+                    for (const slot of group.slots) {
+                        if (!slot || slot.isGuest || !slot.ownerId || !slot.name) continue;
+                        const ownerId = String(slot.ownerId);
+                        if (!partyMemberIds.has(ownerId)) continue;
+                        const showDetails = ownerId === userId;
+                        const chars = externalAssignmentsByUser[ownerId] ??= {};
+                        const raids = chars[String(slot.name)] ??= {};
+                        const assignments = raids[String(group.raidName)] ??= [];
+                        assignments.push({
+                            partyId: showDetails ? otherParty.id : 0,
+                            partyName: showDetails ? otherParty.name || "이름 없는 공격대" : "다른 공격대",
+                            groupId: showDetails ? String(group.id || "") : undefined,
+                            groupName: showDetails ? group.groupName || fallbackName : "편성됨",
+                            difficulty: showDetails ? group.difficulty || "" : "",
+                            mode,
+                            external: true,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
     const stateDocs = (await raidTaskStateCol
         .find<{
             user_id: string;
@@ -330,7 +395,8 @@ export async function GET(
         {
             members,
             plannerData: partyRow.planner_data || [],
-            tempPlannerData: partyRow.temp_planner_data || []
+            tempPlannerData: partyRow.temp_planner_data || [],
+            externalAssignmentsByUser,
         } satisfies PartyRaidTasksResponse,
         { status: 200 }
     );

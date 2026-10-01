@@ -24,6 +24,7 @@ import TaskSidebar from "../components/tasks/TaskSidebar";
 import { useGlobalWebSocket } from "../components/WebSocketProvider";
 import MemoModal from "../components/tasks/MemoModal";
 import type { TaskItem } from "../components/tasks/CharacterTaskStrip";
+import type { PartyRaidAssignments } from "../lib/tasks/party-assignments";
 
 // 🔥 Context & Tabs 임포트
 import { MyTasksContext } from "./MyTasksContext";
@@ -128,6 +129,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
   const { data: session, status: authStatus } = useSession();
   const [syncedWithServer, setSyncedWithServer] = useState(false);
   const [syncingServer, setSyncingServer] = useState(false);
+  const [partyAssignments, setPartyAssignments] = useState<PartyRaidAssignments>({});
   const isAuthed = authStatus === "authenticated" && !!session?.user;
   const [showAutoSetupSettings, setShowAutoSetupSettings] = useState(false);
   const [autoSetupConfirmOpen, setAutoSetupConfirmOpen] = useState(false);
@@ -305,6 +307,56 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
     ws.addEventListener("message", handleMessage);
     return () => ws.removeEventListener("message", handleMessage);
   }, [ws, isAuthed, session]);
+
+  useEffect(() => {
+    if (!isAuthed || forceDemo) {
+      setPartyAssignments({});
+      return;
+    }
+
+    let disposed = false;
+    let requestId = 0;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const refreshAssignments = async () => {
+      const currentRequest = ++requestId;
+      try {
+        const response = await fetch("/api/raid-tasks/assignments", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as { assignments?: PartyRaidAssignments };
+        if (!disposed && currentRequest === requestId) {
+          setPartyAssignments(data.assignments ?? {});
+        }
+      } catch (error) {
+        console.error("파티 편성 정보 조회 실패:", error);
+      }
+    };
+
+    const onFocus = () => { void refreshAssignments(); };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshAssignments();
+    };
+    const onPlannerUpdated = (event: MessageEvent) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type !== "plannerUpdated") return;
+        if (refreshTimer) clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(() => { void refreshAssignments(); }, 900);
+      } catch { }
+    };
+
+    void refreshAssignments();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    ws?.addEventListener("message", onPlannerUpdated);
+    return () => {
+      disposed = true;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      ws?.removeEventListener("message", onPlannerUpdated);
+    };
+  }, [isAuthed, forceDemo, ws]);
 
   useEffect(() => {
     try {
@@ -643,6 +695,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
           <TaskCard
             key={`${c.name}-${raidName}-${p.difficulty}`}
             kind={info.kind} raidName={raidName} difficulty={p.difficulty} isBonus={p.isBonus} gates={p.gates} right={right}
+            assignedGroups={partyAssignments[c.name]?.[raidName] ?? []}
             onToggleGate={(gate) => {
               const allGateIdx = (diff.gates ?? []).map((g: any) => g.index);
               setCharPrefs(c.name, (cur) => {
@@ -983,7 +1036,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
     handleTableToggleGate, setEditingChar, rosterOrder, isDragEnabled, setRosterOrder,
     visibleRoster, cardRosterOrder, buildTasksFor, effectivePrefsByChar,
     handleSingleCharacterAllClear, setCharPrefs, setCardRosterOrder, currentActiveAccount,
-    safeGoldDesignatedByChar
+    safeGoldDesignatedByChar, partyAssignments
   };
 
   return (

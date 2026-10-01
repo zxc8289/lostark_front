@@ -49,7 +49,8 @@ export default function WeeklyRaidTab() {
         tableRoster, tablePrefsByChar, tableOrderForView, setMemoTarget, setTableOrder,
         handleTableToggleGate, setEditingChar, rosterOrder, isDragEnabled, setRosterOrder,
         visibleRoster, cardRosterOrder, buildTasksFor, effectivePrefsByChar,
-        handleSingleCharacterAllClear, setCharPrefs, setCardRosterOrder, currentActiveAccount
+        handleSingleCharacterAllClear, setCharPrefs, setCardRosterOrder, currentActiveAccount,
+        partyAssignments
     } = useMyTasksCtx();
 
     const cardSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -278,6 +279,7 @@ export default function WeeklyRaidTab() {
                         key={`table-${isAllView ? 'all' : currentActiveAccount?.id}`}
                         roster={tableRoster}
                         prefsByChar={tablePrefsByChar}
+                        partyAssignments={partyAssignments}
                         tableOrder={tableOrderForView}
                         onOpenMemo={(charName: string, memo: string) => setMemoTarget({ charName, currentMemo: memo })}
                         onReorderTable={setTableOrder}

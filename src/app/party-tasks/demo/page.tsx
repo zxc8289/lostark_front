@@ -45,6 +45,7 @@
     } from "@/app/components/AddAccount";
     import { raidInformation } from "@/server/data/raids";
     import type { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
+    import type { PartyRaidAssignments } from "@/app/lib/tasks/party-assignments";
     import EditTasksModal from "@/app/components/tasks/EditTasksModal";
     import CharacterSettingModal from "@/app/components/tasks/CharacterSettingModal";
     import {
@@ -390,6 +391,7 @@
             onlyRemain?: boolean;
             isGoldEarn?: boolean;
             assignedRaids?: Set<string>;
+            assignedGroupsByChar?: PartyRaidAssignments;
             ownerId?: string;
             onToggleGate?: (raidName: string, gateIndex: number, currentGates: number[], allGates: number[]) => void;
         }
@@ -460,6 +462,7 @@
                         gates={p.gates}
                         right={right}
                         isAssigned={isAssigned}
+                        assignedGroups={options?.assignedGroupsByChar?.[c.name]?.[raidName] ?? []}
                         onToggleGate={(gate) => {
                             if (!options?.onToggleGate) return;
                             const currentGates = p.gates ?? [];
@@ -1145,6 +1148,7 @@
                                                     setMemoTarget({ memberUserId: userId, charName, currentMemo: memo })
                                                 }
                                                 assignedRaids={assignedRaids}
+                                                partyAssignments={getDemoPartyAssignments(m.userId, party.id, party.name, assignedRaids)}
                                             />
                                         );
                                     })}
@@ -1344,6 +1348,28 @@
         },
     ];
 
+    function getDemoPartyAssignments(
+        userId: string,
+        partyId: number,
+        partyName: string,
+        assignedRaids: Set<string>
+    ): PartyRaidAssignments {
+        const assignments: PartyRaidAssignments = {};
+        for (const group of DEMO_PLANNER_GROUPS) {
+            if (!assignedRaids.has(group.key) || !group.key.startsWith(`${userId}-`)) continue;
+            const raids = assignments[group.character] ??= {};
+            const groups = raids[group.raidName] ??= [];
+            groups.push({
+                partyId,
+                partyName,
+                groupName: "레이드 그룹",
+                difficulty: group.difficulty,
+                mode: "planner",
+            });
+        }
+        return assignments;
+    }
+
     function DemoPlannerPanel({
         mode,
         assignedRaids,
@@ -1368,7 +1394,7 @@
                             </h2>
                             <p className="mt-2 text-sm text-gray-400 leading-6 break-keep">
                                 실제 파티 화면에서는 이 탭에서 레이드 그룹을 만들고 캐릭터를 편성합니다.
-                                데모에서는 아래 버튼으로 편성 상태를 켜고 끄며 숙제 카드의 편성 표시를 확인할 수 있습니다.
+                                데모에서는 아래 버튼으로 편성 상태를 켜고 끄며 숙제 카드와 표의 편성 표시를 확인할 수 있습니다.
                             </p>
                         </div>
                         <div className="rounded-lg bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-gray-400">
@@ -1423,7 +1449,7 @@
         partyId, onReorderTable, member, filteredPrefs, viewTableOrder, isMe, isAllView, currentAccount,
         onlyRemain, isCardView, onAutoSetup, onGateAllClear, onOpenCharSetting, onToggleGate, onEdit, onReorder, onSearch,
         searchLoading, searchError, onRefreshAccount, selectedRaids, isDragEnabled, onReorderRoster, onReorderCardRoster,
-        onOpenMemo, assignedRaids
+        onOpenMemo, assignedRaids, partyAssignments
     }: any) {
         const [isExpanded, setIsExpanded] = useState(true);
         const [showPermissionError, setShowPermissionError] = useState(false);
@@ -1541,6 +1567,7 @@
                                             onlyRemain: false,
                                             isGoldEarn: effectiveGold[c.name] ?? false,
                                             assignedRaids,
+                                            assignedGroupsByChar: partyAssignments,
                                             ownerId: member.userId,
                                             onToggleGate: toggleWrapper,
                                         });
@@ -1548,6 +1575,7 @@
                                             onlyRemain: true,
                                             isGoldEarn: effectiveGold[c.name] ?? false,
                                             assignedRaids,
+                                            assignedGroupsByChar: partyAssignments,
                                             ownerId: member.userId,
                                             onToggleGate: toggleWrapper,
                                         }) : tasksAll;
@@ -1632,6 +1660,7 @@
                                     key={`table-${isAllView ? "all" : currentAccount?.id}`}
                                     roster={tableRoster}
                                     prefsByChar={tablePrefsByChar}
+                                    partyAssignments={partyAssignments}
                                     tableOrder={viewTableOrder}
                                     rosterOrder={member.rosterOrder ?? []}
                                     isDragEnabled={isDragEnabled}

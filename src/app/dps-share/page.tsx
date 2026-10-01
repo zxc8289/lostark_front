@@ -70,10 +70,15 @@ const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, GateRow[]>>
             나메: [],
         },
         "3막 익스트림": {
-            // 관문 체력과 딜 지분 기준은 확인 후 추가합니다.
-            노말: [],
-            하드: [],
-            나메: [],
+            노말: [
+                // { gate: 1, hp: 23972, range: [3596, 4794] },
+            ],
+            하드: [
+                // { gate: 1, hp: 60237, range: [8580, 11440] },
+            ],
+            나메: [
+                // { gate: 1, hp: 171266, range: [24245, 32326] },
+            ],
         },
         "4막": {
             노말: [

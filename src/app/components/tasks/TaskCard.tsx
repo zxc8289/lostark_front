@@ -2,7 +2,8 @@
 
 import React, { useMemo } from "react";
 import { raidInformation, type DifficultyKey, type RaidKind } from "@/server/data/raids";
-import { Users } from "lucide-react"; // 🔥 그룹 아이콘 추가
+import PartyAssignmentLabel from "./PartyAssignmentLabel";
+import type { PartyRaidAssignment } from "@/app/lib/tasks/party-assignments";
 
 type Props = {
     kind: RaidKind;
@@ -15,6 +16,7 @@ type Props = {
     onToggleGate?: (gate: number, nextChecked: boolean) => void;
     disabled?: boolean;
     isAssigned?: boolean; // 🔥 편성 여부 상태 추가
+    assignedGroups?: PartyRaidAssignment[];
 };
 
 const DIFF = {
@@ -42,7 +44,7 @@ export default function TaskCard({
     isBonus,
     onToggleGate,
     disabled,
-    isAssigned = false, // 🔥 Props 받아오기 (기본값 false)
+    assignedGroups = [],
 }: Props) {
     const diffStyle = DIFF[difficulty];
     const title = formatTitle(kind, raidName);
@@ -87,6 +89,7 @@ export default function TaskCard({
                     <span className="text-gray-400">
                         {kind === "어비스" ? "어비스 던전" : `${kind} 레이드`}
                     </span>
+                    <PartyAssignmentLabel assignments={assignedGroups} />
                 </div>
 
                 <div className="mt-1 flex items-center gap-2 min-w-0 h-[24px]">
@@ -94,12 +97,6 @@ export default function TaskCard({
                     <span className={`shrink-0 whitespace-nowrap text-[11px] px-2 py-0.5 rounded-sm ${diffStyle.badge}`}>
                         {displayDifficulty}
                     </span>
-
-                    {isAssigned && (
-                        <span className="shrink-0 whitespace-nowrap text-[11px] px-2 py-0.5 rounded-sm bg-emerald-900/60 text-emerald-300">
-                            그룹
-                        </span>
-                    )}
                 </div>
             </div>
 

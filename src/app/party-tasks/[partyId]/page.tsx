@@ -67,6 +67,7 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import RaidPlannerTab, { type RaidGroup } from "@/app/components/tasks/RaidPlannerTab";
 import MemoModal from "@/app/components/tasks/MemoModal";
+import type { PartyRaidAssignments } from "@/app/lib/tasks/party-assignments";
 
 const DISCORD_BOT_INVITE_URL = "https://discord.com/oauth2/authorize?client_id=1500722739986829452&permissions=84992&scope=bot%20applications.commands";
 
@@ -112,9 +113,50 @@ export type PartyMemberTasks = {
 
 type PartyRaidTasksResponse = {
     members: PartyMemberTasks[];
-    plannerData?: any[];
-    tempPlannerData?: any[];
+    plannerData?: RaidGroup[];
+    tempPlannerData?: RaidGroup[];
+    externalAssignmentsByUser?: Record<string, PartyRaidAssignments>;
 };
+
+function getPartyAssignmentViews(
+    party: Pick<PartyDetail, "id" | "name">,
+    plannerGroups: RaidGroup[],
+    tempPlannerGroups: RaidGroup[]
+) {
+    const assignedRaids = new Set<string>();
+    const assignmentsByUser: Record<string, PartyRaidAssignments> = {};
+
+    for (const [groups, fallbackName, mode] of [
+        [plannerGroups, "레이드 그룹", "planner"],
+        [tempPlannerGroups, "자율편성 그룹", "temp_planner"],
+    ] as const) {
+        for (const group of groups) {
+            if (!group.raidName || !Array.isArray(group.slots)) continue;
+            if (group.expiresAt && group.expiresAt <= Date.now()) continue;
+
+            for (const slot of group.slots) {
+                if (!slot || slot.isGuest || !slot.ownerId || !slot.name) continue;
+                const ownerId = String(slot.ownerId);
+                const charName = String(slot.name);
+                assignedRaids.add(`${slot.uniqueId || `${ownerId}-${charName}`}::${group.raidName}`);
+
+                const chars = assignmentsByUser[ownerId] ??= {};
+                const raids = chars[charName] ??= {};
+                const assignments = raids[group.raidName] ??= [];
+                assignments.push({
+                    partyId: party.id,
+                    partyName: party.name,
+                    groupId: group.id,
+                    groupName: group.groupName || fallbackName,
+                    difficulty: group.difficulty || "",
+                    mode,
+                });
+            }
+        }
+    }
+
+    return { assignedRaids, assignmentsByUser };
+}
 
 type PartyInvite = {
     code: string;
@@ -230,6 +272,7 @@ function buildTasksForCharacter(
             allGates: number[]
         ) => void;
         assignedRaids?: Set<string>; // 🔥 편성된 레이드 목록
+        assignedGroupsByChar?: PartyRaidAssignments;
         ownerId?: string;
     }
 ): TaskItem[] {
@@ -306,6 +349,7 @@ function buildTasksForCharacter(
                     isBonus={p.isBonus}
                     right={right}
                     isAssigned={isAssigned}
+                    assignedGroups={options?.assignedGroupsByChar?.[c.name]?.[raidName] ?? []}
                     onToggleGate={(gate) => {
                         if (!options?.onToggleGate) return;
                         const currentGates = p.gates ?? [];
@@ -383,6 +427,16 @@ export default function PartyDetailPage() {
     const [orderTick, setOrderTick] = useState(0);
 
     const [activeTab, setActiveTab] = useState<"tasks" | "planner" | "temp_planner">("tasks");
+    const [focusGroupId, setFocusGroupId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const query = new URLSearchParams(window.location.search);
+        const tab = query.get("tab");
+        if (tab === "planner" || tab === "temp_planner") {
+            setActiveTab(tab);
+            setFocusGroupId(query.get("group"));
+        }
+    }, []);
 
     const wsContext = useGlobalWebSocket();
     const ws = wsContext?.ws;
@@ -422,7 +476,36 @@ export default function PartyDetailPage() {
     const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
     const [inlineSearchInput, setInlineSearchInput] = useState("");
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-    const [assignedRaids, setAssignedRaids] = useState<Set<string>>(new Set()); // 🔥 편성 목록 State 추가
+    const [assignmentGroups, setAssignmentGroups] = useState<{
+        planner: RaidGroup[];
+        temp_planner: RaidGroup[];
+    }>({ planner: [], temp_planner: [] });
+    const [externalAssignmentsByUser, setExternalAssignmentsByUser] = useState<Record<string, PartyRaidAssignments>>({});
+    const { assignedRaids, assignmentsByUser } = useMemo(
+        () => party
+            ? getPartyAssignmentViews(party, assignmentGroups.planner, assignmentGroups.temp_planner)
+            : { assignedRaids: new Set<string>(), assignmentsByUser: {} as Record<string, PartyRaidAssignments> },
+        [party, assignmentGroups]
+    );
+    const { allAssignedRaids, allAssignmentsByUser } = useMemo(() => {
+        const nextAssignedRaids = new Set(assignedRaids);
+        const nextAssignmentsByUser: Record<string, PartyRaidAssignments> = { ...assignmentsByUser };
+
+        for (const [userId, chars] of Object.entries(externalAssignmentsByUser)) {
+            const userAssignments = { ...(nextAssignmentsByUser[userId] ?? {}) };
+            for (const [charName, raids] of Object.entries(chars)) {
+                const charAssignments = { ...(userAssignments[charName] ?? {}) };
+                for (const [raidName, groups] of Object.entries(raids)) {
+                    charAssignments[raidName] = [...(charAssignments[raidName] ?? []), ...groups];
+                    nextAssignedRaids.add(`${userId}-${charName}::${raidName}`);
+                }
+                userAssignments[charName] = charAssignments;
+            }
+            nextAssignmentsByUser[userId] = userAssignments;
+        }
+
+        return { allAssignedRaids: nextAssignedRaids, allAssignmentsByUser: nextAssignmentsByUser };
+    }, [assignedRaids, assignmentsByUser, externalAssignmentsByUser]);
     const [memoTarget, setMemoTarget] = useState<{
         memberUserId: string;
         charName: string;
@@ -481,6 +564,8 @@ export default function PartyDetailPage() {
                 if (!res.ok) {
                     if (res.status === 204 || res.status === 404) {
                         setPartyTasks([]);
+                        setAssignmentGroups({ planner: [], temp_planner: [] });
+                        setExternalAssignmentsByUser({});
                         return;
                     }
                     throw new Error("파티 숙제 데이터를 불러오지 못했습니다.");
@@ -500,20 +585,11 @@ export default function PartyDetailPage() {
                     return { ...m, prefsByChar: migratedPrefs };
                 });
 
-                const newAssigned = new Set<string>();
-                const allPlannerData = [...(json.plannerData || []), ...(json.tempPlannerData || [])];
-
-                allPlannerData.forEach((group: any) => {
-                    if (!group.slots) return;
-                    group.slots.forEach((slot: any) => {
-                        if (slot && !slot.isGuest) {
-                            // "유저ID-캐릭터이름::레이드명" 형태로 저장
-                            newAssigned.add(`${slot.uniqueId}::${group.raidName}`);
-                        }
-                    });
+                setAssignmentGroups({
+                    planner: Array.isArray(json.plannerData) ? json.plannerData : [],
+                    temp_planner: Array.isArray(json.tempPlannerData) ? json.tempPlannerData : [],
                 });
-
-                setAssignedRaids(newAssigned); // State 업데이트
+                setExternalAssignmentsByUser(json.externalAssignmentsByUser ?? {});
 
                 setPartyTasks(migratedMembers);
             } catch (e: any) {
@@ -1936,7 +2012,29 @@ export default function PartyDetailPage() {
     }, [party, status, reloadPartyTasks]);
 
     useEffect(() => {
+        if (!party || status !== "authenticated") return;
+        let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+        const scheduleRefresh = () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
+            refreshTimer = setTimeout(() => { void reloadPartyTasks(false); }, 250);
+        };
+        const onVisibilityChange = () => {
+            if (document.visibilityState === "visible") scheduleRefresh();
+        };
+
+        window.addEventListener("focus", scheduleRefresh);
+        document.addEventListener("visibilitychange", onVisibilityChange);
+        return () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
+            window.removeEventListener("focus", scheduleRefresh);
+            document.removeEventListener("visibilitychange", onVisibilityChange);
+        };
+    }, [party, status, reloadPartyTasks]);
+
+    useEffect(() => {
         if (!ws || !party || status !== "authenticated") return;
+
+        let otherPlannerTimer: ReturnType<typeof setTimeout> | undefined;
 
         const handleMessage = (event: MessageEvent) => {
             try {
@@ -1984,15 +2082,20 @@ export default function PartyDetailPage() {
                     void reloadPartyTasks(false);
                 }
                 else if (msg.type === "plannerUpdated" && String(msg.partyId) === String(party.id)) {
-                    if (myUserId && msg.userId && String(msg.userId) === String(myUserId)) return;
                     if (!Array.isArray(msg.groups)) return;
 
                     const mode = msg.mode === "temp_planner" ? "temp_planner" : "planner";
+                    setAssignmentGroups((prev) => ({ ...prev, [mode]: msg.groups as RaidGroup[] }));
+                    if (myUserId && msg.userId && String(msg.userId) === String(myUserId)) return;
                     setPlannerRealtimeUpdate({
                         mode,
                         groups: msg.groups as RaidGroup[],
                         updatedAt: Number(msg.updatedAt) || Date.now(),
                     });
+                }
+                else if (msg.type === "plannerUpdated") {
+                    if (otherPlannerTimer) clearTimeout(otherPlannerTimer);
+                    otherPlannerTimer = setTimeout(() => { void reloadPartyTasks(false); }, 900);
                 }
                 else if (msg.type === "memberKicked" && String(msg.partyId) === String(party.id)) {
                     const kickedUserId = String(msg.userId);
@@ -2019,7 +2122,10 @@ export default function PartyDetailPage() {
         };
 
         ws.addEventListener("message", handleMessage);
-        return () => ws.removeEventListener("message", handleMessage);
+        return () => {
+            if (otherPlannerTimer) clearTimeout(otherPlannerTimer);
+            ws.removeEventListener("message", handleMessage);
+        };
     }, [ws, party?.id, status, myUserId, router, reloadPartyTasks]);
 
     useEffect(() => {
@@ -2457,7 +2563,8 @@ export default function PartyDetailPage() {
                                                 onOpenMemo={(userId, charName, memo) =>
                                                     setMemoTarget({ memberUserId: userId, charName, currentMemo: memo })
                                                 }
-                                                assignedRaids={assignedRaids}
+                                                assignedRaids={allAssignedRaids}
+                                                partyAssignments={allAssignmentsByUser[m.userId] ?? {}}
                                             />
                                         );
                                     })}
@@ -2562,10 +2669,12 @@ export default function PartyDetailPage() {
                         {/* 🔥 key="planner" 를 추가해서 완전히 독립된 컴포넌트로 인식시킵니다 */}
                         <RaidPlannerTab
                             key="planner"
+                            focusGroupId={focusGroupId}
                             partyId={party.id}
                             partyTasks={partyTasks ?? []}
                             onBulkToggleGate={handleBulkToggleGate}
                             onPlannerUpdate={(groups) => {
+                                setAssignmentGroups((prev) => ({ ...prev, planner: groups }));
                                 if (!sendGlobalMessage) return;
                                 sendGlobalMessage({
                                     type: "plannerUpdate",
@@ -2585,10 +2694,12 @@ export default function PartyDetailPage() {
                         {/* 🔥 key="temp_planner" 를 추가합니다 */}
                         <RaidPlannerTab
                             key="temp_planner"
+                            focusGroupId={focusGroupId}
                             partyId={party.id}
                             partyTasks={partyTasks ?? []}
                             onBulkToggleGate={handleBulkToggleGate}
                             onPlannerUpdate={(groups) => {
+                                setAssignmentGroups((prev) => ({ ...prev, temp_planner: groups }));
                                 if (!sendGlobalMessage) return;
                                 sendGlobalMessage({
                                     type: "plannerUpdate",
@@ -2908,6 +3019,7 @@ function PartyMemberBlock({
     onCharacterAllClear,
     onOpenMemo,
     assignedRaids,
+    partyAssignments,
 }: {
     partyId: number;
     member: PartyMemberTasks;
@@ -2936,6 +3048,7 @@ function PartyMemberBlock({
     onCharacterAllClear: (userId: string, charName: string) => void;
     onOpenMemo: (userId: string, charName: string, currentMemo: string) => void;
     assignedRaids: Set<string>;
+    partyAssignments: PartyRaidAssignments;
 }) {
     const [isExpanded, setIsExpanded] = useState(true);
     const [searchInput, setSearchInput] = useState("");
@@ -3235,6 +3348,7 @@ function PartyMemberBlock({
                                         isGoldEarn: effectiveGold[c.name] ?? false,
                                         onToggleGate: toggleWrapper,
                                         assignedRaids: assignedRaids,
+                                        assignedGroupsByChar: partyAssignments,
                                         ownerId: member.userId,
                                     });
                                     const tasksShown = onlyRemain
@@ -3243,6 +3357,7 @@ function PartyMemberBlock({
                                             isGoldEarn: effectiveGold[c.name] ?? false,
                                             onToggleGate: toggleWrapper,
                                             assignedRaids: assignedRaids,
+                                            assignedGroupsByChar: partyAssignments,
                                             ownerId: member.userId,
                                         })
                                         : tasksAll;
@@ -3371,6 +3486,7 @@ function PartyMemberBlock({
                                 key={`table-${isAllView ? 'all' : currentAccount?.id}`}
                                 roster={tableRoster}
                                 prefsByChar={tablePrefsByChar}
+                                partyAssignments={partyAssignments}
                                 tableOrder={viewTableOrder}
                                 rosterOrder={member.rosterOrder ?? []} // ✅ 추가
                                 isDragEnabled={isDragEnabled}
