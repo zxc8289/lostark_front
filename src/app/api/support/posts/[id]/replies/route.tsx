@@ -4,11 +4,9 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { ObjectId } from "mongodb";
-
-function isAdmin(req: Request) {
-    const secret = req.headers.get("x-admin-secret") || "";
-    return !!process.env.SUPPORT_ADMIN_SECRET && secret === process.env.SUPPORT_ADMIN_SECRET;
-}
+import { getReplyActor } from "@/server/reply-permissions";
+import { createGuestReplyKey } from "@/server/reply-authorization";
+import { createAdminAlerts } from "@/server/admin-alerts";
 
 export async function POST(
     req: Request,
@@ -31,9 +29,12 @@ export async function POST(
         return NextResponse.json({ ok: false, error: "empty content" }, { status: 400 });
     }
 
-    // ✅ 관리자 여부 및 프론트에서 보낸 정보 받기
-    const isStaffUser = isAdmin(req);
+    const actor = await getReplyActor();
+    const isStaffUser = actor.isAdmin;
     const isAnonymous = body.isAnonymous === true;
+    if (body.parentId && !ObjectId.isValid(body.parentId)) {
+        return NextResponse.json({ ok: false, error: "invalid parent id" }, { status: 400 });
+    }
     const parentId = body.parentId ? new ObjectId(body.parentId) : null;
 
     let finalAuthor = "익명 사용자";
@@ -48,19 +49,29 @@ export async function POST(
         // 비공개 회원이므로 프사 숨김
     } else {
         // 둘 다 아니면 디스코드 세션 정보(닉네임, 프사) 적용
-        finalAuthor = body.author || "사용자";
-        finalImage = body.authorImage || null;
+        finalAuthor = actor.name || "사용자";
+        finalImage = actor.image;
     }
 
     const db = await getDb();
+    const post = await db.collection("support_posts").findOne({ _id: postId }, { projection: { title: 1 } });
+    if (!post) return NextResponse.json({ ok: false, error: "post not found" }, { status: 404 });
+    if (parentId) {
+        const parent = await db.collection("support_replies").findOne({ _id: parentId, postId, isDeleted: { $ne: true } }, { projection: { parentId: 1 } });
+        if (!parent || parent.parentId) return NextResponse.json({ ok: false, error: "invalid parent reply" }, { status: 400 });
+    }
+
+    const guestReplyKey = !actor.userId && !isStaffUser ? createGuestReplyKey() : null;
     const now = new Date();
 
-    await db.collection("support_replies").insertOne({
+    const result = await db.collection("support_replies").insertOne({
         postId,
         parentId,
         content,
         author: finalAuthor,
         authorImage: finalImage, // 디스코드 프사 URL 저장
+        authorId: actor.userId,
+        editKeyHash: guestReplyKey?.hash || null,
         isStaff: isStaffUser,
         createdAt: now,
     });
@@ -76,7 +87,13 @@ export async function POST(
             { _id: postId },
             { $set: { updatedAt: now } }
         );
+        await createAdminAlerts(db, {
+            type: "support_comment",
+            sourceId: result.insertedId.toString(),
+            postId: id,
+            postTitle: String(post.title || "문의글"),
+        });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, id: result.insertedId.toString(), guestReplyKey: guestReplyKey?.key || null });
 }

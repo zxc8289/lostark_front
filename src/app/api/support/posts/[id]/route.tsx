@@ -3,9 +3,11 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
-import { ObjectId } from "mongodb";
+import { ObjectId, type Document } from "mongodb";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getReplyActor } from "@/server/reply-permissions";
+import { canManageReply } from "@/server/reply-authorization";
 import crypto from "crypto";
 
 type PostStatus = "대기중" | "확인" | "답변완료";
@@ -19,7 +21,7 @@ function toObjectId(id: string) {
 function hashGuestKey(key: string) {
     return crypto.createHash("sha256").update(`${GUEST_SALT}:${key}`).digest("hex");
 }
-function safePostWithPerm(p: any, canEdit: boolean) {
+function safePostWithPerm(p: Document, canEdit: boolean) {
     const isAnon = !!p.isAnonymous;
 
     return {
@@ -40,9 +42,9 @@ function safePostWithPerm(p: any, canEdit: boolean) {
     };
 }
 
-async function getPerm(req: Request, post: any) {
+async function getPerm(req: Request, post: Document) {
     const session = await getServerSession(authOptions);
-    const userId = (session?.user as any)?.id || null;
+    const userId = (session?.user as { id?: string } | undefined)?.id || null;
 
     // 로그인 사용자 글 소유권
     if (userId && post?.authorId && String(post.authorId) === String(userId)) return true;
@@ -69,7 +71,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     const canEdit = await getPerm(req, post);
     const session = await getServerSession(authOptions);
-    const currentUserId = (session?.user as any)?.id;
+    const currentUserId = (session?.user as { id?: string } | undefined)?.id;
 
     // ✨ 내 아이디와 글의 authorId가 일치하면 알림을 끕니다.
     if (currentUserId && post.authorId && String(currentUserId) === String(post.authorId)) {
@@ -86,8 +88,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         .find({ postId: _id })
         .sort({ createdAt: 1 })
         .toArray();
+    const replyActor = await getReplyActor();
 
-    const replies = repliesRows.map((r: any) => ({
+    const replies = repliesRows.map((r) => ({
         id: String(r._id),
         postId: String(r.postId),
         parentId: r.parentId ? String(r.parentId) : null,
@@ -95,7 +98,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         author: r.author || "관리자",
         authorImage: r.authorImage || null,
         isStaff: !!r.isStaff,
+        isDeleted: !!r.isDeleted,
+        canEdit: canManageReply(r, replyActor),
         createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : null,
+        updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : null,
     }));
 
     return NextResponse.json({ ok: true, post: safePostWithPerm(post, canEdit), replies });
@@ -142,7 +148,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         else authorName = post.isGuest ? "비회원" : (post.authorName === "비공개 회원" ? "회원" : post.authorName);
     }
 
-    const $set: any = { updatedAt: new Date(), authorName };
+    const $set: { updatedAt: Date; authorName: string; title?: string; content?: string; isAnonymous?: boolean } = { updatedAt: new Date(), authorName };
     if (title !== null) $set.title = title;
     if (content !== null) $set.content = content;
     if (isAnonymous !== null) $set.isAnonymous = isAnonymous;

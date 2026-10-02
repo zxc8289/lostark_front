@@ -4,14 +4,10 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { ObjectId } from "mongodb";
-
-function isAdmin(req: Request) {
-    const secret = req.headers.get("x-admin-secret") || "";
-    return !!process.env.SUPPORT_ADMIN_SECRET && secret === process.env.SUPPORT_ADMIN_SECRET;
-}
+import { isSupportAdmin } from "@/server/support-admin";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-    if (!isAdmin(req)) {
+    if (!(await isSupportAdmin())) {
         return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
 

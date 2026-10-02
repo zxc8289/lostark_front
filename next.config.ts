@@ -5,6 +5,9 @@ const isProd = process.env.NODE_ENV === 'production';
 
 const nextConfig: NextConfig = {
   trailingSlash: isProd ? true : false,
+  turbopack: {
+    root: process.cwd(),
+  },
 
   eslint: {
     ignoreDuringBuilds: true,

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
-
-const SERVER_ADMIN_SECRET = process.env.SUPPORT_ADMIN_SECRET || "default_secret_key";
+import { isSupportAdmin } from "@/server/support-admin";
 
 export async function GET() {
     try {
@@ -32,8 +31,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
     try {
-        const adminKey = req.headers.get("x-admin-secret");
-        if (adminKey !== SERVER_ADMIN_SECRET) {
+        if (!(await isSupportAdmin())) {
             return NextResponse.json({ ok: false, error: "권한이 없습니다." }, { status: 401 });
         }
 

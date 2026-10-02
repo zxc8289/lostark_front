@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
 import {
@@ -23,7 +23,7 @@ import { Loader2, TrashIcon } from "lucide-react";
 /* ✨ 타입 정의 수정 (알림 타입 세분화) */
 type AlertItem = {
     id: string;
-    type: "raid" | "reply"; // 알림 종류 (레이드 vs 관리자 답변)
+    type: "raid" | "reply" | "admin";
     title: string;
     content: string;
     date: string;
@@ -84,6 +84,7 @@ const items: NavItem[] = [
 
 export default function Nav() {
     const pathname = usePathname();
+    const router = useRouter();
     const { data: session, status, update } = useSession();
 
     const [isNotiOpen, setIsNotiOpen] = useState(false);
@@ -251,6 +252,31 @@ export default function Nav() {
                 }
             } catch (e) { console.error(e); }
 
+            // 관리자에게 온 공지 댓글, 문의글, 문의 댓글 알림
+            try {
+                const adminRes = await fetch("/api/support/admin/alerts", { cache: "no-store" });
+                if (adminRes.ok) {
+                    const data = await adminRes.json();
+                    for (const alert of data.alerts || []) {
+                        const isNotice = alert.type === "notice_comment";
+                        const isPost = alert.type === "support_post";
+                        newAlerts.push({
+                            id: String(alert.id),
+                            type: "admin",
+                            title: isNotice ? "공지 댓글" : isPost ? "새 문의글" : "문의 댓글",
+                            content: isNotice
+                                ? `'${alert.postTitle}' 공지에 새 댓글이 달렸습니다.`
+                                : isPost
+                                    ? `'${alert.postTitle}' 문의글이 등록되었습니다.`
+                                    : `'${alert.postTitle}' 문의글에 새 댓글이 달렸습니다.`,
+                            date: new Date(alert.createdAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+                            link: isNotice ? `/support?noticeId=${alert.postId}` : `/support?postId=${alert.postId}`,
+                            isRead: false,
+                        });
+                    }
+                }
+            } catch (e) { console.error(e); }
+
             // 2. 레이드 숙제 알림
             const now = new Date();
             const day = now.getDay();
@@ -308,6 +334,24 @@ export default function Nav() {
         const timerId = setInterval(fetchAllAlerts, 60000);
         return () => clearInterval(timerId);
     }, [status, pathname, isNotiEnabled]);
+
+    const handleAlertClick = async (event: React.MouseEvent<HTMLAnchorElement>, alert: AlertItem) => {
+        if (alert.type !== "admin") {
+            setIsNotiOpen(false);
+            setAlerts(prev => prev.filter(a => a.id !== alert.id));
+            return;
+        }
+        event.preventDefault();
+        setIsNotiOpen(false);
+        try {
+            const res = await fetch(`/api/support/admin/alerts/${alert.id}`, { method: "PATCH" });
+            if (res.ok) setAlerts(prev => prev.filter(a => a.id !== alert.id));
+        } catch (error) {
+            console.error("관리자 알림 읽음 처리 실패:", error);
+        } finally {
+            router.push(alert.link);
+        }
+    };
 
     const handleBellClick = () => {
         if (!isNotiOpen) {
@@ -498,14 +542,11 @@ export default function Nav() {
                                                                     <div className="mt-2">
                                                                         <Link
                                                                             href={alert.link}
-                                                                            onClick={() => {
-                                                                                setIsNotiOpen(false);
-                                                                                setAlerts(prev => prev.filter(a => a.id !== alert.id));
-                                                                            }}
+                                                                            onClick={(event) => handleAlertClick(event, alert)}
                                                                             className={`text-[11px] font-medium hover:underline flex items-center gap-1 ${alert.type === 'raid' ? 'text-[#5B69FF]' : 'text-blue-400'
                                                                                 }`}
                                                                         >
-                                                                            {alert.type === 'raid' ? '숙제 확인하러 가기' : '답변 확인하러 가기'} &rarr;
+                                                                            {alert.type === 'raid' ? '숙제 확인하러 가기' : alert.type === 'admin' ? '내용 확인하러 가기' : '답변 확인하러 가기'} &rarr;
                                                                         </Link>
                                                                     </div>
                                                                 </div>
@@ -573,7 +614,7 @@ export default function Nav() {
                                                 <div className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors select-none cursor-pointer" onClick={toggleNotification}>
                                                     <div className="flex flex-col">
                                                         <span className="text-xs font-medium text-gray-300">내 알림</span>
-                                                        <span className="text-[10px] text-gray-500">숙제 및 답변 알림 받기</span>
+                                                        <span className="text-[10px] text-gray-500">숙제, 답변 및 관리자 알림 받기</span>
                                                     </div>
                                                     <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isNotiEnabled ? 'bg-[#5B69FF]' : 'bg-gray-600'}`}>
                                                         <span aria-hidden="true" className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isNotiEnabled ? 'translate-x-4' : 'translate-x-0'}`} />

@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { isSupportAdminForDiscordId } from "@/server/support-admin";
+import { createAdminAlerts } from "@/server/admin-alerts";
 import crypto from "crypto";
 
 type PostStatus = "대기중" | "확인" | "답변완료";
@@ -89,6 +91,18 @@ export async function POST(req: Request) {
 
     const db = await getDb();
     const result = await db.collection("support_posts").insertOne(doc);
+    try {
+        if (!(await isSupportAdminForDiscordId(userId))) {
+            await createAdminAlerts(db, {
+                type: "support_post",
+                sourceId: result.insertedId.toString(),
+                postId: result.insertedId.toString(),
+                postTitle: title,
+            });
+        }
+    } catch (error) {
+        console.error("[Support Post] Failed to notify admins:", error);
+    }
 
     return NextResponse.json({
         ok: true,

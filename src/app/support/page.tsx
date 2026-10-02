@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, Suspense } from "react";
+import React, { useEffect, useRef, useState, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 
@@ -30,7 +30,10 @@ type Reply = {
     author: string;
     authorImage?: string | null;
     isStaff: boolean;
+    isDeleted?: boolean;
+    canEdit?: boolean;
     createdAt: string | null;
+    updatedAt?: string | null;
 };
 
 type Notice = {
@@ -89,6 +92,15 @@ function getGuestKey(postId: string) {
 }
 function setGuestKey(postId: string, key: string) {
     try { localStorage.setItem(`support_guest_key:${postId}`, key); } catch { }
+}
+function getReplyKey(replyId: string) {
+    try { return localStorage.getItem(`support_reply_key:${replyId}`) || ""; } catch { return ""; }
+}
+function setReplyKey(replyId: string, key: string) {
+    try { localStorage.setItem(`support_reply_key:${replyId}`, key); } catch { }
+}
+function removeReplyKey(replyId: string) {
+    try { localStorage.removeItem(`support_reply_key:${replyId}`); } catch { }
 }
 
 // --- ✨ 커스텀 드롭다운 컴포넌트 (TaskSidebar 레이드 드롭다운 디자인 적용) ---
@@ -166,7 +178,8 @@ const DetailSkeleton = () => (
 
 // --- 메인 컴포넌트 ---
 function SupportPageContent() {
-    const { data: session } = useSession();
+    const { data: session, status: sessionStatus } = useSession();
+    const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
     const searchParams = useSearchParams();
     const router = useRouter();
 
@@ -179,8 +192,7 @@ function SupportPageContent() {
     const POSTS_PER_PAGE = 9;
 
     // 인증/어드민 상태
-    const [adminSecret, setAdminSecret] = useState("");
-    const isAdmin = useMemo(() => adminSecret.trim().length > 0, [adminSecret]);
+    const [isAdmin, setIsAdmin] = useState(false);
 
     // 게시물/공지 목록 상태
     const [posts, setPosts] = useState<Post[]>([]);
@@ -211,25 +223,43 @@ function SupportPageContent() {
     // 모달 및 댓글 상태
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [deleteSaving, setDeleteSaving] = useState(false);
+    const [replyToDelete, setReplyToDelete] = useState<Reply | null>(null);
+    const [messageModal, setMessageModal] = useState<{ title: string; description: string } | null>(null);
     const [replyText, setReplyText] = useState("");
     const [replyAnonymous, setReplyAnonymous] = useState(false);
     const [replyingTo, setReplyingTo] = useState<{ id: string; author: string } | null>(null);
+    const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
+    const [editReplyText, setEditReplyText] = useState("");
+    const [replySaving, setReplySaving] = useState(false);
+    const replySubmitInFlight = useRef(false);
 
-    // 초기 어드민 시크릿 로드
+    // 관리자 권한은 로그인한 디스코드 계정의 서버 저장 권한으로 확인한다.
     useEffect(() => {
-        const saved = localStorage.getItem("support_admin_secret");
-        if (saved) setAdminSecret(saved);
+        localStorage.removeItem("support_admin_secret");
     }, []);
     useEffect(() => {
-        if (adminSecret) localStorage.setItem("support_admin_secret", adminSecret);
-        else localStorage.removeItem("support_admin_secret");
-    }, [adminSecret]);
+        setIsAdmin(false);
+        if (sessionStatus !== "authenticated" || !sessionUserId) return;
 
-    // 삭제 모달 스크롤 방지
+        let cancelled = false;
+        fetch("/api/support/admin", { cache: "no-store" })
+            .then((res) => res.ok ? res.json() : null)
+            .then((data) => { if (!cancelled) setIsAdmin(data?.isAdmin === true); })
+            .catch(() => { if (!cancelled) setIsAdmin(false); });
+
+        return () => { cancelled = true; };
+    }, [sessionStatus, sessionUserId]);
+
+    function showMessage(description: string, title = "알림") {
+        setMessageModal({ title, description });
+    }
+
+    // 모달 스크롤 방지
     useEffect(() => {
-        if (deleteModalOpen) document.body.style.overflow = "hidden";
+        if (deleteModalOpen || replyToDelete || messageModal) document.body.style.overflow = "hidden";
         else document.body.style.overflow = "";
-    }, [deleteModalOpen]);
+        return () => { document.body.style.overflow = ""; };
+    }, [deleteModalOpen, replyToDelete, messageModal]);
 
     // URL 파라미터를 통한 상세 오픈 처리
     useEffect(() => {
@@ -274,12 +304,14 @@ function SupportPageContent() {
             if (activeTab === "notice") {
                 const res = await fetch("/api/notice", {
                     method: "POST",
-                    headers: { "content-type": "application/json", "x-admin-secret": adminSecret },
+                    headers: { "content-type": "application/json" },
                     body: JSON.stringify({ title, content, category: noticeCategory }),
                 });
                 if (res.ok) {
                     setTitle(""); setContent(""); setNoticeCategory("공지");
                     await fetchList();
+                } else {
+                    showMessage("공지사항 등록 권한이 없거나 등록에 실패했습니다.", "등록 실패");
                 }
             } else {
                 const res = await fetch("/api/support/posts", {
@@ -294,13 +326,13 @@ function SupportPageContent() {
                     await fetchList();
                 }
             }
-        } catch (e) { alert("등록 실패"); }
+        } catch { showMessage("등록에 실패했습니다.", "등록 실패"); }
         finally { setSaving(false); }
     }
 
     // 상세 보기 오픈 로직 통합
-    async function openDetail(id: string, type: TabType) {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+    async function openDetail(id: string, type: TabType, scrollToTop = true) {
+        if (scrollToTop) window.scrollTo({ top: 0, behavior: "smooth" });
         setOpenId(id);
         setOpenType(type);
         setOpenLoading(true);
@@ -331,13 +363,14 @@ function SupportPageContent() {
                     setEditAnonymous(!!json.post.isAnonymous);
                 }
             }
-        } catch (e) { alert("상세 불러오기 실패"); }
+        } catch { showMessage("상세 내용을 불러오지 못했습니다.", "불러오기 실패"); }
         finally { setOpenLoading(false); }
     }
 
     function closeDetail(updateUrl = true) {
         setOpenId(null); setOpenType(null); setOpenPost(null); setOpenNotice(null); setOpenReplies([]);
         setReplyText(""); setEditMode(false); setReplyingTo(null);
+        setEditingReplyId(null); setEditReplyText("");
         if (updateUrl) router.replace("/support");
     }
 
@@ -347,11 +380,12 @@ function SupportPageContent() {
         setEditSaving(true);
         try {
             if (openType === "notice") {
-                await fetch(`/api/notice/${openId}`, {
+                const res = await fetch(`/api/notice/${openId}`, {
                     method: "PATCH",
-                    headers: { "content-type": "application/json", "x-admin-secret": adminSecret },
+                    headers: { "content-type": "application/json" },
                     body: JSON.stringify({ title: editTitle, content: editContent, category: editCategory }),
                 });
+                if (!res.ok) throw new Error("공지사항 수정에 실패했습니다.");
             } else {
                 const guestKey = getGuestKey(openId);
                 await fetch(`/api/support/posts/${openId}`, {
@@ -365,6 +399,8 @@ function SupportPageContent() {
             // 💡 openType 뒤에 ! 를 붙여줍니다
             await openDetail(openId, openType!);
             await fetchList();
+        } catch {
+            showMessage("수정 권한이 없거나 수정에 실패했습니다.", "수정 실패");
         } finally { setEditSaving(false); }
     }
 
@@ -374,44 +410,132 @@ function SupportPageContent() {
         setDeleteSaving(true);
         try {
             if (openType === "notice") {
-                await fetch(`/api/notice/${openId}`, { method: "DELETE", headers: { "x-admin-secret": adminSecret } });
+                const res = await fetch(`/api/notice/${openId}`, { method: "DELETE" });
+                if (!res.ok) throw new Error("공지사항 삭제에 실패했습니다.");
             } else {
                 const guestKey = getGuestKey(openId);
                 await fetch(`/api/support/posts/${openId}`, { method: "DELETE", headers: guestKey ? { "x-guest-key": guestKey } : undefined });
             }
             setDeleteModalOpen(false); closeDetail(); await fetchList();
+        } catch {
+            setDeleteModalOpen(false);
+            showMessage("삭제 권한이 없거나 삭제에 실패했습니다.", "삭제 실패");
         } finally { setDeleteSaving(false); }
     }
 
     async function submitReply() {
-        if (!openId || !openType || !replyText.trim()) return;
+        if (!openId || !openType || !replyText.trim() || replySaving || replySubmitInFlight.current) return;
+        replySubmitInFlight.current = true;
+        setReplySaving(true);
 
         try {
-            const headers: Record<string, string> = { "content-type": "application/json" };
-            if (adminSecret.trim()) headers["x-admin-secret"] = adminSecret.trim();
-
             const url = openType === "notice"
                 ? `/api/notice/${openId}/replies`
                 : `/api/support/posts/${openId}/replies`;
 
             const res = await fetch(url, {
                 method: "POST",
-                headers,
+                headers: { "content-type": "application/json" },
                 body: JSON.stringify({
                     content: replyText,
                     isAnonymous: replyAnonymous,
-                    author: session?.user?.name || "사용자",
-                    authorImage: session?.user?.image || null,
                     parentId: replyingTo?.id || null
                 }),
             });
             if (res.ok) {
+                const data = await res.json();
+                if (data.id && data.guestReplyKey) setReplyKey(data.id, data.guestReplyKey);
                 setReplyText(""); setReplyAnonymous(false); setReplyingTo(null);
 
-                // 💡 openType 뒤에 ! 를 붙여줍니다
-                await openDetail(openId, openType!);
+                await openDetail(openId, openType, false);
+            } else {
+                showMessage("댓글 등록에 실패했습니다.", "등록 실패");
             }
-        } catch (e) { alert("등록 실패"); }
+        } catch { showMessage("댓글 등록에 실패했습니다.", "등록 실패"); }
+        finally {
+            replySubmitInFlight.current = false;
+            setReplySaving(false);
+        }
+    }
+
+    function canManageReplyLocally(reply: Reply) {
+        return !reply.isDeleted && (reply.canEdit === true || !!getReplyKey(reply.id));
+    }
+
+    function replyUrl(replyId: string) {
+        return openType === "notice"
+            ? `/api/notice/${openId}/replies/${replyId}`
+            : `/api/support/posts/${openId}/replies/${replyId}`;
+    }
+
+    async function saveReplyEdit() {
+        if (!openId || !openType || !editingReplyId || !editReplyText.trim() || replySaving) return;
+        setReplySaving(true);
+        try {
+            const key = getReplyKey(editingReplyId);
+            const res = await fetch(replyUrl(editingReplyId), {
+                method: "PATCH",
+                headers: { "content-type": "application/json", ...(key ? { "x-reply-key": key } : {}) },
+                body: JSON.stringify({ content: editReplyText.trim() }),
+            });
+            if (!res.ok) throw new Error("reply update failed");
+            setEditingReplyId(null);
+            setEditReplyText("");
+            await openDetail(openId, openType, false);
+            showMessage("댓글이 수정되었습니다.", "수정 완료");
+        } catch {
+            showMessage("댓글 수정 권한이 없거나 수정에 실패했습니다.", "수정 실패");
+        } finally {
+            setReplySaving(false);
+        }
+    }
+
+    async function deleteReplyItem(reply: Reply) {
+        if (!openId || !openType || replySaving) return;
+        setReplySaving(true);
+        try {
+            const key = getReplyKey(reply.id);
+            const res = await fetch(replyUrl(reply.id), {
+                method: "DELETE",
+                headers: key ? { "x-reply-key": key } : undefined,
+            });
+            if (!res.ok) throw new Error("reply delete failed");
+            removeReplyKey(reply.id);
+            if (editingReplyId === reply.id) setEditingReplyId(null);
+            if (replyingTo?.id === reply.id) setReplyingTo(null);
+            setReplyToDelete(null);
+            await openDetail(openId, openType, false);
+        } catch {
+            setReplyToDelete(null);
+            showMessage("댓글 삭제 권한이 없거나 삭제에 실패했습니다.", "삭제 실패");
+        } finally {
+            setReplySaving(false);
+        }
+    }
+
+    function replyActions(reply: Reply) {
+        if (!canManageReplyLocally(reply)) return null;
+        return (
+            <span className="inline-flex items-center gap-3 text-[11px]">
+                <button onClick={() => { setEditingReplyId(reply.id); setEditReplyText(reply.content); }} disabled={replySaving} className="text-gray-400 hover:text-white disabled:opacity-50">수정</button>
+                <button onClick={() => setReplyToDelete(reply)} disabled={replySaving} className="text-gray-400 hover:text-red-400 disabled:opacity-50">삭제</button>
+            </span>
+        );
+    }
+
+    function replyContent(reply: Reply, className: string) {
+        if (editingReplyId !== reply.id) {
+            return <div className={className}>{reply.isDeleted ? "삭제된 댓글입니다." : reply.content}{reply.updatedAt && !reply.isDeleted && <span className="ml-2 text-[10px] text-gray-600">(수정됨)</span>}</div>;
+        }
+        return (
+            <div className="space-y-2">
+                <textarea value={editReplyText} onChange={(e) => setEditReplyText(e.target.value)} maxLength={5000} className="w-full min-h-24 rounded-lg border border-white/10 bg-[#0E1015] p-3 text-sm text-white focus:outline-none focus:border-[#5B69FF]" aria-label="댓글 수정 내용" />
+                <div className="flex justify-end gap-2 text-xs">
+                    <button onClick={() => setEditingReplyId(null)} disabled={replySaving} className="rounded px-3 py-1.5 text-gray-400 hover:text-white">취소</button>
+                    <button onClick={saveReplyEdit} disabled={replySaving || !editReplyText.trim()} className="rounded bg-blue-600 px-3 py-1.5 text-white disabled:opacity-50">저장</button>
+                </div>
+            </div>
+        );
     }
 
     // 페이지네이션 처리
@@ -447,15 +571,7 @@ function SupportPageContent() {
                                         </button>
                                     </div>
 
-                                    {/* 관리자 키 입력 */}
-                                    <div className="hidden sm:flex items-center gap-2 bg-[#16181D] border border-white/5 px-3 py-2 rounded-lg mb-2">
-                                        <div className="text-gray-400"><Icons.ShieldCheck /></div>
-                                        <input
-                                            type="password" value={adminSecret} onChange={(e) => setAdminSecret(e.target.value)}
-                                            className="bg-transparent border-none text-gray-400 text-xs focus:ring-0 focus:outline-none w-20 focus:w-32 transition-all"
-                                            placeholder="Admin Key" spellCheck={false}
-                                        />
-                                    </div>
+                                    {isAdmin && <span className="mb-2 flex items-center gap-2 text-xs text-[#5B69FF]"><Icons.ShieldCheck /> 관리자</span>}
                                 </div>
                             </div>
                         </div>
@@ -505,14 +621,14 @@ function SupportPageContent() {
                             {loading ? <CardSkeleton /> : (
                                 <>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {currentList.map((item: any) => (
+                                        {currentList.map((item) => (
                                             <button
                                                 key={item.id}
                                                 onClick={() => openDetail(item.id, activeTab)}
                                                 className="text-left bg-[#16181D] border border-white/5 rounded-xl p-5 hover:border-gray-600 transition-colors flex flex-col gap-3 group"
                                             >
                                                 <div className="flex justify-between items-start w-full">
-                                                    {activeTab === "notice" ? (
+                                                    {"category" in item ? (
                                                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${categoryBadgeClass(item.category)}`}>{item.category}</span>
                                                     ) : (
                                                         <span className={`text-xs px-2 py-0.5 rounded border ${statusBadgeClass(item.status)}`}>{item.status}</span>
@@ -525,7 +641,7 @@ function SupportPageContent() {
                                                 </div>
 
                                                 <div className="mt-auto pt-3 border-t border-gray-700 flex items-center gap-2 text-xs text-gray-500 w-full">
-                                                    {activeTab === "notice" ? (
+                                                    {"category" in item ? (
                                                         <><div className="w-5 h-5 rounded-full bg-[#5B69FF] flex items-center justify-center text-white"><Icons.ShieldCheck /></div> <span>로아체크 관리자</span></>
                                                     ) : (
                                                         item.isAnonymous ? <><Icons.Lock /> <span>비공개 회원</span></> : <><Avatar src={item.authorImage} alt={item.author} /> <span>{item.author}</span></>
@@ -636,18 +752,19 @@ function SupportPageContent() {
                                             {openReplies.filter(r => !r.parentId).map((parent) => (
                                                 <div key={parent.id} className="space-y-2">
                                                     <div className={`rounded-xl border p-5 relative overflow-hidden transition-all ${parent.isStaff ? "bg-[#16181D]/80 border-[#5B69FF]/40" : "bg-[#16181D]/50 border-gray-800"}`}>
-                                                        {parent.isStaff && <div className="absolute top-0 right-0 bg-[#5B69FF] text-[10px] font-bold px-3 py-1 rounded-bl-xl text-white">공식 답변</div>}
+                                                        {parent.isStaff && !parent.isDeleted && <div className="absolute top-0 right-0 bg-[#5B69FF] text-[10px] font-bold px-3 py-1 rounded-bl-xl text-white">공식 답변</div>}
                                                         <div className="flex items-start gap-3 mb-3">
-                                                            {parent.isStaff ? <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400"><Icons.Shield /></div> : <Avatar src={parent.authorImage} alt={parent.author} sizeClass="w-10 h-10" />}
+                                                            {parent.isStaff && !parent.isDeleted ? <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400"><Icons.Shield /></div> : <Avatar src={parent.authorImage} alt={parent.author} sizeClass="w-10 h-10" />}
                                                             <div className="flex-1">
                                                                 <div className="font-semibold text-gray-200 text-sm">{parent.author}</div>
                                                                 <div className="flex items-center gap-3 mt-0.5">
                                                                     <span className="text-xs text-gray-500">{fmtDate(parent.createdAt)}</span>
-                                                                    <button onClick={() => { setReplyingTo({ id: parent.id, author: parent.author }); setTimeout(() => document.getElementById("reply-textarea")?.focus(), 50); }} className="text-[11px] font-medium text-gray-400 hover:text-white">답글달기</button>
+                                                                    {!parent.isDeleted && <button onClick={() => { setReplyingTo({ id: parent.id, author: parent.author }); setTimeout(() => document.getElementById("reply-textarea")?.focus(), 50); }} className="text-[11px] font-medium text-gray-400 hover:text-white">답글달기</button>}
+                                                                    {replyActions(parent)}
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div className="text-gray-300 pl-[52px] whitespace-pre-wrap">{parent.content}</div>
+                                                        {replyContent(parent, "text-gray-300 pl-[52px] whitespace-pre-wrap")}
                                                     </div>
 
                                                     {openReplies.filter(child => child.parentId === parent.id).map(child => (
@@ -657,13 +774,16 @@ function SupportPageContent() {
                                                             </div>
                                                             <div className={`flex-1 rounded-xl border p-4 transition-all ${child.isStaff ? "bg-[#16181D]/60 border-[#5B69FF]/30" : "bg-[#0E1015]/80 border-gray-800/80"}`}>
                                                                 <div className="flex items-center gap-3 mb-2">
-                                                                    {child.isStaff ? <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400"><Icons.Shield /></div> : <Avatar src={child.authorImage} alt={child.author} sizeClass="w-8 h-8" />}
+                                                                    {child.isStaff && !child.isDeleted ? <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400"><Icons.Shield /></div> : <Avatar src={child.authorImage} alt={child.author} sizeClass="w-8 h-8" />}
                                                                     <div className="flex flex-col">
                                                                         <div className="font-semibold text-gray-300 text-sm">{child.author}</div>
-                                                                        <div className="text-[10px] text-gray-600">{fmtDate(child.createdAt)}</div>
+                                                                        <div className="flex items-center gap-3">
+                                                                            <span className="text-[10px] text-gray-600">{fmtDate(child.createdAt)}</span>
+                                                                            {replyActions(child)}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                                <div className="text-gray-400 text-sm pl-[44px] leading-relaxed whitespace-pre-wrap">{child.content}</div>
+                                                                {replyContent(child, "text-gray-400 text-sm pl-[44px] leading-relaxed whitespace-pre-wrap")}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -683,7 +803,7 @@ function SupportPageContent() {
                                                     </div>
                                                 )}
                                                 <div className="p-5 pt-4">
-                                                    <textarea id="reply-textarea" value={replyText} onChange={(e) => setReplyText(e.target.value)} className="w-full bg-transparent text-white focus:outline-none placeholder-gray-600 resize-none h-24 text-[15px]" placeholder={replyingTo ? "답글을 입력해주세요..." : "자유롭게 댓글을 남겨주세요."} spellCheck={false} />
+                                                    <textarea id="reply-textarea" value={replyText} onChange={(e) => setReplyText(e.target.value)} maxLength={5000} className="w-full bg-transparent text-white focus:outline-none placeholder-gray-600 resize-none h-24 text-[15px]" placeholder={replyingTo ? "답글을 입력해주세요..." : "자유롭게 댓글을 남겨주세요."} spellCheck={false} />
                                                     <div className="flex justify-between items-center mt-2 pt-4 border-t border-gray-800/50">
                                                         <div className="flex items-center gap-4">
                                                             <span className="text-xs text-gray-500">{isAdmin ? '관리자 권한으로 등록됩니다.' : '일반 사용자로 등록됩니다.'}</span>
@@ -698,7 +818,7 @@ function SupportPageContent() {
                                                                 </label>
                                                             )}
                                                         </div>
-                                                        <button onClick={submitReply} disabled={!replyText.trim()} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${isAdmin ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20' : 'bg-gray-700 text-gray-200'}`}>{replyingTo ? '답글 등록' : '댓글 등록'}</button>
+                                                        <button onClick={submitReply} disabled={replySaving || !replyText.trim()} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 ${isAdmin ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20' : 'bg-gray-700 text-gray-200'}`}>{replyingTo ? '답글 등록' : '댓글 등록'}</button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -712,16 +832,34 @@ function SupportPageContent() {
             </div>
 
             {/* 통합 삭제 모달 */}
-            {deleteModalOpen && (
-                <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            {(deleteModalOpen || replyToDelete) && (
+                <div role="dialog" aria-modal="true" aria-label="삭제 확인" className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-[#1E2028] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200 text-center">
                         <div className="mx-auto mb-4 p-3 bg-red-500/10 rounded-full w-fit text-red-500"><Icons.Exclamation /></div>
-                        <h3 className="text-lg font-bold text-white mb-2">{openType === "notice" ? "공지사항 삭제" : "게시글 삭제"}</h3>
-                        <p className="text-gray-400 text-sm mb-6 leading-relaxed">정말로 삭제하시겠습니까?<br />삭제된 데이터는 복구할 수 없습니다.</p>
+                        <h3 className="text-lg font-bold text-white mb-2">{replyToDelete ? "댓글 삭제" : openType === "notice" ? "공지사항 삭제" : "게시글 삭제"}</h3>
+                        <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                            {replyToDelete && openReplies.some((item) => item.parentId === replyToDelete.id)
+                                ? "댓글 내용은 삭제되고 달린 답글은 남습니다."
+                                : "정말로 삭제하시겠습니까? 삭제된 데이터는 복구할 수 없습니다."}
+                        </p>
                         <div className="flex gap-3">
-                            <button onClick={() => setDeleteModalOpen(false)} disabled={deleteSaving} className="flex-1 py-2.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm">취소</button>
-                            <button onClick={executeDelete} disabled={deleteSaving} className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-bold">{deleteSaving ? "삭제중..." : "삭제하기"}</button>
+                            <button onClick={() => { setDeleteModalOpen(false); setReplyToDelete(null); }} disabled={deleteSaving || replySaving} className="flex-1 py-2.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm">취소</button>
+                            <button onClick={() => replyToDelete ? deleteReplyItem(replyToDelete) : executeDelete()} disabled={deleteSaving || replySaving} className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-bold disabled:opacity-50">삭제하기</button>
                         </div>
+                    </div>
+                </div>
+            )}
+            {messageModal && (
+                <div role="dialog" aria-modal="true" aria-label={messageModal.title} className="fixed inset-0 z-[10001] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-[#1E2028] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200 text-center">
+                        <div className={`mx-auto mb-4 p-3 rounded-full w-fit ${messageModal.title.includes("완료") ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-500"}`}>
+                            {messageModal.title.includes("완료")
+                                ? <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 13l4 4L19 7" /></svg>
+                                : <Icons.Exclamation />}
+                        </div>
+                        <h3 className="text-lg font-bold text-white mb-2">{messageModal.title}</h3>
+                        <p className="text-gray-400 text-sm mb-6 leading-relaxed">{messageModal.description}</p>
+                        <button onClick={() => setMessageModal(null)} className="w-full py-2.5 rounded-lg bg-[#5B69FF] hover:bg-[#4B59EF] text-white text-sm font-bold">확인</button>
                     </div>
                 </div>
             )}

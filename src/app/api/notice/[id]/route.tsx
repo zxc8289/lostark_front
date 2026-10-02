@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { ObjectId } from "mongodb";
-
-const SERVER_ADMIN_SECRET = process.env.SUPPORT_ADMIN_SECRET || "default_secret_key";
+import { isSupportAdmin } from "@/server/support-admin";
+import { getReplyActor } from "@/server/reply-permissions";
+import { canManageReply } from "@/server/reply-authorization";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -22,6 +23,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         // 2. 해당 공지사항의 댓글(Replies) 가져오기 
         // (postId 필드에 공지사항 id가 저장된다고 가정합니다)
         const repliesDocs = await db.collection("replies").find({ postId: id }).sort({ createdAt: 1 }).toArray();
+        const actor = await getReplyActor();
 
         const replies = repliesDocs.map(r => ({
             id: r._id.toString(),
@@ -31,7 +33,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             author: r.author,
             authorImage: r.authorImage,
             isStaff: r.isStaff || false,
+            isDeleted: !!r.isDeleted,
+            canEdit: canManageReply(r, actor),
             createdAt: r.createdAt,
+            updatedAt: r.updatedAt || null,
         }));
 
         return NextResponse.json({
@@ -54,8 +59,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const adminKey = req.headers.get("x-admin-secret");
-        if (adminKey !== SERVER_ADMIN_SECRET) {
+        if (!(await isSupportAdmin())) {
             return NextResponse.json({ ok: false, error: "권한이 없습니다." }, { status: 401 });
         }
 
@@ -93,8 +97,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const adminKey = req.headers.get("x-admin-secret");
-        if (adminKey !== SERVER_ADMIN_SECRET) {
+        if (!(await isSupportAdmin())) {
             return NextResponse.json({ ok: false, error: "권한이 없습니다." }, { status: 401 });
         }
 
