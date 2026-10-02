@@ -1,6 +1,7 @@
 // components/Footer.tsx
 import { RiDiscordFill, RiGithubFill } from "react-icons/ri";
 import { Mail } from "lucide-react";
+import Image from "next/image";
 
 export default function Footer() {
     return (
@@ -9,7 +10,7 @@ export default function Footer() {
                 <div className="flex flex-col lg:flex-row justify-between items-start gap-12 pt-12 pb-12 border-b border-white/[0.03]  border-t border-white/[0.03]">
                     <div className="space-y-3">
                         <div className="flex flex-col">
-                            <span className="text-2xl font-black text-gray-100 tracking-tighter">LOACHECK</span>
+                            <Image src="/brand/loacheck-logo.svg" alt="LOACHECK" width={228} height={48} className="h-auto w-[190px]" />
                         </div>
                         <p className="text-xs text-gray-500 leading-relaxed max-w-xs">
                             로스트아크 오픈 API를 활용한 캐릭터 검색 및 숙제 관리 도구입니다.

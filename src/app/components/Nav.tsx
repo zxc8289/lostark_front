@@ -396,7 +396,9 @@ export default function Nav() {
                 <div className="mx-auto max-w-7xl h-full flex items-center justify-between px-4 sm:px-6">
 
                     <div className="flex items-center gap-6 h-full">
-                        <Link href="/" className="font-semibold tracking-wide text-gray-200 text-xl md:text-2xl whitespace-nowrap hover:text-white transition-colors">LOACHECK</Link>
+                        <Link href="/" aria-label="로아체크 홈" className="block shrink-0 rounded-md transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8D98FF]">
+                            <Image src="/brand/loacheck-logo.svg" alt="LOACHECK" width={228} height={48} priority className="h-auto w-[166px] md:w-[184px]" />
+                        </Link>
 
                         {/* 데스크탑 메뉴 */}
                         <ul className="hidden md:flex items-center gap-1 lg:gap-3 ml-4 h-full">
