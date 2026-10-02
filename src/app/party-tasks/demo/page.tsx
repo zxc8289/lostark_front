@@ -38,6 +38,7 @@
         TaskItem,
     } from "@/app/components/tasks/CharacterTaskStrip";
     import TaskCard from "@/app/components/tasks/TaskCard";
+    import { getSelectedRaidGates } from "@/app/lib/tasks/raid-gates";
     import TaskTable from "@/app/components/tasks/TaskTable";
     import type {
         CharacterSummary,
@@ -412,10 +413,8 @@
             const info = raidInformation[raidName];
             if (!info) continue;
 
-            const diff = info.difficulty[p.difficulty];
-            if (!diff) continue;
-
-            const gatesDef = diff.gates ?? [];
+            const gatesDef = getSelectedRaidGates(raidName, p);
+            if (!gatesDef.length) continue;
             const allGateIdx = gatesDef.map((g) => g.index);
 
             if (options?.onlyRemain) {
@@ -428,7 +427,7 @@
             }
 
             const totalGold = (p.gates ?? []).reduce((sum, gi) => {
-                const g = diff.gates.find((x) => x.index === gi);
+                const g = gatesDef.find((x) => x.index === gi);
                 if (!g) return sum;
 
                 const isGoldEarn = options?.isGoldEarn ?? false;
@@ -459,6 +458,7 @@
                         kind={info.kind}
                         raidName={raidName}
                         difficulty={p.difficulty}
+                        gateDifficulties={p.gateDifficulties}
                         gates={p.gates}
                         right={right}
                         isAssigned={isAssigned}
@@ -787,7 +787,7 @@
             setEditOpen(false);
         };
 
-        const handleMemberToggleGate = (memberUserId: string, charName: string, raidName: string, gate: number, currentGates: number[], allGates: number[]) => {
+        const handleMemberToggleGate = (memberUserId: string, charName: string, raidName: string, gate: number, currentGates: number[], allGates: number[], difficulty?: string, gateDifficulties?: Partial<Record<number, import("@/server/data/raids").DifficultyKey>>, targetState?: boolean) => {
             if (!partyTasks) return;
             setPartyTasks(prev => prev!.map((m) => {
                 if (m.userId !== memberUserId) return m;
@@ -795,7 +795,11 @@
                 const curRaidPref = curPrefsForChar.raids[raidName];
                 if (!curRaidPref) return m;
 
-                const nextGates = calcNextGates(gate, currentGates ?? [], allGates ?? []);
+                const nextGates = targetState === undefined
+                    ? calcNextGates(gate, currentGates ?? [], allGates ?? [])
+                    : targetState
+                        ? Array.from(new Set([...(currentGates ?? []), ...allGates.filter(index => index <= gate)]))
+                        : (currentGates ?? []).filter(index => index < gate);
 
                 return {
                     ...m,
@@ -803,7 +807,7 @@
                         ...m.prefsByChar,
                         [charName]: {
                             ...curPrefsForChar,
-                            raids: { ...curPrefsForChar.raids, [raidName]: { ...curRaidPref, gates: nextGates } }
+                            raids: { ...curPrefsForChar.raids, [raidName]: { ...curRaidPref, ...(difficulty ? { difficulty: difficulty as import("@/server/data/raids").DifficultyKey, gateDifficulties: gateDifficulties ?? {} } : {}), gates: nextGates } }
                         }
                     }
                 };
@@ -1165,7 +1169,7 @@
                                         initialOtherGroups={DEMO_TEMP_GROUPS}
                                         disablePersistence
                                         isTemporaryMode={false}
-                                        onBulkToggleGate={(raidName, difficulty, gate, allGates, targets) => {
+                                        onBulkToggleGate={(raidName, difficulty, gate, allGates, targets, targetState, gateDifficulties) => {
                                             targets.forEach((target) => {
                                                 handleMemberToggleGate(
                                                     target.userId,
@@ -1173,7 +1177,10 @@
                                                     raidName,
                                                     gate,
                                                     target.currentGates,
-                                                    allGates
+                                                    allGates,
+                                                    difficulty,
+                                                    gateDifficulties,
+                                                    targetState
                                                 );
                                             });
                                         }}
@@ -1189,7 +1196,7 @@
                                         initialOtherGroups={DEMO_FIXED_GROUPS}
                                         disablePersistence
                                         isTemporaryMode
-                                        onBulkToggleGate={(raidName, difficulty, gate, allGates, targets) => {
+                                        onBulkToggleGate={(raidName, difficulty, gate, allGates, targets, targetState, gateDifficulties) => {
                                             targets.forEach((target) => {
                                                 handleMemberToggleGate(
                                                     target.userId,
@@ -1197,7 +1204,10 @@
                                                     raidName,
                                                     gate,
                                                     target.currentGates,
-                                                    allGates
+                                                    allGates,
+                                                    difficulty,
+                                                    gateDifficulties,
+                                                    targetState
                                                 );
                                             });
                                         }}
@@ -1494,10 +1504,7 @@
                 const filteredRaids: any = {};
                 for (const [raidName, raidPref] of Object.entries(raids as any)) {
                     if (!(raidPref as any)?.enabled) continue;
-                    const info = raidInformation[raidName];
-                    const diff = (info?.difficulty as any)?.[(raidPref as any).difficulty];
-                    if (!diff) continue;
-                    const gatesDef = diff.gates ?? [];
+                    const gatesDef = getSelectedRaidGates(raidName, raidPref as any);
                     if (!gatesDef.length) { filteredRaids[raidName] = raidPref; continue; }
                     const lastGateIndex = gatesDef.reduce((max: number, g: any) => (g.index > max ? g.index : max), gatesDef[0].index);
                     const gates = (raidPref as any).gates ?? [];

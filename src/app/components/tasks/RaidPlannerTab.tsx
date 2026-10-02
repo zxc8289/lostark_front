@@ -18,6 +18,11 @@ import {
 import type { PartyMemberTasks } from "@/app/party-tasks/[partyId]/page";
 import { raidInformation } from "@/server/data/raids";
 import {
+    getGateDifficulty, getRaidGateIndices, getSelectedRaidGates, getSelectionLabel,
+    getSelectionLevel, getSelectionSignature, hasMatchingGateDifficulties,
+    type GateDifficulties, type RaidDifficultySelection,
+} from "@/app/lib/tasks/raid-gates";
+import {
     RAID_PRIORITY_SORT_OPTIONS,
     sortRaidEntriesByPriority,
     type RaidPrioritySortMode,
@@ -31,6 +36,7 @@ export type RaidGroup = {
     raidName: string;
     groupName: string;
     difficulty: string;
+    gateDifficulties?: GateDifficulties;
     maxMembers: number;
     slots: (any | null)[];
     scheduleDay?: string;
@@ -54,13 +60,41 @@ type RaidPlannerTabProps = {
         gate: number,
         allGates: number[],
         targets: { userId: string; charName: string; currentGates: number[] }[],
-        targetState: boolean
+        targetState: boolean,
+        gateDifficulties?: GateDifficulties
     ) => void;
     onPlannerUpdate?: (groups: RaidGroup[]) => void;
     realtimeUpdate?: { groups: RaidGroup[]; updatedAt: number } | null;
 };
 
 type DifficultyKey = "노말" | "하드" | "나메" | "싱글";
+
+function groupSelection(group: RaidGroup): RaidDifficultySelection {
+    return { difficulty: group.difficulty as DifficultyKey, gateDifficulties: group.gateDifficulties };
+}
+
+function groupGates(group: RaidGroup) {
+    return getSelectedRaidGates(group.raidName, groupSelection(group));
+}
+
+function matchesGroup(group: RaidGroup, pref: (RaidDifficultySelection & { enabled?: boolean }) | null | undefined): boolean {
+    return !!pref?.enabled && hasMatchingGateDifficulties(group.raidName, groupSelection(group), pref);
+}
+
+function signatureDifficulties(signature: string): DifficultyKey[] {
+    return signature.split("|").map(part => part.split(":")[1] as DifficultyKey).filter(Boolean);
+}
+
+function signatureLabel(raidName: string, signature: string): string {
+    const parts = signature.split("|").map(part => part.split(":"));
+    const difficulties = signatureDifficulties(signature);
+    if (new Set(difficulties).size <= 1) return getDisplayDifficulty(raidName, difficulties[0] ?? signature);
+    return parts.map(([gate, difficulty]) => `${gate}관 ${getDisplayDifficulty(raidName, difficulty)}`).join(" · ");
+}
+
+function signatureLevel(raidName: string, signature: string): number {
+    return Math.max(0, ...signatureDifficulties(signature).map(diff => raidInformation[raidName]?.difficulty[diff]?.level ?? 0));
+}
 
 const difficultyColors: Record<string, { badge: string; active: string; shadow: string; check: string; hover: string }> = {
     "하드": {
@@ -249,6 +283,7 @@ export default function RaidPlannerTab({
     const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
     const [selectedRaidName, setSelectedRaidName] = useState<string | null>(null);
     const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
+    const [selectedGateDifficulties, setSelectedGateDifficulties] = useState<GateDifficulties>({});
     const [raidSelectSortMode, setRaidSelectSortMode] = useState<RaidPrioritySortMode>("recommended");
     const [raidSelectSearch, setRaidSelectSearch] = useState("");
 
@@ -307,6 +342,7 @@ export default function RaidPlannerTab({
         raidName: g.raidName,
         groupName: g.groupName,
         difficulty: g.difficulty,
+        gateDifficulties: g.gateDifficulties,
         maxMembers: g.maxMembers,
         scheduleDay: g.scheduleDay || "",
         scheduleTime: g.scheduleTime || "",
@@ -501,9 +537,7 @@ export default function RaidPlannerTab({
                 return acc;
             }
 
-            const info = raidInformation[group.raidName];
-            const diffInfo = info?.difficulty[group.difficulty as DifficultyKey];
-            const allGates = diffInfo?.gates.map((g: any) => g.index) || [];
+            const allGates = groupGates(group).map(g => g.index);
             const members = group.slots.filter(s => s !== null && !s.isGuest);
 
             let isFullyCompleted = false;
@@ -511,7 +545,7 @@ export default function RaidPlannerTab({
                 isFullyCompleted = members.every(slotChar => {
                     const memberInfo = partyTasks.find(m => m.userId === slotChar!.ownerId);
                     const charPref = memberInfo?.prefsByChar?.[slotChar!.name]?.raids?.[group.raidName];
-                    const currentGates = (charPref && charPref.enabled && charPref.difficulty === group.difficulty) ? (charPref.gates || []) : [];
+                    const currentGates = matchesGroup(group, charPref) ? (charPref?.gates || []) : [];
                     return allGates.every(g => currentGates.includes(g));
                 });
             }
@@ -635,7 +669,7 @@ export default function RaidPlannerTab({
 
 
     const allAvailableRaidDiffs = useMemo(() => {
-        const raidDiffs = new Set<string>();
+        const raidDiffs = new Map<string, string>();
 
         baseCharacters.forEach(char => {
             const memberInfo = partyTasks.find(m => m.userId === char.ownerId);
@@ -643,15 +677,14 @@ export default function RaidPlannerTab({
             if (prefs) {
                 Object.entries(prefs).forEach(([raidName, pref]: [string, any]) => {
                     if (pref.enabled && pref.difficulty) {
-                        // "레이드명::난이도" 형태로 저장
-                        raidDiffs.add(`${raidName}::${pref.difficulty}`);
+                        raidDiffs.set(`${raidName}::${getSelectionSignature(raidName, pref)}`, pref.difficulty);
                     }
                 });
             }
         });
 
         // 🔥 정렬 로직 추가: 최신 레이드(최대 레벨 높음) -> 높은 난이도 순
-        return Array.from(raidDiffs).sort((a, b) => {
+        return Array.from(raidDiffs.entries()).sort(([a], [b]) => {
             const [raidA, diffA] = a.split("::");
             const [raidB, diffB] = b.split("::");
 
@@ -679,8 +712,8 @@ export default function RaidPlannerTab({
             }
 
             // 3. 같은 레이드라면, 해당 난이도의 입장 레벨이 높은 순으로 정렬 (예: 3단계 -> 2단계)
-            const levelA = infoA?.difficulty[diffA as DifficultyKey]?.level || 0;
-            const levelB = infoB?.difficulty[diffB as DifficultyKey]?.level || 0;
+            const levelA = signatureLevel(raidA, diffA);
+            const levelB = signatureLevel(raidB, diffB);
 
             return levelB - levelA;
         });
@@ -811,9 +844,7 @@ export default function RaidPlannerTab({
             }
 
             if (onlyRemain && !isEditMode) {
-                const info = raidInformation[group.raidName];
-                const diffInfo = info?.difficulty[group.difficulty as DifficultyKey];
-                const allGates = diffInfo?.gates.map((g: any) => g.index) || [];
+                const allGates = groupGates(group).map(g => g.index);
                 const members = group.slots.filter(s => s !== null && !s.isGuest);
 
                 if (members.length === 0) return true;
@@ -821,8 +852,8 @@ export default function RaidPlannerTab({
                 const isGroupFullyCompleted = members.every(slotChar => {
                     const memberInfo = partyTasks.find(m => m.userId === slotChar.ownerId);
                     const charPref = memberInfo?.prefsByChar?.[slotChar.name]?.raids?.[group.raidName];
-                    const currentGates = (charPref && charPref.enabled && charPref.difficulty === group.difficulty)
-                        ? (charPref.gates || [])
+                    const currentGates = matchesGroup(group, charPref)
+                        ? (charPref?.gates || [])
                         : [];
                     return allGates.length > 0 && allGates.every(g => currentGates.includes(g));
                 });
@@ -936,7 +967,7 @@ export default function RaidPlannerTab({
     const waitlistCharacters = useMemo(() => {
         if (!activeGroup) return [];
 
-        const reqLevel = raidInformation[activeGroup.raidName]?.difficulty[activeGroup.difficulty as DifficultyKey]?.level || 0;
+        const reqLevel = getSelectionLevel(activeGroup.raidName, groupSelection(activeGroup));
 
         const assignedUniqueIdsForThisRaid = new Set([
             ...syncedGroups.filter(g => g.raidName === activeGroup.raidName).flatMap(g => g.slots.map(s => s?.uniqueId)),
@@ -955,9 +986,8 @@ export default function RaidPlannerTab({
             // ✅ 대신 여기서 개별 캐릭터의 완료 여부를 판단해 속성으로 넘겨줍니다.
             const memberInfo = partyTasks.find(m => m.userId === char.ownerId);
             const charPref = memberInfo?.prefsByChar?.[char.name]?.raids?.[activeGroup.raidName];
-            const diffInfo = raidInformation[activeGroup.raidName]?.difficulty[activeGroup.difficulty as DifficultyKey];
-            const allGates = diffInfo?.gates.map((g: any) => g.index) || [];
-            const currentGates = charPref?.gates || [];
+            const allGates = groupGates(activeGroup).map(g => g.index);
+            const currentGates = matchesGroup(activeGroup, charPref) ? (charPref?.gates || []) : [];
 
             const isFullyCompleted = allGates.length > 0 && allGates.every((g: number) => currentGates.includes(g));
 
@@ -968,13 +998,11 @@ export default function RaidPlannerTab({
     const handleGroupDragEnd = async (e: DragEndEvent) => {
         const { active, over } = e;
         if (over && active.id !== over.id) {
-            let newGroups = [...groups];
-            setGroups((items) => {
-                const oldIndex = items.findIndex((item) => item.id === active.id);
-                const newIndex = items.findIndex((item) => item.id === over.id);
-                newGroups = arrayMove(items, oldIndex, newIndex);
-                return newGroups;
-            });
+            const oldIndex = groups.findIndex((item) => item.id === active.id);
+            const newIndex = groups.findIndex((item) => item.id === over.id);
+            if (oldIndex < 0 || newIndex < 0) return;
+            const newGroups = arrayMove(groups, oldIndex, newIndex);
+            setGroups(newGroups);
 
             if (disablePersistence || !partyId) {
                 setOriginalGroups(newGroups);
@@ -1063,16 +1091,15 @@ export default function RaidPlannerTab({
 
         if (!window.confirm(`[${activeGroup.groupName}] 그룹의 빈자리를 최적의 조합으로 자동 편성하시겠습니까?`)) return;
 
-        setGroups(prevGroups => {
+        const newGroups = (() => {
+            const prevGroups = groups;
             const newGroups = prevGroups.map(g => ({ ...g, slots: [...g.slots] }));
             const targetGroupIndex = newGroups.findIndex(g => g.id === activeGroupId);
             if (targetGroupIndex === -1) return prevGroups;
             const targetGroup = newGroups[targetGroupIndex];
-            const info = raidInformation[targetGroup.raidName]; // 레이드 정보 가져오기
-            const diffInfo = info?.difficulty[targetGroup.difficulty as DifficultyKey];
-            const allGates = diffInfo?.gates.map((g: any) => g.index) || []; // 전체 관문 번호 리스트
+            const allGates = groupGates(targetGroup).map(g => g.index);
 
-            const reqLevel = raidInformation[targetGroup.raidName]?.difficulty[targetGroup.difficulty as DifficultyKey]?.level || 0;
+            const reqLevel = getSelectionLevel(targetGroup.raidName, groupSelection(targetGroup));
 
             const assignedUniqueIds = new Set([
                 ...newGroups.filter(g => g.raidName === targetGroup.raidName).flatMap(g => g.slots).filter(Boolean).map(c => c.uniqueId),
@@ -1093,8 +1120,8 @@ export default function RaidPlannerTab({
                 const memberInfo = partyTasks.find(m => m.userId === c.ownerId);
                 const charPref = memberInfo?.prefsByChar?.[c.name]?.raids?.[targetGroup.raidName];
 
-                if (charPref && charPref.enabled && charPref.difficulty === targetGroup.difficulty) {
-                    const currentGates = charPref.gates || [];
+                if (matchesGroup(targetGroup, charPref)) {
+                    const currentGates = charPref?.gates || [];
                     const isFullyCompleted = allGates.length > 0 && allGates.every((g: number) => currentGates.includes(g));
 
                     return !isFullyCompleted; // 다 깨지 않은 캐릭터만 후보로 등록
@@ -1232,13 +1259,17 @@ export default function RaidPlannerTab({
                     candidates = candidates.filter((c: any) => c.ownerId !== bestCandidate!.ownerId && c.name !== bestCandidate!.name);
                 }
             }
-            broadcastPlannerGroups(newGroups);
             return newGroups;
-        });
+        })();
+        if (newGroups !== groups) {
+            setGroups(newGroups);
+            broadcastPlannerGroups(newGroups);
+        }
     };
 
     const handleFullAutoSetup = () => {
-        setGroups(prevGroups => {
+        const resultGroups = (() => {
+            const prevGroups = groups;
             const nextGroups = prevGroups.map(g => ({ ...g, slots: [...g.slots] }));
 
             const assigned = new Set<string>();
@@ -1253,7 +1284,7 @@ export default function RaidPlannerTab({
                 });
             });
 
-            const neededAssignments: { char: any; raidName: string; difficulty: string }[] = [];
+            const neededAssignments: { char: any; raidName: string; difficulty: string; gateDifficulties?: GateDifficulties; signature: string }[] = [];
 
             baseCharacters.forEach(char => {
                 if (autoSetupUsers.length > 0 && !autoSetupUsers.includes(char.ownerId)) return;
@@ -1263,20 +1294,19 @@ export default function RaidPlannerTab({
 
                 Object.entries(prefs).forEach(([raidName, pref]: [string, any]) => {
                     if (pref.enabled) {
-                        const targetRaidDiff = `${raidName}::${pref.difficulty}`;
-                        if (autoSetupRaids.length > 0 && !autoSetupRaids.includes(targetRaidDiff)) return;
+                        const targetRaidDiff = `${raidName}::${getSelectionSignature(raidName, pref)}`;
+                        const legacyRaidDiff = `${raidName}::${pref.difficulty}`;
+                        if (autoSetupRaids.length > 0 && !autoSetupRaids.includes(targetRaidDiff) && !autoSetupRaids.includes(legacyRaidDiff)) return;
 
-                        const diffInfo = raidInformation[raidName]?.difficulty[pref.difficulty as DifficultyKey];
-                        if (!diffInfo) return;
-
-                        const allGates = diffInfo.gates.map((g: any) => g.index) || [];
+                        const allGates = getSelectedRaidGates(raidName, pref).map(g => g.index);
+                        if (!allGates.length) return;
                         const currentGates = pref.gates || [];
                         const isFullyCompleted = allGates.length > 0 && allGates.every((g: number) => currentGates.includes(g));
 
                         if (!isFullyCompleted && !assigned.has(`${char.uniqueId}::${raidName}`)) {
-                            const reqLevel = diffInfo.level || 0;
+                            const reqLevel = getSelectionLevel(raidName, pref);
                             if ((char.itemLevelNum || 0) >= reqLevel) {
-                                neededAssignments.push({ char, raidName, difficulty: pref.difficulty });
+                                neededAssignments.push({ char, raidName, difficulty: pref.difficulty, gateDifficulties: pref.gateDifficulties, signature: getSelectionSignature(raidName, pref) });
                             }
                         }
                     }
@@ -1291,14 +1321,15 @@ export default function RaidPlannerTab({
 
             const raidDiffMap = new Map<string, any[]>();
             neededAssignments.forEach(a => {
-                const key = `${a.raidName}::${a.difficulty}`;
+                const key = `${a.raidName}::${a.signature}`;
                 if (!raidDiffMap.has(key)) raidDiffMap.set(key, []);
                 raidDiffMap.get(key)!.push(a.char);
             });
 
             const newlyCreatedGroups: RaidGroup[] = [];
             raidDiffMap.forEach((chars, key) => {
-                const [raidName, difficulty] = key.split("::");
+                const [raidName] = key.split("::");
+                const selection = neededAssignments.find(assignment => `${assignment.raidName}::${assignment.signature}` === key)!;
                 const info = raidInformation[raidName];
                 let maxMembers = 8;
                 if ((info as any).maxMembers) {
@@ -1338,7 +1369,8 @@ export default function RaidPlannerTab({
                         id: `auto-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                         raidName,
                         groupName: `${raidName} ${i + 1}팟`,
-                        difficulty,
+                        difficulty: selection.difficulty,
+                        gateDifficulties: selection.gateDifficulties,
                         maxMembers,
                         slots: Array(maxMembers).fill(null),
                         isPinned: false
@@ -1350,7 +1382,7 @@ export default function RaidPlannerTab({
 
             newlyCreatedGroups.forEach(targetGroup => {
                 let candidates = availableAssignments
-                    .filter(a => a.raidName === targetGroup.raidName && a.difficulty === targetGroup.difficulty)
+                    .filter(a => a.raidName === targetGroup.raidName && a.signature === getSelectionSignature(targetGroup.raidName, groupSelection(targetGroup)))
                     .map(a => a.char);
 
                 const validCPCandidates = candidates.filter((c: any) => parseCP(c.combatPower) > 0);
@@ -1501,9 +1533,12 @@ export default function RaidPlannerTab({
             }
 
             const resultGroups = [...nextGroups, ...validNewGroups];
-            broadcastPlannerGroups(resultGroups);
             return resultGroups;
-        });
+        })();
+        if (resultGroups !== groups) {
+            setGroups(resultGroups);
+            broadcastPlannerGroups(resultGroups);
+        }
 
         setShowAutoSetupSettings(false);
     };
@@ -1538,6 +1573,7 @@ export default function RaidPlannerTab({
         setEditingGroupId(null);
         setSelectedRaidName(null);
         setSelectedDifficulty(null);
+        setSelectedGateDifficulties({});
         setIsAddModalOpen(true);
     };
 
@@ -1545,6 +1581,7 @@ export default function RaidPlannerTab({
         setEditingGroupId(group.id);
         setSelectedRaidName(group.raidName);
         setSelectedDifficulty(group.difficulty);
+        setSelectedGateDifficulties(group.gateDifficulties ?? {});
         setIsAddModalOpen(true);
     };
 
@@ -1569,6 +1606,7 @@ export default function RaidPlannerTab({
                     ...group,
                     raidName: selectedRaidName,
                     difficulty: selectedDifficulty,
+                    gateDifficulties: selectedGateDifficulties,
                     maxMembers: max,
                     slots: nextSlots,
                     groupName: group.groupName === group.raidName ? selectedRaidName : group.groupName,
@@ -1585,6 +1623,7 @@ export default function RaidPlannerTab({
             raidName: selectedRaidName,
             groupName: `${selectedRaidName}`,
             difficulty: selectedDifficulty,
+            gateDifficulties: selectedGateDifficulties,
             maxMembers: max,
             slots: Array(max).fill(null),
             scheduleDay: "",
@@ -1635,14 +1674,16 @@ export default function RaidPlannerTab({
             const sourceSlotIndex = active.data.current?.sourceSlotIndex;
 
             if (sourceGroupId) {
-                setGroups(prev => prev.map(g => {
+                const nextGroups = groups.map(g => {
                     if (g.id === sourceGroupId) {
                         const newSlots = [...g.slots];
                         newSlots[sourceSlotIndex] = null;
                         return { ...g, slots: newSlots };
                     }
                     return g;
-                }));
+                });
+                setGroups(nextGroups);
+                broadcastPlannerGroups(nextGroups);
             }
             return;
         }
@@ -1663,7 +1704,7 @@ export default function RaidPlannerTab({
                 sourceGroup = groups.find(g => g.id === sourceGroupId);
             }
 
-            const reqLevel = raidInformation[targetGroup.raidName]?.difficulty[targetGroup.difficulty as DifficultyKey]?.level || 0;
+            const reqLevel = getSelectionLevel(targetGroup.raidName, groupSelection(targetGroup));
             if ((char.itemLevelNum || 0) < reqLevel) {
                 alert("레벨이 부족하여 배치할 수 없습니다.");
                 return;
@@ -1693,7 +1734,7 @@ export default function RaidPlannerTab({
             }
 
             if (sourceGroup && existingChar && sourceGroup.id !== targetGroup.id) {
-                const sourceReqLevel = raidInformation[sourceGroup.raidName]?.difficulty[sourceGroup.difficulty as DifficultyKey]?.level || 0;
+                const sourceReqLevel = getSelectionLevel(sourceGroup.raidName, groupSelection(sourceGroup));
                 if ((existingChar.itemLevelNum || 0) < sourceReqLevel) {
                     alert("자리를 교체할 캐릭터의 레벨이 출발지 그룹의 요구 레벨보다 낮아 바꿀 수 없습니다.");
                     return;
@@ -1712,22 +1753,20 @@ export default function RaidPlannerTab({
                 }
             }
 
-            setGroups(prev => {
-                const nextGroups = prev.map(g => ({ ...g, slots: [...g.slots] }));
-                const tg = nextGroups.find(g => g.id === groupId);
-                if (!tg) return prev;
+            const nextGroups = groups.map(g => ({ ...g, slots: [...g.slots] }));
+            const tg = nextGroups.find(g => g.id === groupId);
+            if (!tg) return;
 
-                if (sourceGroup && sourceSlotIndex !== undefined) {
-                    const sg = nextGroups.find(g => g.id === sourceGroup!.id);
-                    if (sg) {
-                        sg.slots[sourceSlotIndex] = existingChar;
-                    }
+            if (sourceGroup && sourceSlotIndex !== undefined) {
+                const sg = nextGroups.find(g => g.id === sourceGroup.id);
+                if (sg) {
+                    sg.slots[sourceSlotIndex] = existingChar;
                 }
+            }
 
-                tg.slots[slotIndex] = char;
-                broadcastPlannerGroups(nextGroups);
-                return nextGroups;
-            });
+            tg.slots[slotIndex] = char;
+            setGroups(nextGroups);
+            broadcastPlannerGroups(nextGroups);
 
             setActiveGroupId(groupId);
         }
@@ -1751,7 +1790,7 @@ export default function RaidPlannerTab({
 
     const guestTargetGroup = guestTargetSlot ? groups.find(g => g.id === guestTargetSlot.groupId) : null;
     const guestReqLevel = guestTargetGroup
-        ? raidInformation[guestTargetGroup.raidName]?.difficulty[guestTargetGroup.difficulty as DifficultyKey]?.level || 0
+        ? getSelectionLevel(guestTargetGroup.raidName, groupSelection(guestTargetGroup))
         : 0;
 
     if (isLoading) {
@@ -2001,17 +2040,18 @@ export default function RaidPlannerTab({
                                                         대상 레이드 <span className="text-gray-600 font-normal">(선택 안함 = 전체)</span>
                                                     </span>
                                                     <div className="max-h-32 overflow-y-auto custom-scrollbar pr-1 bg-[#0F1115] rounded-lg border border-white/5 p-1 flex flex-col gap-0.5">
-                                                        {allAvailableRaidDiffs.map(raidDiffKey => {
-                                                            const [raidName, difficulty] = raidDiffKey.split("::");
-                                                            const isActive = autoSetupRaids.includes(raidDiffKey);
-                                                            const displayDiff = getDisplayDifficulty(raidName, difficulty); // "1단계", "하드" 등 깔끔한 출력용
+                                                        {allAvailableRaidDiffs.map(([raidDiffKey, baseDifficulty]) => {
+                                                            const [raidName, signature] = raidDiffKey.split("::");
+                                                            const legacyKey = `${raidName}::${baseDifficulty}`;
+                                                            const isActive = autoSetupRaids.includes(raidDiffKey) || autoSetupRaids.includes(legacyKey);
+                                                            const displayDiff = signatureLabel(raidName, signature);
 
                                                             return (
                                                                 <button
                                                                     key={raidDiffKey}
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        if (isActive) setAutoSetupRaids(prev => prev.filter(r => r !== raidDiffKey));
+                                                                        if (isActive) setAutoSetupRaids(prev => prev.filter(r => r !== raidDiffKey && r !== legacyKey));
                                                                         else setAutoSetupRaids(prev => [...prev, raidDiffKey]);
                                                                     }}
                                                                     className={`flex items-center justify-between px-2 py-1.5 rounded text-xs transition-colors ${isActive ? "bg-[#5B69FF]/15 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5"}`}
@@ -2554,7 +2594,12 @@ export default function RaidPlannerTab({
                                                 return (
                                                     <div
                                                         key={raidName}
-                                                        onClick={() => setSelectedRaidName(raidName)}
+                                                        onClick={() => {
+                                                            if (selectedRaidName !== raidName) {
+                                                                setSelectedRaidName(raidName);
+                                                                setSelectedGateDifficulties({});
+                                                            }
+                                                        }}
                                                         className={`group relative rounded-xl border p-4 transition-all duration-200 cursor-pointer ${isRaidSelected
                                                             ? "bg-[#1E222B] border-[#5B69FF]"
                                                             : "bg-[#16181D] border-white/5 hover:border-white/20 hover:bg-[#1E222B]"
@@ -2576,6 +2621,7 @@ export default function RaidPlannerTab({
                                                             </div>
                                                         </div>
 
+                                                        <p className="mb-1 text-[11px] text-gray-500">전체 관문 난이도</p>
                                                         <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-4 gap-1">
                                                             {Object.entries(info.difficulty)
                                                                 .filter(([diff]) => diff !== "싱글")
@@ -2591,6 +2637,7 @@ export default function RaidPlannerTab({
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
                                                                                 setSelectedDifficulty(diff);
+                                                                                setSelectedGateDifficulties({});
                                                                             }}
                                                                             className={`
                                                                                 relative flex flex-col xl:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-medium rounded-md transition-all
@@ -2605,6 +2652,33 @@ export default function RaidPlannerTab({
                                                                     );
                                                                 })}
                                                         </div>
+                                                        {isRaidSelected && selectedDifficulty && getRaidGateIndices(raidName).length > 1 && (
+                                                            <div className="mt-3 space-y-2" onClick={event => event.stopPropagation()}>
+                                                                <p className="text-[11px] text-gray-400">관문별 난이도</p>
+                                                                {getRaidGateIndices(raidName).map(gate => (
+                                                                    <div key={gate} className="flex items-center gap-2">
+                                                                        <span className="w-10 shrink-0 text-xs text-gray-300">{gate}관문</span>
+                                                                        <div className="grid flex-1 grid-cols-3 gap-1">
+                                                                            {(["노말", "하드", "나메"] as DifficultyKey[]).map(key => {
+                                                                                const available = !!info.difficulty[key]?.gates.some(item => item.index === gate);
+                                                                                const selected = getGateDifficulty({ difficulty: selectedDifficulty as DifficultyKey, gateDifficulties: selectedGateDifficulties }, gate) === key;
+                                                                                return (
+                                                                                    <button
+                                                                                        key={key}
+                                                                                        type="button"
+                                                                                        disabled={!available}
+                                                                                        onClick={() => setSelectedGateDifficulties(previous => ({ ...previous, [gate]: key }))}
+                                                                                        className={`rounded-md px-1 py-1.5 text-[11px] ${selected ? difficultyColors[key].check : "bg-white/5 text-gray-400 hover:bg-white/10"} disabled:cursor-not-allowed disabled:opacity-30`}
+                                                                                    >
+                                                                                        {getDisplayDifficulty(raidName, key)}
+                                                                                    </button>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 );
                                             })}
@@ -2664,9 +2738,7 @@ function ReadOnlyGroupCard({
     const totalPages = Math.ceil(group.maxMembers / 8) || 1;
     const absoluteStartIndex = page * 8;
 
-    const info = raidInformation[group.raidName];
-    const diffInfo = info?.difficulty[group.difficulty as DifficultyKey];
-    const allGates: number[] = diffInfo?.gates.map((g: any) => g.index) || [];
+    const allGates: number[] = groupGates(group).map(g => g.index);
 
     const charStates = useMemo(() => {
         return group.slots.map((slotChar) => {
@@ -2683,8 +2755,8 @@ function ReadOnlyGroupCard({
             const member = partyTasks.find(m => m.userId === slotChar.ownerId);
             const charPref = member?.prefsByChar?.[slotChar.name]?.raids?.[group.raidName];
 
-            const currentGates = (charPref && charPref.enabled && charPref.difficulty === group.difficulty)
-                ? (charPref.gates || [])
+            const currentGates = matchesGroup(group, charPref)
+                ? (charPref?.gates || [])
                 : [];
 
             const isFullyCompleted = allGates.length > 0 && allGates.every(g => currentGates.includes(g));
@@ -2695,7 +2767,7 @@ function ReadOnlyGroupCard({
                 isFullyCompleted
             };
         });
-    }, [group.slots, partyTasks, group.raidName, group.difficulty, allGates]);
+    }, [group, partyTasks, allGates]);
 
     return (
         <div id={`raid-planner-group-${group.id}`} className={`bg-[#16181D] rounded-lg flex flex-col h-fit border-[1.5px] relative overflow-hidden transition-all ${isFocused ? "border-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.14)]" : "border-transparent"}`}>
@@ -2744,7 +2816,7 @@ function ReadOnlyGroupCard({
                                 {group.raidName}
                             </h4>
                             <span className={`text-xs px-2 py-0.5 rounded font-bold ${colors.badge}`}>
-                                {getDisplayDifficulty(group.raidName, group.difficulty)}
+                                {getSelectionLabel(group.raidName, groupSelection(group))}
                             </span>
                             {getGroupAvgCP(group.slots) > 0 && (
                                 <span className="text-xs px-2 py-0.5 rounded font-bold bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
@@ -2760,7 +2832,8 @@ function ReadOnlyGroupCard({
                                 {allGates.map(g => {
                                     const partyGroupChars = charStates.filter((c): c is NonNullable<typeof c> => c !== null && !c.isGuest);
                                     const isAllChecked = partyGroupChars.length > 0 && partyGroupChars.every(c => c.currentGates.includes(g));
-                                    const diffStyle = DIFF_STYLES[group.difficulty as keyof typeof DIFF_STYLES] || DIFF_STYLES["노말"];
+                                    const gateDifficulty = getGateDifficulty(groupSelection(group), g);
+                                    const diffStyle = DIFF_STYLES[gateDifficulty] || DIFF_STYLES["노말"];
 
                                     return (
                                         <button
@@ -2776,8 +2849,9 @@ function ReadOnlyGroupCard({
                                                     currentGates: c.currentGates
                                                 }));
 
-                                                onBulkToggleGate(group.raidName, group.difficulty, g, allGates, targets, !isAllChecked);
+                                                onBulkToggleGate(group.raidName, group.difficulty, g, allGates, targets, !isAllChecked, group.gateDifficulties);
                                             }}
+                                            title={`${g}관문 ${gateDifficulty}`}
                                             className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border transition-all duration-150 ${isAllChecked ? `${diffStyle.check} border-transparent hover:scale-110` : `${diffStyle.idle} ${diffStyle.hover}`
                                                 }`}
                                         >
@@ -3106,7 +3180,7 @@ function GroupCard({
                                 {group.raidName}
                             </h4>
                             <span className={`text-xs px-2 py-0.5 rounded font-bold ${isActive ? colors.badge : "bg-gray-700/50 text-gray-500"}`}>
-                                {getDisplayDifficulty(group.raidName, group.difficulty)}
+                                {getSelectionLabel(group.raidName, groupSelection(group))}
                             </span>
 
                             {getGroupAvgCP(group.slots) > 0 && (
@@ -3259,7 +3333,7 @@ function WaitlistDroppable({ characters, activeGroup, onAutoFill, isTemporaryMod
                             <div className="flex-1 truncate flex items-center gap-1.5 flex-wrap">
                                 {activeGroup.raidName}
                                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${diffColors?.badge}`}>
-                                    {getDisplayDifficulty(activeGroup.raidName, activeGroup.difficulty)}
+                                    {getSelectionLabel(activeGroup.raidName, groupSelection(activeGroup))}
                                 </span>
 
                             </div>

@@ -1,6 +1,7 @@
     // app/lib/tasks/raid-utils.ts
     import { raidInformation, type DifficultyKey } from "@/server/data/raids";
     import type { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
+    import { getSelectedRaidGates, getSelectionLevel } from "@/app/lib/tasks/raid-gates";
     import type { RosterCharacter } from "@/app/components/AddAccount";
 
     /* ─────────────────────────────
@@ -31,16 +32,6 @@
         gold: number;
     };
 
-    function getDifficultyTotalGold(raidId: string, diff: DifficultyKey): number {
-        const info = raidInformation[raidId];
-        const d = info?.difficulty?.[diff];
-        if (!d) return 0;
-
-        // 🔥 정렬용: 일반 골드와 귀속 골드를 합산해서 계산
-        if (typeof d.gold === "number") return d.gold + (d.boundGold ?? 0);
-        return (d.gates ?? []).reduce((sum, g) => sum + (g.gold ?? 0) + (g.boundGold ?? 0), 0);
-    }
-
     export function getRaidColumnSortKeyForRoster(
         raidId: string,
         roster: RosterCharacter[],
@@ -56,12 +47,11 @@
             const p = prefsByChar[c.name]?.raids?.[raidId];
             if (!p?.enabled) continue;
 
-            const diffInfo = info.difficulty?.[p.difficulty];
-            const lv = diffInfo?.level;
-
-            if (typeof lv !== "number") continue;
-
-            const gold = getDifficultyTotalGold(raidId, p.difficulty);
+            const lv = getSelectionLevel(raidId, p);
+            if (!lv) continue;
+            const gold = getSelectedRaidGates(raidId, p).reduce(
+                (sum, gate) => sum + (gate.gold ?? 0) + (gate.boundGold ?? 0), 0
+            );
 
             if (lv > bestLevel) {
                 bestLevel = lv;
@@ -307,9 +297,8 @@
                 const info = raidInformation[raidName];
                 if (!info) continue;
 
-                const diffInfo = info.difficulty[p.difficulty];
-                const gatesDef = diffInfo?.gates ?? [];
-                if (!diffInfo || !gatesDef.length) continue;
+                const gatesDef = getSelectedRaidGates(raidName, p);
+                if (!gatesDef.length) continue;
 
                 const gates = p.gates ?? [];
                 const isBonus = p.isBonus ?? false;
@@ -475,6 +464,7 @@
                 ...(updatedRaids[raidName] ?? { gates: [] }),
                 enabled: true,
                 difficulty,
+                gateDifficulties: {},
                 isGold: true,
             };
         }
@@ -563,6 +553,7 @@
                         ...(prefs.raids[extremeSelection.raidName] ?? { gates: [] }),
                         enabled: true,
                         difficulty: extremeSelection.difficulty,
+                        gateDifficulties: {},
                         isGold: true,
                         isBonus: false,
                     },
@@ -606,9 +597,7 @@
             .filter(([, r]) => r.enabled)
             .map(([raidName, r]) => {
                 const info = raidInformation[raidName];
-                const diffInfo = info?.difficulty[r.difficulty as DifficultyKey];
-                // 난이도별 총 획득 골드 계산
-                const totalGold = (diffInfo?.gates ?? []).reduce((sum, g) => sum + (g.gold || 0), 0);
+                const totalGold = getSelectedRaidGates(raidName, r).reduce((sum, g) => sum + (g.gold || 0), 0);
                 return { raidName, totalGold };
             })
             .sort((a, b) => b.totalGold - a.totalGold) // 골드 높은 순 정렬

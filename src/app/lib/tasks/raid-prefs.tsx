@@ -1,5 +1,6 @@
 // lib/raid-prefs.ts
 import type { DifficultyKey } from "@/server/data/raids";
+import type { GateDifficulties } from "./raid-gates";
 
 export type CharacterTaskPrefs = {
     memo?: string;
@@ -8,6 +9,7 @@ export type CharacterTaskPrefs = {
         {
             enabled: boolean;
             difficulty: DifficultyKey;
+            gateDifficulties?: GateDifficulties;
             gates: number[];
             isBonus?: boolean;
             isGold?: boolean;

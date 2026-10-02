@@ -5,6 +5,7 @@ import type { Session } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/db/client";
 import type { PartyRaidAssignments } from "@/app/lib/tasks/party-assignments";
+import { getSelectionLabel } from "@/app/lib/tasks/raid-gates";
 
 export const runtime = "nodejs"; // MongoDB 드라이버도 node 런타임에서만 사용
 
@@ -276,7 +277,7 @@ export async function GET(
                             partyName: showDetails ? otherParty.name || "이름 없는 공격대" : "다른 공격대",
                             groupId: showDetails ? String(group.id || "") : undefined,
                             groupName: showDetails ? group.groupName || fallbackName : "편성됨",
-                            difficulty: showDetails ? group.difficulty || "" : "",
+                            difficulty: showDetails && group.difficulty ? getSelectionLabel(group.raidName, group) : "",
                             mode,
                             external: true,
                         });

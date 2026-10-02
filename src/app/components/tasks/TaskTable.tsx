@@ -4,6 +4,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import type { CSSProperties } from "react";
 import { raidInformation } from "@/server/data/raids";
+import { getGateDifficulty, getSelectedRaidGates } from "@/app/lib/tasks/raid-gates";
 import { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
 import { RosterCharacter } from "../AddAccount";
 import {
@@ -231,13 +232,12 @@ function SortableCharacterRow({
 
                         const p = prefs?.raids?.[raidId];
                         const info = raidInformation[raidId];
-                        const diffInfo = info && p ? (info.difficulty as any)[p.difficulty] : undefined;
+                        const gatesDef = info && p ? getSelectedRaidGates(raidId, p) : [];
 
-                        if (!p?.enabled || !info || !diffInfo) return <td key={raidId} className={RAID_COL_CLASS} />;
+                        if (!p?.enabled || !info || !gatesDef.length) return <td key={raidId} className={RAID_COL_CLASS} />;
 
                         const checkedSet = new Set(p.gates ?? []);
-                        const allGates: number[] = diffInfo.gates.map((g: any) => g.index);
-                        const diffStyle = DIFF_STYLES[p.difficulty as keyof typeof DIFF_STYLES] ?? DIFF_STYLES["노말"];
+                        const allGates: number[] = gatesDef.map(g => g.index);
                         const isBonus = !!p.isBonus;
                         const assignedGroups = partyAssignments?.[char.name]?.[raidId] ?? [];
 
@@ -252,9 +252,11 @@ function SortableCharacterRow({
                                     <div className="flex items-center justify-center gap-[4px] sm:gap-[5px]">
                                         {allGates.map((g: number) => {
                                             const isChecked = checkedSet.has(g);
+                                            const gateDifficulty = getGateDifficulty(p, g);
+                                            const diffStyle = DIFF_STYLES[gateDifficulty] ?? DIFF_STYLES["노말"];
                                             return (
                                                 <button
-                                                    key={g} type="button" title={`관문 ${g}`} aria-pressed={isChecked}
+                                                    key={g} type="button" title={`${g}관문 ${gateDifficulty}`} aria-pressed={isChecked}
                                                     onClick={() => onToggleGate(char.name, raidId, g, Array.from(checkedSet), allGates)}
                                                     className={[
                                                         GATE_BTN_BASE, "relative", "hover:scale-[1.1]",

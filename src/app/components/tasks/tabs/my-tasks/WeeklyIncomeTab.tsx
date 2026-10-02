@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useMyTasksCtx } from "@/app/my-tasks/MyTasksContext";
 import { raidInformation, type DifficultyKey } from "@/server/data/raids";
+import { getSelectedRaidGates, getSelectionLabel } from "@/app/lib/tasks/raid-gates";
 import { getRaidDifficultyLabel } from "@/app/lib/tasks/raid-display";
 
 type RaidIncomeRow = {
@@ -43,11 +44,12 @@ function getRaidIncome(raidName: string, raidPref: any, isGoldCharacter: boolean
     if (!raidPref?.enabled) return null;
 
     const info = raidInformation[raidName];
-    const diff = info?.difficulty?.[raidPref.difficulty as DifficultyKey];
-    if (!diff) return null;
+    if (!info?.difficulty?.[raidPref.difficulty as DifficultyKey]) return null;
+    const gates = getSelectedRaidGates(raidName, raidPref);
+    if (!gates.length) return null;
 
     const isGoldEnabled = isGoldCharacter && (raidPref.isGold ?? true);
-    const income = (diff.gates ?? []).reduce(
+    const income = gates.reduce(
         (sum, gate) => {
             const gateIncome = calculateGateIncome(gate, isGoldEnabled, raidPref.isBonus ?? false);
             return {
@@ -60,7 +62,7 @@ function getRaidIncome(raidName: string, raidPref: any, isGoldCharacter: boolean
 
     return {
         raidName,
-        difficulty: raidPref.difficulty,
+        difficulty: getSelectionLabel(raidName, raidPref),
         gold: income.gold,
         boundGold: income.boundGold,
         totalGold: income.gold + income.boundGold,

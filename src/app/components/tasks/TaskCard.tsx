@@ -1,14 +1,16 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { raidInformation, type DifficultyKey, type RaidKind } from "@/server/data/raids";
+import { type DifficultyKey, type RaidKind } from "@/server/data/raids";
 import PartyAssignmentLabel from "./PartyAssignmentLabel";
+import { getGateDifficulty, getSelectedRaidGates, getSelectionLabel, type GateDifficulties } from "@/app/lib/tasks/raid-gates";
 import type { PartyRaidAssignment } from "@/app/lib/tasks/party-assignments";
 
 type Props = {
     kind: RaidKind;
     raidName: string;
     difficulty: DifficultyKey;
+    gateDifficulties?: GateDifficulties;
     gates: number[];
     allGates?: number[];
     isBonus?: boolean;
@@ -38,6 +40,7 @@ export default function TaskCard({
     kind,
     raidName,
     difficulty,
+    gateDifficulties,
     gates,
     allGates,
     right,
@@ -50,19 +53,19 @@ export default function TaskCard({
     const title = formatTitle(kind, raidName);
 
     const displayDifficulty = useMemo(() => {
+        if (Object.keys(gateDifficulties ?? {}).length > 0) return getSelectionLabel(raidName, { difficulty, gateDifficulties });
         if (raidName === "지평의 성당") {
             if (difficulty === "노말") return "1단계";
             if (difficulty === "하드") return "2단계";
             if (difficulty === "나메") return "3단계";
         }
         return difficulty;
-    }, [raidName, difficulty]);
+    }, [raidName, difficulty, gateDifficulties]);
 
     const maxGold = useMemo(() => {
         // ... (기존 로직 유지)
-        const info = raidInformation[raidName]?.difficulty?.[difficulty];
-        if (!info?.gates) return 0;
-        return info.gates.reduce((sum, g) => {
+        const selectedGates = getSelectedRaidGates(raidName, { difficulty, gateDifficulties });
+        return selectedGates.reduce((sum, g) => {
             const normalGold = g.gold ?? 0;
             const boundGold = (g as any).boundGold ?? 0;
             let cost = isBonus ? (g.bonusCost ?? 0) : 0;
@@ -71,14 +74,14 @@ export default function TaskCard({
             const netGold = Math.max(0, normalGold - cost);
             return sum + netGold + netBoundGold;
         }, 0);
-    }, [raidName, difficulty, isBonus]);
+    }, [raidName, difficulty, gateDifficulties, isBonus]);
 
     const all = useMemo(() => {
         if (allGates?.length) return [...allGates].sort((a, b) => a - b);
-        const info = raidInformation[raidName]?.difficulty?.[difficulty];
-        if (info?.gates?.length) return info.gates.map((g) => g.index);
+        const selectedGates = getSelectedRaidGates(raidName, { difficulty, gateDifficulties });
+        if (selectedGates.length) return selectedGates.map((g) => g.index);
         return [...new Set(gates)].sort((a, b) => a - b);
-    }, [allGates, raidName, difficulty, gates]);
+    }, [allGates, raidName, difficulty, gateDifficulties, gates]);
 
     const checked = useMemo(() => new Set(gates), [gates]);
 
@@ -94,7 +97,7 @@ export default function TaskCard({
 
                 <div className="mt-1 flex items-center gap-2 min-w-0 h-[24px]">
                     <div className="text-base truncate">{title}</div>
-                    <span className={`shrink-0 whitespace-nowrap text-[11px] px-2 py-0.5 rounded-sm ${diffStyle.badge}`}>
+                    <span title={displayDifficulty} className={`max-w-[180px] shrink-0 truncate text-[11px] px-2 py-0.5 rounded-sm ${diffStyle.badge}`}>
                         {displayDifficulty}
                     </span>
                 </div>
@@ -105,21 +108,23 @@ export default function TaskCard({
                 <div className="flex items-center gap-1">
                     {all.map((g) => {
                         const isChecked = checked.has(g);
+                        const gateDifficulty = getGateDifficulty({ difficulty, gateDifficulties }, g);
+                        const gateStyle = DIFF[gateDifficulty];
                         const base = "relative inline-grid h-7 w-7 place-items-center rounded-full border text-xs transition";
                         return (
                             <button
                                 key={g}
                                 type="button"
-                                title={`관문 ${g}`}
+                                title={`${g}관문 ${gateDifficulty}`}
                                 aria-pressed={isChecked}
                                 disabled={disabled || !onToggleGate}
                                 onClick={() => onToggleGate?.(g, !isChecked)}
                                 className={[
                                     base,
                                     disabled ? "opacity-50 cursor-default" : "hover:scale-[1.1]",
-                                    isChecked ? `${diffStyle.check} border-transparent` : [
+                                    isChecked ? `${gateStyle.check} border-transparent` : [
                                         "bg-[#FFFFFF]/5 text-[#FFFFFF]/20 border-none hover:border-white/20",
-                                        diffStyle.hover,
+                                        gateStyle.hover,
                                     ].join(" "),
                                     "scale-[1.0]",
                                 ].join(" ")}

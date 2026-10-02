@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { raidInformation, type DifficultyKey } from "@/server/data/raids";
 import type { RosterCharacter } from "../AddAccount";
 import { CharacterTaskPrefs } from "@/app/lib/tasks/raid-prefs";
+import { getGateDifficulty, getRaidGateIndices, getSelectionLabel } from "@/app/lib/tasks/raid-gates";
 import {
     RAID_PRIORITY_SORT_OPTIONS,
     sortRaidEntriesByPriority,
@@ -222,6 +223,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                         ...(updatedRaids[raidName] ?? { gates: [] }),
                         enabled: true,
                         difficulty,
+                        gateDifficulties: {},
                         isGold: true, // 일반 3개와 익스트림 +1 모두 골드 지정
                     };
                 }
@@ -339,7 +341,9 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                         const singleOk = !!(single && ilvl >= single.level);
 
                                         const displayDiff = getDisplayDifficulty(raidName, pref.difficulty);
-                                        const curText = pref.difficulty === "나메" ? (nightmare ? `${displayDiff} ${nightmare.level}` : displayDiff)
+                                        const curText = Object.keys(pref.gateDifficulties ?? {}).length > 0
+                                            ? getSelectionLabel(raidName, pref)
+                                            : pref.difficulty === "나메" ? (nightmare ? `${displayDiff} ${nightmare.level}` : displayDiff)
                                             : pref.difficulty === "하드" ? (hard ? `${displayDiff} ${hard.level}` : displayDiff)
                                                 : pref.difficulty === "싱글" ? (single ? `${displayDiff} ${single.level}` : displayDiff)
                                                     : (normal ? `${displayDiff} ${normal.level}` : displayDiff);
@@ -439,6 +443,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                                                     const enabled = e.target.checked;
 
                                                                     return {
+                                                                        ...s,
                                                                         raids: {
                                                                             ...s.raids,
                                                                             [raidName]: {
@@ -457,6 +462,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                                     </label>
                                                 </div>
 
+                                                <p className="mb-1 text-[11px] text-gray-500">전체 관문 난이도</p>
                                                 <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-4 gap-1">
                                                     {[
                                                         { key: "싱글", info: single, ok: singleOk },
@@ -476,11 +482,13 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                                                     setState((s) => {
                                                                         const prev = s.raids[raidName] ?? makeDefaultPref(info, ilvl);
                                                                         return {
+                                                                            ...s,
                                                                             raids: {
                                                                                 ...s.raids,
                                                                                 [raidName]: {
                                                                                     ...prev,
                                                                                     difficulty: key as DifficultyKey,
+                                                                                    gateDifficulties: {},
                                                                                     gates: [],
                                                                                 },
                                                                             },
@@ -496,6 +504,50 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                                         );
                                                     })}
                                                 </div>
+                                                {pref.enabled && getRaidGateIndices(raidName).length > 1 && (
+                                                    <div className="mt-3 space-y-2">
+                                                        <p className="text-[11px] text-gray-400">관문별 난이도</p>
+                                                        {getRaidGateIndices(raidName).map(gate => (
+                                                            <div key={gate} className="flex items-center gap-2">
+                                                                <span className="w-12 shrink-0 text-xs text-gray-300">{gate}관문</span>
+                                                                <div className="grid flex-1 grid-cols-4 gap-1">
+                                                                    {(["싱글", "노말", "하드", "나메"] as DifficultyKey[]).map(key => {
+                                                                        const data = info.difficulty[key];
+                                                                        const available = !!data?.gates.some(item => item.index === gate) && ilvl >= (data?.level ?? Infinity);
+                                                                        const selected = getGateDifficulty(pref, gate) === key;
+                                                                        return (
+                                                                            <button
+                                                                                key={key}
+                                                                                type="button"
+                                                                                disabled={!available || isRosterLocked}
+                                                                                onClick={() => setState(s => {
+                                                                                    const previous = s.raids[raidName];
+                                                                                    return {
+                                                                                        ...s,
+                                                                                        raids: {
+                                                                                            ...s.raids,
+                                                                                            [raidName]: {
+                                                                                                ...previous,
+                                                                                                gateDifficulties: {
+                                                                                                    ...previous.gateDifficulties,
+                                                                                                    [gate]: key,
+                                                                                                },
+                                                                                                gates: [],
+                                                                                            },
+                                                                                        },
+                                                                                    };
+                                                                                })}
+                                                                                className={`rounded-md px-1 py-1.5 text-[11px] ${selected ? DIFF_STYLES[key].check : "bg-white/5 text-gray-400 hover:bg-white/10"} disabled:cursor-not-allowed disabled:opacity-30`}
+                                                                            >
+                                                                                {getDisplayDifficulty(raidName, key)}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                                 {isRosterLocked && (
                                                     <p className="mt-2 text-[11px] text-amber-300/80">익스트림은 원정대당 1개 캐릭터만 등록할 수 있습니다.</p>
                                                 )}

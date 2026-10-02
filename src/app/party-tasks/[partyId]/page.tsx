@@ -39,6 +39,7 @@ import CharacterTaskStrip, {
     TaskItem,
 } from "../../components/tasks/CharacterTaskStrip";
 import TaskCard from "../../components/tasks/TaskCard";
+import { getSelectedRaidGates, getSelectionLabel } from "@/app/lib/tasks/raid-gates";
 import TaskTable from "../../components/tasks/TaskTable";
 import type {
     CharacterSummary,
@@ -148,7 +149,10 @@ function getPartyAssignmentViews(
                     partyName: party.name,
                     groupId: group.id,
                     groupName: group.groupName || fallbackName,
-                    difficulty: group.difficulty || "",
+                    difficulty: group.difficulty ? getSelectionLabel(group.raidName, {
+                        difficulty: group.difficulty as import("@/server/data/raids").DifficultyKey,
+                        gateDifficulties: group.gateDifficulties,
+                    }) : "",
                     mode,
                 });
             }
@@ -294,10 +298,8 @@ function buildTasksForCharacter(
         const info = raidInformation[raidName];
         if (!info) continue;
 
-        const diff = info.difficulty[p.difficulty];
-        if (!diff) continue;
-
-        const gatesDef = diff.gates ?? [];
+        const gatesDef = getSelectedRaidGates(raidName, p);
+        if (!gatesDef.length) continue;
         const allGateIdx = gatesDef.map((g) => g.index);
 
         if (options?.onlyRemain) {
@@ -314,7 +316,7 @@ function buildTasksForCharacter(
         }
 
         const totalGold = (p.gates ?? []).reduce((sum, gi) => {
-            const g = diff.gates.find((x) => x.index === gi);
+            const g = gatesDef.find((x) => x.index === gi);
             if (!g) return sum;
 
             const isGoldEarn = options?.isGoldEarn ?? false;
@@ -345,6 +347,7 @@ function buildTasksForCharacter(
                     kind={info.kind}
                     raidName={raidName}
                     difficulty={p.difficulty}
+                    gateDifficulties={p.gateDifficulties}
                     gates={p.gates}
                     isBonus={p.isBonus}
                     right={right}
@@ -1470,9 +1473,7 @@ export default function PartyDetailPage() {
             for (const [raidName, raidPref] of Object.entries(charPrefs.raids ?? {})) {
                 if (!raidPref || !(raidPref as any).enabled) continue;
 
-                const info = raidInformation[raidName];
-                const diff = (info?.difficulty as any)?.[(raidPref as any).difficulty];
-                const allGateIndices = (diff?.gates ?? []).map((g: any) => g.index);
+                const allGateIndices = getSelectedRaidGates(raidName, raidPref as any).map(g => g.index);
                 const currentGates = (raidPref as any).gates ?? [];
 
                 // 하나라도 모든 관문이 체크되어 있지 않다면 false
@@ -1495,9 +1496,7 @@ export default function PartyDetailPage() {
                     nextRaids[raidName] = { ...(raidPref as any), gates: [] };
                 } else {
                     // 전체 완료
-                    const info = raidInformation[raidName];
-                    const diff = (info?.difficulty as any)?.[(raidPref as any).difficulty];
-                    const allGateIndices = (diff?.gates ?? []).map((g: any) => g.index);
+                    const allGateIndices = getSelectedRaidGates(raidName, raidPref as any).map(g => g.index);
                     nextRaids[raidName] = { ...(raidPref as any), gates: allGateIndices };
                 }
             }
@@ -1523,7 +1522,8 @@ export default function PartyDetailPage() {
         gate: number,
         allGates: number[],
         targets: { userId: string; charName: string; currentGates: number[] }[],
-        targetState: boolean
+        targetState: boolean,
+        gateDifficulties?: Partial<Record<number, import("@/server/data/raids").DifficultyKey>>
     ) => {
         if (!party || !partyTasks) return;
         const partyIdNum = party.id;
@@ -1567,6 +1567,7 @@ export default function PartyDetailPage() {
                             ...oldRaidPref,
                             enabled: true,
                             difficulty: difficulty as any, // 타입 오류 방지
+                            gateDifficulties: gateDifficulties ?? {},
                             gates: nextGates
                         }
                     }
@@ -3166,11 +3167,7 @@ function PartyMemberBlock({
             for (const [raidName, raidPref] of Object.entries(raids as any)) {
                 if (!(raidPref as any)?.enabled) continue;
 
-                const info = raidInformation[raidName];
-                const diff = (info?.difficulty as any)?.[(raidPref as any).difficulty];
-                if (!diff) continue;
-
-                const gatesDef = diff.gates ?? [];
+                const gatesDef = getSelectedRaidGates(raidName, raidPref as any);
                 if (!gatesDef.length) {
                     filteredRaids[raidName] = raidPref;
                     continue;
