@@ -1,5 +1,8 @@
 "use client";
 
+import ToolMethodNote from "@/app/components/ToolMethodNote";
+import RaidDataStatus from "@/app/components/RaidDataStatus";
+
 import { useMemo, useState, useEffect } from "react";
 import {
     Check,
@@ -268,6 +271,7 @@ export default function RaidInfoPage() {
 
 
 
+                <RaidDataStatus raid={act} difficulty={diff} />
                 <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 sm:gap-6 items-start">
                     <div className="space-y-4">
                         <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 overflow-hidden shadow-sm">
@@ -853,6 +857,7 @@ export default function RaidInfoPage() {
                                     ))}
                                 </div>
                             </section>
+                            <ToolMethodNote tool="raid" className="" />
                         </div>
                     </div>
                 </div>

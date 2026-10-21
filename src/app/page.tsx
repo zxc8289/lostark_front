@@ -70,7 +70,7 @@ export default async function HomePage() {
     },
     {
       q: "보석 합성 계산기는 어떤 기준으로 보면 되나요?",
-      a: "목표 보석을 바로 구매하는 비용과 하위 보석 3개를 합성하는 비용을 비교하면 됩니다. 계산 결과에서 더 저렴한 쪽을 기준으로 보되, 실제 보석 옵션과 거래소 매물 상황도 함께 확인하는 것이 좋습니다.",
+      a: "목표 타입이 나왔다는 조건에서 바로 구매 비용과 1회 합성 비용을 비교합니다. 합성 결과는 무작위이므로 더 저렴하다고 표시돼도 목표 타입을 얻을 때까지의 평균 비용이나 확정 이익은 아닙니다.",
     },
     {
       q: "파티 숙제는 어떻게 활용하면 좋나요?",
@@ -294,7 +294,7 @@ export default async function HomePage() {
                 </div>
                 <div className="flex flex-col">
                   <h3 className="text-base md:text-lg font-bold text-gray-100 group-hover:text-white transition-colors">딜 지분 계산기</h3>
-                  <p className="text-xs md:text-sm text-gray-500 group-hover:text-gray-400 transition-colors">강투/잔혈 달성 여부 확인하기</p>
+                  <p className="text-xs md:text-sm text-gray-500 group-hover:text-gray-400 transition-colors">저장된 기준 대비 딜 지분 추정</p>
                 </div>
               </div>
               <div className="text-gray-400 hover:text-gray-200 transition-colors">
@@ -337,7 +337,7 @@ export default async function HomePage() {
 
           <div className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
             <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">로스트아크 딜 지분(DPS) 역산 분석기</h3>
-            <p className="text-xs text-gray-400 leading-relaxed mb-4">게임 내 MVP 화면의 피해량을 기반으로 보스 전체 체력 대비 내 기여도를 역산해, 퍼포먼스를 수치로 확인할 수 있습니다.</p>
+            <p className="text-xs text-gray-400 leading-relaxed mb-4">입력한 피해량을 사이트에 저장된 잔혈 기준값과 비교해 딜 지분을 추정합니다. 실제 전투 로그를 측정하는 도구는 아닙니다.</p>
             <details className="group mt-auto">
               <summary className="text-xs text-[#FF5252] hover:text-[#ff7474] font-bold cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center gap-1 transition-colors w-fit">
                 <span className="group-open:hidden">가이드 읽기</span>
@@ -345,7 +345,7 @@ export default async function HomePage() {
                 <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
               </summary>
               <div className="pt-4 mt-4 border-t border-white/5 text-xs text-gray-500 leading-relaxed space-y-3">
-                <p>딜 지분 계산기는 단순히 MVP 화면의 피해량을 다시 보여주는 것이 아니라, 레이드와 관문별 체력을 기준으로 내 딜 기여도를 퍼센트로 환산해 줍니다. 같은 피해량이라도 레이드에 따라 체감 의미가 달라질 수 있어, 비교 기준을 정리하는 데 도움이 됩니다.</p>
+                <p>관문별 잔혈 기준값을 기준 비율로 나누어 비교용 총피해량을 구한 뒤 내 피해량의 비율을 계산합니다. 보스 체력을 분모로 사용하지 않으며 실제 MVP 판정을 보장하지 않습니다. 운영자의 자체 계산 기준은 데이터 기준 페이지에서 확인하세요.</p>
                 <ul className="space-y-2 pl-2">
                   <li><strong className="text-gray-300">8인 레이드:</strong> 평균 1인분 기준을 참고해 강투/잔혈 여부를 보다 직관적으로 판단할 수 있습니다.</li>
                   <li><strong className="text-gray-300">4인 레이드:</strong> 딜러 수가 적기 때문에 한 명의 기여도 차이가 크게 나타나며, 실전 해석 시 관문별 편차도 함께 보는 것이 좋습니다.</li>
@@ -368,7 +368,7 @@ export default async function HomePage() {
                 <ul className="space-y-1.5 pl-2">
                   <li><strong className="text-gray-300">• 바로 구매:</strong> 목표 레벨 보석의 현재 최저가를 기준으로 계산합니다.</li>
                   <li><strong className="text-gray-300">• 합성 비용:</strong> 하위 레벨 보석 3개를 구매해 한 단계 올리는 비용으로 계산합니다.</li>
-                  <li><strong className="text-gray-300">• 판단 기준:</strong> 구매와 합성 중 골드가 덜 드는 쪽을 먼저 확인하면 됩니다.</li>
+                  <li><strong className="text-gray-300">• 판단 기준:</strong> 목표 타입이 나온 경우의 1회 비용 비교입니다. 타입별 확률과 재판매 수수료를 반영한 기대 수익은 아닙니다.</li>
                 </ul>
               </div>
             </details>

@@ -6,7 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
 
     return [
-        { url: `${baseUrl}/guide/data/`, lastModified: new Date("2026-09-25T00:00:00+09:00"), changeFrequency: "monthly", priority: 0.7 },
+        { url: `${baseUrl}/guide/data/`, lastModified: new Date("2026-10-18T00:00:00+09:00"), changeFrequency: "monthly", priority: 0.7 },
         {
             url: `${baseUrl}/`,
             changeFrequency: "daily",
@@ -29,31 +29,31 @@ export default function sitemap(): MetadataRoute.Sitemap {
         },
         {
             url: `${baseUrl}/articles/raid-checklist/`,
-            lastModified: new Date("2026-09-25T00:00:00+09:00"),
+            lastModified: new Date("2026-10-18T00:00:00+09:00"),
             changeFrequency: "monthly",
             priority: 0.7,
         },
         {
             url: `${baseUrl}/articles/more-reward-efficiency/`,
-            lastModified: new Date("2026-09-25T00:00:00+09:00"),
+            lastModified: new Date("2026-10-18T00:00:00+09:00"),
             changeFrequency: "monthly",
             priority: 0.7,
         },
         {
             url: `${baseUrl}/articles/auction-bid-guide/`,
-            lastModified: new Date("2026-09-25T00:00:00+09:00"),
+            lastModified: new Date("2026-10-18T00:00:00+09:00"),
             changeFrequency: "monthly",
             priority: 0.7,
         },
         {
             url: `${baseUrl}/articles/weekly-raid-gold-guide/`,
-            lastModified: new Date("2026-09-25T00:00:00+09:00"),
+            lastModified: new Date("2026-10-18T00:00:00+09:00"),
             changeFrequency: "monthly",
             priority: 0.7,
         },
         {
             url: `${baseUrl}/articles/bound-gold-guide/`,
-            lastModified: new Date("2026-09-25T00:00:00+09:00"),
+            lastModified: new Date("2026-10-18T00:00:00+09:00"),
             changeFrequency: "monthly",
             priority: 0.7,
         },

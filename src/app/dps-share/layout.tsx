@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import ToolMethodNote from "@/app/components/ToolMethodNote";
 
 export const metadata: Metadata = {
   title: "딜 지분 계산기",
@@ -16,5 +15,5 @@ export default function DpsShareLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}<ToolMethodNote tool="dps" /></>;
+  return <>{children}</>;
 }

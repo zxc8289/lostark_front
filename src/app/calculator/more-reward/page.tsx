@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
+import { summarizeRewardValue } from "@/app/lib/calculators/reward-value";
+import RaidDataStatus from "@/app/components/RaidDataStatus";
+
 import React, { useMemo, useState, useEffect } from "react";
 import {
-    Info,
     PackageOpen,
     Check,
     TrendingUp,
@@ -145,6 +148,8 @@ export default function MoreRewardCalculatorPage() {
 
     const [marketPrices, setMarketPrices] = useState<Record<string, number>>({});
     const [isFetchingPrices, setIsFetchingPrices] = useState<boolean>(false);
+    const [priceStatus, setPriceStatus] = useState("시세 조회 전입니다.");
+    const [priceUpdatedAt, setPriceUpdatedAt] = useState<string | null>(null);
 
     const [excludedItems, setExcludedItems] = useState<Set<string>>(new Set());
     const [isMounted, setIsMounted] = useState(false);
@@ -213,6 +218,7 @@ export default function MoreRewardCalculatorPage() {
 
     const fetchMarketPrices = async () => {
         setIsFetchingPrices(true);
+        setPriceStatus("시세를 불러오는 중입니다.");
 
         try {
             const response = await fetch("/api/lostark/lostark-market");
@@ -222,10 +228,15 @@ export default function MoreRewardCalculatorPage() {
             }
 
             const data = await response.json();
-            setMarketPrices(data);
+            const validPrices = Object.fromEntries(Object.entries(data).filter(([, value]) => typeof value === "number" && Number.isFinite(value) && value > 0)) as Record<string, number>;
+            if (!Object.keys(validPrices).length) throw new Error("조회된 가격 없음");
+            setMarketPrices(validPrices);
+            const at = response.headers.get("X-Loacheck-Cache-At");
+            setPriceUpdatedAt(at && Number.isFinite(Date.parse(at)) ? at : null);
+            setPriceStatus(response.headers.get("X-Loacheck-Cache") === "STALE" ? "최신 조회 실패로 이전 캐시를 표시합니다." : "조회된 재료 가격을 반영했습니다. 가격 없는 재료는 평가에서 빠집니다.");
         } catch (error) {
             console.error(error);
-            alert("최신 거래소 시세를 불러오지 못했습니다.");
+            setPriceStatus("시세 조회에 실패했습니다. 표시된 가격이 있다면 이전 조회값입니다. 다시 갱신해 주세요.");
         } finally {
             setIsFetchingPrices(false);
         }
@@ -291,11 +302,12 @@ export default function MoreRewardCalculatorPage() {
                         </h1>
 
                         <p className="text-sm text-gray-400 max-w-2xl leading-relaxed break-keep">
-                            현재 거래소 시세를 반영하여 더보기 보상 가치를 계산합니다.
+                            조회한 거래소 시세를 반영하여 더보기 보상 가치를 계산합니다.
                         </p>
                     </div>
                 </div>
 
+                <RaidDataStatus raid={raid} difficulty={diff} />
                 <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 sm:gap-6 items-start">
                     <div className="space-y-4">
                         <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 overflow-hidden shadow-sm">
@@ -391,7 +403,7 @@ export default function MoreRewardCalculatorPage() {
                                 <li>2. 관문별 더보기 비용과 보상 재료를 확인합니다.</li>
                                 <li>3. 최신 시세 갱신 버튼으로 거래소 기준을 업데이트합니다.</li>
                                 <li>4. 필요 없는 재료는 클릭해서 계산에서 제외합니다.</li>
-                                <li>5. 순수익이 플러스인지 마이너스인지 확인하고 결정합니다.</li>
+                                <li>5. 가격 누락과 재료 필요도를 확인한 뒤 평가 차액을 비교합니다.</li>
                             </ol>
                         </section>
                     </div>
@@ -401,11 +413,13 @@ export default function MoreRewardCalculatorPage() {
                             <div className="flex items-center justify-between bg-[#16181D] rounded-none sm:rounded-xl border-y sm:border border-white/5 p-4 sm:px-5 shadow-sm">
                                 <div className="space-y-1">
                                     <span className="font-semibold text-gray-200">
-                                        현재 거래소 시세 연동 상태
+                                        거래소 시세 조회 상태
                                     </span>
                                     <p className="text-xs text-gray-500 break-keep">
                                         재료 가격은 API로 불러온 거래소 기준값을 사용합니다.
-                                        실제 판매 가능 가격과는 차이가 있을 수 있습니다.
+                                        귀속 재료의 구매 대체 가치이며 판매 수익이 아닙니다.
+                                    </p>
+                                    <p role="status" className="text-xs leading-6 text-gray-400">{priceStatus}{priceUpdatedAt && <> · 가격 조회 {new Date(priceUpdatedAt).toLocaleString("ko-KR", {timeZone: "Asia/Seoul"})} KST</>}
                                     </p>
                                 </div>
 
@@ -490,7 +504,7 @@ export default function MoreRewardCalculatorPage() {
                                     const gateKey = `${raid}-${diff}-${g.index}`;
                                     const parsedItems = parseRewards(g.bonusRewards);
 
-                                    let totalValue = 0;
+
 
                                     const calculatedItems = parsedItems.map((item) => {
                                         const originalName = item.name;
@@ -519,9 +533,7 @@ export default function MoreRewardCalculatorPage() {
                                             `${gateKey}-${originalName}`
                                         );
 
-                                        if (!isExcluded) {
-                                            totalValue += itemTotalValue;
-                                        }
+
 
                                         return {
                                             originalName,
@@ -535,13 +547,16 @@ export default function MoreRewardCalculatorPage() {
                                         };
                                     });
 
-                                    const netProfit = totalValue - g.bonusCost;
+                                    const valuation = summarizeRewardValue(calculatedItems, g.bonusCost);
+                                    const { totalValue } = valuation;
+                                    const netProfit = valuation.difference;
                                     const isProfitable = netProfit >= 0;
+                                    const isPartial = !valuation.canCalculate || valuation.missingCount > 0;
 
                                     return (
                                         <div
                                             key={gateKey}
-                                            className={`relative flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border p-5 shadow-sm transition-all ${isProfitable
+                                            className={`relative flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border p-5 shadow-sm transition-all ${isPartial ? "bg-[#16181D] border-white/5 hover:border-white/10" : isProfitable
                                                 ? "bg-[#16181D] border-white/5 hover:border-indigo-500/30"
                                                 : "bg-[#16181D] border-white/5 hover:border-red-500/30"
                                                 }`}
@@ -651,7 +666,7 @@ export default function MoreRewardCalculatorPage() {
                                                                         `${fmt(item.itemTotalValue)} G`
                                                                     ) : (
                                                                         <span className="text-gray-600 text-[10px] no-underline">
-                                                                            거래불가
+                                                                            가격 미확인
                                                                         </span>
                                                                     )}
                                                                 </span>
@@ -662,46 +677,43 @@ export default function MoreRewardCalculatorPage() {
                                             </div>
 
                                             <div
-                                                className={`mt-auto pt-3 border-t flex items-center justify-between ${isProfitable
+                                                className={`mt-auto pt-3 border-t flex items-center justify-between ${isPartial ? "border-white/10" : isProfitable
                                                     ? "border-indigo-500/20"
                                                     : "border-red-500/20"
                                                     }`}
                                             >
                                                 <div className="flex flex-col">
                                                     <span className="text-[11px] text-gray-400 font-medium">
-                                                        환산 가치 합계: {fmt(totalValue)} G
+                                                        확인된 재료 가치: {valuation.canCalculate ? `${fmt(totalValue)} G` : "—"}
                                                     </span>
 
                                                     <span
-                                                        className={`text-sm font-bold flex items-center gap-1 ${isProfitable
+                                                        className={`text-sm font-bold flex items-center gap-1 ${isPartial ? "text-gray-400" : isProfitable
                                                             ? "text-indigo-400"
                                                             : "text-red-400"
                                                             }`}
                                                     >
-                                                        {isProfitable
-                                                            ? "누르는 게 이득"
-                                                            : "안 누르는 게 이득"}
-                                                        {isProfitable ? (
+                                                        {valuation.label}
+                                                        {valuation.canCalculate && valuation.missingCount === 0 && (isProfitable ? (
                                                             <TrendingUp className="w-4 h-4" />
                                                         ) : (
                                                             <TrendingDown className="w-4 h-4" />
-                                                        )}
+                                                        ))}
                                                     </span>
                                                 </div>
 
                                                 <div className="text-right">
                                                     <span className="text-[10px] text-gray-500">
-                                                        순수익
+                                                        {valuation.missingCount > 0 ? "부분 평가 차액" : "평가 차액"}
                                                     </span>
 
                                                     <div
-                                                        className={`text-xl font-black ${isProfitable
+                                                        className={`text-xl font-black ${isPartial ? "text-gray-300" : isProfitable
                                                             ? "text-white"
                                                             : "text-red-400"
                                                             }`}
                                                     >
-                                                        {isProfitable ? "+" : ""}
-                                                        {fmt(netProfit)} G
+                                                        {valuation.canCalculate ? `${isProfitable ? "+" : ""}${fmt(netProfit)} G` : "—"}
                                                     </div>
                                                 </div>
                                             </div>
@@ -715,284 +727,14 @@ export default function MoreRewardCalculatorPage() {
                             </div>
                         )}
 
-                        <div className="space-y-4 mt-4">
-                            <section className="rounded-none sm:rounded-xl bg-gradient-to-b from-[#16181D] to-[#121318] border-y sm:border border-white/5 p-5">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Info className="w-4 h-4 text-indigo-400" />
-                                    <h2 className="text-sm font-bold text-gray-200">
-                                        더보기 효율 계산기란?
-                                    </h2>
-                                </div>
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        이 페이지는 로스트아크 레이드에서 더보기를 눌렀을 때
-                                        얻는 재료의 골드 가치를 계산하고, 더보기 비용과 비교해
-                                        이득인지 손해인지 판단할 수 있도록 만든 보상 분석 도구입니다.
-                                    </p>
-
-                                    <p>
-                                        레이드와 난이도를 선택하면 관문별 더보기 보상에 포함된
-                                        재료를 자동으로 불러오고, 거래소 시세를 기준으로 각 재료의
-                                        환산 가치를 계산합니다. 결과 카드에서는{" "}
-                                        <strong className="text-white">더보기 비용</strong>,{" "}
-                                        <strong className="text-white">재료 가치 합계</strong>,{" "}
-                                        <strong className="text-white">최종 순수익</strong>을
-                                        한 번에 확인할 수 있습니다.
-                                    </p>
-
-                                    <p>
-                                        즉, 게임 안에서 재료 수량과 시세를 일일이 계산하지 않아도
-                                        현재 시세 기준으로 더보기를 누를지 말지 빠르게 판단하는 데
-                                        사용할 수 있습니다.
-                                    </p>
-                                </div>
-                            </section>
-
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y border-x-0 sm:border border-white/5 p-5">
-                                <h2 className="text-sm font-bold text-gray-200 mb-3">
-                                    현재 선택 기준 안내
-                                </h2>
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        현재 선택한 레이드는{" "}
-                                        <strong className="text-white">{raid}</strong>,
-                                        난이도는{" "}
-                                        <strong className="text-white">
-                                            {getDiffLabel(raid, diff)}
-                                        </strong>
-                                        입니다. 이 기준에 맞는 관문별 더보기 보상을 바탕으로
-                                        계산 결과가 표시됩니다.
-                                    </p>
-
-                                    <p>
-                                        관문 수가 여러 개인 레이드는 관문마다 더보기 비용과 재료
-                                        구성이 다를 수 있습니다. 그래서 레이드 전체를 한 번에 보는
-                                        것보다, 각 관문 카드에서{" "}
-                                        <strong className="text-gray-300">
-                                            관문별 순수익을 따로 확인
-                                        </strong>
-                                        하는 것이 더 정확합니다.
-                                    </p>
-
-                                    <p>
-                                        계산 결과가 플러스인 관문은 골드 기준으로 더보기를 누르는
-                                        쪽이 유리하고, 마이너스인 관문은 골드 기준으로는 누르지 않는
-                                        편이 유리하다고 볼 수 있습니다.
-                                    </p>
-                                </div>
-                            </section>
-
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y border-x-0 sm:border border-white/5 p-5">
-                                <h2 className="text-sm font-bold text-gray-200 mb-3">
-                                    계산 기준
-                                </h2>
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        더보기 효율은{" "}
-                                        <strong className="text-gray-300">
-                                            현재 거래소 시세가 있는 재료만 골드로 환산
-                                        </strong>
-                                        해서 계산합니다. 재료 가치 합계를 먼저 구하고, 그 값에서
-                                        더보기 비용을 차감해 최종 순수익을 표시합니다.
-                                    </p>
-
-                                    <p>
-                                        <strong className="text-white">순수익이 플러스</strong>
-                                        라면 골드 기준으로는 더보기를 누르는 쪽이 유리하고,{" "}
-                                        <strong className="text-white">순수익이 마이너스</strong>
-                                        라면 골드 기준으로는 더보기를 누르지 않는 편이 유리합니다.
-                                    </p>
-
-                                    <div className="rounded-lg bg-[#0F1014] border border-white/5 p-4 space-y-2">
-                                        <p className="text-gray-300 font-semibold">
-                                            간단 계산 흐름
-                                        </p>
-                                        <p>1. 선택한 레이드와 난이도의 관문별 더보기 보상 확인</p>
-                                        <p>2. 보상 재료의 최신 거래소 시세 반영</p>
-                                        <p>3. 상위 재료 환산 옵션을 켠 경우 환산된 재료 기준으로 계산</p>
-                                        <p>4. 제외한 재료를 빼고 재료 가치 합계 계산</p>
-                                        <p>5. 재료 가치 합계에서 더보기 비용을 차감해 순수익 표시</p>
-                                    </div>
-                                </div>
-                            </section>
-
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y border-x-0 sm:border border-white/5 p-5">
-                                <h2 className="text-sm font-bold text-gray-200 mb-3">
-                                    상위 재료 환산 옵션 사용법
-                                </h2>
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        상위 재료 환산 옵션은 하위 재료를 그대로 계산하지 않고,
-                                        실제 성장 구간에서 주로 비교하는 상위 재료 가치로 바꾸어
-                                        효율을 확인하고 싶을 때 사용하는 기능입니다.
-                                    </p>
-
-                                    <p>
-                                        예를 들어 하위 돌파석이나 강석류를 상위 재료 기준으로
-                                        비교하고 싶다면 T4 일반 또는 T4 상급 옵션을 켜서 환산된
-                                        시세 기준으로 계산할 수 있습니다. 같은 버튼을 다시 누르면
-                                        환산이 해제되어 원래 재료 기준 계산으로 돌아갑니다.
-                                    </p>
-
-                                    <p>
-                                        다만 환산 비율은 게임 내 교환 구조를 단순화한 기준이므로,
-                                        실제 서버 시세나 캐릭터 성장 상황에 따라 체감 효율은
-                                        달라질 수 있습니다.
-                                    </p>
-                                </div>
-                            </section>
-
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y border-x-0 sm:border border-white/5 p-5">
-                                <h2 className="text-sm font-bold text-gray-200 mb-3">
-                                    재료 제외 기능 안내
-                                </h2>
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        관문 카드의 재료 항목을 클릭하면 해당 재료를 계산에서
-                                        제외하거나 다시 포함할 수 있습니다. 이 기능은 특정 재료를
-                                        이미 충분히 가지고 있거나, 실제로는 골드 가치로 보지 않는
-                                        경우에 유용합니다.
-                                    </p>
-
-                                    <p>
-                                        예를 들어 현재 캐릭터에게 명예의 파편은 필요하지만 특정
-                                        귀속 재료는 가치가 낮다고 판단된다면, 해당 재료를 제외하고
-                                        나머지 보상만으로 더보기 효율을 다시 계산할 수 있습니다.
-                                    </p>
-
-                                    <p>
-                                        제외한 재료 목록은 브라우저 로컬 저장소에 저장되므로,
-                                        같은 기기와 브라우저에서는 다시 접속해도 제외 상태가
-                                        유지됩니다.
-                                    </p>
-                                </div>
-                            </section>
-
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y border-x-0 sm:border border-white/5 p-5">
-                                <h2 className="text-sm font-bold text-gray-200 mb-3">
-                                    예시로 보는 더보기 판단
-                                </h2>
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        예를 들어 어떤 관문의 더보기 비용이 2,000골드이고,
-                                        더보기로 얻는 재료의 거래소 환산 가치가 2,700골드라면
-                                        순수익은 약 700골드입니다. 이런 경우에는 골드 기준으로
-                                        더보기를 누르는 쪽이 유리하다고 볼 수 있습니다.
-                                    </p>
-
-                                    <p>
-                                        반대로 더보기 비용이 2,000골드인데 재료 환산 가치가
-                                        1,500골드라면 순수익은 -500골드입니다. 이 경우 골드만
-                                        기준으로 보면 더보기를 누르지 않는 편이 낫습니다.
-                                    </p>
-
-                                    <div className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 p-4">
-                                        <p className="text-indigo-200 font-medium break-keep">
-                                            핵심은 “더보기로 얻는 재료를 지금 골드로 환산하면 얼마인가”와
-                                            “그 값을 더보기 비용과 비교했을 때 남는가”입니다.
-                                        </p>
-                                    </div>
-                                </div>
-                            </section>
-
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y border-x-0 sm:border border-white/5 p-5">
-                                <h2 className="text-sm font-bold text-gray-200 mb-3">
-                                    데이터 해석 시 참고할 점
-                                </h2>
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        이 계산은{" "}
-                                        <strong className="text-gray-300">
-                                            거래소에서 바로 환산 가능한 재료의 골드 가치
-                                        </strong>
-                                        를 중심으로 계산한 값입니다. 따라서 비늘, 뿔, 쐐기돌,
-                                        코어처럼 거래소 시세로 단순 환산하기 어려운 재료는 골드
-                                        기준 계산에서 제외되거나 낮게 반영될 수 있습니다.
-                                    </p>
-
-                                    <p>
-                                        그래서 골드 기준으로는 손해 구간이어도, 현재 캐릭터 성장에
-                                        필요한 귀속 재료가 급한 경우에는 더보기를 누르는 것이
-                                        실제 체감상 더 유리할 수 있습니다.
-                                    </p>
-
-                                    <p>
-                                        이 페이지는{" "}
-                                        <strong className="text-gray-300">
-                                            골드 기준 효율 판단 도구
-                                        </strong>
-                                        로 활용하는 것이 가장 적절하고, 실제 선택은 재료 필요도,
-                                        성장 목표, 강화 계획, 서버 시세 흐름을 함께 고려하는 것이
-                                        좋습니다.
-                                    </p>
-                                </div>
-                            </section>
-
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y border-x-0 sm:border border-white/5 p-5">
-                                <h2 className="text-sm font-bold text-gray-200 mb-4">
-                                    자주 묻는 질문
-                                </h2>
-
-                                <div className="space-y-3">
-                                    {[
-                                        {
-                                            q: "순수익이 마이너스면 무조건 더보기를 안 하는 게 맞나요?",
-                                            a: "골드만 기준으로 보면 안 누르는 편이 유리합니다. 다만 현재 캐릭터에게 필요한 귀속 재료나 성장 재료가 급하다면 손해 구간이어도 더보기를 누를 가치가 있을 수 있습니다.",
-                                        },
-                                        {
-                                            q: "왜 어떤 재료는 거래불가로 표시되나요?",
-                                            a: "현재 거래소 시세로 환산하기 어렵거나, 거래 가능한 시장 가격 기준을 적용하지 않는 재료이기 때문입니다. 이런 재료는 개인 성장 상황에 따라 실제 가치가 달라질 수 있습니다.",
-                                        },
-                                        {
-                                            q: "최신 시세 갱신 버튼은 언제 누르면 좋나요?",
-                                            a: "가격 변동이 심한 시간대, 레이드 직후, 실제 더보기를 누르기 직전에 최신 거래소 기준으로 다시 확인하고 싶을 때 누르면 좋습니다.",
-                                        },
-                                        {
-                                            q: "상위 재료 환산 옵션은 꼭 켜야 하나요?",
-                                            a: "꼭 켤 필요는 없습니다. 현재 재료를 그대로 사용할 계획이면 끄고, 상위 재료 가치로 비교하고 싶다면 T4 일반 또는 T4 상급 옵션을 켜면 됩니다.",
-                                        },
-                                        {
-                                            q: "재료를 클릭하면 왜 흐리게 표시되나요?",
-                                            a: "해당 재료가 계산에서 제외된 상태라는 뜻입니다. 다시 클릭하면 계산에 포함됩니다. 필요 없는 재료나 개인적으로 가치가 낮다고 보는 재료를 제외할 때 사용할 수 있습니다.",
-                                        },
-                                        {
-                                            q: "이 계산은 어떤 유저에게 가장 잘 맞나요?",
-                                            a: "골드를 최대한 효율적으로 쓰고 싶은 유저에게 가장 잘 맞습니다. 더보기를 눌렀을 때 골드 기준으로 이득인지 빠르게 판단하는 용도입니다.",
-                                        },
-                                        {
-                                            q: "게임에 접속하지 않고 확인하는 용도로 써도 되나요?",
-                                            a: "네. 이 페이지는 게임 접속 전후에 현재 시세 기준 더보기 효율과 재료 환산 가치를 빠르게 확인하는 보조 도구로 쓰기 좋습니다.",
-                                        },
-                                        {
-                                            q: "실제 결과와 차이가 날 수 있나요?",
-                                            a: "있습니다. 거래소 시세는 계속 변하고, 실제 판매 가능 가격이나 귀속 재료의 개인별 가치는 다를 수 있습니다. 따라서 최종 판단은 참고용으로 보는 것이 좋습니다.",
-                                        },
-                                    ].map((item) => (
-                                        <details
-                                            key={item.q}
-                                            className="group rounded-xl border border-white/5 bg-[#0F1014] px-4 py-3"
-                                        >
-                                            <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer">
-                                                <span className="text-sm font-semibold text-gray-200">
-                                                    {item.q}
-                                                </span>
-                                            </summary>
-
-                                            <div className="pt-3 mt-3 border-t border-white/5 text-sm text-gray-400 leading-relaxed break-keep">
-                                                {item.a}
-                                            </div>
-                                        </details>
-                                    ))}
-                                </div>
-                            </section>
-                        </div>
+                        <section className="space-y-4 rounded-none border-y border-white/5 bg-[#16181D] p-5 text-[13px] leading-7 text-gray-400 sm:rounded-xl sm:border">
+                            <h2 className="font-semibold text-gray-200">평가 차액을 읽는 방법</h2>
+                            <p>확인된 재료의 수량 × 개당 단가를 합한 뒤 더보기 기본 비용을 뺍니다. 귀속 재료를 직접 사용할 때의 구매 대체 가치이며, 지갑에 들어오는 순수익이 아닙니다.</p>
+                            <p>가격 미확인은 거래 불가능하다는 뜻이 아닙니다. 조회 누락·매물 없음·평가 대상 밖일 수 있습니다. 일부 재료만 평가한 값이 음수여도 나머지 보상을 포함한 손해를 확정할 수 없습니다. 쐐기돌·코어 등 성장 보상은 별도로 판단하세요.</p>
+                            <p>재료를 누르면 평가에서 제외하거나 포함할 수 있습니다. 주차 캐릭터나 파편이 충분한 캐릭터는 실제 사용할 재료만 남기세요. 제외 설정은 현재 브라우저에 저장됩니다.</p>
+                            <p>상위 재료 환산은 교환 비율을 단순 적용한 평가입니다. 실제 교환 가능한 정수 수량과 잔여 재료는 게임에서 확인하세요. 무료·할인 더보기는 자동 반영하지 않으므로 게임의 실제 결제 금액을 우선합니다.</p>
+                            <Link className="inline-block text-[#A6AEFF] hover:underline" href="/articles/more-reward-efficiency">에기르 노말: 성장·주차 캐릭터별 계산 사례 →</Link>
+                        </section>
                     </div>
                 </div>
             </div>

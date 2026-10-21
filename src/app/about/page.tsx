@@ -83,6 +83,12 @@ export default function AboutPage() {
         })}
       </section>
 
+      <section className="rounded-xl border border-white/5 bg-[#16181D] p-5 space-y-3 text-sm leading-7 text-gray-400">
+        <h2 className="text-base font-semibold text-gray-100">자료 관리와 수정 기준</h2>
+        <p>캐릭터 정보·시세는 공식 Open API 조회값을 사용하고, 레이드 보상과 딜 지분 기준은 별도 표로 관리합니다. 공식 규칙과 대조한 항목, 게임 내 확인이 남은 수치, 설명용 가정값을 구분해서 표시합니다.</p>
+        <p>정보 글의 계산 예시는 계산기가 사용하는 보상표를 참조합니다. 문서 수정일은 보상 검증일이 아니며, 시세에 따른 결과도 조회 시점에 따라 달라집니다.</p>
+        <div className="flex flex-wrap gap-4 text-[#A6AEFF]"><Link href="/guide/data#verification" className="hover:underline">자료별 확인 기록</Link><Link href="/support" className="hover:underline">오류 제보·문의</Link></div>
+      </section>
       <section className="space-y-5">
         <div className="flex items-center gap-2 text-blue-400">
           <ShieldCheck size={20} />

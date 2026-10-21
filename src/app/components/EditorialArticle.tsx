@@ -6,6 +6,8 @@ export type ArticleContent = {
   slug: string;
   title: string;
   summary: string;
+  evidenceNote?: string;
+  sources?: { title: string; href: string; scope: string }[];
   sections: {
     title: string;
     paragraphs: string[];
@@ -15,7 +17,7 @@ export type ArticleContent = {
   links: { href: string; label: string }[];
 };
 
-export const ARTICLE_UPDATED = "2026-09-25";
+export const ARTICLE_UPDATED = "2026-10-18";
 
 export function articleMetadata(article: ArticleContent): Metadata {
   return {
@@ -32,8 +34,8 @@ export default function EditorialArticle({ article }: { article: ArticleContent 
       <GuideContents items={article.sections.map((section, index) => ({ id: `section-${index + 1}`, label: section.title }))} />
       <article className="min-w-0 space-y-4 sm:space-y-6">
         <div className="px-5 text-xs leading-6 text-gray-500 sm:px-0">
-          <p>작성: 로아체크 · 문서 수정 <time dateTime={ARTICLE_UPDATED}>2026. 09. 25</time></p>
-          <p className="mt-2 text-gray-400">예시 금액은 계산 방법을 설명하기 위한 가정이며 현재 시세나 특정 레이드의 실제 보상이 아닙니다. 문서 수정일은 게임 데이터의 검증일과 다릅니다.</p>
+          <p>작성: 로아체크 · 문서 수정 <time dateTime={ARTICLE_UPDATED}>2026. 10. 18</time></p>
+          <p className="mt-2 text-gray-400">{article.evidenceNote ?? "계산 예시는 설명용 가정입니다. 실시간 시세나 실제 플레이 기록이 아니며 문서 수정일과 게임 데이터 검증일은 다릅니다."}</p>
         </div>
         {article.sections.map((section, index) => <GuidePanel key={section.title} id={`section-${index + 1}`} title={section.title}>
           {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
@@ -46,9 +48,13 @@ export default function EditorialArticle({ article }: { article: ArticleContent 
             </table>
           </div>}
         </GuidePanel>)}
+        {article.sources && <GuidePanel title="자료와 확인 범위">
+          <p className="text-xs">문서 근거 정리: 2026. 10. 18 · 링크별로 확인할 수 있는 범위가 다릅니다.</p>
+          <ul className="space-y-3">{article.sources.map(source => <li key={source.href}><Link className="text-[#A6AEFF] hover:underline" href={source.href}>{source.title} →</Link><p className="mt-1 text-xs leading-6">{source.scope}</p></li>)}</ul>
+        </GuidePanel>}
         <GuidePanel title="직접 확인하고 계산하기">
           <div className="flex flex-wrap gap-2">{[...article.links, {href: "/guide/data", label: "데이터 출처와 계산 기준"}].map((link) => <Link key={link.href} className="rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-white/10" href={link.href}>{link.label} →</Link>)}</div>
-          <p className="text-xs leading-6 text-gray-500">수정 이력 · 2026. 09. 25: 계산 과정, 예시 표, 결과 해석과 제외 조건을 보강했습니다. 오류는 <Link href="/support" className="text-[#A6AEFF] hover:underline">문의 게시판</Link>으로 알려주세요.</p>
+          <p className="text-xs leading-6 text-gray-500">수정 이력 · 2026. 10. 18: 계산 사례, 적용 조건과 자료별 확인 범위를 보완했습니다. 오류는 <Link href="/support" className="text-[#A6AEFF] hover:underline">문의 게시판</Link>으로 알려주세요.</p>
         </GuidePanel>
       </article>
     </div>

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import ToolMethodNote from "@/app/components/ToolMethodNote";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
@@ -22,5 +21,5 @@ export default function RaidInfoLayout({
 }: {
     children: ReactNode;
 }) {
-    return <>{children}<ToolMethodNote tool="raid" /></>;
+    return <>{children}</>;
 }

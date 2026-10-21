@@ -14,7 +14,7 @@ export default function Footer() {
                         </div>
                         <p className="text-xs text-gray-500 leading-relaxed max-w-xs">
                             로스트아크 오픈 API를 활용한 캐릭터 검색 및 숙제 관리 도구입니다.
-                            더 나은 게임 환경을 위해 매일 데이터를 동기화합니다.
+                            캐릭터·시세는 API 조회값, 레이드 보상은 별도로 관리하는 표를 사용합니다.
                         </p>
                         <div className="flex items-center gap-3 pt-2">
                             <SocialIcon icon={<RiDiscordFill size={22} />} href="https://discord.com" color="hover:text-[#5865F2]" title="최철#5575" />
@@ -29,6 +29,7 @@ export default function Footer() {
                             <FooterNavLink href="/about">로아체크 소개</FooterNavLink>
                             <FooterNavLink href="/guide">이용 가이드</FooterNavLink>
                             <FooterNavLink href="/articles">정보 글</FooterNavLink>
+                            <FooterNavLink href="/guide/data">데이터 출처·검증 범위</FooterNavLink>
                         </FooterNavGroup>
 
                         <FooterNavGroup title="Service">    
