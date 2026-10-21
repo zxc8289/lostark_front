@@ -576,10 +576,25 @@
     export function migrateLegacyPrefs(prefs: CharacterTaskPrefs): CharacterTaskPrefs {
         if (!prefs || !prefs.raids) return prefs;
 
+        const sourceRaids = { ...prefs.raids };
+        const previousExtreme = sourceRaids["3막-익스트림"];
+        if (previousExtreme && !sourceRaids["종막-익스트림"]) {
+            sourceRaids["종막-익스트림"] = {
+                ...previousExtreme,
+                gates: [],
+                gateDifficulties: undefined,
+            };
+        }
+        delete sourceRaids["3막-익스트림"];
+
         const nextRaids = Object.fromEntries(
-            Object.entries(prefs.raids).filter(([raidName]) => !!raidInformation[raidName])
+            Object.entries(sourceRaids).filter(([raidName]) => !!raidInformation[raidName])
         ) as CharacterTaskPrefs["raids"];
-        const nextOrder = prefs.order?.filter((raidName) => !!nextRaids[raidName]);
+        const nextOrder = prefs.order && [...new Set(
+            prefs.order
+                .map((raidName) => raidName === "3막-익스트림" ? "종막-익스트림" : raidName)
+                .filter((raidName) => !!nextRaids[raidName])
+        )];
         const prefsWithoutOrder = { ...prefs };
         delete prefsWithoutOrder.order;
         const sanitizedPrefs: CharacterTaskPrefs = {
@@ -596,7 +611,6 @@
         const enabledRaids = Object.entries(nextRaids)
             .filter(([, r]) => r.enabled)
             .map(([raidName, r]) => {
-                const info = raidInformation[raidName];
                 const totalGold = getSelectedRaidGates(raidName, r).reduce((sum, g) => sum + (g.gold || 0), 0);
                 return { raidName, totalGold };
             })

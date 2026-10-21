@@ -486,9 +486,9 @@ export const raidInformation: Record<
         },
     },
 
-    "3막-익스트림": {
+    "종막-익스트림": {
         kind: "익스트림",
-        releaseDate: "2026-09-22",
+        releaseDate: "2026-10-21",
         gates: 1,
         difficulty: {
             "노말": {

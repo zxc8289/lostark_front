@@ -46,16 +46,10 @@ export const RAID_DATA: Record<RaidCategory, Record<string, Record<DiffKey, Gate
             ],
             나메: [],
         },
-        "3막 익스트림": {
-            노말: [
-                // { gate: 1, hp: 23972, range: [3596, 4794] },
-            ],
-            하드: [
-                // { gate: 1, hp: 60237, range: [8580, 11440] },
-            ],
-            나메: [
-                // { gate: 1, hp: 171266, range: [24245, 32326] },
-            ],
+        "종막 익스트림": {
+            노말: [],
+            하드: [],
+            나메: [],
         },
         "4막": {
             노말: [

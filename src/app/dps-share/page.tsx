@@ -25,7 +25,7 @@ const DIFF = {
 } as const;
 
 const isNightmareAvailableFor = (category: RaidCategory, act: string) =>
-    category !== "카제로스" || act === "3막 익스트림";
+    category !== "카제로스" || act === "종막 익스트림";
 
 export default function DpsSharePage() {
     const [category, setCategory] = useState<RaidCategory>("카제로스");
