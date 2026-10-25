@@ -10,7 +10,8 @@ export default function Footer() {
                 <div className="flex flex-col lg:flex-row justify-between items-start gap-12 pt-12 pb-12 border-b border-[var(--overlay-ink)]/[0.03]  border-t border-[var(--overlay-ink)]/[0.03]">
                     <div className="space-y-3">
                         <div className="flex flex-col">
-                            <Image src="/brand/loacheck-logo.svg" alt="LOACHECK" width={228} height={48} className="h-auto w-[190px]" />
+                            <Image src="/brand/loacheck-logo.svg" alt="LOACHECK" width={228} height={48} className="logo-dark h-auto w-[190px]" />
+                            <Image src="/brand/loacheck-logo-light.svg" alt="LOACHECK" width={228} height={48} className="logo-light h-auto w-[190px]" />
                         </div>
                         <p className="text-xs text-gray-500 leading-relaxed max-w-xs">
                             로스트아크 오픈 API를 활용한 캐릭터 검색 및 숙제 관리 도구입니다.
