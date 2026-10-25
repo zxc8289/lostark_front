@@ -28,9 +28,9 @@ export default function Input({
                 {...props}
                 className={clsx(
                     // 드롭다운과 동일 톤
-                    "w-full bg-[#22272e] border border-[#444c56] rounded-md px-3 py-1.5 text-sm text-gray-300",
+                    "w-full bg-[var(--surface-22272e)] border border-[var(--surface-444c56)] rounded-md px-3 py-1.5 text-sm text-gray-300",
                     // 포커스 라인/링 제거(흰 줄 방지)
-                    "outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 focus:border-[#444c56]",
+                    "outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 focus:border-[var(--surface-444c56)]",
                     // 부드러운 트랜지션
                     "transition-all duration-150 placeholder:text-gray-500",
                     // 숫자 인풋 스핀 제거

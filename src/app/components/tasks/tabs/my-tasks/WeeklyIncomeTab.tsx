@@ -122,11 +122,11 @@ export default function WeeklyIncomeTab() {
 
     if (showInitialLoading) {
         return (
-            <div className="rounded-none sm:rounded-sm bg-[#16181D] border-y sm:border border-white/5 p-5">
-                <div className="h-5 w-40 rounded bg-white/10 animate-pulse" />
+            <div className="rounded-none sm:rounded-sm bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
+                <div className="h-5 w-40 rounded bg-[var(--overlay-ink)]/10 animate-pulse" />
                 <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[0, 1, 2].map((item) => (
-                        <div key={item} className="h-24 rounded-xl bg-white/[0.04] animate-pulse" />
+                        <div key={item} className="h-24 rounded-xl bg-[var(--overlay-ink)]/[0.04] animate-pulse" />
                     ))}
                 </div>
             </div>
@@ -135,7 +135,7 @@ export default function WeeklyIncomeTab() {
 
     if (!effectiveHasRoster || incomeRows.length === 0) {
         return (
-            <section className="rounded-none sm:rounded-sm bg-[#16181D] border-y sm:border border-white/5 p-6 text-center">
+            <section className="rounded-none sm:rounded-sm bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-6 text-center">
                 <h2 className="text-base sm:text-lg font-bold text-white">계산할 레이드 수익이 없습니다.</h2>
                 <p className="mt-2 text-sm text-gray-400 break-keep">
                     캐릭터를 불러온 뒤 주간 레이드 탭에서 레이드 보상 설정을 켜면 이곳에 주간 수익이 표시됩니다.
@@ -158,8 +158,8 @@ export default function WeeklyIncomeTab() {
                 />
             </section>
 
-            <section className="overflow-hidden rounded-none sm:rounded-sm bg-[#16181D] border-y sm:border border-white/5">
-                <div className="px-4 sm:px-5 py-4 border-b border-white/5">
+            <section className="overflow-hidden rounded-none sm:rounded-sm bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5">
+                <div className="px-4 sm:px-5 py-4 border-b border-[var(--overlay-ink)]/5">
                     <h2 className="text-sm sm:text-base font-bold text-white">캐릭터별 주간 레이드 수익</h2>
                     <p className="mt-1 text-xs text-gray-500 break-keep">
                         주간 레이드 보상 설정과 레이드 보상, 골드 캐릭터 기준을 그대로 적용합니다.
@@ -168,7 +168,7 @@ export default function WeeklyIncomeTab() {
 
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[760px] text-center text-sm">
-                        <thead className="bg-[#0F1115] text-center text-[11px] uppercase tracking-wider text-gray-500">
+                        <thead className="bg-[var(--surface-0f1115)] text-center text-[11px] uppercase tracking-wider text-gray-500">
                             <tr>
                                 <th className="px-5 py-3">캐릭터</th>
                                 <th className="px-5 py-3">레이드</th>
@@ -177,7 +177,7 @@ export default function WeeklyIncomeTab() {
                                 <th className="px-5 py-3">합계</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-[var(--overlay-ink)]/5">
                             {incomeRows.map((row) => (
                                 <tr key={row.name} className={row.isGoldCharacter ? "text-gray-300" : "text-gray-500"}>
                                     <td className="px-5 py-4 align-top text-center">
@@ -189,7 +189,7 @@ export default function WeeklyIncomeTab() {
                                     <td className="px-5 py-4 text-center">
                                         <div className="flex flex-wrap justify-center gap-2">
                                             {row.raids.map((raid) => (
-                                                <span key={`${row.name}-${raid.raidName}`} className="rounded-full bg-white/5 px-2.5 py-1 text-xs font-bold text-gray-300">
+                                                <span key={`${row.name}-${raid.raidName}`} className="rounded-full bg-[var(--overlay-ink)]/5 px-2.5 py-1 text-xs font-bold text-gray-300">
                                                     {raid.raidName} {getRaidDifficultyLabel(raid.raidName, raid.difficulty)}
                                                 </span>
                                             ))}
@@ -226,7 +226,7 @@ function SummaryCard({
     valueClassName: string;
 }) {
     return (
-        <div className="rounded-none sm:rounded-sm bg-[#16181D] border-y sm:border border-white/5 p-5">
+        <div className="rounded-none sm:rounded-sm bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
             <div className="mb-3 text-sm font-bold text-gray-300">{label}</div>
             <div className={`text-2xl font-bold ${valueClassName}`}>
                 {value}

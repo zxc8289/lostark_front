@@ -85,7 +85,7 @@ export function HomePartyDetails() {
     const rest = parties.slice(1);
 
     if (rest.length === 0) return (
-        <div className="h-full flex items-center justify-center py-8 text-center text-[11px] text-gray-600 border border-dashed border-white/5 rounded-xl bg-white/[0.01]">
+        <div className="h-full flex items-center justify-center py-8 text-center text-[11px] text-gray-600 border border-dashed border-[var(--overlay-ink)]/5 rounded-xl bg-[var(--overlay-ink)]/[0.01]">
             추가 참여 파티가 없습니다.
         </div>
     );
@@ -105,12 +105,12 @@ function HomePartyRow({ party }: { party: PartySummaryItem }) {
     const remainingCount = Math.max(0, party.memberCount - displayMembers.length);
 
     return (
-        <Link href={`/party-tasks/${party.id}`} className="group relative flex flex-col justify-between rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 min-h-[225px] hover:border-[#5B69FF]/50 overflow-visible h-full w-full">
+        <Link href={`/party-tasks/${party.id}`} className="group relative flex flex-col justify-between rounded-xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)] p-5 text-left transition-all duration-300 min-h-[225px] hover:border-[#5B69FF]/50 overflow-visible h-full w-full">
             <div className="relative z-10 flex-1 flex flex-col">
                 <div className="mb-2 flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3.5">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1F222B] border border-white/5 text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--surface-1f222b)] border border-[var(--overlay-ink)]/5 text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors">
                                 <Users size={22} />
                             </div>
                             <div className="min-w-0">
@@ -121,7 +121,7 @@ function HomePartyRow({ party }: { party: PartySummaryItem }) {
                     </div>
                     <ChevronRight size={20} className="text-gray-600 group-hover:text-[#5B69FF] transition-colors shrink-0 ml-2 mt-1" />
                 </div>
-                <div className="h-px w-full bg-white/5 mt-1 mb-3" />
+                <div className="h-px w-full bg-[var(--overlay-ink)]/5 mt-1 mb-3" />
                 <div className="flex-1 flex flex-col">
                     <div className="flex items-center justify-between mb-3" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
                         <div className="flex items-center gap-1.5 text-gray-500">
@@ -135,7 +135,7 @@ function HomePartyRow({ party }: { party: PartySummaryItem }) {
                         {members.length === 0 ? <div className="text-xs text-gray-600 italic px-1">멤버 정보 없음</div> : showNames ? (
                             <div className="flex flex-wrap gap-2 animate-in fade-in zoom-in-95 duration-300">
                                 {members.map((m) => (
-                                    <div key={m.id} className="flex items-center gap-2 rounded-full border border-white/10 bg-black/40 pl-1 pr-3 py-1 hover:border-[#5B69FF]/30 transition-colors">
+                                    <div key={m.id} className="flex items-center gap-2 rounded-full border border-[var(--overlay-ink)]/10 bg-black/40 pl-1 pr-3 py-1 hover:border-[#5B69FF]/30 transition-colors">
                                         <MemberAvatar member={m} className="h-7 w-7 rounded-full" />
                                         <span className="text-[11px] text-gray-300 font-medium truncate max-w-[90px]">{m.name || "이름없음"}</span>
                                     </div>
@@ -143,18 +143,18 @@ function HomePartyRow({ party }: { party: PartySummaryItem }) {
                             </div>
                         ) : (
                             <div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-2 duration-300">
-                                <div className="flex -space-x-2.5 transition-all duration-300 hover:space-x-0.5">
+                                <div className="party-member-avatars flex -space-x-2.5 transition-all duration-300 hover:space-x-0.5">
                                     {displayMembers.map((m, idx) => (
-                                        <MemberAvatar key={m.id} member={m} className="relative h-10 w-10 rounded-full ring-2 ring-[#16181D] group-hover:ring-[#1a1c20] transition-transform hover:scale-110 hover:z-10 bg-[#1F222B]" style={{ zIndex: 10 - idx }} />
+                                        <MemberAvatar key={m.id} member={m} className="party-member-avatar relative h-10 w-10 rounded-full ring-2 ring-[var(--surface-16181d)] group-hover:ring-[var(--surface-1a1c20)] transition-transform hover:scale-110 hover:z-10 bg-[var(--surface-1f222b)]" style={{ zIndex: 10 - idx }} />
                                     ))}
-                                    {remainingCount > 0 && <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-800 text-[11px] font-bold text-gray-400 ring-2 ring-[#16181D]" style={{ zIndex: 0 }}>+{remainingCount}</div>}
+                                    {remainingCount > 0 && <div className="party-member-avatar flex h-10 w-10 items-center justify-center rounded-full bg-gray-800 text-[11px] font-bold text-gray-400 ring-2 ring-[var(--surface-16181d)]" style={{ zIndex: 0 }}>+{remainingCount}</div>}
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
                 {party.nextResetAt && (
-                    <div className="mt-4 pt-3 border-t border-dashed border-white/5 flex items-center justify-end">
+                    <div className="mt-4 pt-3 border-t border-dashed border-[var(--overlay-ink)]/5 flex items-center justify-end">
                         <div className="inline-flex items-center gap-1.5 rounded-md bg-black/20 px-2 py-1 text-[10px] font-bold text-blue-400/70">
                             <Clock size={12} /><span>{party.nextResetAt} 초기화</span>
                         </div>
@@ -168,7 +168,7 @@ function HomePartyRow({ party }: { party: PartySummaryItem }) {
 function MemberAvatar({ member, className, style }: { member: PartyMember; className?: string; style?: React.CSSProperties; }) {
     return (
         <div className={`group/avatar relative flex items-center justify-center cursor-help overflow-hidden ${className ?? ""}`} style={style}>
-            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900/95 px-2.5 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm opacity-0 transition-all duration-200 group-hover/avatar:opacity-100 group-hover/avatar:-translate-y-1 z-50 border border-white/10">
+            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900/95 px-2.5 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm opacity-0 transition-all duration-200 group-hover/avatar:opacity-100 group-hover/avatar:-translate-y-1 z-50 border border-[var(--overlay-ink)]/10">
                 {member.name || "이름 없음"}
                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900/95" />
             </div>
@@ -187,9 +187,9 @@ function HomePartySkeleton() {
         <div className="flex-1 w-full animate-pulse flex flex-col gap-4">
             {/* 기본 1개만 로딩 보여줌 (헤더에 1개니까) */}
             {[0].map((i) => (
-                <div key={i} className="flex-1 rounded-xl border border-white/10 bg-[#16181D] p-5 min-h-[200px]">
+                <div key={i} className="flex-1 rounded-xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)] p-5 min-h-[200px]">
                     <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3"><div className="h-10 w-10 rounded-full bg-white/5" /><div className="space-y-2"><div className="h-3 w-36 bg-white/5 rounded" /><div className="h-2 w-20 bg-white/5 rounded" /></div></div>
+                        <div className="flex items-center gap-3"><div className="h-10 w-10 rounded-full bg-[var(--overlay-ink)]/5" /><div className="space-y-2"><div className="h-3 w-36 bg-[var(--overlay-ink)]/5 rounded" /><div className="h-2 w-20 bg-[var(--overlay-ink)]/5 rounded" /></div></div>
                     </div>
                 </div>
             ))}

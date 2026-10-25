@@ -40,14 +40,14 @@ export default function EmptyCharacterState({ open, onSearch, loading, onClose, 
 
             {/* 🔹 실제 모달 카드 */}
             <div
-                className="relative w-full max-w-md p-8 rounded-2xl bg-[#16181D] border border-white/5 text-center shadow-2xl"
+                className="relative w-full max-w-md p-8 rounded-2xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 text-center shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* 닫기 버튼 */}
                 <button
                     type="button"
                     onClick={onClose}
-                    className="absolute right-3 top-3 p-1.5 rounded-full bg-black/40 border border-white/10 text-gray-400 hover:text-white hover:bg-black/60 text-xs"
+                    className="absolute right-3 top-3 p-1.5 rounded-full bg-black/40 border border-[var(--overlay-ink)]/10 text-gray-400 hover:text-white hover:bg-black/60 text-xs"
                 >
                     <X size={14} />
                 </button>
@@ -62,7 +62,7 @@ export default function EmptyCharacterState({ open, onSearch, loading, onClose, 
                         <Sparkles size={36} strokeWidth={1.5} />
                     </div>
                     {/* 장식 아이콘 */}
-                    <div className="absolute -right-1 -bottom-1 bg-[#16181D] rounded-full p-1.5 border border-white/10 z-20">
+                    <div className="absolute -right-1 -bottom-1 bg-[var(--surface-16181d)] rounded-full p-1.5 border border-[var(--overlay-ink)]/10 z-20">
                         <Search size={16} className="text-gray-400" />
                     </div>
                 </div>
@@ -83,12 +83,12 @@ export default function EmptyCharacterState({ open, onSearch, loading, onClose, 
                         onChange={(e) => setInput(e.target.value)}
                         disabled={loading}
                         className={`
-                            w-full h-12 pl-4 pr-12 rounded-lg bg-[#0F1115] border 
+                            w-full h-12 pl-4 pr-12 rounded-lg bg-[var(--surface-0f1115)] border
                             text-white placeholder-gray-500 text-sm transition-all disabled:opacity-50
                             focus:outline-none focus:ring-1
                             ${error
                                 ? "border-red-500/50 focus:border-red-500 focus:ring-red-500"
-                                : "border-white/10 focus:border-[#5B69FF] focus:ring-[#5B69FF]"
+                                : "border-[var(--overlay-ink)]/10 focus:border-[#5B69FF] focus:ring-[#5B69FF]"
                             }
                         `}
                     />
@@ -98,7 +98,7 @@ export default function EmptyCharacterState({ open, onSearch, loading, onClose, 
                         className="absolute right-1.5 p-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-500 transition-colors"
                     >
                         {loading ? (
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <div className="w-5 h-5 border-2 border-[var(--overlay-ink)]/30 border-t-white rounded-full animate-spin" />
                         ) : (
                             <Search size={18} />
                         )}

@@ -40,7 +40,7 @@ const featureGroups = [
 export default function AboutPage() {
   return (
     <div className="w-full max-w-7xl mx-auto px-4 md:px-0 pt-10 md:pt-16 pb-16 text-gray-300 space-y-12">
-      <section className="space-y-5 border-b border-white/5 pb-10">
+      <section className="space-y-5 border-b border-[var(--overlay-ink)]/5 pb-10">
         <span className="inline-flex items-center gap-2 text-xs font-bold text-blue-400">
           <BookOpen size={16} />
           ABOUT LOACHECK
@@ -60,7 +60,7 @@ export default function AboutPage() {
           <Link href="/guide" className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-bold hover:bg-blue-500 transition-colors">
             이용 가이드
           </Link>
-          <Link href="/articles" className="px-4 py-2 rounded-md bg-white/5 text-gray-200 text-sm font-bold hover:bg-white/10 transition-colors">
+          <Link href="/articles" className="px-4 py-2 rounded-md bg-[var(--overlay-ink)]/5 text-gray-200 text-sm font-bold hover:bg-[var(--overlay-ink)]/10 transition-colors">
             정보 글 보기
           </Link>
         </div>
@@ -70,7 +70,7 @@ export default function AboutPage() {
         {featureGroups.map((item) => {
           const Icon = item.icon;
           return (
-            <article key={item.title} className="bg-[#16181D] border border-white/5 rounded-lg p-5 md:p-6 space-y-4">
+            <article key={item.title} className="bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 rounded-lg p-5 md:p-6 space-y-4">
               <div className="w-10 h-10 rounded-md bg-blue-600/10 text-blue-400 flex items-center justify-center">
                 <Icon size={20} />
               </div>
@@ -83,7 +83,7 @@ export default function AboutPage() {
         })}
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-[#16181D] p-5 space-y-3 text-sm leading-7 text-gray-400">
+      <section className="rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 space-y-3 text-sm leading-7 text-gray-400">
         <h2 className="text-base font-semibold text-gray-100">자료 관리와 수정 기준</h2>
         <p>캐릭터 정보·시세는 공식 Open API 조회값을 사용하고, 레이드 보상과 딜 지분 기준은 별도 표로 관리합니다. 공식 규칙과 대조한 항목, 게임 내 확인이 남은 수치, 설명용 가정값을 구분해서 표시합니다.</p>
         <p>정보 글의 계산 예시는 계산기가 사용하는 보상표를 참조합니다. 문서 수정일은 보상 검증일이 아니며, 시세에 따른 결과도 조회 시점에 따라 달라집니다.</p>

@@ -1,9 +1,414 @@
 @import "tailwindcss";
+@import "./theme-surfaces.css";
 
 :root {
   --background: #0F1114;
   --foreground: #ededed;
   --font-pretendard: "Pretendard", sans-serif;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background: #f5f7fb;
+  --foreground: #242424;
+  --overlay-ink: #243044;
+  --ad-placeholder: #e5ebf3;
+  --color-gray-100: #0f172a;
+  --color-gray-200: #1e293b;
+  --color-gray-300: #273449;
+  --color-gray-400: #475569;
+  --color-gray-500: #64748b;
+  --color-gray-600: #94a3b8;
+  --color-gray-700: #d9e0e9;
+  --color-gray-800: #e9eef5;
+  --color-gray-900: #f7f9fc;
+  --color-slate-100: #1e293b;
+  --color-slate-200: #334155;
+  --color-slate-300: #475569;
+  --color-slate-400: #64748b;
+  --color-slate-700: #d9e0e9;
+  --color-slate-800: #e9eef5;
+  --color-slate-900: #f7f9fc;
+}
+
+:root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --overlay-ink: #ffffff;
+  --ad-placeholder: #2f3238;
+}
+
+:root[data-theme="light"] .text-white {
+  color: #111111;
+}
+
+:root[data-theme="light"] .text-gray-100 { color: #111111; }
+:root[data-theme="light"] .text-gray-200 { color: #242424; }
+:root[data-theme="light"] .text-gray-300 { color: #303030; }
+:root[data-theme="light"] .text-gray-600 {
+  color: #565656;
+}
+
+:root[data-theme="light"] .text-gray-400 { color: #3d3d3d; }
+:root[data-theme="light"] .text-gray-500 { color: #505050; }
+:root[data-theme="light"] [class~="text-gray-300/80"] { color: rgb(48 48 48 / 0.8); }
+:root[data-theme="light"] [class~="text-gray-300/90"] { color: rgb(48 48 48 / 0.9); }
+:root[data-theme="light"] [class~="text-gray-600/30"] { color: rgb(86 86 86 / 0.3); }
+
+:root[data-theme="light"] :is(input, textarea)::placeholder {
+  color: #666666;
+}
+
+:root[data-theme="light"] [class~="hover:text-white"]:hover,
+:root[data-theme="light"] .group:hover [class~="group-hover:text-white"] {
+  color: #222222;
+}
+
+:root[data-theme="light"] [class~="text-white/30"] { color: rgb(36 36 36 / 0.55); }
+:root[data-theme="light"] [class~="text-white/50"] { color: rgb(36 36 36 / 0.7); }
+:root[data-theme="light"] [class~="text-white/70"] { color: rgb(36 36 36 / 0.85); }
+:root[data-theme="light"] [class~="text-white/90"] { color: #242424; }
+
+/* Keep button labels white on solid brand colors. */
+:root[data-theme="light"] :is(
+  [class~="bg-[#5B69FF]"],
+  [class~="bg-[#4A57E6]"],
+  [class~="bg-[#4a57e0]"],
+  [class~="bg-[#4B59EF]"],
+  [class~="bg-[#5865F2]"],
+  [class~="bg-[#4752C4]"],
+  [class~="bg-[#FF5252]"],
+  [class~="bg-[#ff5a5a]"],
+  [class~="bg-[#6D28D9]"],
+  [class~="bg-indigo-600"],
+  [class~="bg-indigo-500"],
+  [class~="bg-blue-600"],
+  [class~="bg-red-500"],
+  [class~="bg-red-600"]
+).text-white {
+  color: #ffffff;
+}
+
+:root[data-theme="light"] [class~="bg-[#5B69FF]/80"].text-white,
+:root[data-theme="light"] [class~="from-[#5B69FF]"].text-white,
+:root[data-theme="light"] [class~="from-[#10B981]"].text-white,
+:root[data-theme="light"] [class~="hover:bg-[#5B69FF]"]:hover[class~="hover:text-white"],
+:root[data-theme="light"] [class~="hover:bg-[#FF5252]"]:hover[class~="hover:text-white"],
+:root[data-theme="light"] [class~="hover:bg-[#6D28D9]"]:hover[class~="hover:text-white"],
+:root[data-theme="light"] .group:hover [class~="group-hover:bg-[#5B69FF]"][class~="group-hover:text-white"],
+:root[data-theme="light"] .group:hover [class~="group-hover:bg-[#FF5252]"][class~="group-hover:text-white"] {
+  color: #ffffff;
+}
+
+:root[data-theme="light"] [class~="text-[#F1F5F9]"],
+:root[data-theme="light"] [class~="text-[#FFFFFF]"] {
+  color: #242424;
+}
+:root[data-theme="light"] [class~="text-[#FFFFFF]/70"] { color: rgb(36 36 36 / 0.85); }
+:root[data-theme="light"] [class~="text-[#FFFFFF]/20"] { color: rgb(64 64 64 / 0.75); }
+
+:root[data-theme="light"] [class~="text-[#A6AEFF]"],
+:root[data-theme="light"] [class~="text-[#7C88FF]"],
+:root[data-theme="light"] [class~="text-[#C0C6FF]"],
+:root[data-theme="light"] [class~="text-[#8FA6FF]"],
+:root[data-theme="light"] [class~="text-[#8eaaff]"],
+:root[data-theme="light"] [class~="text-[#7f8aff]"],
+:root[data-theme="light"] [class~="text-[#5B69FF]"] {
+  color: #4351c4;
+}
+
+:root[data-theme="light"] [class~="text-[#A2A3A5]"] {
+  color: #565656;
+}
+:root[data-theme="light"] [class~="text-[#64748B]"] { color: #565656; }
+
+:root[data-theme="light"] [class~="text-[#D6BCFA]"] {
+  color: #7343ad;
+}
+
+:root[data-theme="light"] [class~="text-[#FF8585]"],
+:root[data-theme="light"] [class~="text-[#FFB3B3]"],
+:root[data-theme="light"] [class~="text-[#FF5252]"] {
+  color: #bd3a46;
+}
+
+/* The dark theme's pastel labels disappear against light cards. Keep the
+   original utility classes so the dark palette remains exactly as it was. */
+:root[data-theme="light"] :is(
+  [class~="text-[#FFB3B3]/80"],
+  [class~="text-[#E57373]"],
+  [class~="text-[#ff7474]"],
+  [class~="text-red-100"],
+  [class~="text-red-200"],
+  [class~="text-red-300"],
+  [class~="text-red-400"],
+  [class~="text-red-400/70"],
+  [class~="text-red-400/80"],
+  [class~="text-rose-200"],
+  [class~="text-rose-300"],
+  [class~="text-rose-400"]
+) { color: #b4233a; }
+
+:root[data-theme="light"] :is(
+  [class~="text-[#C0C6FF]/85"],
+  [class~="text-indigo-100"],
+  [class~="text-indigo-200"],
+  [class~="text-indigo-300"],
+  [class~="text-indigo-400"]
+) { color: #4338ca; }
+
+:root[data-theme="light"] :is(
+  [class~="text-blue-100"],
+  [class~="text-blue-200"],
+  [class~="text-blue-300"],
+  [class~="text-blue-400"],
+  [class~="text-blue-400/70"]
+) { color: #1d4ed8; }
+
+:root[data-theme="light"] :is(
+  [class~="text-[#D6BCFA]/85"],
+  [class~="text-purple-300"],
+  [class~="text-purple-400"],
+  [class~="text-violet-300"],
+  [class~="text-violet-400"]
+) { color: #6b21a8; }
+
+:root[data-theme="light"] :is(
+  [class~="text-emerald-200"],
+  [class~="text-emerald-300"],
+  [class~="text-emerald-300/70"],
+  [class~="text-emerald-400"],
+  [class~="text-green-200"],
+  [class~="text-green-400"]
+) { color: #047857; }
+
+:root[data-theme="light"] :is(
+  [class~="text-[#FDE047]"],
+  [class~="text-amber-200"],
+  [class~="text-amber-300"],
+  [class~="text-amber-300/80"],
+  [class~="text-amber-400"],
+  [class~="text-yellow-300"],
+  [class~="text-yellow-400"],
+  [class~="text-yellow-400/80"],
+  [class~="text-yellow-500"]
+) { color: #92400e; }
+
+:root[data-theme="light"] [class~="text-gray-700"],
+:root[data-theme="light"] [class~="text-neutral-400"],
+:root[data-theme="light"] [class~="text-zinc-500"] { color: #505050; }
+:root[data-theme="light"] [class~="text-neutral-200"] { color: #303030; }
+
+/* Hover colors need the same treatment as their resting labels. */
+:root[data-theme="light"] [class~="hover:text-blue-400"]:hover,
+:root[data-theme="light"] .group:hover [class~="group-hover:text-blue-400"] { color: #1d4ed8; }
+:root[data-theme="light"] [class~="hover:text-red-400"]:hover,
+:root[data-theme="light"] .group:hover [class~="group-hover:text-red-400"] { color: #b4233a; }
+:root[data-theme="light"] [class~="hover:text-indigo-400"]:hover,
+:root[data-theme="light"] .group:hover [class~="group-hover:text-indigo-400"],
+:root[data-theme="light"] .group:hover [class~="group-hover:text-[#A6AEFF]"] { color: #4338ca; }
+
+/* A few controls intentionally use a solid dark fill in both themes. */
+:root[data-theme="light"] [class~="bg-[#2b6de0]"].text-white,
+:root[data-theme="light"] [class~="bg-black/80"].text-white {
+  color: #ffffff;
+}
+
+/* Editing and warning controls still had their original dark fills. */
+:root[data-theme="light"] [class~="bg-[#22301f]"] {
+  background-color: #ecfdf3;
+  border-color: #a7d9be;
+}
+:root[data-theme="light"] [class~="bg-[#3a2626]"] {
+  background-color: #fff1f2;
+  border-color: #e9b4bb;
+}
+:root[data-theme="light"] [class~="bg-[#2A1616]"] {
+  background-color: #fff1f2;
+  border-color: #e9b4bb;
+}
+:root[data-theme="light"] [class~="hover:bg-[#2a3c23]"]:hover { background-color: #d9f7e4; }
+:root[data-theme="light"] [class~="hover:bg-[#472b2b]"]:hover { background-color: #ffe4e6; }
+
+/* Content cards and fields using translucent black need a light surface. */
+:root[data-theme="light"] [class~="bg-black/20"]:is([class~="p-3"], [class~="p-4"]),
+:root[data-theme="light"] :is(input, textarea)[class~="bg-black/20"],
+:root[data-theme="light"] span[class~="bg-black/20"] {
+  background-color: #f1f5f9;
+}
+:root[data-theme="light"] [class~="bg-blue-900/40"] {
+  background-color: #e8f0fc;
+  border-color: #b7cff1;
+}
+
+/* Keep the dark layout's overlap and give each portrait a visible light-theme edge. */
+:root[data-theme="light"] .party-member-avatars > .party-member-avatar {
+  border: 1px solid #334155;
+  box-shadow: none;
+}
+:root[data-theme="light"] .character-class-icon {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+}
+:root[data-theme="light"] .character-class-icon-image {
+  filter: brightness(0);
+  opacity: 1;
+}
+:root[data-theme="light"] .planner-class-icon {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+}
+:root[data-theme="light"] .planner-class-icon-image {
+  filter: brightness(0);
+  opacity: 1;
+}
+:root[data-theme="light"] .planner-party-header > span { color: #3d3d3d; }
+:root[data-theme="light"] .planner-party-count { font-weight: 700; }
+:root[data-theme="light"] .planner-member-meta,
+:root[data-theme="light"] .planner-member-power { font-weight: 600; }
+:root[data-theme="light"] .character-action-icon:not(.text-amber-400) { color: #3d3d3d; }
+:root[data-theme="light"] .character-action-icon { stroke-width: 2.25px; }
+:root[data-theme="light"] .character-name {
+  color: #111111;
+  font-weight: 600;
+}
+:root[data-theme="light"] .character-level {
+  color: #3d3d3d;
+  font-weight: 500;
+}
+:root[data-theme="light"] .character-combat-power { font-weight: 700; }
+
+/* The dark palette's translucent gate outlines fade into light table cells. */
+:root[data-theme="light"] .raid-gate-button[aria-pressed="false"][data-difficulty="하드"] {
+  background-color: #fff1f2;
+  border-color: #df5963;
+  color: #a61b2b;
+}
+:root[data-theme="light"] .raid-gate-button[aria-pressed="false"][data-difficulty="노말"] {
+  background-color: #eef0ff;
+  border-color: #6660ea;
+  color: #3730a3;
+}
+:root[data-theme="light"] .raid-gate-button[aria-pressed="false"][data-difficulty="나메"] {
+  background-color: #f5efff;
+  border-color: #8b45df;
+  color: #6b21a8;
+}
+:root[data-theme="light"] .raid-gate-button[aria-pressed="false"][data-difficulty="싱글"] {
+  background-color: #f1f5f9;
+  border-color: #64748b;
+  color: #303030;
+}
+:root[data-theme="light"] .raid-gate-button[aria-pressed="false"][data-difficulty="하드"]:hover {
+  background-color: #d43e4a;
+  border-color: #d43e4a;
+  color: #ffffff;
+}
+:root[data-theme="light"] .raid-gate-button[aria-pressed="false"][data-difficulty="노말"]:hover {
+  background-color: #515ce4;
+  border-color: #515ce4;
+  color: #ffffff;
+}
+:root[data-theme="light"] .raid-gate-button[aria-pressed="false"][data-difficulty="나메"]:hover {
+  background-color: #742bc8;
+  border-color: #742bc8;
+  color: #ffffff;
+}
+:root[data-theme="light"] .general-task-check[aria-pressed="false"] {
+  background-color: #eef2f7;
+  border-color: #64748b;
+  color: #3d3d3d;
+}
+:root[data-theme="light"] .general-task-check[aria-pressed="false"]:hover {
+  background-color: #dbe4ef;
+  border-color: #475569;
+}
+
+/* Sidebar filter checkboxes need a visible empty state and a white tick. */
+:root[data-theme="light"] .task-filter-option { color: #3d3d3d; }
+:root[data-theme="light"] .task-filter-check {
+  background-color: #ffffff;
+  border-color: #64748b;
+}
+:root[data-theme="light"] .task-filter-option:hover .task-filter-check { border-color: #4351c4; }
+:root[data-theme="light"] .task-filter-option input:checked + .task-filter-check {
+  background-color: #5b69ff;
+  border-color: #5b69ff;
+}
+:root[data-theme="light"] .task-filter-option input:checked + .task-filter-check svg { color: #ffffff; }
+
+/* Card view keeps the dark layout, but needs distinct light surfaces and gates. */
+:root[data-theme="light"] .task-card {
+  background-color: #f8fafc;
+  border: 1px solid #d7e0eb;
+}
+:root[data-theme="light"] .task-card-kind { color: #505050; font-weight: 500; }
+:root[data-theme="light"] .task-card-title { color: #111111; font-weight: 600; }
+:root[data-theme="light"] .task-card-difficulty { font-weight: 600; }
+:root[data-theme="light"] .task-card-difficulty[data-difficulty="하드"] { background-color: #ffe9ec; color: #a61b2b; }
+:root[data-theme="light"] .task-card-difficulty[data-difficulty="노말"] { background-color: #e9edff; color: #3730a3; }
+:root[data-theme="light"] .task-card-difficulty[data-difficulty="나메"] { background-color: #eee5fb; color: #64208f; }
+:root[data-theme="light"] .task-card-difficulty[data-difficulty="싱글"] { background-color: #e2e8f0; color: #3d3d3d; }
+:root[data-theme="light"] .task-card-gate[aria-pressed="false"] {
+  border: 1px solid #94a3b8;
+  background-color: #ffffff;
+  color: #3d3d3d;
+  font-weight: 600;
+}
+:root[data-theme="light"] .task-card-gate[aria-pressed="false"][data-difficulty="하드"] { border-color: #df5963; color: #a61b2b; }
+:root[data-theme="light"] .task-card-gate[aria-pressed="false"][data-difficulty="노말"] { border-color: #6660ea; color: #3730a3; }
+:root[data-theme="light"] .task-card-gate[aria-pressed="false"][data-difficulty="나메"] { border-color: #8b45df; color: #6b21a8; }
+:root[data-theme="light"] .task-card-gate[aria-pressed="false"]:hover { background-color: #e9edff; }
+:root[data-theme="light"] .task-card-gate[aria-pressed="false"][data-difficulty="하드"]:hover { background-color: #ffe9ec; }
+:root[data-theme="light"] .task-card-gate[aria-pressed="false"][data-difficulty="나메"]:hover { background-color: #eee5fb; }
+:root[data-theme="light"] .task-card-gold { color: #854d0e; font-weight: 600; }
+
+/* Support statuses use muted fills on light cards instead of dark tinted overlays. */
+:root[data-theme="light"] .support-status-answered {
+  background-color: #ecfdf3;
+  border-color: #9dd6b0;
+  color: #166534;
+}
+:root[data-theme="light"] .support-status-confirmed {
+  background-color: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+:root[data-theme="light"] .support-status-pending {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #505050;
+}
+
+.theme-toggle {
+  border-color: #4b515d;
+  color: #e5e7eb;
+  background: #252832;
+}
+
+.theme-toggle:hover {
+  background: #343a48;
+}
+
+:root[data-theme="light"] .theme-toggle {
+  border-color: #cbd5e1;
+  color: #3d3d3d;
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .theme-toggle:hover {
+  background: #edf2f8;
+}
+
+.logo-light {
+  display: none;
+}
+
+:root[data-theme="light"] .logo-dark {
+  display: none;
+}
+
+:root[data-theme="light"] .logo-light {
+  display: block;
 }
 
 @theme inline {
@@ -22,6 +427,11 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-pretendard);
+}
+
+:root[data-theme="light"] body,
+:root[data-theme="light"] .font-normal {
+  font-weight: 450;
 }
 
 /* 전역 강제 통일(여기서 다 덮어씀) */
@@ -69,5 +479,20 @@ body {
 
   *::-webkit-scrollbar-button {
     display: none !important;
+  }
+
+  :root[data-theme="light"],
+  :root[data-theme="light"] * {
+    scrollbar-color: #b6c2d0 transparent;
+  }
+
+  :root[data-theme="light"]::-webkit-scrollbar-thumb,
+  :root[data-theme="light"] *::-webkit-scrollbar-thumb {
+    background-color: #b6c2d0 !important;
+  }
+
+  :root[data-theme="light"]::-webkit-scrollbar-thumb:hover,
+  :root[data-theme="light"] *::-webkit-scrollbar-thumb:hover {
+    background-color: #8292a7 !important;
   }
 }

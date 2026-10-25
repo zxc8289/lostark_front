@@ -253,8 +253,8 @@ export default function WeeklyGoldCalculatorPage() {
 
                 <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-[280px_1fr]">
                     <aside className="space-y-4">
-                        <section className="overflow-hidden rounded-none border-y border-white/5 bg-[#16181D] sm:rounded-xl sm:border">
-                            <div className="border-b border-white/5 px-5 py-4">
+                        <section className="overflow-hidden rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] sm:rounded-xl sm:border">
+                            <div className="border-b border-[var(--overlay-ink)]/5 px-5 py-4">
                                 <h2 className="flex items-center gap-2 font-semibold text-white">
                                     <span className="h-4 w-1 rounded-full bg-indigo-500" />
                                     계산 설정
@@ -276,7 +276,7 @@ export default function WeeklyGoldCalculatorPage() {
                                                 onClick={() => setSortMode(mode.value as WeeklyGoldSortMode)}
                                                 className={`h-10 rounded-lg border text-sm font-bold transition-colors ${sortMode === mode.value
                                                     ? "border-indigo-500/40 bg-indigo-500/15 text-white"
-                                                    : "border-white/10 bg-[#0F1014] text-gray-400 hover:bg-white/5"
+                                                    : "border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1014)] text-gray-400 hover:bg-[var(--overlay-ink)]/5"
                                                     }`}
                                             >
                                                 {mode.label}
@@ -294,7 +294,7 @@ export default function WeeklyGoldCalculatorPage() {
                                         onClick={() => setGoldLimitEnabled((prev) => !prev)}
                                         className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition-colors ${goldLimitEnabled
                                             ? "border-indigo-500/30 bg-indigo-500/10"
-                                            : "border-white/10 bg-[#0F1014]"
+                                            : "border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1014)]"
                                             }`}
                                     >
                                         <span>
@@ -306,7 +306,7 @@ export default function WeeklyGoldCalculatorPage() {
                                         <span
                                             className={`flex h-5 w-5 items-center justify-center rounded border ${goldLimitEnabled
                                                 ? "border-indigo-400 bg-indigo-500 text-white"
-                                                : "border-white/20 text-transparent"
+                                                : "border-[var(--overlay-ink)]/20 text-transparent"
                                                 }`}
                                         >
                                             <Check className="h-3.5 w-3.5" strokeWidth={3} />
@@ -318,14 +318,14 @@ export default function WeeklyGoldCalculatorPage() {
                                     <button
                                         type="button"
                                         onClick={applyRecommendationAll}
-                                        className="inline-flex h-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-bold text-gray-200 hover:bg-white/10"
+                                        className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/5 px-3 text-sm font-bold text-gray-200 hover:bg-[var(--overlay-ink)]/10"
                                     >
                                         추천
                                     </button>
                                     <button
                                         type="button"
                                         onClick={reset}
-                                        className="inline-flex h-10 items-center justify-center rounded-lg border border-white/10 bg-[#0F1014] px-3 text-sm font-bold text-gray-300 hover:bg-white/5"
+                                        className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1014)] px-3 text-sm font-bold text-gray-300 hover:bg-[var(--overlay-ink)]/5"
                                     >
                                         초기화
                                     </button>
@@ -333,7 +333,7 @@ export default function WeeklyGoldCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none border-y border-white/5 bg-[#16181D] p-5 sm:rounded-xl sm:border">
+                        <section className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
                             <h2 className="mb-3 text-sm font-bold text-gray-200">계산 방식</h2>
                             <ol className="space-y-2 break-keep text-[13px] leading-relaxed text-gray-400">
                                 <li>1. 캐릭터명으로 원정대를 불러옵니다.</li>
@@ -345,7 +345,7 @@ export default function WeeklyGoldCalculatorPage() {
                     </aside>
 
                     <main className="space-y-5">
-                        <section className="rounded-none border-y border-white/5 bg-[#16181D] p-5 sm:rounded-xl sm:border">
+                        <section className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
                             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                 <div>
                                     <h2 className="flex items-center gap-2 font-semibold text-white">
@@ -370,7 +370,7 @@ export default function WeeklyGoldCalculatorPage() {
                                     <input
                                         value={searchName}
                                         onChange={(event) => setSearchName(event.target.value)}
-                                        className="h-12 w-full rounded-lg border border-white/10 bg-[#0F1014] py-3 pl-11 pr-4 text-sm font-bold text-white outline-none transition-colors placeholder:text-gray-700 focus:border-indigo-500/50"
+                                        className="h-12 w-full rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1014)] py-3 pl-11 pr-4 text-sm font-bold text-white outline-none transition-colors placeholder:text-gray-700 focus:border-indigo-500/50"
                                         placeholder="캐릭터명을 입력하세요"
                                     />
                                 </div>
@@ -429,8 +429,8 @@ export default function WeeklyGoldCalculatorPage() {
                             />
                         </section>
 
-                        <section className="overflow-hidden rounded-none border-y border-white/5 bg-[#16181D] sm:rounded-sm sm:border">
-                            <div className="border-b border-white/5 px-5 py-4">
+                        <section className="overflow-hidden rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] sm:rounded-sm sm:border">
+                            <div className="border-b border-[var(--overlay-ink)]/5 px-5 py-4">
                                 <h2 className="text-sm font-bold text-white sm:text-base">계산 결과 상세</h2>
                                 <p className="mt-1 text-xs text-gray-500 break-keep">
                                     아이템 레벨 기준으로 자동 추천된 레이드 3개를 캐릭터별로 보여줍니다.
@@ -438,7 +438,7 @@ export default function WeeklyGoldCalculatorPage() {
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full min-w-[760px] text-center text-sm">
-                                    <thead className="bg-[#0F1014] text-center text-[11px] uppercase tracking-wider text-gray-500">
+                                    <thead className="bg-[var(--surface-0f1014)] text-center text-[11px] uppercase tracking-wider text-gray-500">
                                         <tr>
                                             <th className="px-5 py-3">캐릭터</th>
                                             <th className="px-5 py-3">레이드</th>
@@ -447,7 +447,7 @@ export default function WeeklyGoldCalculatorPage() {
                                             <th className="px-5 py-3">합계</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-white/5">
+                                    <tbody className="divide-y divide-[var(--overlay-ink)]/5">
                                         {visibleResults.map((character) => (
                                             <tr key={character.id} className={character.earnsGold ? "text-gray-300" : "text-gray-500"}>
                                                 <td className="px-5 py-4 align-top text-center">
@@ -462,7 +462,7 @@ export default function WeeklyGoldCalculatorPage() {
                                                             character.raids.map((raid) => (
                                                                 <span
                                                                     key={raid.id}
-                                                                    className="rounded-full bg-white/5 px-2.5 py-1 text-xs font-bold text-gray-300"
+                                                                    className="rounded-full bg-[var(--overlay-ink)]/5 px-2.5 py-1 text-xs font-bold text-gray-300"
                                                                 >
                                                                     {raid.raidName} {getRaidDifficultyLabel(raid.raidName, raid.difficulty)}
                                                                 </span>
@@ -488,7 +488,7 @@ export default function WeeklyGoldCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="space-y-5 rounded-none border-y border-white/5 bg-[#16181D] p-5 sm:rounded-xl sm:border">
+                        <section className="space-y-5 rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
                             <div className="space-y-2">
                                 <h2 className="text-xl font-bold text-gray-100">주간 레이드 수익 계산기란?</h2>
                                 <p className="break-keep text-sm leading-relaxed text-gray-400">
@@ -531,7 +531,7 @@ function SummaryCard({
     tone: string;
 }) {
     return (
-        <div className="rounded-none border-y border-white/5 bg-[#16181D] p-5 sm:rounded-sm sm:border">
+        <div className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-sm sm:border">
             <div className="mb-3 text-sm font-bold text-gray-300">{label}</div>
             <div className={`text-2xl font-bold ${tone}`}>
                 {value}
@@ -543,7 +543,7 @@ function SummaryCard({
 
 function InfoBlock({ title, body }: { title: string; body: string }) {
     return (
-        <div className="rounded-lg border border-white/5 bg-[#0F1014] p-4">
+        <div className="rounded-lg border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4">
             <h3 className="mb-2 text-sm font-bold text-gray-100">{title}</h3>
             <p className="break-keep text-sm leading-relaxed text-gray-400">{body}</p>
         </div>

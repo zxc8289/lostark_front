@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { summarizeRewardValue } from "@/app/lib/calculators/reward-value";
 import RaidDataStatus from "@/app/components/RaidDataStatus";
+import ToolMethodNote from "@/app/components/ToolMethodNote";
 
 import React, { useMemo, useState, useEffect } from "react";
 import {
@@ -284,7 +285,7 @@ export default function MoreRewardCalculatorPage() {
     }, [excludedItems, isMounted]);
 
     // if (!isMounted) {
-    //     return <div className="min-h-screen bg-[#111217]" />;
+    //     return <div className="min-h-screen bg-[var(--surface-111217)]" />;
     // }
 
     return (
@@ -307,11 +308,10 @@ export default function MoreRewardCalculatorPage() {
                     </div>
                 </div>
 
-                <RaidDataStatus raid={raid} difficulty={diff} />
                 <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 sm:gap-6 items-start">
                     <div className="space-y-4">
-                        <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 overflow-hidden shadow-sm">
-                            <div className="px-5 py-4 border-b border-white/5">
+                        <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 overflow-hidden shadow-sm">
+                            <div className="px-5 py-4 border-b border-[var(--overlay-ink)]/5">
                                 <h2 className="font-semibold text-white flex items-center gap-2">
                                     <span className="w-1 h-4 bg-indigo-500 rounded-full" />
                                     레이드 설정
@@ -324,14 +324,14 @@ export default function MoreRewardCalculatorPage() {
                                         카테고리
                                     </label>
 
-                                    <div className="flex flex-col border border-white/5 rounded-lg overflow-hidden">
+                                    <div className="flex flex-col border border-[var(--overlay-ink)]/5 rounded-lg overflow-hidden">
                                         {CATEGORIES.map((cat) => (
                                             <button
                                                 key={cat}
                                                 onClick={() => handleCategoryChange(cat)}
-                                                className={`flex w-full items-center gap-3 px-4 py-3 transition-colors border-b border-white/5 last:border-b-0 ${category === cat
+                                                className={`flex w-full items-center gap-3 px-4 py-3 transition-colors border-b border-[var(--overlay-ink)]/5 last:border-b-0 ${category === cat
                                                     ? "bg-[#5B69FF]/15 text-white"
-                                                    : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                                                    : "text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-200"
                                                     }`}
                                             >
                                                 <div
@@ -354,14 +354,14 @@ export default function MoreRewardCalculatorPage() {
                                         난이도
                                     </label>
 
-                                    <div className="grid grid-cols-3 gap-2 p-1 bg-[#121318] rounded-lg border border-white/5">
+                                    <div className="grid grid-cols-3 gap-2 p-1 bg-[var(--surface-121318)] rounded-lg border border-[var(--overlay-ink)]/5">
                                         {availableDiffs.map((d) => (
                                             <button
                                                 key={d}
                                                 onClick={() => setDiff(d)}
                                                 className={`py-2 rounded-md text-sm font-bold transition-all border ${diff === d
                                                     ? DIFF_STYLE[d]?.check
-                                                    : `bg-[#1B222D] text-gray-400 border-transparent ${DIFF_STYLE[d]?.hover}`
+                                                    : `bg-[var(--surface-1b222d)] text-gray-400 border-transparent ${DIFF_STYLE[d]?.hover}`
                                                     }`}
                                             >
                                                 {getDiffLabel(raid, d)}
@@ -382,7 +382,7 @@ export default function MoreRewardCalculatorPage() {
                                                 onClick={() => handleRaidChange(a)}
                                                 className={`relative flex items-center justify-center py-2 px-3 text-sm font-bold rounded-lg border transition-all ${raid === a
                                                     ? "bg-[#5B69FF]/15 border-[#5B69FF]/30 text-white"
-                                                    : "bg-transparent border-white/5 text-gray-500 hover:bg-white/5 hover:text-gray-300"
+                                                    : "bg-transparent border-[var(--overlay-ink)]/5 text-gray-500 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-300"
                                                     }`}
                                             >
                                                 <span className="truncate">{a}</span>
@@ -393,7 +393,7 @@ export default function MoreRewardCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                        <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                             <h2 className="text-sm font-bold text-gray-200 mb-3">
                                 빠른 사용법
                             </h2>
@@ -410,7 +410,7 @@ export default function MoreRewardCalculatorPage() {
 
                     <div className="space-y-4 sm:space-y-5">
                         <div className="flex flex-col gap-4">
-                            <div className="flex items-center justify-between bg-[#16181D] rounded-none sm:rounded-xl border-y sm:border border-white/5 p-4 sm:px-5 shadow-sm">
+                            <div className="flex items-center justify-between bg-[var(--surface-16181d)] rounded-none sm:rounded-xl border-y sm:border border-[var(--overlay-ink)]/5 p-4 sm:px-5 shadow-sm">
                                 <div className="space-y-1">
                                     <span className="font-semibold text-gray-200">
                                         거래소 시세 조회 상태
@@ -436,7 +436,7 @@ export default function MoreRewardCalculatorPage() {
                                 </button>
                             </div>
 
-                            <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between bg-[#16181D] rounded-none sm:rounded-xl border-y sm:border border-white/5 p-4 sm:px-5 shadow-sm gap-4">
+                            <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between bg-[var(--surface-16181d)] rounded-none sm:rounded-xl border-y sm:border border-[var(--overlay-ink)]/5 p-4 sm:px-5 shadow-sm gap-4">
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2">
                                         <ArrowRightLeft className="w-4 h-4 text-[#5B69FF]" />
@@ -451,7 +451,7 @@ export default function MoreRewardCalculatorPage() {
                                     </p>
                                 </div>
 
-                                <div className="flex items-center p-1.5 gap-2 bg-[#121318] rounded-lg border border-white/5 w-full xl:w-auto overflow-x-auto overflow-y-hidden scrollbar-hide">
+                                <div className="flex items-center p-1.5 gap-2 bg-[var(--surface-121318)] rounded-lg border border-[var(--overlay-ink)]/5 w-full xl:w-auto overflow-x-auto overflow-y-hidden scrollbar-hide">
                                     {CONV_TIERS.map((ct, idx) => (
                                         <React.Fragment key={ct.value}>
                                             <button
@@ -463,7 +463,7 @@ export default function MoreRewardCalculatorPage() {
                                                 title={`${ct.label} (다시 클릭 시 변환 취소)`}
                                                 className={`flex items-center justify-center min-h-[44px] flex-1 xl:flex-none px-4 py-2 rounded-md transition-all border ${convTier === ct.value
                                                     ? "bg-[#5B69FF]/10 border-[#5B69FF]/50 shadow-sm"
-                                                    : "border-transparent hover:bg-white/5"
+                                                    : "border-transparent hover:bg-[var(--overlay-ink)]/5"
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-1.5 sm:gap-2">
@@ -490,7 +490,7 @@ export default function MoreRewardCalculatorPage() {
                                             </button>
 
                                             {idx === 0 && (
-                                                <div className="w-px h-8 bg-white/10 mx-1 shrink-0" />
+                                                <div className="w-px h-8 bg-[var(--overlay-ink)]/10 mx-1 shrink-0" />
                                             )}
                                         </React.Fragment>
                                     ))}
@@ -556,12 +556,12 @@ export default function MoreRewardCalculatorPage() {
                                     return (
                                         <div
                                             key={gateKey}
-                                            className={`relative flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border p-5 shadow-sm transition-all ${isPartial ? "bg-[#16181D] border-white/5 hover:border-white/10" : isProfitable
-                                                ? "bg-[#16181D] border-white/5 hover:border-indigo-500/30"
-                                                : "bg-[#16181D] border-white/5 hover:border-red-500/30"
+                                            className={`relative flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border p-5 shadow-sm transition-all ${isPartial ? "bg-[var(--surface-16181d)] border-[var(--overlay-ink)]/5 hover:border-[var(--overlay-ink)]/10" : isProfitable
+                                                ? "bg-[var(--surface-16181d)] border-[var(--overlay-ink)]/5 hover:border-indigo-500/30"
+                                                : "bg-[var(--surface-16181d)] border-[var(--overlay-ink)]/5 hover:border-red-500/30"
                                                 }`}
                                         >
-                                            <div className="flex items-center justify-between border-b border-white/5 pb-3 gap-3">
+                                            <div className="flex items-center justify-between border-b border-[var(--overlay-ink)]/5 pb-3 gap-3">
                                                 <div className="flex items-center gap-2 min-w-0">
                                                     <div
                                                         className={`px-2 py-1 rounded-md text-[11px] font-bold shrink-0 ${DIFF_STYLE[diff]?.badge}`}
@@ -592,7 +592,7 @@ export default function MoreRewardCalculatorPage() {
                                                     </label>
                                                 </div>
 
-                                                <div className="bg-[#0F1014] rounded-lg border border-white/5 p-3 space-y-2">
+                                                <div className="bg-[var(--surface-0f1014)] rounded-lg border border-[var(--overlay-ink)]/5 p-3 space-y-2">
                                                     {calculatedItems.map((item, idx) => {
                                                         const iconPath =
                                                             REWARD_ICONS[item.convName] ||
@@ -608,8 +608,8 @@ export default function MoreRewardCalculatorPage() {
                                                                     )
                                                                 }
                                                                 className={`flex justify-between items-center text-[12px] p-1.5 -mx-1.5 rounded cursor-pointer transition-colors ${item.isExcluded
-                                                                    ? "opacity-40 hover:bg-white/5"
-                                                                    : "hover:bg-white/5"
+                                                                    ? "opacity-40 hover:bg-[var(--overlay-ink)]/5"
+                                                                    : "hover:bg-[var(--overlay-ink)]/5"
                                                                     }`}
                                                                 title="클릭하여 계산에서 제외/포함"
                                                             >
@@ -677,7 +677,7 @@ export default function MoreRewardCalculatorPage() {
                                             </div>
 
                                             <div
-                                                className={`mt-auto pt-3 border-t flex items-center justify-between ${isPartial ? "border-white/10" : isProfitable
+                                                className={`mt-auto pt-3 border-t flex items-center justify-between ${isPartial ? "border-[var(--overlay-ink)]/10" : isProfitable
                                                     ? "border-indigo-500/20"
                                                     : "border-red-500/20"
                                                     }`}
@@ -722,12 +722,12 @@ export default function MoreRewardCalculatorPage() {
                                 })}
                             </div>
                         ) : (
-                            <div className="py-20 text-center text-gray-500 bg-[#16181D] rounded-none sm:rounded-xl border-y sm:border border-dashed border-white/10">
+                            <div className="py-20 text-center text-gray-500 bg-[var(--surface-16181d)] rounded-none sm:rounded-xl border-y sm:border border-dashed border-[var(--overlay-ink)]/10">
                                 해당 레이드의 관문 정보가 없습니다.
                             </div>
                         )}
 
-                        <section className="space-y-4 rounded-none border-y border-white/5 bg-[#16181D] p-5 text-[13px] leading-7 text-gray-400 sm:rounded-xl sm:border">
+                        <section className="space-y-4 rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 text-[13px] leading-7 text-gray-400 sm:rounded-xl sm:border">
                             <h2 className="font-semibold text-gray-200">평가 차액을 읽는 방법</h2>
                             <p>확인된 재료의 수량 × 개당 단가를 합한 뒤 더보기 기본 비용을 뺍니다. 귀속 재료를 직접 사용할 때의 구매 대체 가치이며, 지갑에 들어오는 순수익이 아닙니다.</p>
                             <p>가격 미확인은 거래 불가능하다는 뜻이 아닙니다. 조회 누락·매물 없음·평가 대상 밖일 수 있습니다. 일부 재료만 평가한 값이 음수여도 나머지 보상을 포함한 손해를 확정할 수 없습니다. 쐐기돌·코어 등 성장 보상은 별도로 판단하세요.</p>
@@ -735,6 +735,8 @@ export default function MoreRewardCalculatorPage() {
                             <p>상위 재료 환산은 교환 비율을 단순 적용한 평가입니다. 실제 교환 가능한 정수 수량과 잔여 재료는 게임에서 확인하세요. 무료·할인 더보기는 자동 반영하지 않으므로 게임의 실제 결제 금액을 우선합니다.</p>
                             <Link className="inline-block text-[#A6AEFF] hover:underline" href="/articles/more-reward-efficiency">에기르 노말: 성장·주차 캐릭터별 계산 사례 →</Link>
                         </section>
+                        <ToolMethodNote tool="more-reward" className="" />
+                        <RaidDataStatus raid={raid} difficulty={diff} />
                     </div>
                 </div>
             </div>

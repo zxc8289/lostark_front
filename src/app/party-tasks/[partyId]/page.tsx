@@ -2195,7 +2195,7 @@ export default function PartyDetailPage() {
         return (
             <div className="w-full min-h-[60vh] flex flex-col items-center justify-center text-gray-300 px-4">
                 <div className="max-w-md w-full textcenter space-y-6">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-1.5 text-xs font-medium text-[#5B69FF] border border-[#5B69FF]/20">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-[var(--overlay-ink)]/5 px-4 py-1.5 text-xs font-medium text-[#5B69FF] border border-[#5B69FF]/20">
                         <UsersRound className="h-3.5 w-3.5" />
                         <span>파티 숙제</span>
                     </div>
@@ -2221,27 +2221,27 @@ export default function PartyDetailPage() {
             <div className="w-full text-white py-8 sm:py-12">
                 <div className="mx-auto max-w-7xl space-y-6">
                     <div className="space-y-3 animate-pulse">
-                        <div className="h-4 w-28 rounded bg-white/5" />
-                        <div className="h-8 w-56 rounded bg-white/5" />
-                        <div className="h-4 w-72 rounded bg-white/5" />
+                        <div className="h-4 w-28 rounded bg-[var(--overlay-ink)]/5" />
+                        <div className="h-8 w-56 rounded bg-[var(--overlay-ink)]/5" />
+                        <div className="h-4 w-72 rounded bg-[var(--overlay-ink)]/5" />
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {[1, 2, 3, 4, 5, 6].map((i) => (
                             <div
                                 key={i}
-                                className="h-[180px] rounded-xl border border-white/5 bg-[#16181D] p-5 animate-pulse"
+                                className="h-[180px] rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 animate-pulse"
                             >
                                 <div className="flex items-center gap-3 mb-6">
-                                    <div className="h-10 w-10 rounded-full bg-white/5" />
+                                    <div className="h-10 w-10 rounded-full bg-[var(--overlay-ink)]/5" />
                                     <div className="space-y-2 flex-1">
-                                        <div className="h-4 w-1/2 rounded bg-white/5" />
-                                        <div className="h-3 w-1/3 rounded bg-white/5" />
+                                        <div className="h-4 w-1/2 rounded bg-[var(--overlay-ink)]/5" />
+                                        <div className="h-3 w-1/3 rounded bg-[var(--overlay-ink)]/5" />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <div className="h-8 w-full rounded bg-white/5" />
-                                    <div className="h-3 w-1/4 rounded bg-white/5" />
+                                    <div className="h-8 w-full rounded bg-[var(--overlay-ink)]/5" />
+                                    <div className="h-3 w-1/4 rounded bg-[var(--overlay-ink)]/5" />
                                 </div>
                             </div>
                         ))}
@@ -2257,7 +2257,7 @@ export default function PartyDetailPage() {
             <div className="relative w-full min-h-[70vh] flex items-center justify-center overflow-hidden px-4">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-500/10 blur-[120px] rounded-full pointer-events-none opacity-50" />
 
-                <div className="relative z-10 w-full max-w-sm bg-[#16181D]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 text-center animate-in fade-in zoom-in-95 duration-300">
+                <div className="relative z-10 w-full max-w-sm bg-[var(--surface-16181d)]/80 backdrop-blur-xl border border-[var(--overlay-ink)]/10 rounded-2xl shadow-2xl p-8 text-center animate-in fade-in zoom-in-95 duration-300">
                     <div className="flex flex-col items-center gap-6">
                         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 text-red-500 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.15)]">
                             <AlertTriangle className="h-8 w-8" />
@@ -2274,7 +2274,7 @@ export default function PartyDetailPage() {
 
                         <button
                             onClick={() => router.push("/party-tasks")}
-                            className="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-white/5 py-3.5 text-sm font-bold text-white hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all"
+                            className="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--overlay-ink)]/5 py-3.5 text-sm font-bold text-white hover:bg-[var(--overlay-ink)]/10 border border-[var(--overlay-ink)]/5 hover:border-[var(--overlay-ink)]/10 transition-all"
                         >
                             <ArrowLeft className="h-4 w-4" />
                             파티 목록으로 돌아가기
@@ -2336,7 +2336,7 @@ export default function PartyDetailPage() {
                         <button
                             type="button"
                             onClick={() => router.push("/party-tasks")}
-                            className="flex h-8 w-8 items-center justify-center rounded-full  text-gray-300 hover:bg-white/5 hover:text-white"
+                            className="flex h-8 w-8 items-center justify-center rounded-full  text-gray-300 hover:bg-[var(--overlay-ink)]/5 hover:text-white"
                             aria-label="파티 목록으로 돌아가기"
                         >
                             <ChevronLeft className="h-5 w-5" />
@@ -2350,7 +2350,7 @@ export default function PartyDetailPage() {
                             <button
                                 type="button"
                                 onClick={() => setPartySettingOpen(true)}
-                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-300 hover:bg-white/5 hover:text-white"
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-300 hover:bg-[var(--overlay-ink)]/5 hover:text-white"
                                 aria-label="파티 설정 열기"
                             >
                                 <Settings className="h-5 w-5" />
@@ -2370,7 +2370,7 @@ export default function PartyDetailPage() {
 
 
                 </div>
-                <div className="flex items-center justify-between px-4 sm:px-0 mb-4 border-b border-white/5 sm:border-transparent">
+                <div className="flex items-center justify-between px-4 sm:px-0 mb-4 border-b border-[var(--overlay-ink)]/5 sm:border-transparent">
                     <div className="flex gap-6">
                         <button
                             onClick={() => setActiveTab("tasks")}
@@ -2407,18 +2407,18 @@ export default function PartyDetailPage() {
 
                             {/* ? 아이콘 (마우스 오버 타겟) */}
                             <div className="relative group flex items-center justify-center ml-1.5 cursor-help">
-                                <div className="w-[18px] h-[18px] rounded-full bg-white/10 flex items-center justify-center text-[10px] text-gray-400 font-normal group-hover:text-white group-hover:bg-white/20 transition-colors">
+                                <div className="w-[18px] h-[18px] rounded-full bg-[var(--overlay-ink)]/10 flex items-center justify-center text-[10px] text-gray-400 font-normal group-hover:text-white group-hover:bg-[var(--overlay-ink)]/20 transition-colors">
                                     ?
                                 </div>
 
                                 {/* 툴팁 내용 */}
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[260px] p-3 bg-[#1E2028] border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[260px] p-3 bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
                                     <p className="text-xs text-gray-300 leading-relaxed break-keep text-center font-normal">
                                         단발성 파티 편성에 적합한 그룹입니다.<br />
                                         숙제 완료 시 <span className="text-yellow-400 text-opacity-90">10초 뒤 그룹이 자동 삭제</span>되며,<br />
                                         고정된 파티와 캐릭터는 <span className="text-yellow-400 text-opacity-90">초기화되지 않고 유지</span>됩니다.
                                     </p>
-                                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1E2028] border-t border-l border-white/10 rotate-45" />
+                                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[var(--surface-1e2028)] border-t border-l border-[var(--overlay-ink)]/10 rotate-45" />
                                 </div>
                             </div>
 
@@ -2482,14 +2482,14 @@ export default function PartyDetailPage() {
                             {tasksLoading && (
                                 <div className="w-full py-6">
                                     <div className="animate-pulse space-y-3">
-                                        <div className="h-4 w-40 rounded bg-white/5" />
+                                        <div className="h-4 w-40 rounded bg-[var(--overlay-ink)]/5" />
                                         <div className="space-y-2">
                                             {Array.from({ length: 6 }).map((_, i) => (
-                                                <div key={i} className="flex items-center gap-3 rounded-none sm:rounded-xl border-x-0 sm:border border-white/5 bg-[#16181D] p-4">
-                                                    <div className="h-9 w-9 rounded-full bg-white/5" />
+                                                <div key={i} className="flex items-center gap-3 rounded-none sm:rounded-xl border-x-0 sm:border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-4">
+                                                    <div className="h-9 w-9 rounded-full bg-[var(--overlay-ink)]/5" />
                                                     <div className="flex-1 space-y-2">
-                                                        <div className="h-4 w-1/2 rounded bg-white/5" />
-                                                        <div className="h-3 w-1/3 rounded bg-white/5" />
+                                                        <div className="h-4 w-1/2 rounded bg-[var(--overlay-ink)]/5" />
+                                                        <div className="h-3 w-1/3 rounded bg-[var(--overlay-ink)]/5" />
                                                     </div>
                                                 </div>
                                             ))}
@@ -2573,8 +2573,8 @@ export default function PartyDetailPage() {
                             )}
 
                             {!tasksLoading && !tasksErr && partyTasks && partyTasks.length === 0 && (
-                                <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-none sm:rounded-2xl border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 bg-[#16181D]">
-                                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 mb-4">
+                                <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-none sm:rounded-2xl border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)]">
+                                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--overlay-ink)]/5 mb-4">
                                         <UsersRound className="h-8 w-8 text-gray-500" strokeWidth={1.5} />
                                     </div>
                                     <h3 className="text-lg font-bold text-gray-200">
@@ -2591,7 +2591,7 @@ export default function PartyDetailPage() {
                                                     setIsAddAccountOpen(true);
                                                     setIsAccountListOpen(false);
                                                 }}
-                                                className="inline-flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-4 py-2.5 text-sm font-medium text-gray-200 hover:bg-white/10 hover:text-white transition-colors"
+                                                className="inline-flex items-center gap-2 rounded-lg bg-[var(--overlay-ink)]/5 border border-[var(--overlay-ink)]/10 px-4 py-2.5 text-sm font-medium text-gray-200 hover:bg-[var(--overlay-ink)]/10 hover:text-white transition-colors"
                                             >
                                                 <Plus className="h-4 w-4" />
                                                 캐릭터 등록하기
@@ -2733,8 +2733,8 @@ export default function PartyDetailPage() {
 
             {inviteOpen && (
                 <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-                    <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="relative flex items-center justify-between bg-[#252832] px-5 py-4 border-b border-white/5">
+                    <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="relative flex items-center justify-between bg-[var(--surface-252832)] px-5 py-4 border-b border-[var(--overlay-ink)]/5">
                             <div className="flex items-center gap-2">
                                 <Sparkles className="h-5 w-5 text-[#5B69FF]" />
                                 <h2 className="text-base sm:text-lg font-bold text-white">
@@ -2744,7 +2744,7 @@ export default function PartyDetailPage() {
                             <button
                                 type="button"
                                 onClick={() => setInviteOpen(false)}
-                                className="rounded-full p-1 text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
+                                className="rounded-full p-1 text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-white transition-colors"
                             >
                                 <X className="h-5 w-5" />
                             </button>
@@ -2778,7 +2778,7 @@ export default function PartyDetailPage() {
                                             <label className="text-xs font-medium text-gray-400 ml-1">
                                                 초대 링크
                                             </label>
-                                            <div className="flex items-center gap-2 p-2 rounded-xl bg-black/30 border border-white/10 focus-within:border-[#5B69FF]/50 transition-colors">
+                                            <div className="flex items-center gap-2 p-2 rounded-xl bg-black/30 border border-[var(--overlay-ink)]/10 focus-within:border-[#5B69FF]/50 transition-colors">
                                                 <div className="flex-1 flex items-center gap-2 min-w-0 px-2">
                                                     <Link2 className="h-4 w-4 text-[#5B69FF] shrink-0" />
                                                     <span className="truncate text-sm text-gray-100 font-medium">
@@ -2790,7 +2790,7 @@ export default function PartyDetailPage() {
                                                     onClick={handleCopyInvite}
                                                     className={`shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${inviteCopied
                                                         ? "bg-[#5B69FF] text-white"
-                                                        : "bg-white/10 text-gray-200 hover:bg-white/15 hover:text-white"
+                                                        : "bg-[var(--overlay-ink)]/10 text-gray-200 hover:bg-[var(--overlay-ink)]/15 hover:text-white"
                                                         }`}
                                                 >
                                                     {inviteCopied ? (
@@ -2825,7 +2825,7 @@ export default function PartyDetailPage() {
                                         버튼을 누르면 링크가 복사되고 디스코드가 열립니다.
                                     </p>
 
-                                    <div className="flex items-center justify-between text-xs text-gray-400 bg-white/5 px-3 py-2 rounded-lg">
+                                    <div className="flex items-center justify-between text-xs text-gray-400 bg-[var(--overlay-ink)]/5 px-3 py-2 rounded-lg">
                                         <span className="flex items-center gap-1.5">
                                             <span>초대 코드:</span>
                                             <span className="text-sm font-bold text-[#5B69FF]">
@@ -2845,11 +2845,11 @@ export default function PartyDetailPage() {
 
             {shareModalOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-2xl animate-in zoom-in-95 duration-200">
 
                         <button
                             onClick={() => setShareModalOpen(false)}
-                            className="absolute top-3 right-3 p-2 text-gray-400 hover:text-white rounded-full hover:bg-white/5 transition-colors"
+                            className="absolute top-3 right-3 p-2 text-gray-400 hover:text-white rounded-full hover:bg-[var(--overlay-ink)]/5 transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -2881,7 +2881,7 @@ export default function PartyDetailPage() {
 
                                 <button
                                     onClick={launchDiscordWeb}
-                                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium transition-colors text-sm"
+                                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 text-gray-300 font-medium transition-colors text-sm"
                                 >
                                     웹 브라우저로 열기
                                 </button>
@@ -2893,7 +2893,7 @@ export default function PartyDetailPage() {
 
             {deleteConfirmOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="p-6 text-center">
                             <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
                                 <AlertTriangle className="h-7 w-7" />
@@ -2914,7 +2914,7 @@ export default function PartyDetailPage() {
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setDeleteConfirmOpen(false)}
-                                    className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium transition-colors text-sm"
+                                    className="flex-1 py-3 rounded-xl bg-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 text-gray-300 font-medium transition-colors text-sm"
                                 >
                                     취소
                                 </button>
@@ -3211,20 +3211,20 @@ function PartyMemberBlock({
 
     if (visibleRoster.length === 0) {
         return (
-            <div className="rounded-none sm:rounded-xl border-x-0 sm:border border-white/10 bg-[#16181D] overflow-hidden relative">
+            <div className="rounded-none sm:rounded-xl border-x-0 sm:border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)] overflow-hidden relative">
                 <div className="flex items-center gap-3 px-4 py-5 ">
                     <MemberAvatar member={{ id: member.userId, name: member.name, image: member.image, role: "member" }} className="h-8 w-8 rounded-full border border-black/50" />
                     <span className="font-semibold text-xl text-gray-200">{member.name || "이름 없음"}</span>
                 </div>
                 <div className="px-4 pb-4">
                     {isMe ? (
-                        <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 rounded-none sm:rounded-xl animate-in fade-in zoom-in-95 duration-500">
+                        <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[var(--surface-16181d)] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-[var(--overlay-ink)]/10 rounded-none sm:rounded-xl animate-in fade-in zoom-in-95 duration-500">
                             <div className="relative mb-6">
                                 <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
-                                <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
+                                <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[var(--surface-1e222b)] rounded-full flex items-center justify-center border border-[var(--overlay-ink)]/10 shadow-xl">
                                     <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">LOA</span>
                                 </div>
-                                <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2 py-0.5 rounded-full border border-white/10">
+                                <div className="absolute -right-2 -bottom-2 bg-[var(--surface-16181d)] px-2 py-0.5 rounded-full border border-[var(--overlay-ink)]/10">
                                     <span className="text-[10px] text-gray-400">검색</span>
                                 </div>
                             </div>
@@ -3243,7 +3243,7 @@ function PartyMemberBlock({
                                     value={searchInput}
                                     onChange={(e) => setSearchInput(e.target.value)}
                                     disabled={searchLoading}
-                                    className="w-full h-11 sm:h-12 pl-4 pr-11 sm:pr-12 rounded-lg bg-[#0F1115] border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
+                                    className="w-full h-11 sm:h-12 pl-4 pr-11 sm:pr-12 rounded-lg bg-[var(--surface-0f1115)] border border-[var(--overlay-ink)]/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
                                 />
                                 <button
                                     type="submit"
@@ -3251,7 +3251,7 @@ function PartyMemberBlock({
                                     className="absolute right-1.5 px-3 py-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-400 transition-colors text-xs sm:text-sm"
                                 >
                                     {searchLoading ? (
-                                        <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-[var(--overlay-ink)]/30 border-t-white rounded-full animate-spin" />
                                     ) : (
                                         "검색"
                                     )}
@@ -3266,13 +3266,13 @@ function PartyMemberBlock({
 
                         </div>
                     ) : (
-                        <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 rounded-none sm:rounded-xl">
+                        <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[var(--surface-16181d)] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-[var(--overlay-ink)]/10 rounded-none sm:rounded-xl">
                             <div className="relative mb-6">
                                 <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-10 rounded-full" />
-                                <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10 shadow-xl">
+                                <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[var(--surface-1e222b)] rounded-full flex items-center justify-center border border-[var(--overlay-ink)]/10 shadow-xl">
                                     <UsersRound className="w-8 h-8 sm:w-9 sm:h-9 text-[#5B69FF]" strokeWidth={1.5} />
                                 </div>
-                                <div className="absolute -right-2 -bottom-2 bg-[#16181D] px-2.5 py-1 rounded-full border border-white/10">
+                                <div className="absolute -right-2 -bottom-2 bg-[var(--surface-16181d)] px-2.5 py-1 rounded-full border border-[var(--overlay-ink)]/10">
                                     <span className="text-[10px] font-medium text-gray-400">미등록</span>
                                 </div>
                             </div>
@@ -3291,7 +3291,7 @@ function PartyMemberBlock({
                 {/* 🔥 빈 계정 상태에서도 검색 버튼 누를 때 권한 없으면 띄우는 모달 */}
                 {showPermissionError && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-                        <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-2xl animate-in zoom-in-95 duration-200">
                             <div className="p-6 text-center">
                                 <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
                                     <AlertTriangle className="h-7 w-7" />
@@ -3304,7 +3304,7 @@ function PartyMemberBlock({
                                 </p>
                                 <button
                                     onClick={() => setShowPermissionError(false)}
-                                    className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold transition-colors text-sm"
+                                    className="w-full py-3 rounded-xl bg-[var(--overlay-ink)]/10 hover:bg-[var(--overlay-ink)]/15 text-white font-bold transition-colors text-sm"
                                 >
                                     확인
                                 </button>
@@ -3317,7 +3317,7 @@ function PartyMemberBlock({
     }
 
     return (
-        <div className="grid grid-cols-1 gap-4 sm:gap-1 rounded-none sm:rounded-lg border-x-0 sm:border border-y sm:border-y border-white/10 px-3 sm:px-4 py-3 sm:py-4 relative">
+        <div className="grid grid-cols-1 gap-4 sm:gap-1 rounded-none sm:rounded-lg border-x-0 sm:border border-y sm:border-y border-[var(--overlay-ink)]/10 px-3 sm:px-4 py-3 sm:py-4 relative">
             <PartyMemberSummaryBar member={member} summary={memberSummary}>
                 <PartyMemberActions
                     onAutoSetup={withEditAuth((sortType: "latest" | "gold") => onAutoSetup(isMe, sortType))}
@@ -3367,11 +3367,11 @@ function PartyMemberBlock({
 
                                 if (showAllDone) {
                                     return (
-                                        <div className="flex flex-col items-center justify-center py-14 rounded-none sm:rounded-xl border-x-0 sm:border border-white/5 bg-white/[0.02] animate-in fade-in zoom-in-95 duration-300">
+                                        <div className="flex flex-col items-center justify-center py-14 rounded-none sm:rounded-xl border-x-0 sm:border border-[var(--overlay-ink)]/5 bg-[var(--overlay-ink)]/[0.02] animate-in fade-in zoom-in-95 duration-300">
                                             <div className="relative mb-4">
                                                 <div className="absolute inset-0 bg-emerald-500 blur-[24px] opacity-20 rounded-full" />
 
-                                                <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#16181D] border border-emerald-500/30 shadow-lg shadow-emerald-900/20">
+                                                <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[var(--surface-16181d)] border border-emerald-500/30 shadow-lg shadow-emerald-900/20">
                                                     <Check className="h-7 w-7 text-emerald-400" strokeWidth={3} />
                                                 </div>
                                             </div>
@@ -3466,10 +3466,10 @@ function PartyMemberBlock({
                         tableRoster.length === 0 ? (
                             isRaidFilterActive ? null : (
                                 onlyRemain ? (
-                                    <div className="flex flex-col items-center justify-center py-14 rounded-none sm:rounded-xl border-x-0 sm:border border-white/5 bg-white/[0.02] animate-in fade-in zoom-in-95 duration-300">
+                                    <div className="flex flex-col items-center justify-center py-14 rounded-none sm:rounded-xl border-x-0 sm:border border-[var(--overlay-ink)]/5 bg-[var(--overlay-ink)]/[0.02] animate-in fade-in zoom-in-95 duration-300">
                                         <div className="relative mb-4">
                                             <div className="absolute inset-0 bg-emerald-500 blur-[24px] opacity-20 rounded-full" />
-                                            <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#16181D] border border-emerald-500/30 shadow-lg shadow-emerald-900/20">
+                                            <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[var(--surface-16181d)] border border-emerald-500/30 shadow-lg shadow-emerald-900/20">
                                                 <Check className="h-7 w-7 text-emerald-400" strokeWidth={3} />
                                             </div>
                                         </div>
@@ -3517,7 +3517,7 @@ function PartyMemberBlock({
             {/* 🔥 권한 부족 경고 모달 */}
             {showPermissionError && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="p-6 text-center">
                             <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
                                 <AlertTriangle className="h-7 w-7" />
@@ -3530,7 +3530,7 @@ function PartyMemberBlock({
                             </p>
                             <button
                                 onClick={() => setShowPermissionError(false)}
-                                className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold transition-colors text-sm"
+                                className="w-full py-3 rounded-xl bg-[var(--overlay-ink)]/10 hover:bg-[var(--overlay-ink)]/15 text-white font-bold transition-colors text-sm"
                             >
                                 확인
                             </button>
@@ -3585,7 +3585,7 @@ function PartyMemberSummaryBar({
             </div>
 
             <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-2.5 sm:gap-4 text-xs sm:text-base min-w-0">
-                <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                <span className="hidden sm:inline h-4 w-px bg-[var(--overlay-ink)]/10 " />
 
                 <div className="flex items-baseline gap-1 sm:gap-1.5">
                     <span className="font-semibold text-[11px] sm:text-base pr-1">
@@ -3597,8 +3597,8 @@ function PartyMemberSummaryBar({
                     />
                 </div>
 
-                <span className="inline sm:hidden h-3 w-px bg-white/10 " />
-                <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                <span className="inline sm:hidden h-3 w-px bg-[var(--overlay-ink)]/10 " />
+                <span className="hidden sm:inline h-4 w-px bg-[var(--overlay-ink)]/10 " />
 
                 <div className="flex items-baseline gap-1 sm:gap-1.5">
                     <span className="font-semibold text-[11px] sm:text-base pr-1">
@@ -3611,8 +3611,8 @@ function PartyMemberSummaryBar({
                     />
                 </div>
 
-                <span className="inline sm:hidden h-3 w-px bg-white/10 " />
-                <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                <span className="inline sm:hidden h-3 w-px bg-[var(--overlay-ink)]/10 " />
+                <span className="hidden sm:inline h-4 w-px bg-[var(--overlay-ink)]/10 " />
 
                 <div className="flex items-baseline gap-1 sm:gap-1.5">
                     <span className="font-semibold text-[11px] sm:text-base pr-1">
@@ -3639,8 +3639,8 @@ function PartyMemberSummaryBar({
                         <span className="ml-0.5 text-[0.7em] sm:text-[0.75em]">g</span>
                     </div>
                 </div>
-                <span className="inline sm:hidden h-3 w-px bg-white/10 " />
-                <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                <span className="inline sm:hidden h-3 w-px bg-[var(--overlay-ink)]/10 " />
+                <span className="hidden sm:inline h-4 w-px bg-[var(--overlay-ink)]/10 " />
 
                 <div className="flex items-baseline gap-1 sm:gap-1.5">
                     <span className="font-semibold text-[11px] sm:text-base pr-1">
@@ -3770,7 +3770,7 @@ function PartyMemberActions({
                     disabled={isRefreshing}
                     className={`p-2 rounded-lg transition-colors ${isRefreshing ? "text-indigo-400 cursor-not-allowed" :
                         isAllView ? "text-gray-600 opacity-50 cursor-pointer" :
-                            "text-gray-400 hover:text-white hover:bg-white/5"
+                            "text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/5"
                         }`}
                     title="계정 정보 업데이트"
                 >
@@ -3779,14 +3779,14 @@ function PartyMemberActions({
 
                 <button
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className={`p-2 rounded-lg transition-colors ${isMenuOpen ? "bg-white/10 text-white" : "text-gray-400 hover:text-white hover:bg-white/5"}`}
+                    className={`p-2 rounded-lg transition-colors ${isMenuOpen ? "bg-[var(--overlay-ink)]/10 text-white" : "text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/5"}`}
                     title="메뉴 열기"
                 >
                     <MoreVertical className="w-5 h-5" />
                 </button>
 
                 {isMenuOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-52 z-50 origin-top-right rounded-xl bg-[#1E2028] border border-white/10 shadow-xl overflow-visible animate-in fade-in zoom-in-95 duration-150">
+                    <div className="absolute right-0 top-full mt-2 w-52 z-50 origin-top-right rounded-xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-xl overflow-visible animate-in fade-in zoom-in-95 duration-150">
                         <div className="relative">
                             {/* 2️⃣ 자동 세팅 버튼 - 막음 */}
                             <div className="relative group">
@@ -3801,7 +3801,7 @@ function PartyMemberActions({
                                         setAutoSetupConfirmOpen(true);
                                         setIsMenuOpen(false);
                                     }}
-                                    className={`w-full h-14 text-left px-4 flex items-center gap-3 transition-colors rounded-t-xl ${isAllView ? 'opacity-40 cursor-pointer' : 'hover:bg-white/5'}`}
+                                    className={`w-full h-14 text-left px-4 flex items-center gap-3 transition-colors rounded-t-xl ${isAllView ? 'opacity-40 cursor-pointer' : 'hover:bg-[var(--overlay-ink)]/5'}`}
                                 >
                                     <div className={`p-1.5 rounded-lg ${isAllView ? 'bg-gray-500/10 text-gray-400' : 'bg-indigo-500/10 text-indigo-400'}`}>
                                         <Wand2 className="w-4 h-4" />
@@ -3819,14 +3819,14 @@ function PartyMemberActions({
                                             e.stopPropagation();
                                             setShowAutoSetupSettings(!showAutoSetupSettings);
                                         }}
-                                        className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-colors cursor-pointer z-[60]"
+                                        className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-gray-500 hover:text-white hover:bg-[var(--overlay-ink)]/10 transition-colors cursor-pointer z-[60]"
                                     >
                                         <Settings className="w-3 h-3" />
                                     </div>
                                 )}
 
                                 {showAutoSetupSettings && (
-                                    <div className="absolute top-[80%] right-2 mt-2 w-56 p-4 rounded-xl bg-[#1E2028] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.7)] z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="absolute top-[80%] right-2 mt-2 w-56 p-4 rounded-xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-[0_10px_40px_rgba(0,0,0,0.7)] z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
                                         <div className="flex items-center justify-between mb-3">
                                             <h4 className="text-xs font-bold text-white">자동 세팅 설정</h4>
                                             <button onClick={(e) => { e.stopPropagation(); setShowAutoSetupSettings(false); }} className="text-gray-400 hover:text-white">
@@ -3840,23 +3840,23 @@ function PartyMemberActions({
                                                 type="number" min={1} max={24}
                                                 value={autoSetupCharCount}
                                                 onChange={(e) => setAutoSetupCharCount(Number(e.target.value))}
-                                                className="w-12 h-7 bg-[#0F1115] border border-white/10 rounded-md px-1 text-xs text-center text-white focus:outline-none focus:border-[#5B69FF] appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                className="w-12 h-7 bg-[var(--surface-0f1115)] border border-[var(--overlay-ink)]/10 rounded-md px-1 text-xs text-center text-white focus:outline-none focus:border-[#5B69FF] appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                             />
                                         </div>
 
                                         {/* ✨ 새롭게 추가된 정렬 기준 선택 UI */}
                                         <div className="space-y-1.5 mb-5">
                                             <span className="text-[11px] text-gray-400 block">레이드 우선순위</span>
-                                            <div className="grid grid-cols-2 gap-1 p-1 bg-[#0F1115] rounded-lg border border-white/5">
+                                            <div className="grid grid-cols-2 gap-1 p-1 bg-[var(--surface-0f1115)] rounded-lg border border-[var(--overlay-ink)]/5">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setAutoSetupSortType("latest"); }}
-                                                    className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "latest" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}
+                                                    className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "latest" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-[var(--overlay-ink)]/5"}`}
                                                 >
                                                     최신순
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setAutoSetupSortType("gold"); }}
-                                                    className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "gold" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}
+                                                    className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "gold" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-[var(--overlay-ink)]/5"}`}
                                                 >
                                                     골드순
                                                 </button>
@@ -3875,7 +3875,7 @@ function PartyMemberActions({
                                         >
                                             적용하기
                                         </button>
-                                        <div className="absolute -top-1.5 right-3 w-3 h-3 bg-[#1E2028] border-t border-l border-white/10 rotate-45" />
+                                        <div className="absolute -top-1.5 right-3 w-3 h-3 bg-[var(--surface-1e2028)] border-t border-l border-[var(--overlay-ink)]/10 rotate-45" />
                                     </div>
                                 )}
                             </div>
@@ -3889,7 +3889,7 @@ function PartyMemberActions({
                                     setIsMenuOpen(false);
                                 }}
                                 // 🔥 비활성화 스타일(opacity-40) 제거, 기본 hover 스타일 유지
-                                className="w-full h-14 text-left px-4 flex items-center gap-3 transition-colors hover:bg-white/5"
+                                className="w-full h-14 text-left px-4 flex items-center gap-3 transition-colors hover:bg-[var(--overlay-ink)]/5"
                             >
                                 <div className="p-1.5 rounded-lg shrink-0 bg-red-500/10 text-red-400">
                                     <RefreshCcw className="w-4 h-4" />
@@ -3912,7 +3912,7 @@ function PartyMemberActions({
                                     onOpenCharSetting();
                                     setIsMenuOpen(false);
                                 }}
-                                className={`w-full h-14 text-left px-4 flex items-center gap-3 transition-colors rounded-b-xl ${isAllView ? 'opacity-40 cursor-pointer' : 'hover:bg-white/5'}`}
+                                className={`w-full h-14 text-left px-4 flex items-center gap-3 transition-colors rounded-b-xl ${isAllView ? 'opacity-40 cursor-pointer' : 'hover:bg-[var(--overlay-ink)]/5'}`}
                             >
                                 <div className={`p-1.5 rounded-lg shrink-0 ${isAllView ? 'bg-gray-700/30 text-gray-500' : 'bg-gray-700/50 text-gray-400'}`}>
                                     <Settings className="w-4 h-4" />
@@ -3926,7 +3926,7 @@ function PartyMemberActions({
 
             <button
                 onClick={onToggleExpand}
-                className="hover:bg-white/5 hover:border-white/20 inline-flex items-center justify-center p-2 rounded-md bg-white/[.04] border border-white/10 text-gray-400 hover:text-white transition-colors"
+                className="hover:bg-[var(--overlay-ink)]/5 hover:border-[var(--overlay-ink)]/20 inline-flex items-center justify-center p-2 rounded-md bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 text-gray-400 hover:text-white transition-colors"
                 title={isExpanded ? "접기" : "펼치기"}
             >
                 {isExpanded ? (
@@ -3939,7 +3939,7 @@ function PartyMemberActions({
             {/* 모달 1: 자동 세팅 확인 모달 */}
             {autoSetupConfirmOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 animate-in zoom-in-95 duration-200">
+                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 animate-in zoom-in-95 duration-200">
                         <div className="p-6 text-center">
                             <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-500">
                                 <AlertTriangle className="h-7 w-7" />
@@ -3955,7 +3955,7 @@ function PartyMemberActions({
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setAutoSetupConfirmOpen(false)}
-                                    className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium transition-colors text-sm"
+                                    className="flex-1 py-3 rounded-xl bg-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 text-gray-300 font-medium transition-colors text-sm"
                                 >
                                     취소
                                 </button>
@@ -3977,7 +3977,7 @@ function PartyMemberActions({
             {/* 모달 2: 모두 보기 상태 경고 모달 */}
             {showAllViewWarning && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="p-6 text-center">
                             <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
                                 <AlertTriangle className="h-7 w-7" />
@@ -3991,7 +3991,7 @@ function PartyMemberActions({
                             </p>
                             <button
                                 onClick={() => setShowAllViewWarning(false)}
-                                className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold transition-colors text-sm"
+                                className="w-full py-3 rounded-xl bg-[var(--overlay-ink)]/10 hover:bg-[var(--overlay-ink)]/15 text-white font-bold transition-colors text-sm"
                             >
                                 확인
                             </button>

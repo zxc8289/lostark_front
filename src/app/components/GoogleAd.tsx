@@ -42,7 +42,7 @@ const GoogleAd = ({ slot, className = "", responsive = true }: Props) => {
         <div
             ref={elementRef}
             className={`w-full flex justify-center items-center overflow-hidden relative ${className}`}
-            style={{ backgroundColor: '#2f3238' }}
+            style={{ backgroundColor: 'var(--ad-placeholder)' }}
         >
             <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 select-none pointer-events-none">
                 <span className="text-[10px] font-bold tracking-widest border border-gray-600 px-2 py-0.5 rounded">AD</span>

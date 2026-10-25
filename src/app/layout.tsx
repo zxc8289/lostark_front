@@ -103,8 +103,13 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="ko">
+    <html lang="ko" data-theme="dark" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try { document.documentElement.dataset.theme = localStorage.getItem('loacheck-theme-v2') === 'light' ? 'light' : 'dark'; } catch { document.documentElement.dataset.theme = 'dark'; }`,
+          }}
+        />
         <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1712313315461589"
@@ -112,7 +117,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${pretendard.variable} font-pretendard min-h-screen flex flex-col bg-[#1B1D22] text-gray-300`}
+        className={`${pretendard.variable} font-pretendard min-h-screen flex flex-col bg-[var(--surface-1b1d22)] text-gray-300`}
       >
         <GoogleTagManager gtmId="GTM-PF49FQBN" />
 

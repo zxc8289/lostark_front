@@ -23,8 +23,8 @@ export default function MemoModal({ isOpen, onClose, onSave, charName, initialMe
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 bg-[#252832]">
+            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--overlay-ink)]/5 bg-[var(--surface-252832)]">
                     <h3 className="text-base font-bold text-white">
                         <span>{charName}</span> 메모
                     </h3>
@@ -37,12 +37,12 @@ export default function MemoModal({ isOpen, onClose, onSave, charName, initialMe
                         value={memo}
                         onChange={(e) => setMemo(e.target.value)}
                         placeholder="캐릭터에 대한 메모를 적어주세요."
-                        className="w-full h-32 p-3 bg-[#0F1115] border border-white/10 rounded-xl text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-[#5B69FF] resize-none"
+                        className="w-full h-32 p-3 bg-[var(--surface-0f1115)] border border-[var(--overlay-ink)]/10 rounded-xl text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-[#5B69FF] resize-none"
                     />
                     <div className="mt-4 flex gap-3">
                         <button
                             onClick={onClose}
-                            className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-sm font-medium transition-colors"
+                            className="flex-1 py-2.5 rounded-xl bg-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 text-gray-300 text-sm font-medium transition-colors"
                         >
                             취소
                         </button>

@@ -19,10 +19,10 @@ export default function ResultsPanel({
 
     // 공통 셀렉트 스타일 (다크 + 포커스 효과 제거)
     const selectBase =
-        "w-full bg-[#22272e] border border-[#444c56] rounded-md px-3 pr-10 py-1.5 text-sm text-gray-300 " +
+        "w-full bg-[var(--surface-22272e)] border border-[var(--surface-444c56)] rounded-md px-3 pr-10 py-1.5 text-sm text-gray-300 " +
         "appearance-none transition-all duration-150 " +
         "focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 focus:shadow-none " +
-        "focus:border-[#444c56]";
+        "focus:border-[var(--surface-444c56)]";
 
     return (
         <>
@@ -57,7 +57,7 @@ export default function ResultsPanel({
                     const ids = (item?.ids || []).filter(Boolean) as string[];
 
                     return (
-                        <div key={c.key} className="border border-[#444c56] rounded-lg p-3 bg-[#2d333b]">
+                        <div key={c.key} className="border border-[var(--surface-444c56)] rounded-lg p-3 bg-[var(--surface-2d333b)]">
                             {/* 헤더 라인 */}
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
@@ -90,7 +90,7 @@ export default function ResultsPanel({
                                         return (
                                             <span
                                                 key={id}
-                                                className="inline-flex items-center rounded-full px-2.5 py-1 text-xs border border-[#444c56] bg-[#22272e] text-gray-300"
+                                                className="inline-flex items-center rounded-full px-2.5 py-1 text-xs border border-[var(--surface-444c56)] bg-[var(--surface-22272e)] text-gray-300"
                                             >
                                                 {`(${need},${pts})`}
                                                 {statText && <span className="mx-1 opacity-60">·</span>}

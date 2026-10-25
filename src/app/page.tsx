@@ -53,7 +53,7 @@ export default async function HomePage() {
     }
   } catch (e) { console.error("[HomePage] loacheck notice fetch error:", e); }
 
-  const toggleBtnClass = "order-2 w-full list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center justify-center gap-2 py-2.5 md:py-3 rounded-xl bg-[#131519] border border-white/5 hover:bg-[#1A1D24] hover:border-white/10 hover:text-gray-200 transition-all text-xs font-bold text-gray-500 mt-3 md:mt-4";
+  const toggleBtnClass = "order-2 w-full list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center justify-center gap-2 py-2.5 md:py-3 rounded-xl bg-[var(--surface-131519)] border border-[var(--overlay-ink)]/5 hover:bg-[var(--surface-1a1d24)] hover:border-[var(--overlay-ink)]/10 hover:text-gray-200 transition-all text-xs font-bold text-gray-500 mt-3 md:mt-4";
 
   const faqList = [
     {
@@ -90,8 +90,8 @@ export default async function HomePage() {
       <section className="w-full grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-6 items-stretch">
 
         {/* 상단 좌측 스케줄 */}
-        <div className="lg:col-span-7 w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-2xl p-4 md:p-6 relative overflow-hidden flex flex-col justify-center">
-          <ClientOnly fallback={<div className="w-full h-[200px] bg-white/5 animate-pulse rounded-2xl" />}>
+        <div className="lg:col-span-7 w-full bg-[var(--surface-16181d)] border border-x-0 md:border-x border-[var(--overlay-ink)]/5 rounded-none md:rounded-2xl p-4 md:p-6 relative overflow-hidden flex flex-col justify-center">
+          <ClientOnly fallback={<div className="w-full h-[200px] bg-[var(--overlay-ink)]/5 animate-pulse rounded-2xl" />}>
             <TodaySchedule />
           </ClientOnly>
         </div>
@@ -100,9 +100,9 @@ export default async function HomePage() {
         <div className="lg:col-span-3 relative h-[290px] lg:h-auto">
 
           {/* 실제 카드 (lg 화면 이상에서만 absolute로 띄워서 그리드 높이 영향 차단) */}
-          <div className="w-full h-full lg:absolute lg:inset-0 bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-2xl overflow-hidden flex flex-col">
+          <div className="w-full h-full lg:absolute lg:inset-0 bg-[var(--surface-16181d)] border border-x-0 md:border-x border-[var(--overlay-ink)]/5 rounded-none md:rounded-2xl overflow-hidden flex flex-col">
 
-            <div className="px-4 md:px-5 py-3 md:py-4 border-b border-white/5 flex items-center justify-between bg-[#16181D] shrink-0">
+            <div className="px-4 md:px-5 py-3 md:py-4 border-b border-[var(--overlay-ink)]/5 flex items-center justify-between bg-[var(--surface-16181d)] shrink-0">
               <span className="text-sm md:text-base font-bold text-gray-200 flex items-center gap-2">
                 <Megaphone size={16} className="md:w-[18px] md:h-[18px]" />
                 로아체크 공지사항
@@ -114,13 +114,13 @@ export default async function HomePage() {
 
             {/* 스크롤 영역 */}
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <ul className="divide-y divide-white/5">
+              <ul className="divide-y divide-[var(--overlay-ink)]/5">
                 {loacheckNotices.length > 0 ? (
                   loacheckNotices.map((notice, idx) => (
                     <li key={idx}>
-                      <a href={`/support?noticeId=${notice.id}`} className="block px-4 md:px-5 py-3 md:py-[15.6px] hover:bg-white/5 transition-colors group">
+                      <a href={`/support?noticeId=${notice.id}`} className="block px-4 md:px-5 py-3 md:py-[15.6px] hover:bg-[var(--overlay-ink)]/5 transition-colors group">
                         <div className="flex items-center gap-2 mb-1.5">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium bg-white/5 text-gray-400 border-white/10 group-hover:border-white/20 group-hover:text-gray-300 transition-colors`}>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium bg-[var(--overlay-ink)]/5 text-gray-400 border-[var(--overlay-ink)]/10 group-hover:border-[var(--overlay-ink)]/20 group-hover:text-gray-300 transition-colors`}>
                             {notice.category}
                           </span>
                           <span className="text-[11px] font-medium text-gray-600">
@@ -150,24 +150,24 @@ export default async function HomePage() {
         <div className="lg:col-span-3 flex flex-col gap-4 lg:gap-6">
 
           {/* 1. 로스트아크 공지사항 (모바일은 h-auto, PC는 고정 높이) */}
-          <div className="bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl overflow-hidden flex flex-col h-auto md:h-[390px]">
-            <div className="px-4 md:px-5 py-3 md:py-4 border-b border-white/5 flex items-center justify-between bg-[#16181D] shrink-0">
+          <div className="bg-[var(--surface-16181d)] border border-x-0 md:border-x border-[var(--overlay-ink)]/5 rounded-none md:rounded-xl overflow-hidden flex flex-col h-auto md:h-[390px]">
+            <div className="px-4 md:px-5 py-3 md:py-4 border-b border-[var(--overlay-ink)]/5 flex items-center justify-between bg-[var(--surface-16181d)] shrink-0">
               <span className="text-sm md:text-base font-bold text-gray-200 flex items-center gap-2">
                 <Megaphone size={16} className="text-gray-400 md:w-[18px] md:h-[18px]" />
                 로스트아크 공지사항
               </span>
-              <a href="https://lostark.game.onstove.com/News/Notice/List" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-xs font-medium text-gray-500 hover:text-blue-400 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-white/5">
+              <a href="https://lostark.game.onstove.com/News/Notice/List" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-xs font-medium text-gray-500 hover:text-blue-400 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-[var(--overlay-ink)]/5">
                 전체보기 <ExternalLink size={12} />
               </a>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <ul className="divide-y divide-white/5">
+              <ul className="divide-y divide-[var(--overlay-ink)]/5">
                 {notices.map((notice, idx) => (
                   <li key={idx} className={idx >= 3 ? "hidden md:block" : ""}>
-                    <a href={notice.link} target="_blank" rel="noopener noreferrer" className="block px-4 md:px-5 py-3 md:py-[16px] hover:bg-white/5 transition-colors group">
+                    <a href={notice.link} target="_blank" rel="noopener noreferrer" className="block px-4 md:px-5 py-3 md:py-[16px] hover:bg-[var(--overlay-ink)]/5 transition-colors group">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium bg-white/5 text-gray-400 border-white/10 group-hover:border-white/20 group-hover:text-gray-300 transition-colors`}>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium bg-[var(--overlay-ink)]/5 text-gray-400 border-[var(--overlay-ink)]/10 group-hover:border-[var(--overlay-ink)]/20 group-hover:text-gray-300 transition-colors`}>
                           {notice.category}
                         </span>
                         <span className={`text-[11px] font-medium ${notice.isNew ? "text-blue-400 font-bold" : "text-gray-600"}`}>
@@ -185,9 +185,9 @@ export default async function HomePage() {
           </div>
 
           {/* 2. 레이드 정보 바로가기 (단일 링크형 배너) */}
-          <a href="/raid-info" className="group relative w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl p-4 md:p-5 flex items-center justify-between hover:border-[#5B69FF]/50 transition-all duration-300 overflow-hidden">
+          <a href="/raid-info" className="group relative w-full bg-[var(--surface-16181d)] border border-x-0 md:border-x border-[var(--overlay-ink)]/5 rounded-none md:rounded-xl p-4 md:p-5 flex items-center justify-between hover:border-[#5B69FF]/50 transition-all duration-300 overflow-hidden">
             <div className="flex items-center gap-3 md:gap-4 z-10">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-[#1F222B] flex items-center justify-center text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors border border-white/5">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-[var(--surface-1f222b)] flex items-center justify-center text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors border border-[var(--overlay-ink)]/5">
                 <ArrowUpRight size={20} className="md:w-[24px] md:h-[24px]" />
               </div>
               <div className="flex flex-col">
@@ -208,7 +208,7 @@ export default async function HomePage() {
 
           {/* 좌측 열: 내 숙제 현황 + 젬 세팅 최적화 배너 */}
           <div className="flex flex-col gap-4 lg:gap-6 w-full">
-            <Card className="border border-x-0 md:border-x border-white/5 bg-[#16181D] w-full flex flex-col rounded-none md:rounded-2xl" contentPadding="lg">
+            <Card className="border border-x-0 md:border-x border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] w-full flex flex-col rounded-none md:rounded-2xl" contentPadding="lg">
               <HomeMyTasksSummary>
                 <div className="w-full flex flex-col min-h-[300px] md:min-h-[340px]">
                   <div className="w-full mb-auto">
@@ -239,9 +239,9 @@ export default async function HomePage() {
               </HomeMyTasksSummary>
             </Card>
 
-            <a href="/calculator/gem" className="group relative w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl p-4 md:p-5 flex items-center justify-between hover:border-[#5B69FF]/50 transition-all duration-300 overflow-hidden">
+            <a href="/calculator/gem" className="group relative w-full bg-[var(--surface-16181d)] border border-x-0 md:border-x border-[var(--overlay-ink)]/5 rounded-none md:rounded-xl p-4 md:p-5 flex items-center justify-between hover:border-[#5B69FF]/50 transition-all duration-300 overflow-hidden">
               <div className="flex items-center gap-3 md:gap-4 z-10">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-[#1F222B] flex items-center justify-center text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors border border-white/5">
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-[var(--surface-1f222b)] flex items-center justify-center text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors border border-[var(--overlay-ink)]/5">
                   <Gem size={20} className="md:w-[24px] md:h-[24px]" />
                 </div>
                 <div className="flex flex-col">
@@ -258,7 +258,7 @@ export default async function HomePage() {
 
           {/* 우측 열: 내 참여 파티 + 딜 지분 계산기 배너 */}
           <div className="flex flex-col gap-4 lg:gap-6 w-full">
-            <Card className="border border-x-0 md:border-x border-white/5 bg-[#16181D] w-full flex flex-col rounded-none md:rounded-2xl" contentPadding="lg">
+            <Card className="border border-x-0 md:border-x border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] w-full flex flex-col rounded-none md:rounded-2xl" contentPadding="lg">
               <HomePartySummaryProvider>
                 <div className="w-full flex flex-col min-h-[300px] md:min-h-[340px]">
                   <a href="/party-tasks" className="group w-full flex items-center justify-between gap-3 mb-3 md:mb-4 cursor-pointer">
@@ -287,9 +287,9 @@ export default async function HomePage() {
               </HomePartySummaryProvider>
             </Card>
 
-            <a href="/dps-share" className="group relative w-full bg-[#16181D] border border-x-0 md:border-x border-white/5 rounded-none md:rounded-xl p-4 md:p-5 flex items-center justify-between hover:border-[#FF5252]/50 transition-all duration-300 overflow-hidden">
+            <a href="/dps-share" className="group relative w-full bg-[var(--surface-16181d)] border border-x-0 md:border-x border-[var(--overlay-ink)]/5 rounded-none md:rounded-xl p-4 md:p-5 flex items-center justify-between hover:border-[#FF5252]/50 transition-all duration-300 overflow-hidden">
               <div className="flex items-center gap-3 md:gap-4 z-10">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-[#1F222B] flex items-center justify-center text-[#FF5252] group-hover:bg-[#FF5252] group-hover:text-white transition-colors border border-white/5">
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-[var(--surface-1f222b)] flex items-center justify-center text-[#FF5252] group-hover:bg-[#FF5252] group-hover:text-white transition-colors border border-[var(--overlay-ink)]/5">
                   <Calculator size={20} className="md:w-[24px] md:h-[24px]" />
                 </div>
                 <div className="flex flex-col">
@@ -308,7 +308,7 @@ export default async function HomePage() {
       </div>
 
       {/* 하단 섹션: 가이드 */}
-      <section id="home-guide" className="w-full border-t border-white/5 pt-8 md:pt-12 pb-4 px-4 md:px-0 mt-8 md:mt-12">
+      <section id="home-guide" className="w-full border-t border-[var(--overlay-ink)]/5 pt-8 md:pt-12 pb-4 px-4 md:px-0 mt-8 md:mt-12">
         <div className="mb-6 md:mb-8">
           <h2 className="text-base md:text-lg font-bold text-gray-200 mb-2 flex items-center gap-2">
             <span className="text-blue-500">GUIDE</span> 로아체크 이용 가이드
@@ -319,7 +319,7 @@ export default async function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-          <div className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
+          <div className="bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
             <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">로아체크 숙제 관리 및 파티 동기화 시스템</h3>
             <p className="text-xs text-gray-400 leading-relaxed mb-4">내 계정 연동부터 파티원과의 실시간 숙제 공유까지, 매주 반복되는 레이드 일정을 더 편하게 정리할 수 있도록 구성했습니다.</p>
             <details className="group mt-auto">
@@ -328,14 +328,14 @@ export default async function HomePage() {
                 <span className="hidden group-open:inline">가이드 접기</span>
                 <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
               </summary>
-              <div className="pt-4 mt-4 border-t border-white/5 text-xs text-gray-500 leading-relaxed space-y-3">
+              <div className="pt-4 mt-4 border-t border-[var(--overlay-ink)]/5 text-xs text-gray-500 leading-relaxed space-y-3">
                 <p><strong className="text-gray-300">개인 숙제 정리:</strong> 대표 캐릭터 기준으로 원정대 정보를 가져오고, 캐릭터별 레이드와 골드 획득 현황을 빠르게 체크할 수 있습니다. 숙제 누락을 줄이고, 어떤 캐릭터가 이번 주에 무엇을 남겨뒀는지 한눈에 보기 쉽게 정리하는 데 적합합니다.</p>
                 <p><strong className="text-gray-300">파티 동기화:</strong> 파티 숙제 메뉴에서는 여러 명이 같은 진행 상태를 공유할 수 있어, 고정 공대나 지인팟처럼 매주 비슷한 구성을 유지하는 경우 특히 편리합니다.</p>
               </div>
             </details>
           </div>
 
-          <div className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
+          <div className="bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
             <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">로스트아크 딜 지분(DPS) 역산 분석기</h3>
             <p className="text-xs text-gray-400 leading-relaxed mb-4">입력한 피해량을 사이트에 저장된 잔혈 기준값과 비교해 딜 지분을 추정합니다. 실제 전투 로그를 측정하는 도구는 아닙니다.</p>
             <details className="group mt-auto">
@@ -344,7 +344,7 @@ export default async function HomePage() {
                 <span className="hidden group-open:inline">가이드 접기</span>
                 <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
               </summary>
-              <div className="pt-4 mt-4 border-t border-white/5 text-xs text-gray-500 leading-relaxed space-y-3">
+              <div className="pt-4 mt-4 border-t border-[var(--overlay-ink)]/5 text-xs text-gray-500 leading-relaxed space-y-3">
                 <p>관문별 잔혈 기준값을 기준 비율로 나누어 비교용 총피해량을 구한 뒤 내 피해량의 비율을 계산합니다. 보스 체력을 분모로 사용하지 않으며 실제 MVP 판정을 보장하지 않습니다. 운영자의 자체 계산 기준은 데이터 기준 페이지에서 확인하세요.</p>
                 <ul className="space-y-2 pl-2">
                   <li><strong className="text-gray-300">8인 레이드:</strong> 평균 1인분 기준을 참고해 강투/잔혈 여부를 보다 직관적으로 판단할 수 있습니다.</li>
@@ -354,7 +354,7 @@ export default async function HomePage() {
             </details>
           </div>
 
-          <div className="bg-[#16181D] border border-white/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
+          <div className="bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-5 md:p-6 rounded-2xl flex flex-col h-fit">
             <h3 className="text-sm md:text-base font-bold text-gray-100 mb-2">T4 보석 합성 및 구매 비교 가이드</h3>
             <p className="text-xs text-gray-400 leading-relaxed mb-4">목표 보석을 바로 구매할지, 하위 보석 3개를 합성할지 비교해 골드 차이를 빠르게 확인하는 데 초점을 맞췄습니다.</p>
             <details className="group mt-auto">
@@ -363,7 +363,7 @@ export default async function HomePage() {
                 <span className="hidden group-open:inline">가이드 접기</span>
                 <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
               </summary>
-              <div className="pt-4 mt-4 border-t border-white/5 text-xs text-gray-500 leading-relaxed space-y-3">
+              <div className="pt-4 mt-4 border-t border-[var(--overlay-ink)]/5 text-xs text-gray-500 leading-relaxed space-y-3">
                 <p>로아체크의 보석 합성 계산기는 T4 보석 시세를 기준으로, 목표 보석을 바로 구매하는 비용과 하위 보석 3개를 합성하는 비용을 비교하는 도구입니다.</p>
                 <ul className="space-y-1.5 pl-2">
                   <li><strong className="text-gray-300">• 바로 구매:</strong> 목표 레벨 보석의 현재 최저가를 기준으로 계산합니다.</li>
@@ -378,7 +378,7 @@ export default async function HomePage() {
 
       {/* 하단 섹션: 추가 설명 */}
       <section className="px-4 md:px-0 grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
-        <div className="bg-[#16181D] border border-white/5 rounded-2xl p-5 md:p-6">
+        <div className="bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 rounded-2xl p-5 md:p-6">
           <h2 className="text-base md:text-lg font-bold text-gray-100 mb-3">로아체크를 이렇게 활용하면 좋습니다</h2>
           <div className="space-y-3 text-sm text-gray-400 leading-relaxed">
             <p>여러 캐릭터를 운영하는 유저라면 주간 초기화 후 내 숙제 메뉴에서 빠르게 전체 현황을 확인하고, 파티 플레이가 잦다면 파티 숙제 메뉴를 통해 공대 진행 상태를 함께 보는 식으로 활용할 수 있습니다.</p>
@@ -386,7 +386,7 @@ export default async function HomePage() {
           </div>
         </div>
 
-        <div className="bg-[#16181D] border border-white/5 rounded-2xl p-5 md:p-6">
+        <div className="bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 rounded-2xl p-5 md:p-6">
           <h2 className="text-base md:text-lg font-bold text-gray-100 mb-3">결과 해석 시 참고할 점</h2>
           <div className="space-y-3 text-sm text-gray-400 leading-relaxed">
             <p>계산 도구는 빠른 판단을 돕기 위한 참고용 지표입니다. 시너지 조합, 서포터 숙련도, 기믹 수행, 관문 구조, 패턴 운 같은 실전 요소까지 완전히 고정된 형태로 반영되지는 않습니다.</p>
@@ -408,14 +408,14 @@ export default async function HomePage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 items-start">
           {faqList.map((item, idx) => (
-            <details key={idx} className="group bg-[#16181D] border border-white/5 rounded-2xl p-5 md:p-6">
+            <details key={idx} className="group bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 rounded-2xl p-5 md:p-6">
               <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-bold text-gray-100 leading-relaxed">{item.q}</p>
                 </div>
                 <ChevronDown className="w-4 h-4 mt-0.5 text-gray-500 transition-transform group-open:rotate-180" />
               </summary>
-              <div className="pt-4 mt-4 border-t border-white/5">
+              <div className="pt-4 mt-4 border-t border-[var(--overlay-ink)]/5">
                 <p className="text-sm text-gray-400 leading-relaxed">{item.a}</p>
               </div>
             </details>

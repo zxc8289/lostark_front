@@ -130,7 +130,7 @@ export default function CharacterTaskStrip({
     const isSupporter = supporterEngravings.includes(character.jobEngraving ?? "");
 
     return (
-        <div className="bg-[#16181D] rounded-md px-5 py-4 space-y-2">
+        <div className="bg-[var(--surface-16181d)] rounded-md px-5 py-4 space-y-2">
             <div className="flex items-center">
                 <div
                     className="min-w-0"
@@ -186,8 +186,8 @@ export default function CharacterTaskStrip({
                     <button
                         onClick={() => carouselRef.current?.prev()}
                         disabled={!hasTasks || cur <= 0}
-                        className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-white/15
-                            text-gray-300/90 hover:text-white hover:border-white/30
+                        className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-[var(--overlay-ink)]/15
+                            text-gray-300/90 hover:text-white hover:border-[var(--overlay-ink)]/30
                             disabled:opacity-30 disabled:pointer-events-none"
                         aria-label="이전"
                     >
@@ -197,8 +197,8 @@ export default function CharacterTaskStrip({
                     <button
                         onClick={() => carouselRef.current?.next()}
                         disabled={!hasTasks || cur >= maxIndex}
-                        className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-white/15
-                            text-gray-300/90 hover:text-white hover:border-white/30
+                        className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-[var(--overlay-ink)]/15
+                            text-gray-300/90 hover:text-white hover:border-[var(--overlay-ink)]/30
                             disabled:opacity-30 disabled:pointer-events-none"
                         aria-label="다음"
                     >
@@ -208,7 +208,7 @@ export default function CharacterTaskStrip({
 
                 <div className="flex items-center gap-1.5 sm:gap-2">
                     <button
-                        className="inline-flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:h-auto sm:py-2 sm:px-3 rounded-md bg-white/[.04] border border-white/10 text-xs text-white hover:bg-white/5 transition-colors"
+                        className="inline-flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:h-auto sm:py-2 sm:px-3 rounded-md bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 text-xs text-white hover:bg-[var(--overlay-ink)]/5 transition-colors"
                         onClick={() => onOpenMemo?.(character)}
                         title="메모 작성/보기"
                     >
@@ -220,7 +220,7 @@ export default function CharacterTaskStrip({
 
                     {hasTasks && (
                         <button
-                            className="inline-flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:h-auto sm:py-2 sm:px-3 rounded-md bg-white/[.04] border border-white/10 text-xs text-white hover:bg-white/5 transition-colors"
+                            className="inline-flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:h-auto sm:py-2 sm:px-3 rounded-md bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 text-xs text-white hover:bg-[var(--overlay-ink)]/5 transition-colors"
                             onClick={() => onAllClear?.(character)}
                             title="일괄 완료"
                         >
@@ -230,7 +230,7 @@ export default function CharacterTaskStrip({
                     )}
 
                     <button
-                        className="inline-flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:h-auto sm:py-2 sm:px-3 rounded-md bg-white/[.04] border border-white/10 text-xs text-white hover:bg-white/5 transition-colors"
+                        className="inline-flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:h-auto sm:py-2 sm:px-3 rounded-md bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 text-xs text-white hover:bg-[var(--overlay-ink)]/5 transition-colors"
                         onClick={() => onEdit?.(character)}
                         title="숙제 편집"
                     >
@@ -267,7 +267,7 @@ export default function CharacterTaskStrip({
                                             <button
                                                 key={i}
                                                 onClick={() => carouselRef.current?.goTo?.(i)}
-                                                className={`rounded-full transition-all ${active ? "w-1.5 h-1.5 bg-white/90" : "w-1.5 h-1.5 bg-white/15 hover:bg-white/30"
+                                                className={`rounded-full transition-all ${active ? "w-1.5 h-1.5 bg-[var(--overlay-ink)]/90" : "w-1.5 h-1.5 bg-[var(--overlay-ink)]/15 hover:bg-[var(--overlay-ink)]/30"
                                                     }`}
                                             />
                                         );

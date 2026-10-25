@@ -5,7 +5,7 @@ export default function PrivacyPage() {
     return (
         <div className="space-y-8 pt-17 pb-10 text-gray-300 w-full max-w-7xl mx-auto px-4 md:px-0">
             {/* 헤더 섹션 */}
-            <div className="space-y-4 border-b border-white/5 pb-8">
+            <div className="space-y-4 border-b border-[var(--overlay-ink)]/5 pb-8">
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-blue-600/10 text-blue-400">
                         <ShieldCheck size={24} />
@@ -20,7 +20,7 @@ export default function PrivacyPage() {
             <div className="space-y-8">
 
                 {/* 1. 수집 항목 */}
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full" />
                         <h2 className="font-bold text-lg text-gray-100 text-sm uppercase tracking-tight">1. 수집하는 개인정보 항목</h2>
@@ -30,15 +30,15 @@ export default function PrivacyPage() {
                             본 서비스는 별도의 회원가입 절차 없이 <span className="text-blue-400 font-bold">디스코드(Discord) OAuth2</span> 인증을 통해서만 로그인을 진행합니다. 이 과정에서 다음과 같은 정보가 전달됩니다.
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-                            <div className="p-3 rounded-lg bg-black/20 border border-white/5">
+                            <div className="p-3 rounded-lg bg-black/20 border border-[var(--overlay-ink)]/5">
                                 <span className="text-[10px] text-gray-500 font-bold block mb-1">필수 수집 항목</span>
                                 <p className="text-xs text-gray-300">디스코드 UID, 닉네임, 프로필 이미지</p>
                             </div>
-                            <div className="p-3 rounded-lg bg-black/20 border border-white/5">
+                            <div className="p-3 rounded-lg bg-black/20 border border-[var(--overlay-ink)]/5">
                                 <span className="text-[10px] text-gray-500 font-bold block mb-1">디스코드 봇 이용 시</span>
                                 <p className="text-xs text-gray-300">서버 ID, 서버명, 채널 ID, 채널명, 명령어 및 버튼 사용 기록</p>
                             </div>
-                            <div className="p-3 rounded-lg bg-black/20 border border-white/5 md:col-span-2">
+                            <div className="p-3 rounded-lg bg-black/20 border border-[var(--overlay-ink)]/5 md:col-span-2">
                                 <span className="text-[10px] text-gray-500 font-bold block mb-1">수집하지 않는 항목</span>
                                 <p className="text-xs text-gray-300">디스코드 비밀번호, 전화번호, 결제 정보, 개인 메시지 내용 등 민감 정보</p>
                             </div>
@@ -47,13 +47,13 @@ export default function PrivacyPage() {
                 </section>
 
                 {/* 2. 이용 목적 */}
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full" />
                         <h2 className="font-bold text-lg text-gray-100 text-sm uppercase tracking-tight">2. 이용 목적</h2>
                     </div>
                     <div className="flex items-start gap-4 text-sm">
-                        <div className="p-2 rounded-lg bg-white/5 text-gray-400">
+                        <div className="p-2 rounded-lg bg-[var(--overlay-ink)]/5 text-gray-400">
                             <Info size={18} />
                         </div>
                         <ul className="space-y-2 text-gray-400">
@@ -66,13 +66,13 @@ export default function PrivacyPage() {
                     </div>
                 </section>
 
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full" />
                         <h2 className="font-bold text-lg text-gray-100 text-sm uppercase tracking-tight">3. 디스코드 봇 관련 정보 처리</h2>
                     </div>
                     <div className="flex items-start gap-4 text-sm">
-                        <div className="p-2 rounded-lg bg-white/5 text-gray-400 shrink-0">
+                        <div className="p-2 rounded-lg bg-[var(--overlay-ink)]/5 text-gray-400 shrink-0">
                             <Info size={18} />
                         </div>
                         <div className="space-y-2 text-gray-400 leading-relaxed">
@@ -93,13 +93,13 @@ export default function PrivacyPage() {
                 </section>
 
                 {/* 3. 제3자 제공 및 위탁 (추가된 항목) */}
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full" />
                         <h2 className="font-bold text-lg text-gray-100 text-sm uppercase tracking-tight">4. 제3자 제공 및 위탁</h2>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                        <div className="p-2 rounded-lg bg-white/5 text-gray-400 shrink-0">
+                        <div className="p-2 rounded-lg bg-[var(--overlay-ink)]/5 text-gray-400 shrink-0">
                             <Users size={18} />
                         </div>
                         <div className="space-y-2 text-gray-400 leading-relaxed">
@@ -114,14 +114,14 @@ export default function PrivacyPage() {
                 </section>
 
                 {/* 4. 보유 및 파기 */}
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full" />
                         <h2 className="font-bold text-lg text-gray-100 text-sm uppercase tracking-tight">5. 보유 및 파기</h2>
                     </div>
                     {/* items-start를 items-center로 변경 */}
                     <div className="flex items-start gap-4 text-sm">
-                        <div className="p-2 rounded-lg bg-white/5 text-gray-400 shrink-0">
+                        <div className="p-2 rounded-lg bg-[var(--overlay-ink)]/5 text-gray-400 shrink-0">
                             <History size={18} />
                         </div>
                         <div className="space-y-2 text-gray-400 leading-relaxed">
@@ -136,13 +136,13 @@ export default function PrivacyPage() {
                 </section>
 
                 {/* 5. 이용자의 권리 (추가된 항목) */}
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full" />
                         <h2 className="font-bold text-lg text-gray-100 text-sm uppercase tracking-tight">6. 이용자의 권리</h2>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                        <div className="p-2 rounded-lg bg-white/5 text-gray-400 shrink-0">
+                        <div className="p-2 rounded-lg bg-[var(--overlay-ink)]/5 text-gray-400 shrink-0">
                             <UserCog size={18} />
                         </div>
                         <p className="text-gray-400 leading-relaxed">
@@ -151,7 +151,7 @@ export default function PrivacyPage() {
                     </div>
                 </section>
 
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <h2 className="font-bold text-lg text-gray-100 flex items-center gap-2"><span className="w-1 h-4 bg-blue-500 rounded-full" />7. Google 광고, 쿠키와 브라우저 저장소</h2>
                     <div className="space-y-4 text-sm leading-7 text-gray-400">
                         <p>로아체크는 광고 게재를 위한 Google AdSense 코드를 사용합니다. 광고가 게재되는 경우 Google과 제3자 광고 공급업체는 쿠키 등을 이용해 이 사이트 또는 다른 웹사이트의 이전 방문 기록에 기반한 광고를 제공할 수 있습니다. 광고 제공·측정 과정에서 쿠키 식별자, IP 주소, 브라우저·기기 정보와 광고 상호작용 정보 등이 처리될 수 있습니다.</p>
@@ -182,7 +182,7 @@ export default function PrivacyPage() {
             </div>
 
             {/* 하단 안내 */}
-            <div className="text-center pt-10 border-t border-white/5">
+            <div className="text-center pt-10 border-t border-[var(--overlay-ink)]/5">
                 <p className="text-xs text-gray-400">최종 수정: 2026. 09. 25 · Google 광고 및 브라우저 저장소 안내 보강</p>
             </div>
         </div>

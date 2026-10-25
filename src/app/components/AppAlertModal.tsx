@@ -68,8 +68,8 @@ export default function AppAlertModal() {
         onClick={closeCurrent}
       />
 
-      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between border-b border-white/5 bg-[#252832] px-5 py-4">
+      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between border-b border-[var(--overlay-ink)]/5 bg-[var(--surface-252832)] px-5 py-4">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-400">
               <AlertTriangle className="h-4 w-4" />
@@ -82,7 +82,7 @@ export default function AppAlertModal() {
           <button
             type="button"
             onClick={closeCurrent}
-            className="rounded-full p-1 text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
+            className="rounded-full p-1 text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-white transition-colors"
             aria-label="닫기"
           >
             <X className="h-5 w-5" />

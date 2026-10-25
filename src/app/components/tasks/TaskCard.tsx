@@ -86,18 +86,18 @@ export default function TaskCard({
     const checked = useMemo(() => new Set(gates), [gates]);
 
     return (
-        <div className="grid grid-cols-[1fr_auto] px-5 py-5.5 bg-[#222429] rounded-sm items-center">
+        <div className="task-card grid grid-cols-[1fr_auto] px-5 py-5.5 bg-[var(--surface-222429)] rounded-sm items-center">
             <div className="min-w-0 flex flex-col justify-center">
                 <div className="flex items-center gap-2 text-[11px] h-[18px]">
-                    <span className="text-gray-400">
+                    <span className="task-card-kind text-gray-400">
                         {kind === "어비스" ? "어비스 던전" : `${kind} 레이드`}
                     </span>
                     <PartyAssignmentLabel assignments={assignedGroups} />
                 </div>
 
                 <div className="mt-1 flex items-center gap-2 min-w-0 h-[24px]">
-                    <div className="text-base truncate">{title}</div>
-                    <span title={displayDifficulty} className={`max-w-[180px] shrink-0 truncate text-[11px] px-2 py-0.5 rounded-sm ${diffStyle.badge}`}>
+                    <div className="task-card-title text-base truncate">{title}</div>
+                    <span title={displayDifficulty} data-difficulty={difficulty} className={`task-card-difficulty max-w-[180px] shrink-0 truncate text-[11px] px-2 py-0.5 rounded-sm ${diffStyle.badge}`}>
                         {displayDifficulty}
                     </span>
                 </div>
@@ -117,13 +117,14 @@ export default function TaskCard({
                                 type="button"
                                 title={`${g}관문 ${gateDifficulty}`}
                                 aria-pressed={isChecked}
+                                data-difficulty={gateDifficulty}
                                 disabled={disabled || !onToggleGate}
                                 onClick={() => onToggleGate?.(g, !isChecked)}
                                 className={[
-                                    base,
+                                    base, "task-card-gate",
                                     disabled ? "opacity-50 cursor-default" : "hover:scale-[1.1]",
                                     isChecked ? `${gateStyle.check} border-transparent` : [
-                                        "bg-[#FFFFFF]/5 text-[#FFFFFF]/20 border-none hover:border-white/20",
+                                        "bg-[#FFFFFF]/5 text-[#FFFFFF]/20 border-none hover:border-[var(--overlay-ink)]/20",
                                         gateStyle.hover,
                                     ].join(" "),
                                     "scale-[1.0]",
@@ -137,7 +138,7 @@ export default function TaskCard({
                                     g
                                 )}
                                 {isBonus && (
-                                    <span className="absolute -top-[3px] -right-[3px] sm:-top-1 sm:-right-1 flex items-center justify-center w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] bg-[#222429] text-gray-300 text-[10px] sm:text-[12px] font-medium leading-none rounded-full border border-gray-500/60 z-10">
+                                    <span className="absolute -top-[3px] -right-[3px] sm:-top-1 sm:-right-1 flex items-center justify-center w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] bg-[var(--surface-222429)] text-gray-300 text-[10px] sm:text-[12px] font-medium leading-none rounded-full border border-gray-500/60 z-10">
                                         <span className="relative bottom-[0.5px]">+</span>
                                     </span>
                                 )}
@@ -148,7 +149,7 @@ export default function TaskCard({
 
                 {maxGold > 0 && (
                     <div className="absolute top-full right-0 mt-[-2px] pointer-events-none">
-                        <span className="text-yellow-500/90 text-[10px] whitespace-nowrap">
+                        <span className="task-card-gold text-yellow-500/90 text-[10px] whitespace-nowrap">
                             {maxGold.toLocaleString()}g
                         </span>
                     </div>

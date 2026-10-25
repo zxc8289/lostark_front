@@ -131,7 +131,7 @@ const DIFF_STYLES = {
     하드: { check: "bg-[#FF5252] text-white border-[#FF5252]", idle: "bg-[#FF5252]/8 text-[#FFB3B3]/80 border-[#FF5252]/40", hover: "hover:bg-[#FF5252] hover:text-white" },
     노말: { check: "bg-[#5B69FF] text-white border-[#5B69FF]", idle: "bg-[#5B69FF]/8 text-[#C0C6FF]/85 border-[#5B69FF]/40", hover: "hover:bg-[#5B69FF] hover:text-white" },
     나메: { check: "bg-[#6D28D9] text-white border-[#6D28D9]", idle: "bg-[#6D28D9]/8 text-[#D6BCFA]/85 border-[#6D28D9]/75", hover: "hover:bg-[#6D28D9] hover:text-white" },
-    싱글: { check: "bg-[#F1F5F9] text-[#111217] border-[#F1F5F9]", idle: "bg-white/5 text-white/70 border-white/20", hover: "hover:bg-[#F1F5F9] hover:text-[#111217]" },
+    싱글: { check: "bg-[#F1F5F9] text-[#111217] border-[#F1F5F9]", idle: "bg-[var(--overlay-ink)]/5 text-white/70 border-[var(--overlay-ink)]/20", hover: "hover:bg-[#F1F5F9] hover:text-[#111217]" },
 } as const;
 
 const POSITIONAL_TYPES: Record<string, "BACK_HEAD" | "HIT_MASTER" | "QUASI"> = {
@@ -1796,32 +1796,32 @@ export default function RaidPlannerTab({
     if (isLoading) {
         return (
             <div className="flex flex-col gap-6 relative animate-in fade-in duration-300">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-[#16181D] rounded-xl border border-white/10 ">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-[var(--surface-16181d)] rounded-xl border border-[var(--overlay-ink)]/10 ">
                     <div className="space-y-3">
-                        <div className="h-6 w-32 bg-white/5 rounded-md animate-pulse" />
-                        <div className="h-4 w-64 bg-white/5 rounded-md animate-pulse" />
+                        <div className="h-6 w-32 bg-[var(--overlay-ink)]/5 rounded-md animate-pulse" />
+                        <div className="h-4 w-64 bg-[var(--overlay-ink)]/5 rounded-md animate-pulse" />
                     </div>
-                    <div className="h-10 w-24 bg-white/5 rounded-lg animate-pulse hidden sm:block" />
+                    <div className="h-10 w-24 bg-[var(--overlay-ink)]/5 rounded-lg animate-pulse hidden sm:block" />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <div key={i} className="bg-[#16181D] rounded-lg p-5 flex flex-col border border-white/5 h-fit animate-pulse">
-                            <div className="h-4 w-24 bg-white/10 rounded mb-3" />
-                            <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
+                        <div key={i} className="bg-[var(--surface-16181d)] rounded-lg p-5 flex flex-col border border-[var(--overlay-ink)]/5 h-fit animate-pulse">
+                            <div className="h-4 w-24 bg-[var(--overlay-ink)]/10 rounded mb-3" />
+                            <div className="flex justify-between items-start mb-4 border-b border-[var(--overlay-ink)]/5 pb-3">
                                 <div className="flex items-center gap-2">
-                                    <div className="h-6 w-28 bg-white/10 rounded" />
-                                    <div className="h-5 w-12 bg-white/5 rounded" />
+                                    <div className="h-6 w-28 bg-[var(--overlay-ink)]/10 rounded" />
+                                    <div className="h-5 w-12 bg-[var(--overlay-ink)]/5 rounded" />
                                 </div>
-                                <div className="h-6 w-16 bg-white/5 rounded-full" />
+                                <div className="h-6 w-16 bg-[var(--overlay-ink)]/5 rounded-full" />
                             </div>
 
                             <div className="grid gap-2 sm:gap-3 grid-cols-2">
                                 {[0, 1].map((partyIdx) => (
                                     <div key={partyIdx} className="flex flex-col gap-1.5 sm:gap-2">
-                                        <div className="h-3 w-8 bg-white/5 rounded mb-1" />
+                                        <div className="h-3 w-8 bg-[var(--overlay-ink)]/5 rounded mb-1" />
                                         {[...Array(4)].map((_, slotIdx) => (
-                                            <div key={slotIdx} className="h-14 sm:h-16 border border-dashed border-white/10 bg-white/[0.02] rounded-lg" />
+                                            <div key={slotIdx} className="h-14 sm:h-16 border border-dashed border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/[0.02] rounded-lg" />
                                         ))}
                                     </div>
                                 ))}
@@ -1835,7 +1835,7 @@ export default function RaidPlannerTab({
 
     return (
         <div className="flex flex-col gap-4 sm:gap-4.5 relative">
-            <div className="bg-[#16181D] rounded-none sm:rounded-sm border-x-0 px-4 sm:px-5 py-3 sm:py-4">
+            <div className="bg-[var(--surface-16181d)] rounded-none sm:rounded-sm border-x-0 px-4 sm:px-5 py-3 sm:py-4">
                 <div className="flex flex-wrap gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between max-[1246px]:flex-col max-[1246px]:items-start max-[1246px]:justify-start">
 
                     <div className="flex flex-col gap-2 min-w-0 flex-1 w-full">
@@ -1845,7 +1845,7 @@ export default function RaidPlannerTab({
                                     onClick={toggleReorderMode}
                                     className={`inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm transition-colors ${isReorderMode
                                         ? "bg-[#5B69FF]/20 text-[#5B69FF] border border-[#5B69FF]/50"
-                                        : "bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-white"
+                                        : "bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 hover:bg-[var(--overlay-ink)]/5 hover:text-white"
                                         }`}
                                 >
                                     자리 이동
@@ -1859,7 +1859,7 @@ export default function RaidPlannerTab({
                                     className={`inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm transition-colors ${isReorderMode ? "opacity-50 cursor-not-allowed pointer-events-none " : ""
                                         } ${onlyRemain
                                             ? "bg-[#5B69FF]/20 text-[#5B69FF] border border-[#5B69FF]/50"
-                                            : "bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-white"
+                                            : "bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 hover:bg-[var(--overlay-ink)]/5 hover:text-white"
                                         }`}
                                 >
                                     남은 숙제만 보기
@@ -1872,7 +1872,7 @@ export default function RaidPlannerTab({
                                 className={`inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm transition-colors ${isReorderMode ? "opacity-50 cursor-not-allowed pointer-events-none " : ""
                                     } ${isScheduleView
                                         ? "bg-[#5B69FF]/20 text-[#5B69FF] border border-[#5B69FF]/50"
-                                        : "bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-white"
+                                        : "bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 hover:bg-[var(--overlay-ink)]/5 hover:text-white"
                                     }`}
                             >
                                 일정 보기
@@ -1882,7 +1882,7 @@ export default function RaidPlannerTab({
                                 <button
                                     onClick={() => setIsFilterOpen(!isFilterOpen)}
                                     disabled={isReorderMode}
-                                    className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-white/[.04] border border-white/10 rounded-md transition-all min-w-[140px] sm:min-w-[160px] ${isReorderMode ? "opacity-50 cursor-not-allowed pointer-events-none " : "hover:bg-white/5"
+                                    className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 rounded-md transition-all min-w-[140px] sm:min-w-[160px] ${isReorderMode ? "opacity-50 cursor-not-allowed pointer-events-none " : "hover:bg-[var(--overlay-ink)]/5"
                                         } ${isFilterOpen ? 'border-[#5B69FF]/50 ring-1 ring-[#5B69FF]/50' : ''}`}
                                 >
                                     <span className="text-xs sm:text-sm text-gray-200 truncate pr-1">
@@ -1892,7 +1892,7 @@ export default function RaidPlannerTab({
                                 </button>
 
                                 {isFilterOpen && !isReorderMode && (
-                                    <div className="absolute top-full left-0 mt-2 w-56 bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50] shadow-xl">
+                                    <div className="absolute top-full left-0 mt-2 w-56 bg-[var(--surface-1e2128)] border border-[var(--overlay-ink)]/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50] shadow-xl">
                                         <div className="flex flex-col gap-1 p-1.5 max-h-64 overflow-y-auto custom-scrollbar">
                                             {availableFilterRaids.map((raidName) => {
                                                 const isActive = selectedRaids.includes(raidName);
@@ -1900,7 +1900,7 @@ export default function RaidPlannerTab({
                                                     <button
                                                         key={raidName}
                                                         onClick={() => toggleRaid(raidName)}
-                                                        className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-white/5"}`}
+                                                        className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-[var(--overlay-ink)]/5"}`}
                                                     >
                                                         <div className={`w-4 h-4 flex items-center justify-center transition-colors ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
                                                             <Check className="h-3.5 w-3.5" strokeWidth={3} />
@@ -1918,7 +1918,7 @@ export default function RaidPlannerTab({
                                 <button
                                     onClick={() => setIsUserFilterOpen(!isUserFilterOpen)}
                                     disabled={isReorderMode}
-                                    className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-white/[.04] border border-white/10 rounded-md transition-all min-w-[140px] sm:min-w-[160px] ${isReorderMode ? "opacity-50 cursor-not-allowed pointer-events-none " : "hover:bg-white/5"
+                                    className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 rounded-md transition-all min-w-[140px] sm:min-w-[160px] ${isReorderMode ? "opacity-50 cursor-not-allowed pointer-events-none " : "hover:bg-[var(--overlay-ink)]/5"
                                         } ${isUserFilterOpen ? 'border-[#5B69FF]/50 ring-1 ring-[#5B69FF]/50' : ''}`}
                                 >
                                     <span className="text-xs sm:text-sm text-gray-200 truncate pr-1">
@@ -1928,7 +1928,7 @@ export default function RaidPlannerTab({
                                 </button>
 
                                 {isUserFilterOpen && !isReorderMode && (
-                                    <div className="absolute top-full left-0 mt-2 w-56 bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50] shadow-xl">
+                                    <div className="absolute top-full left-0 mt-2 w-56 bg-[var(--surface-1e2128)] border border-[var(--overlay-ink)]/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50] shadow-xl">
                                         <div className="flex flex-col gap-1 p-1.5 max-h-64 overflow-y-auto custom-scrollbar">
                                             {availableFilterUsers.map((user) => {
                                                 const isActive = selectedUsers.includes(user.id);
@@ -1936,7 +1936,7 @@ export default function RaidPlannerTab({
                                                     <button
                                                         key={user.id}
                                                         onClick={() => toggleUser(user.id)}
-                                                        className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-white/5"}`}
+                                                        className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-[var(--overlay-ink)]/5"}`}
                                                     >
                                                         <div className={`w-4 h-4 flex items-center justify-center transition-colors ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
                                                             <Check className="h-3.5 w-3.5" strokeWidth={3} />
@@ -1953,7 +1953,7 @@ export default function RaidPlannerTab({
                             {(selectedRaids.length > 0 || selectedUsers.length > 0) && !isReorderMode && (
                                 <button
                                     onClick={() => { setSelectedRaids([]); setSelectedUsers([]); }}
-                                    className="inline-flex items-center justify-center py-2 px-3 rounded-md bg-white/[.04] border border-white/10 text-xs sm:text-sm text-[#5B69FF] hover:bg-white/5 transition-colors shrink-0"
+                                    className="inline-flex items-center justify-center py-2 px-3 rounded-md bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 text-xs sm:text-sm text-[#5B69FF] hover:bg-[var(--overlay-ink)]/5 transition-colors shrink-0"
                                 >
                                     초기화 ⟳
                                 </button>
@@ -1961,7 +1961,7 @@ export default function RaidPlannerTab({
                         </div>
                     </div>
 
-                    <div className="flex flex-row flex-wrap gap-2 sm:gap-3 items-center w-full sm:w-auto mt-2 sm:mt-0 pt-3 border-t border-white/10 sm:pt-0 sm:border-none">
+                    <div className="flex flex-row flex-wrap gap-2 sm:gap-3 items-center w-full sm:w-auto mt-2 sm:mt-0 pt-3 border-t border-[var(--overlay-ink)]/10 sm:pt-0 sm:border-none">
                         {isEditMode ? (
                             <>
                                 <div className="flex gap-2 mr-auto sm:mr-0 bg-transparent p-0">
@@ -1970,7 +1970,7 @@ export default function RaidPlannerTab({
                                 <div className="relative flex items-center auto-setup-dropdown mr-auto sm:mr-0">
                                     <button
                                         onClick={() => handleFullAutoSetup()}
-                                        className="relative group flex items-center justify-center py-2 px-6 rounded-lg bg-white/[.04] border border-white/10 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white/5  text-white"
+                                        className="relative group flex items-center justify-center py-2 px-6 rounded-lg bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-[var(--overlay-ink)]/5  text-white"
                                         title="배치되지 않은 모든 숙제를 계산해 새로운 레이드 그룹들을 한 번에 자동 편성합니다."
                                     >
                                         <span>자동 세팅</span>
@@ -1979,7 +1979,7 @@ export default function RaidPlannerTab({
                                                 e.stopPropagation();
                                                 setShowAutoSetupSettings(!showAutoSetupSettings);
                                             }}
-                                            className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors duration-200 cursor-pointer"
+                                            className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/10 transition-colors duration-200 cursor-pointer"
                                             title="자동 세팅 설정"
                                         >
                                             <Settings className="w-3 h-3" />
@@ -1987,7 +1987,7 @@ export default function RaidPlannerTab({
                                     </button>
 
                                     {showAutoSetupSettings && (
-                                        <div className="absolute top-full left-0 mt-2 w-56 p-4 rounded-xl bg-[#1E2028] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.7)] z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="absolute top-full left-0 mt-2 w-56 p-4 rounded-xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-[0_10px_40px_rgba(0,0,0,0.7)] z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
                                             <div className="flex items-center justify-between mb-3">
                                                 <h4 className="text-xs font-bold text-white">자동 세팅 설정</h4>
                                                 <button
@@ -2009,7 +2009,7 @@ export default function RaidPlannerTab({
                                                             type="number" min={1} max={16}
                                                             value={autoSetupMinMembers}
                                                             onChange={(e) => setAutoSetupMinMembers(Number(e.target.value))}
-                                                            className="w-12 h-7 bg-[#0F1115] border border-white/10 rounded-md px-1 text-xs text-center text-white focus:outline-none focus:border-[#5B69FF] appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                            className="w-12 h-7 bg-[var(--surface-0f1115)] border border-[var(--overlay-ink)]/10 rounded-md px-1 text-xs text-center text-white focus:outline-none focus:border-[#5B69FF] appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                         />
                                                         <span className="text-[10px] text-gray-500">명 이상</span>
 
@@ -2018,16 +2018,16 @@ export default function RaidPlannerTab({
                                                 {/* 우선 편성 기준 UI */}
                                                 <div className="space-y-1.5">
                                                     <span className="text-[11px] text-gray-400 block">편성 기준</span>
-                                                    <div className="grid grid-cols-2 gap-1 p-1 bg-[#0F1115] rounded-lg border border-white/5">
+                                                    <div className="grid grid-cols-2 gap-1 p-1 bg-[var(--surface-0f1115)] rounded-lg border border-[var(--overlay-ink)]/5">
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); setAutoSetupSortType("synergy"); }}
-                                                            className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "synergy" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}
+                                                            className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "synergy" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-[var(--overlay-ink)]/5"}`}
                                                         >
                                                             직업 시너지
                                                         </button>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); setAutoSetupSortType("cp"); }}
-                                                            className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "cp" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}
+                                                            className={`py-1.5 text-[10px] font-bold rounded-md transition-all ${autoSetupSortType === "cp" ? "bg-[#5B69FF] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-[var(--overlay-ink)]/5"}`}
                                                         >
                                                             전투력 평균
                                                         </button>
@@ -2039,7 +2039,7 @@ export default function RaidPlannerTab({
                                                     <span className="text-[11px] text-gray-400 block">
                                                         대상 레이드 <span className="text-gray-600 font-normal">(선택 안함 = 전체)</span>
                                                     </span>
-                                                    <div className="max-h-32 overflow-y-auto custom-scrollbar pr-1 bg-[#0F1115] rounded-lg border border-white/5 p-1 flex flex-col gap-0.5">
+                                                    <div className="max-h-32 overflow-y-auto custom-scrollbar pr-1 bg-[var(--surface-0f1115)] rounded-lg border border-[var(--overlay-ink)]/5 p-1 flex flex-col gap-0.5">
                                                         {allAvailableRaidDiffs.map(([raidDiffKey, baseDifficulty]) => {
                                                             const [raidName, signature] = raidDiffKey.split("::");
                                                             const legacyKey = `${raidName}::${baseDifficulty}`;
@@ -2054,11 +2054,11 @@ export default function RaidPlannerTab({
                                                                         if (isActive) setAutoSetupRaids(prev => prev.filter(r => r !== raidDiffKey && r !== legacyKey));
                                                                         else setAutoSetupRaids(prev => [...prev, raidDiffKey]);
                                                                     }}
-                                                                    className={`flex items-center justify-between px-2 py-1.5 rounded text-xs transition-colors ${isActive ? "bg-[#5B69FF]/15 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5"}`}
+                                                                    className={`flex items-center justify-between px-2 py-1.5 rounded text-xs transition-colors ${isActive ? "bg-[#5B69FF]/15 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-[var(--overlay-ink)]/5"}`}
                                                                 >
                                                                     <div className="flex items-center gap-1.5">
                                                                         <span>{raidName}</span>
-                                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${isActive ? "bg-[#5B69FF]/20 text-[#5B69FF]" : "bg-white/10 text-gray-400"
+                                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${isActive ? "bg-[#5B69FF]/20 text-[#5B69FF]" : "bg-[var(--overlay-ink)]/10 text-gray-400"
                                                                             }`}>
                                                                             {displayDiff}
                                                                         </span>
@@ -2073,7 +2073,7 @@ export default function RaidPlannerTab({
                                                     <span className="text-[11px] text-gray-400 block">
                                                         참여 파티원 <span className="text-gray-600 font-normal">(선택 안함 = 전체)</span>
                                                     </span>
-                                                    <div className="max-h-32 overflow-y-auto custom-scrollbar pr-1 bg-[#0F1115] rounded-lg border border-white/5 p-1 flex flex-col gap-0.5">
+                                                    <div className="max-h-32 overflow-y-auto custom-scrollbar pr-1 bg-[var(--surface-0f1115)] rounded-lg border border-[var(--overlay-ink)]/5 p-1 flex flex-col gap-0.5">
                                                         {allPartyUsers.map(user => {
                                                             const isActive = autoSetupUsers.includes(user.id);
                                                             return (
@@ -2084,7 +2084,7 @@ export default function RaidPlannerTab({
                                                                         if (isActive) setAutoSetupUsers(prev => prev.filter(id => id !== user.id));
                                                                         else setAutoSetupUsers(prev => [...prev, user.id]);
                                                                     }}
-                                                                    className={`flex items-center justify-between px-2 py-1.5 rounded text-xs transition-colors ${isActive ? "bg-[#5B69FF]/15 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5"}`}
+                                                                    className={`flex items-center justify-between px-2 py-1.5 rounded text-xs transition-colors ${isActive ? "bg-[#5B69FF]/15 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-[var(--overlay-ink)]/5"}`}
                                                                 >
                                                                     <span>{user.name}</span>
                                                                     {isActive && <Check className="w-3 h-3" strokeWidth={3} />}
@@ -2095,21 +2095,21 @@ export default function RaidPlannerTab({
                                                 </div>
                                             </div>
 
-                                            <div className="absolute -top-1.5 left-16 w-3 h-3 bg-[#1E2028] border-t border-l border-white/10 rotate-45" />
+                                            <div className="absolute -top-1.5 left-16 w-3 h-3 bg-[var(--surface-1e2028)] border-t border-l border-[var(--overlay-ink)]/10 rotate-45" />
                                         </div>
                                     )}
                                 </div>
 
                                 <button
                                     onClick={openAddModal}
-                                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-md bg-white/[.04] border border-white/10 hover:bg-white/5 text-white text-xs sm:text-sm font-medium transition-colors"
+                                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-md bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 hover:bg-[var(--overlay-ink)]/5 text-white text-xs sm:text-sm font-medium transition-colors"
                                 >
                                     그룹 추가
                                 </button>
                                 <button
                                     onClick={handleCancelEdit}
                                     disabled={isSaving}
-                                    className="flex-1 sm:flex-none inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-white/[.02] border border-white/5 text-gray-400 hover:text-white hover:bg-white/[.04] text-xs sm:text-sm font-medium transition-colors disabled:opacity-50"
+                                    className="flex-1 sm:flex-none inline-flex items-center justify-center py-2 px-3 sm:px-4 rounded-md bg-[var(--overlay-ink)]/[.02] border border-[var(--overlay-ink)]/5 text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/[.04] text-xs sm:text-sm font-medium transition-colors disabled:opacity-50"
                                 >
                                     취소
                                 </button>
@@ -2128,7 +2128,7 @@ export default function RaidPlannerTab({
                                     setOnlyRemain(false);
                                     setIsEditMode(true);
                                 }}
-                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-2 px-4 sm:px-5 rounded-md bg-white/[.04] border border-white/10 hover:bg-white/5 hover:text-white hover:bg-[#5B69FF]/20 text-xs sm:text-sm transition-colors"
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-2 px-4 sm:px-5 rounded-md bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 hover:bg-[var(--overlay-ink)]/5 hover:text-white hover:bg-[#5B69FF]/20 text-xs sm:text-sm transition-colors"
                             >
                                 그룹 수정
                             </button>
@@ -2140,7 +2140,7 @@ export default function RaidPlannerTab({
             {!isEditMode ? (
                 <div className="w-full">
                     {groups.length === 0 ? (
-                        <div className="w-full text-center text-gray-500 py-32 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-xl px-4 bg-[#16181D]">
+                        <div className="w-full text-center text-gray-500 py-32 flex flex-col items-center justify-center border-2 border-dashed border-[var(--overlay-ink)]/5 rounded-xl px-4 bg-[var(--surface-16181d)]">
                             <Swords className="w-12 h-12 mb-4 text-gray-600 opacity-50" />
                             <h3 className="text-lg font-bold text-gray-300 mb-2">아직 생성된 {isTemporaryMode ? "자율편성 그룹" : "레이드 그룹"}이 없습니다.</h3>
                             <p className="break-keep text-sm mb-6">상단의 [그룹 수정] 버튼을 눌러 새로운 그룹을 만들고 파티원을 배치해보세요.</p>
@@ -2152,7 +2152,7 @@ export default function RaidPlannerTab({
                             </button>
                         </div>
                     ) : filteredGroups.length === 0 && !isReorderMode ? (
-                        <div className="w-full text-center text-gray-500 py-32 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-xl px-4 bg-[#16181D]">
+                        <div className="w-full text-center text-gray-500 py-32 flex flex-col items-center justify-center border-2 border-dashed border-[var(--overlay-ink)]/5 rounded-xl px-4 bg-[var(--surface-16181d)]">
                             <Filter className="w-12 h-12 mb-4 text-gray-600 opacity-50" />
                             <h3 className="text-lg font-bold text-gray-300 mb-2">조건에 맞는 레이드 그룹이 없습니다.</h3>
                             <p className="break-keep text-sm">필터를 해제하거나 새로운 숙제가 있는 그룹을 추가해보세요.</p>
@@ -2186,10 +2186,10 @@ export default function RaidPlannerTab({
                                 if (!dayGroups || dayGroups.length === 0) return null;
                                 return (
                                     <div key={day} className="flex flex-col gap-3">
-                                        <div className="flex items-center gap-2 border-b border-white/10 pb-2 px-1">
+                                        <div className="flex items-center gap-2 border-b border-[var(--overlay-ink)]/10 pb-2 px-1">
                                             <Calendar className="w-5 h-5 text-[#5B69FF]" />
                                             <h3 className="text-base sm:text-lg font-bold text-white">{day}요일</h3>
-                                            <span className="text-xs sm:text-sm text-gray-500 font-medium bg-white/5 px-2 py-0.5 rounded-full">{dayGroups.length}개</span>
+                                            <span className="text-xs sm:text-sm text-gray-500 font-medium bg-[var(--overlay-ink)]/5 px-2 py-0.5 rounded-full">{dayGroups.length}개</span>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                             {dayGroups.map(group => (
@@ -2201,10 +2201,10 @@ export default function RaidPlannerTab({
                             })}
                             {groupedBySchedule!.unscheduled.length > 0 && (
                                 <div className="flex flex-col gap-3 mt-2">
-                                    <div className="flex items-center gap-2 border-b border-white/10 pb-2 px-1">
+                                    <div className="flex items-center gap-2 border-b border-[var(--overlay-ink)]/10 pb-2 px-1">
                                         <Calendar className="w-5 h-5 text-gray-500" />
                                         <h3 className="text-base sm:text-lg font-bold text-gray-400">일정 미정</h3>
-                                        <span className="text-xs sm:text-sm text-gray-500 font-medium bg-white/5 px-2 py-0.5 rounded-full">{groupedBySchedule!.unscheduled.length}개</span>
+                                        <span className="text-xs sm:text-sm text-gray-500 font-medium bg-[var(--overlay-ink)]/5 px-2 py-0.5 rounded-full">{groupedBySchedule!.unscheduled.length}개</span>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                         {groupedBySchedule!.unscheduled.map(group => (
@@ -2220,10 +2220,10 @@ export default function RaidPlannerTab({
                                 const raidGroups = groupedByRaid.map.get(raidName)!;
                                 return (
                                     <div key={raidName} className="flex flex-col gap-3">
-                                        <div className="flex items-center gap-2 border-b border-white/10 pb-2 px-1">
+                                        <div className="flex items-center gap-2 border-b border-[var(--overlay-ink)]/10 pb-2 px-1">
                                             <Swords className="w-5 h-5 text-[#5B69FF]" />
                                             <h3 className="text-base sm:text-lg font-bold text-white">{raidName}</h3>
-                                            <span className="text-xs sm:text-sm text-gray-500 font-medium bg-white/5 px-2 py-0.5 rounded-full">{raidGroups.length}개</span>
+                                            <span className="text-xs sm:text-sm text-gray-500 font-medium bg-[var(--overlay-ink)]/5 px-2 py-0.5 rounded-full">{raidGroups.length}개</span>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                             {raidGroups.map(group => (
@@ -2262,10 +2262,10 @@ export default function RaidPlannerTab({
                                         if (!dayGroups || dayGroups.length === 0) return null;
                                         return (
                                             <div key={day} className="flex flex-col gap-3">
-                                                <div className="flex items-center gap-2 border-b border-white/10 pb-2 px-1">
+                                                <div className="flex items-center gap-2 border-b border-[var(--overlay-ink)]/10 pb-2 px-1">
                                                     <Calendar className="w-5 h-5 text-[#5B69FF]" />
                                                     <h3 className="text-base sm:text-lg font-bold text-white">{day}요일</h3>
-                                                    <span className="text-xs sm:text-sm text-gray-500 font-medium bg-white/5 px-2 py-0.5 rounded-full">{dayGroups.length}개</span>
+                                                    <span className="text-xs sm:text-sm text-gray-500 font-medium bg-[var(--overlay-ink)]/5 px-2 py-0.5 rounded-full">{dayGroups.length}개</span>
                                                 </div>
                                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                                     {dayGroups.map(group => (
@@ -2292,10 +2292,10 @@ export default function RaidPlannerTab({
                                     })}
                                     {groupedBySchedule!.unscheduled.length > 0 && (
                                         <div className="flex flex-col gap-3 mt-2">
-                                            <div className="flex items-center gap-2 border-b border-white/10 pb-2 px-1">
+                                            <div className="flex items-center gap-2 border-b border-[var(--overlay-ink)]/10 pb-2 px-1">
                                                 <Calendar className="w-5 h-5 text-gray-500" />
                                                 <h3 className="text-base sm:text-lg font-bold text-gray-400">일정 미정</h3>
-                                                <span className="text-xs sm:text-sm text-gray-500 font-medium bg-white/5 px-2 py-0.5 rounded-full">{groupedBySchedule!.unscheduled.length}개</span>
+                                                <span className="text-xs sm:text-sm text-gray-500 font-medium bg-[var(--overlay-ink)]/5 px-2 py-0.5 rounded-full">{groupedBySchedule!.unscheduled.length}개</span>
                                             </div>
                                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                                 {groupedBySchedule!.unscheduled.map(group => (
@@ -2326,10 +2326,10 @@ export default function RaidPlannerTab({
                                         const raidGroups = groupedByRaid.map.get(raidName)!;
                                         return (
                                             <div key={raidName} className="flex flex-col gap-3">
-                                                <div className="flex items-center gap-2 border-b border-white/10 pb-2 px-1">
+                                                <div className="flex items-center gap-2 border-b border-[var(--overlay-ink)]/10 pb-2 px-1">
                                                     <Swords className="w-5 h-5 text-[#5B69FF]" />
                                                     <h3 className="text-base sm:text-lg font-bold text-white">{raidName}</h3>
-                                                    <span className="text-xs sm:text-sm text-gray-500 font-medium bg-white/5 px-2 py-0.5 rounded-full">{raidGroups.length}개</span>
+                                                    <span className="text-xs sm:text-sm text-gray-500 font-medium bg-[var(--overlay-ink)]/5 px-2 py-0.5 rounded-full">{raidGroups.length}개</span>
                                                 </div>
                                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                                     {raidGroups.map(group => (
@@ -2361,12 +2361,12 @@ export default function RaidPlannerTab({
 
                     <DragOverlay dropAnimation={null}>
                         {activeDragChar ? (
-                            <div className="p-2 sm:p-2.5 h-14 sm:h-16 bg-[#2A2D36] border-2 border-[#5B69FF] rounded-lg opacity-90 scale-105 flex items-center gap-2 pr-1 min-w-[150px] sm:min-w-[180px]">
-                                <div className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 bg-black/20 rounded border border-white/5 flex items-center justify-center overflow-hidden">
+                            <div className="p-2 sm:p-2.5 h-14 sm:h-16 bg-[var(--surface-2a2d36)] border-2 border-[#5B69FF] rounded-lg opacity-90 scale-105 flex items-center gap-2 pr-1 min-w-[150px] sm:min-w-[180px]">
+                                <div className="planner-class-icon w-7 h-7 sm:w-8 sm:h-8 shrink-0 bg-black/20 rounded border border-[var(--overlay-ink)]/5 flex items-center justify-center overflow-hidden">
                                     <img
                                         src={`/icons/classes/${classIconMap[activeDragChar.className] || 'default.svg'}`}
                                         alt=""
-                                        className="w-4 h-4 sm:w-6 sm:h-6 object-contain filter brightness-0 invert"
+                                        className="planner-class-icon-image w-4 h-4 sm:w-6 sm:h-6 object-contain filter brightness-0 invert"
                                     />
                                 </div>
                                 <div className="flex flex-col justify-center min-w-0 flex-1">
@@ -2398,12 +2398,12 @@ export default function RaidPlannerTab({
                     />
 
                     <div
-                        className="relative w-full max-w-md p-6 sm:p-8 rounded-2xl bg-[#16181D] border border-white/5 text-center shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+                        className="relative w-full max-w-md p-6 sm:p-8 rounded-2xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 text-center shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
                     >
                         <button
                             type="button"
                             onClick={() => setGuestModalOpen(false)}
-                            className="absolute right-3 top-3 p-1.5 rounded-full bg-black/40 border border-white/10 text-gray-400 hover:text-white hover:bg-black/60 text-xs z-50 transition-colors"
+                            className="absolute right-3 top-3 p-1.5 rounded-full bg-black/40 border border-[var(--overlay-ink)]/10 text-gray-400 hover:text-white hover:bg-black/60 text-xs z-50 transition-colors"
                         >
                             <X size={16} />
                         </button>
@@ -2415,7 +2415,7 @@ export default function RaidPlannerTab({
                             <div className="relative z-10">
                                 <Users size={32} strokeWidth={1.5} className="sm:w-9 sm:h-9" />
                             </div>
-                            <div className="absolute -right-1 -bottom-1 bg-[#16181D] rounded-full p-1.5 border border-white/10 z-20">
+                            <div className="absolute -right-1 -bottom-1 bg-[var(--surface-16181d)] rounded-full p-1.5 border border-[var(--overlay-ink)]/10 z-20">
                                 <Search size={14} className="text-gray-400" />
                             </div>
                         </div>
@@ -2436,12 +2436,12 @@ export default function RaidPlannerTab({
                                 onChange={(e) => setGuestSearchInput(e.target.value)}
                                 disabled={isSearchingGuest}
                                 className={`
-                                    w-full h-11 sm:h-12 pl-4 pr-12 rounded-lg bg-[#0F1115] border 
+                                    w-full h-11 sm:h-12 pl-4 pr-12 rounded-lg bg-[var(--surface-0f1115)] border
                                     text-white placeholder-gray-500 text-sm transition-all disabled:opacity-50
                                     focus:outline-none focus:ring-1
                                     ${guestSearchError
                                         ? "border-red-500/50 focus:border-red-500 focus:ring-red-500"
-                                        : "border-white/10 focus:border-[#5B69FF] focus:ring-[#5B69FF]"
+                                        : "border-[var(--overlay-ink)]/10 focus:border-[#5B69FF] focus:ring-[#5B69FF]"
                                     }
                                 `}
                                 autoFocus
@@ -2452,7 +2452,7 @@ export default function RaidPlannerTab({
                                 className="absolute right-1.5 p-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-500 transition-colors"
                             >
                                 {isSearchingGuest ? (
-                                    <div className="w-4 h-4 sm:w-[18px] sm:h-[18px] border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <div className="w-4 h-4 sm:w-[18px] sm:h-[18px] border-2 border-[var(--overlay-ink)]/30 border-t-white rounded-full animate-spin" />
                                 ) : (
                                     <Search size={16} className="sm:w-[18px] sm:h-[18px]" />
                                 )}
@@ -2474,7 +2474,7 @@ export default function RaidPlannerTab({
 
                                     if (filteredChars.length === 0) {
                                         return (
-                                            <div className="text-center text-xs text-gray-400 py-6 bg-black/20 rounded-xl border border-white/5">
+                                            <div className="text-center text-xs text-gray-400 py-6 bg-black/20 rounded-xl border border-[var(--overlay-ink)]/5">
                                                 입장 레벨(Lv.{guestReqLevel})을 만족하는 캐릭터가 없습니다.
                                             </div>
                                         );
@@ -2485,11 +2485,11 @@ export default function RaidPlannerTab({
                                             key={char.name}
                                             type="button"
                                             onClick={() => handleSelectGuestChar(char)}
-                                            className="flex items-center justify-between p-3 rounded-xl bg-[#0F1115] border border-white/5 hover:border-[#5B69FF]/50 hover:bg-[#5B69FF]/10 transition-all text-left group"
+                                            className="flex items-center justify-between p-3 rounded-xl bg-[var(--surface-0f1115)] border border-[var(--overlay-ink)]/5 hover:border-[#5B69FF]/50 hover:bg-[#5B69FF]/10 transition-all text-left group"
                                         >
                                             <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-8 h-8 rounded-md bg-black/40 border border-white/5 flex items-center justify-center shrink-0 group-hover:border-[#5B69FF]/30 transition-colors">
-                                                    <img src={`/icons/classes/${classIconMap[char.className] || 'default.svg'}`} alt="" className="w-5 h-5 filter brightness-0 invert opacity-80 group-hover:opacity-100" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                                                <div className="planner-class-icon w-8 h-8 rounded-md bg-black/40 border border-[var(--overlay-ink)]/5 flex items-center justify-center shrink-0 group-hover:border-[#5B69FF]/30 transition-colors">
+                                                    <img src={`/icons/classes/${classIconMap[char.className] || 'default.svg'}`} alt="" className="planner-class-icon-image w-5 h-5 filter brightness-0 invert opacity-80 group-hover:opacity-100" onError={(e) => (e.currentTarget.style.display = 'none')} />
                                                 </div>
                                                 <div className="min-w-0 pr-2">
                                                     <div className="text-sm font-bold text-gray-200 truncate group-hover:text-white transition-colors">{char.name}</div>
@@ -2511,8 +2511,8 @@ export default function RaidPlannerTab({
             {isAddModalOpen && isEditMode && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-0 animate-in fade-in duration-200">
                     <div className="absolute inset-0 transition-opacity" onClick={closeAddModal} />
-                    <div className="relative w-full max-w-[min(800px,92vw)] flex flex-col rounded-2xl bg-[#16181D] border border-white/10 overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh]">
-                        <header className="px-5 py-5 sm:px-8 border-b border-white/10 flex items-center justify-between gap-4 bg-[#16181D] shrink-0">
+                    <div className="relative w-full max-w-[min(800px,92vw)] flex flex-col rounded-2xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/10 overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh]">
+                        <header className="px-5 py-5 sm:px-8 border-b border-[var(--overlay-ink)]/10 flex items-center justify-between gap-4 bg-[var(--surface-16181d)] shrink-0">
                             <div>
                                 <div className="flex items-center gap-3 mb-1">
                                     <h2 className="text-xl font-bold text-white tracking-tight">
@@ -2534,15 +2534,15 @@ export default function RaidPlannerTab({
                             </button>
                         </header>
 
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#121418] custom-scrollbar space-y-8">
-                            <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-[#16181D] p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[var(--surface-121418)] custom-scrollbar space-y-8">
+                            <div className="flex flex-col gap-2 rounded-xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)] p-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                     <div className="text-xs font-bold text-gray-300">정렬 기준</div>
                                     <div className="text-[11px] text-gray-500">
                                         파티 평균 Lv. {partyAverageItemLevel > 0 ? Math.round(partyAverageItemLevel).toLocaleString() : "-"} 기준
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-1 rounded-lg bg-[#0F1116] p-1">
+                                <div className="grid grid-cols-3 gap-1 rounded-lg bg-[var(--surface-0f1116)] p-1">
                                     {RAID_PRIORITY_SORT_OPTIONS.map((option) => (
                                         <button
                                             key={option.key}
@@ -2550,7 +2550,7 @@ export default function RaidPlannerTab({
                                             onClick={() => setRaidSelectSortMode(option.key)}
                                             className={`rounded-md px-2 py-1.5 text-[11px] font-bold transition-colors ${raidSelectSortMode === option.key
                                                 ? "bg-[#5B69FF] text-white"
-                                                : "text-gray-400 hover:bg-white/5 hover:text-white"
+                                                : "text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-white"
                                                 }`}
                                         >
                                             {option.label}
@@ -2565,14 +2565,14 @@ export default function RaidPlannerTab({
                                     value={raidSelectSearch}
                                     onChange={(e) => setRaidSelectSearch(e.target.value)}
                                     placeholder="레이드 검색"
-                                    className="h-11 w-full rounded-xl border border-white/10 bg-[#0F1116] pl-9 pr-3 text-sm font-medium text-white outline-none transition-colors placeholder:text-gray-600 focus:border-[#5B69FF]/60"
+                                    className="h-11 w-full rounded-xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1116)] pl-9 pr-3 text-sm font-medium text-white outline-none transition-colors placeholder:text-gray-600 focus:border-[#5B69FF]/60"
                                 />
                             </div>
 
                             {[raidSelectEntries].map((entries) => {
                                 if (!entries.length) {
                                     return (
-                                        <div key="empty-raids" className="rounded-xl border border-white/10 bg-[#16181D] px-4 py-8 text-center text-sm text-gray-500">
+                                        <div key="empty-raids" className="rounded-xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)] px-4 py-8 text-center text-sm text-gray-500">
                                             검색 결과가 없습니다.
                                         </div>
                                     );
@@ -2580,7 +2580,7 @@ export default function RaidPlannerTab({
 
                                 return (
                                     <section key="all-raids" className="space-y-3">
-                                        <div className="py-2 -mx-2 px-2 border-b border-white/5">
+                                        <div className="py-2 -mx-2 px-2 border-b border-[var(--overlay-ink)]/5">
                                             <h4 className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-[0.18em]">
                                                 <Swords size={14} className="text-[#5B69FF]" />
                                                 레이드 목록
@@ -2601,8 +2601,8 @@ export default function RaidPlannerTab({
                                                             }
                                                         }}
                                                         className={`group relative rounded-xl border p-4 transition-all duration-200 cursor-pointer ${isRaidSelected
-                                                            ? "bg-[#1E222B] border-[#5B69FF]"
-                                                            : "bg-[#16181D] border-white/5 hover:border-white/20 hover:bg-[#1E222B]"
+                                                            ? "bg-[var(--surface-1e222b)] border-[#5B69FF]"
+                                                            : "bg-[var(--surface-16181d)] border-[var(--overlay-ink)]/5 hover:border-[var(--overlay-ink)]/20 hover:bg-[var(--surface-1e222b)]"
                                                             }`}
                                                     >
                                                         <div className="flex items-center justify-between mb-4">
@@ -2610,7 +2610,7 @@ export default function RaidPlannerTab({
                                                                 <div className={`w-1 h-8 rounded-full ${isRaidSelected ? "bg-[#5B69FF]" : "bg-gray-700"}`} />
                                                                 <div className={`font-bold flex flex-wrap items-center gap-2.5 ${isRaidSelected ? "text-white" : "text-gray-300"}`}>
                                                                     <span className="text-[14px] sm:text-[15px]">{raidName}</span>
-                                                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-gray-500">
+                                                                    <span className="rounded-full border border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/5 px-2 py-0.5 text-[10px] font-bold text-gray-500">
                                                                         {info.kind}
                                                                     </span>
                                                                 </div>
@@ -2622,7 +2622,7 @@ export default function RaidPlannerTab({
                                                         </div>
 
                                                         <p className="mb-1 text-[11px] text-gray-500">전체 관문 난이도</p>
-                                                        <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-4 gap-1">
+                                                        <div className="bg-[var(--surface-121418)] p-1 rounded-lg grid grid-cols-4 gap-1">
                                                             {Object.entries(info.difficulty)
                                                                 .filter(([diff]) => diff !== "싱글")
                                                                 .map(([diff, diffInfo]) => {
@@ -2641,8 +2641,8 @@ export default function RaidPlannerTab({
                                                                             }}
                                                                             className={`
                                                                                 relative flex flex-col xl:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-medium rounded-md transition-all
-                                                                                ${!isRaidSelected ? "opacity-30 cursor-not-allowed bg-[#2A2E39]/30 text-gray-600" :
-                                                                                    isDiffSelected ? style.check : `bg-[#2A2E39]/50 text-gray-400 ${style.hover}`
+                                                                                ${!isRaidSelected ? "opacity-30 cursor-not-allowed bg-[var(--surface-2a2e39)]/30 text-gray-600" :
+                                                                                    isDiffSelected ? style.check : `bg-[var(--surface-2a2e39)]/50 text-gray-400 ${style.hover}`
                                                                                 }
                                                                             `}
                                                                         >
@@ -2668,7 +2668,7 @@ export default function RaidPlannerTab({
                                                                                         type="button"
                                                                                         disabled={!available}
                                                                                         onClick={() => setSelectedGateDifficulties(previous => ({ ...previous, [gate]: key }))}
-                                                                                        className={`rounded-md px-1 py-1.5 text-[11px] ${selected ? difficultyColors[key].check : "bg-white/5 text-gray-400 hover:bg-white/10"} disabled:cursor-not-allowed disabled:opacity-30`}
+                                                                                        className={`rounded-md px-1 py-1.5 text-[11px] ${selected ? difficultyColors[key].check : "bg-[var(--overlay-ink)]/5 text-gray-400 hover:bg-[var(--overlay-ink)]/10"} disabled:cursor-not-allowed disabled:opacity-30`}
                                                                                     >
                                                                                         {getDisplayDifficulty(raidName, key)}
                                                                                     </button>
@@ -2688,10 +2688,10 @@ export default function RaidPlannerTab({
                             })}
                         </div>
 
-                        <footer className="px-5 py-4 sm:px-8 bg-[#16181D] border-t border-white/10 flex gap-3 shrink-0">
+                        <footer className="px-5 py-4 sm:px-8 bg-[var(--surface-16181d)] border-t border-[var(--overlay-ink)]/10 flex gap-3 shrink-0">
                             <button
                                 onClick={closeAddModal}
-                                className="flex-[1] py-3 bg-white/5 hover:bg-white/10 text-gray-300 font-bold rounded-xl transition-colors text-sm"
+                                className="flex-[1] py-3 bg-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 text-gray-300 font-bold rounded-xl transition-colors text-sm"
                             >
                                 취소
                             </button>
@@ -2770,7 +2770,7 @@ function ReadOnlyGroupCard({
     }, [group, partyTasks, allGates]);
 
     return (
-        <div id={`raid-planner-group-${group.id}`} className={`bg-[#16181D] rounded-lg flex flex-col h-fit border-[1.5px] relative overflow-hidden transition-all ${isFocused ? "border-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.14)]" : "border-transparent"}`}>
+        <div id={`raid-planner-group-${group.id}`} className={`bg-[var(--surface-16181d)] rounded-lg flex flex-col h-fit border-[1.5px] relative overflow-hidden transition-all ${isFocused ? "border-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.14)]" : "border-transparent"}`}>
             {countdown !== undefined && (
                 <div className="bg-red-500/20 text-red-400 text-xs font-bold text-center py-1.5 border-b border-red-500/20 animate-pulse shadow-sm">
                     그룹이 {countdown}초 뒤 자동 삭제됩니다
@@ -2799,7 +2799,7 @@ function ReadOnlyGroupCard({
                                 onClick={(e) => { e.stopPropagation(); onTogglePin(group.id); }}
                                 className={`p-1.5 rounded-md transition-colors ${group.isPinned
                                     ? "text-[#5B69FF] hover:bg-[#5B69FF]/15"
-                                    : "text-gray-500 hover:text-white hover:bg-white/10"
+                                    : "text-gray-500 hover:text-white hover:bg-[var(--overlay-ink)]/10"
                                     }`}
                                 title={group.isPinned ? "고정 해제" : "파티 고정 (완료 시 그룹원만 초기화)"}
                             >
@@ -2809,7 +2809,7 @@ function ReadOnlyGroupCard({
                     </div>
                 </div>
 
-                <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
+                <div className="flex justify-between items-start mb-4 border-b border-[var(--overlay-ink)]/5 pb-3">
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2 flex-wrap mt-1">
                             <h4 className="font-bold text-lg text-white">
@@ -2874,13 +2874,13 @@ function ReadOnlyGroupCard({
                         const isPartyActive = startIndex < group.maxMembers;
                         return (
                             <div key={partyOffset} className="flex flex-col gap-1.5 sm:gap-2">
-                                <div className="flex items-center justify-between px-1 pb-0.5 mb-[-2px] h-[18px]">
+                                <div className="planner-party-header flex items-center justify-between px-1 pb-0.5 mb-[-2px] h-[18px]">
                                     {isPartyActive ? (
                                         <>
                                             <span className="text-[11px] font-bold text-gray-500">
                                                 {actualPartyNumber}파티
                                             </span>
-                                            <div className="text-[12px] ont-bold tracking-wider">
+                                            <div className="planner-party-count text-[12px] ont-bold tracking-wider">
                                                 <span className={currentCount === maxInParty ? "text-[#5B69FF]" : "text-gray-300"}>
                                                     {currentCount}
                                                 </span>
@@ -2899,7 +2899,7 @@ function ReadOnlyGroupCard({
 
                                     if (isBlocked) {
                                         return (
-                                            <div key={`blocked-${absoluteIndex}`} className="h-14 sm:h-16 border border-transparent bg-white/[0.02] rounded-lg flex items-center justify-center pointer-events-none">
+                                            <div key={`blocked-${absoluteIndex}`} className="h-14 sm:h-16 border border-transparent bg-[var(--overlay-ink)]/[0.02] rounded-lg flex items-center justify-center pointer-events-none">
                                                 <X className="w-5 h-5 text-gray-600/30" />
                                             </div>
                                         );
@@ -2907,7 +2907,7 @@ function ReadOnlyGroupCard({
 
                                     const char = charStates[absoluteIndex];
                                     return (
-                                        <div key={absoluteIndex} className={`h-14 sm:h-16 border rounded-lg flex items-center overflow-hidden transition-all relative ${char ? "border-white/5 bg-[#1E2028]" : "border-dashed border-white/10 bg-white/[0.02]"}`}>
+                                        <div key={absoluteIndex} className={`h-14 sm:h-16 border rounded-lg flex items-center overflow-hidden transition-all relative ${char ? "border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2028)]" : "border-dashed border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/[0.02]"}`}>
                                             {char ? (
                                                 <>
                                                     <ReadOnlyChar char={char} isCompleted={char.isFullyCompleted} />
@@ -2916,7 +2916,7 @@ function ReadOnlyGroupCard({
                                                             onClick={(e) => { e.stopPropagation(); onToggleCharPin(group.id, absoluteIndex); }}
                                                             className={`absolute top-0 right-0 p-1.5 rounded-md transition-colors z-10 backdrop-blur-sm ${char.isSlotPinned
                                                                 ? "text-[#5B69FF] hover:bg-[#5B69FF]/15"
-                                                                : "text-gray-500 hover:text-white hover:bg-white/10"
+                                                                : "text-gray-500 hover:text-white hover:bg-[var(--overlay-ink)]/10"
                                                                 }`}
                                                             title={char.isSlotPinned ? "캐릭터 고정 해제" : "캐릭터 고정 (초기화 시 남음)"}
                                                         >
@@ -2936,7 +2936,7 @@ function ReadOnlyGroupCard({
                 </div>
 
                 {isEpic && (
-                    <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-white/5">
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-[var(--overlay-ink)]/5">
                         <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} className="p-1 text-gray-400 hover:text-white disabled:opacity-30">
                             <ChevronLeft className="w-5 h-5" />
                         </button>
@@ -2961,12 +2961,12 @@ function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean 
     const isSupporter = isSupporterChar(char.className || "", char.jobEngraving || "");
 
     return (
-        <div className={`w-full h-full flex items-center gap-2 sm:gap-3 min-w-0 px-2 sm:px-3 transition-all ${isCompleted ? "opacity-90 grayscale brightness-75" : "opacity-100"}`}>
-            <div className="w-6 h-6 sm:w-8 sm:h-8 shrink-0 bg-black/30 rounded-md border border-white/5 flex items-center justify-center overflow-hidden">
+        <div className={`planner-readonly-member w-full h-full flex items-center gap-2 sm:gap-3 min-w-0 px-2 sm:px-3 transition-all ${isCompleted ? "opacity-90 grayscale brightness-75" : "opacity-100"}`}>
+            <div className="planner-class-icon w-6 h-6 sm:w-8 sm:h-8 shrink-0 bg-black/30 rounded-md border border-[var(--overlay-ink)]/5 flex items-center justify-center overflow-hidden">
                 <img
                     src={iconUrl}
                     alt={char.className}
-                    className="w-4 h-4 sm:w-6 sm:h-6 object-contain filter brightness-0 invert"
+                    className="planner-class-icon-image w-4 h-4 sm:w-6 sm:h-6 object-contain filter brightness-0 invert"
                     onError={(e) => {
                         (e.currentTarget.parentNode as HTMLDivElement).innerHTML = `<span class="text-[8px] text-gray-400">${char.className?.charAt(0)}</span>`;
                     }}
@@ -2983,13 +2983,13 @@ function ReadOnlyChar({ char, isCompleted }: { char: any, isCompleted?: boolean 
                         </span>
                     )}
                 </div>
-                <div className="text-[9px] sm:text-[11px] text-gray-400 truncate flex gap-1 items-center">
+                <div className="planner-member-meta text-[9px] sm:text-[11px] text-gray-400 truncate flex gap-1 items-center">
                     <span className={`${isCompleted ? "text-gray-400" : "text-yellow-400/80"}`}>Lv.{char.itemLevelNum || 0}</span>
-                    <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+                    <span className="w-1 h-1 rounded-full bg-[var(--overlay-ink)]/20 shrink-0" />
                     <span className="truncate text-gray-400">{char.ownerName}</span>
                 </div>
                 {char.combatPower && (
-                    <div className={`flex items-center gap-0.5 text-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-300/70" : "text-red-400/70"}`}>
+                    <div className={`planner-member-power flex items-center gap-0.5 text-[9px] sm:text-[10px] ${isSupporter ? "text-emerald-300/70" : "text-red-400/70"}`}>
                         <span className={!isSupporter ? "translate-y-[0.5px]" : ""}>
                             {isSupporter ? "✚" : "⚔️"}
                         </span>
@@ -3064,7 +3064,7 @@ function GroupCard({
     return (
         <div
             onClick={onClick}
-            className={`bg-[#16181D] rounded-lg flex flex-col border-[1.5px] cursor-pointer transition-all relative overflow-hidden ${isActive ? "border-[#5B69FF] bg-[#5B69FF]/5" : "border-transparent"}`}
+            className={`bg-[var(--surface-16181d)] rounded-lg flex flex-col border-[1.5px] cursor-pointer transition-all relative overflow-hidden ${isActive ? "border-[#5B69FF] bg-[#5B69FF]/5" : "border-transparent"}`}
         >
             <div className="p-5">
                 <div className="flex justify-between items-center w-full mb-1.5 gap-2">
@@ -3101,9 +3101,9 @@ function GroupCard({
                             <button
                                 type="button"
                                 onClick={() => { setIsDayDropdownOpen(!isDayDropdownOpen); setIsTimeDropdownOpen(false); }}
-                                className={`flex items-center justify-between gap-1.5 min-w-[72px] bg-[#0F1115] border text-xs font-medium rounded-md px-2.5 py-1.5 transition-all ${isDayDropdownOpen
+                                className={`flex items-center justify-between gap-1.5 min-w-[72px] bg-[var(--surface-0f1115)] border text-xs font-medium rounded-md px-2.5 py-1.5 transition-all ${isDayDropdownOpen
                                     ? "border-[#5B69FF] text-[#5B69FF] ring-1 ring-[#5B69FF]/50"
-                                    : "border-white/10 text-gray-300 hover:border-white/20 hover:bg-white/5"
+                                    : "border-[var(--overlay-ink)]/10 text-gray-300 hover:border-[var(--overlay-ink)]/20 hover:bg-[var(--overlay-ink)]/5"
                                     }`}
                             >
                                 <span>{group.scheduleDay ? `${group.scheduleDay}요일` : "요일"}</span>
@@ -3111,11 +3111,11 @@ function GroupCard({
                             </button>
 
                             {isDayDropdownOpen && (
-                                <div className="absolute top-full right-0 mt-1.5 w-[100px] bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[60] shadow-xl">
+                                <div className="absolute top-full right-0 mt-1.5 w-[100px] bg-[var(--surface-1e2128)] border border-[var(--overlay-ink)]/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[60] shadow-xl">
                                     <div className="flex flex-col p-1.5 max-h-48 overflow-y-auto custom-scrollbar gap-0.5">
                                         <button
                                             onClick={() => { onScheduleChange("", group.scheduleTime || ""); setIsDayDropdownOpen(false); }}
-                                            className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${!group.scheduleDay ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+                                            className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${!group.scheduleDay ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-200"}`}
                                         >
                                             선택 안함
                                         </button>
@@ -3123,7 +3123,7 @@ function GroupCard({
                                             <button
                                                 key={day}
                                                 onClick={() => { onScheduleChange(day, group.scheduleTime || ""); setIsDayDropdownOpen(false); }}
-                                                className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${group.scheduleDay === day ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+                                                className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${group.scheduleDay === day ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-200"}`}
                                             >
                                                 {day}요일
                                             </button>
@@ -3137,9 +3137,9 @@ function GroupCard({
                             <button
                                 type="button"
                                 onClick={() => { setIsTimeDropdownOpen(!isTimeDropdownOpen); setIsDayDropdownOpen(false); }}
-                                className={`flex items-center justify-between gap-1.5 min-w-[72px] bg-[#0F1115] border text-xs font-medium rounded-md px-2.5 py-1.5 transition-all ${isTimeDropdownOpen
+                                className={`flex items-center justify-between gap-1.5 min-w-[72px] bg-[var(--surface-0f1115)] border text-xs font-medium rounded-md px-2.5 py-1.5 transition-all ${isTimeDropdownOpen
                                     ? "border-[#5B69FF] text-[#5B69FF] ring-1 ring-[#5B69FF]/50"
-                                    : "border-white/10 text-gray-300 hover:border-white/20 hover:bg-white/5"
+                                    : "border-[var(--overlay-ink)]/10 text-gray-300 hover:border-[var(--overlay-ink)]/20 hover:bg-[var(--overlay-ink)]/5"
                                     }`}
                             >
                                 <span>{group.scheduleTime || "시간"}</span>
@@ -3147,11 +3147,11 @@ function GroupCard({
                             </button>
 
                             {isTimeDropdownOpen && (
-                                <div className="absolute top-full right-0 mt-1.5 w-[90px] bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[60] shadow-xl">
+                                <div className="absolute top-full right-0 mt-1.5 w-[90px] bg-[var(--surface-1e2128)] border border-[var(--overlay-ink)]/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[60] shadow-xl">
                                     <div className="flex flex-col p-1.5 max-h-48 overflow-y-auto custom-scrollbar gap-0.5">
                                         <button
                                             onClick={() => { onScheduleChange(group.scheduleDay || "", ""); setIsTimeDropdownOpen(false); }}
-                                            className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${!group.scheduleTime ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+                                            className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${!group.scheduleTime ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-200"}`}
                                         >
                                             선택 안함
                                         </button>
@@ -3159,7 +3159,7 @@ function GroupCard({
                                             <button
                                                 key={time}
                                                 onClick={() => { onScheduleChange(group.scheduleDay || "", time); setIsTimeDropdownOpen(false); }}
-                                                className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${group.scheduleTime === time ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+                                                className={`text-left px-2 py-1.5 text-xs rounded-md transition-colors ${group.scheduleTime === time ? "bg-[#5B69FF]/10 text-[#5B69FF] font-bold" : "text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-200"}`}
                                             >
                                                 {time}
                                             </button>
@@ -3173,7 +3173,7 @@ function GroupCard({
                     </div>
                 </div>
 
-                <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
+                <div className="flex justify-between items-start mb-4 border-b border-[var(--overlay-ink)]/5 pb-3">
                     <div className="flex flex-col gap-1.5">
                         <div className="flex items-center gap-2 mt-1">
                             <h4 className={`font-bold text-lg ${isActive ? "text-white" : "text-gray-300"}`}>
@@ -3195,7 +3195,7 @@ function GroupCard({
                                     onClick();
                                     onEditRaid();
                                 }}
-                                className="inline-flex items-center justify-center rounded-md p-1 text-gray-500 transition-colors hover:bg-white/10 hover:text-[#5B69FF]"
+                                className="inline-flex items-center justify-center rounded-md p-1 text-gray-500 transition-colors hover:bg-[var(--overlay-ink)]/10 hover:text-[#5B69FF]"
                                 title="레이드와 난이도 수정"
                             >
                                 <Edit2 className="h-3.5 w-3.5" />
@@ -3243,7 +3243,7 @@ function GroupCard({
                                     const isBlocked = absoluteIndex >= group.maxMembers;
                                     if (isBlocked) {
                                         return (
-                                            <div key={`blocked-${absoluteIndex}`} className="h-14 sm:h-16 border border-transparent bg-white/[0.02] rounded-lg flex items-center justify-center pointer-events-none">
+                                            <div key={`blocked-${absoluteIndex}`} className="h-14 sm:h-16 border border-transparent bg-[var(--overlay-ink)]/[0.02] rounded-lg flex items-center justify-center pointer-events-none">
                                                 <X className="w-5 h-5 text-gray-600/30" />
                                             </div>
                                         );
@@ -3268,7 +3268,7 @@ function GroupCard({
                 </div>
 
                 {isEpic && (
-                    <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-white/5">
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-[var(--overlay-ink)]/5">
                         <button
                             onClick={(e) => { e.stopPropagation(); setPage(Math.max(0, page - 1)); }}
                             disabled={page === 0}
@@ -3322,12 +3322,12 @@ function WaitlistDroppable({ characters, activeGroup, onAutoFill, isTemporaryMod
     return (
         <div
             ref={setNodeRef}
-            className={`w-full shrink-0 rounded-lg p-4 h-[400px] xl:h-[600px] overflow-y-auto transition-colors flex flex-col custom-scrollbar ${isOver ? "bg-[#1E2028] border-[#5B69FF]/50" : "bg-[#16181D] border-white/10"
+            className={`w-full shrink-0 rounded-lg p-4 h-[400px] xl:h-[600px] overflow-y-auto transition-colors flex flex-col custom-scrollbar ${isOver ? "bg-[var(--surface-1e2028)] border-[#5B69FF]/50" : "bg-[var(--surface-16181d)] border-[var(--overlay-ink)]/10"
                 }`}
         >
             {activeGroup ? (
                 <>
-                    <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3 shrink-0">
+                    <div className="flex items-center justify-between mb-4 border-b border-[var(--overlay-ink)]/5 pb-3 shrink-0">
                         <h3 className="font-bold text-white flex items-center gap-2">
                             <Users className="w-4 h-4 text-[#5B69FF]" />
                             <div className="flex-1 truncate flex items-center gap-1.5 flex-wrap">
@@ -3355,7 +3355,7 @@ function WaitlistDroppable({ characters, activeGroup, onAutoFill, isTemporaryMod
                                 <div className="text-[12px] sm:text-[13px] font-bold text-gray-300 flex items-center gap-2 px-1">
                                     <span className="w-1.5 h-1.5 rounded-full bg-[#5B69FF]" />
                                     {group.ownerName}
-                                    <span className="text-[10px] sm:text-xs text-gray-500 font-normal ml-auto border border-white/10 px-1.5 py-0.5 rounded bg-black/20">
+                                    <span className="text-[10px] sm:text-xs text-gray-500 font-normal ml-auto border border-[var(--overlay-ink)]/10 px-1.5 py-0.5 rounded bg-black/20">
                                         {group.chars.length}캐릭
                                     </span>
                                 </div>
@@ -3368,7 +3368,7 @@ function WaitlistDroppable({ characters, activeGroup, onAutoFill, isTemporaryMod
                         ))}
 
                         {characters.length === 0 && (
-                            <div className="text-center text-sm text-gray-500 mt-2 py-8 border-2 border-dashed border-white/5 rounded-lg flex flex-col items-center gap-2">
+                            <div className="text-center text-sm text-gray-500 mt-2 py-8 border-2 border-dashed border-[var(--overlay-ink)]/5 rounded-lg flex flex-col items-center gap-2">
                                 <AlertTriangle className="w-6 h-6 opacity-50" />
                                 배치 가능한 캐릭터가 없습니다.
                             </div>
@@ -3397,9 +3397,9 @@ function DraggableCharacter({ char }: { char: any }) {
 
     if (isDragging) {
         return (
-            <div className={`p-2.5 bg-[#1E2028]/50 border border-white/5 rounded-lg flex items-center gap-2 opacity-30 h-14 sm:h-16 ${char.isCompleted ? 'grayscale' : ''}`}>
-                <div className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 bg-black/30 rounded-md border border-white/5 flex items-center justify-center">
-                    <img src={iconUrl} alt={char.className} className="w-4 h-4 sm:w-5 sm:h-5 object-contain filter brightness-0 invert" onError={(e) => (e.currentTarget.style.display = 'none')} />
+            <div className={`p-2.5 bg-[var(--surface-1e2028)]/50 border border-[var(--overlay-ink)]/5 rounded-lg flex items-center gap-2 opacity-30 h-14 sm:h-16 ${char.isCompleted ? 'grayscale' : ''}`}>
+                <div className="planner-class-icon w-6 h-6 sm:w-7 sm:h-7 shrink-0 bg-black/30 rounded-md border border-[var(--overlay-ink)]/5 flex items-center justify-center">
+                    <img src={iconUrl} alt={char.className} className="planner-class-icon-image w-4 h-4 sm:w-5 sm:h-5 object-contain filter brightness-0 invert" onError={(e) => (e.currentTarget.style.display = 'none')} />
                 </div>
                 <div className="min-w-0">
                     <div className="text-[11px] sm:text-xs font-bold text-white truncate">{char.name}</div>
@@ -3417,17 +3417,17 @@ function DraggableCharacter({ char }: { char: any }) {
             // 🔥 isCompleted 값에 따라 흑백 처리 및 반투명 스타일이 적용됩니다.
             className={`p-2 sm:p-2.5 h-14 sm:h-16 border rounded-lg flex items-center justify-between cursor-grab active:cursor-grabbing transition-all group touch-none
                 ${char.isCompleted
-                    ? "bg-[#1E2028]/40 border-transparent opacity-50 grayscale hover:opacity-80"
-                    : "bg-[#1E2028] border-white/5 hover:border-[#5B69FF] hover:bg-[#5B69FF]/5"
+                    ? "bg-[var(--surface-1e2028)]/40 border-transparent opacity-50 grayscale hover:opacity-80"
+                    : "bg-[var(--surface-1e2028)] border-[var(--overlay-ink)]/5 hover:border-[#5B69FF] hover:bg-[#5B69FF]/5"
                 }
             `}
         >
             <div className="min-w-0 flex-1 flex items-center gap-2 pr-1">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 bg-black/20 rounded border border-white/5 flex items-center justify-center overflow-hidden">
+                <div className="planner-class-icon w-7 h-7 sm:w-8 sm:h-8 shrink-0 bg-black/20 rounded border border-[var(--overlay-ink)]/5 flex items-center justify-center overflow-hidden">
                     <img
                         src={iconUrl}
                         alt={char.className}
-                        className="w-4 h-4 sm:w-6 sm:h-6 object-contain filter brightness-0 invert"
+                        className="planner-class-icon-image w-4 h-4 sm:w-6 sm:h-6 object-contain filter brightness-0 invert"
                         onError={(e) => {
                             (e.currentTarget.parentNode as HTMLDivElement).innerHTML = `<span class="text-[8px] text-gray-500">${char.className?.charAt(0)}</span>`;
                         }}
@@ -3487,7 +3487,7 @@ function DroppableSlot({
         <div
             ref={setNodeRef}
             className={`h-14 sm:h-16 border rounded-lg flex items-center transition-colors relative overflow-hidden ${isOver ? "border-[#5B69FF] bg-[#5B69FF]/10" :
-                char ? "border-white/5 bg-[#1E2028]" : "border-dashed border-white/10 bg-white/[0.02]"
+                char ? "border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2028)]" : "border-dashed border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/[0.02]"
                 }`}
         >
             {char ? (
@@ -3498,7 +3498,7 @@ function DroppableSlot({
                         <button
                             onClick={(e) => { e.stopPropagation(); onRemove(); }}
                             onPointerDown={(e) => e.stopPropagation()}
-                            className="p-1 text-gray-500 hover:bg-red-500/20 hover:text-red-400 rounded-md transition-colors bg-[#1E2028]/80"
+                            className="p-1 text-gray-500 hover:bg-red-500/20 hover:text-red-400 rounded-md transition-colors bg-[var(--surface-1e2028)]/80"
                         >
                             <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         </button>
@@ -3530,13 +3530,13 @@ function DraggableCharacterInSlot({ char, groupId, slotIndex }: { char: any, gro
             ref={setNodeRef}
             {...listeners}
             {...attributes}
-            className={`w-full h-full flex items-center gap-2 sm:gap-3 cursor-grab active:cursor-grabbing min-w-0 ${isDragging ? 'opacity-0' : 'opacity-100'} hover:bg-white/[0.02] rounded px-2 sm:px-3 transition-colors touch-none`}
+            className={`w-full h-full flex items-center gap-2 sm:gap-3 cursor-grab active:cursor-grabbing min-w-0 ${isDragging ? 'opacity-0' : 'opacity-100'} hover:bg-[var(--overlay-ink)]/[0.02] rounded px-2 sm:px-3 transition-colors touch-none`}
         >
-            <div className="w-6 h-6 sm:w-8 sm:h-8 shrink-0 bg-black/30 rounded-md border border-white/5 flex items-center justify-center overflow-hidden">
+            <div className="planner-class-icon w-6 h-6 sm:w-8 sm:h-8 shrink-0 bg-black/30 rounded-md border border-[var(--overlay-ink)]/5 flex items-center justify-center overflow-hidden">
                 <img
                     src={iconUrl}
                     alt={char.className}
-                    className="w-4 h-4 sm:w-6 sm:h-6 object-contain filter brightness-0 invert"
+                    className="planner-class-icon-image w-4 h-4 sm:w-6 sm:h-6 object-contain filter brightness-0 invert"
                     onError={(e) => {
                         (e.currentTarget.parentNode as HTMLDivElement).innerHTML = `<span class="text-[8px] text-gray-500">${char.className?.charAt(0)}</span>`;
                     }}
@@ -3556,7 +3556,7 @@ function DraggableCharacterInSlot({ char, groupId, slotIndex }: { char: any, gro
                 </div>
                 <div className="text-[9px] sm:text-[11px] text-gray-400 truncate flex gap-1 items-center">
                     <span className="text-yellow-400/80 ">Lv.{char.itemLevelNum || 0}</span>
-                    <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+                    <span className="w-1 h-1 rounded-full bg-[var(--overlay-ink)]/20 shrink-0" />
                     <span className="truncate">{char.ownerName}</span>
                 </div>
                 {char.combatPower && (

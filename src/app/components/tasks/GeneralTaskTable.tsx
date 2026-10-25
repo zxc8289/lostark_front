@@ -78,7 +78,7 @@ function SortableHeader({ id, displayName, isBlank, isDragEnabled }: { id: strin
     };
 
     return (
-        <th ref={setNodeRef} style={style} {...dragAttributes} {...dragListeners} className={`${TASK_COL_CLASS} relative touch-none ${isBlank ? "border-dashed border-white/5" : ""}`}>
+        <th ref={setNodeRef} style={style} {...dragAttributes} {...dragListeners} className={`${TASK_COL_CLASS} relative touch-none ${isBlank ? "border-dashed border-[var(--overlay-ink)]/5" : ""}`}>
             {isDragging && <div className="absolute inset-[2px] border-[2px] border-solid border-[#5B69FF] bg-[#5B69FF]/10 rounded-md pointer-events-none" />}
             <span className={isDragging ? "opacity-0" : "opacity-100"}>{isBlank ? "" : displayName}</span>
         </th>
@@ -104,17 +104,17 @@ function SortableCharacterRow({
     const rowId = `${CHAR_ID_PREFIX}${char.name}`;
     const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = useSortable({ id: rowId });
 
-    const overStyle = isOver && !isDragging ? "bg-white/10 ring-2 ring-inset ring-[#5B69FF]" : "";
+    const overStyle = isOver && !isDragging ? "bg-[var(--overlay-ink)]/10 ring-2 ring-inset ring-[#5B69FF]" : "";
     const style: CSSProperties = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 };
     const dragListeners = isDragEnabled ? listeners : {};
     const dragAttributes = isDragEnabled ? attributes : {};
 
     return (
-        <tr ref={setNodeRef} style={style} className={`hover:bg-white/[0.02] transition-colors group ${overStyle}`}>
+        <tr ref={setNodeRef} style={style} className={`hover:bg-[var(--overlay-ink)]/[0.02] transition-colors group ${overStyle}`}>
             <td
                 {...dragAttributes}
                 {...dragListeners}
-                className={`h-[78px] sm:h-[88px] px-2 sm:px-3 py-1.5 sm:py-2 align-middle sticky left-0 z-10 border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] bg-[#111217] group-hover:bg-[#16181D] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}
+                className={`h-[78px] sm:h-[88px] px-2 sm:px-3 py-1.5 sm:py-2 align-middle sticky left-0 z-10 border-r border-[var(--overlay-ink)]/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] bg-[var(--surface-111217)] group-hover:bg-[var(--surface-16181d)] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}
             >
                 <CharacterInfoCell
                     char={char}
@@ -167,10 +167,10 @@ function SortableCharacterRow({
                                             aria-pressed={isChecked}
                                             onClick={() => onToggleTask(char.name, taskName, idx)}
                                             className={[
-                                                "w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border transition-all duration-150 relative hover:scale-[1.1]",
+                                                "general-task-check w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border transition-all duration-150 relative hover:scale-[1.1]",
                                                 isChecked
                                                     ? "bg-[#5B69FF] text-white border-transparent"
-                                                    : "bg-white/5 text-white/30 border-white/20 hover:border-white/40 hover:bg-white/10"
+                                                    : "bg-[var(--overlay-ink)]/5 text-white/30 border-[var(--overlay-ink)]/20 hover:border-[var(--overlay-ink)]/40 hover:bg-[var(--overlay-ink)]/10"
                                             ].join(" ")}
                                         >
                                             {isChecked && (
@@ -196,7 +196,7 @@ function SortableCharacterRow({
                             {/* 게이지바: 체크박스 중앙 기준 아래 고정, 공간 차지 X */}
                             {hasRestGauge && (
                                 <div
-                                    className="absolute left-1/2 top-1/2 -translate-x-1/2 translate-y-[17px] sm:translate-y-[20px] flex flex-col items-end gap-[2px] sm:gap-[3px] cursor-pointer hover:bg-white/5 px-1 py-0.5 rounded-md transition-colors"
+                                    className="absolute left-1/2 top-1/2 -translate-x-1/2 translate-y-[17px] sm:translate-y-[20px] flex flex-col items-end gap-[2px] sm:gap-[3px] cursor-pointer hover:bg-[var(--overlay-ink)]/5 px-1 py-0.5 rounded-md transition-colors"
                                     onClick={(e) => {
                                         e.stopPropagation();
 
@@ -222,7 +222,7 @@ function SortableCharacterRow({
                                                         ? "bg-[#4ade80]"
                                                         : isPartial
                                                             ? "bg-[#4ade80]/40"
-                                                            : "bg-[#2A2D36]"
+                                                            : "bg-[var(--surface-2a2d36)]"
                                                         }`}
                                                 />
                                             );
@@ -403,7 +403,7 @@ export default function GeneralTaskTable({
     const activeChar = useMemo(() => activeId && activeId.startsWith(CHAR_ID_PREFIX) ? rosterByName.get(activeId.slice(CHAR_ID_PREFIX.length)) ?? null : null, [activeId, rosterByName]);
 
     return (
-        <div ref={rootRef} className="bg-[#16181D] rounded-sm relative">
+        <div ref={rootRef} className="bg-[var(--surface-16181d)] rounded-sm relative">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(e) => {
                 const id = String(e.active.id);
                 setActiveId(id);
@@ -423,25 +423,25 @@ export default function GeneralTaskTable({
                     </div>
                     <div className="ml-auto flex items-center gap-3 sm:gap-4 text-[10px] sm:text-[11px] text-gray-400">
                         {displayColumns.length > maxVisible && (
-                            <div className="flex items-center gap-2 relative pl-3 sm:pl-4 before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[1px] before:h-5 sm:before:h-6 before:bg-white/10">
+                            <div className="flex items-center gap-2 relative pl-3 sm:pl-4 before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[1px] before:h-5 sm:before:h-6 before:bg-[var(--overlay-ink)]/10">
                                 <span className="pr-1.5 font-medium tracking-wider tabular-nums">
                                     <span className="text-gray-300">{startIndex + 1}</span> – <span className="text-gray-300">{Math.min(displayColumns.length, startIndex + maxVisible)}</span> / {displayColumns.length}
                                 </span>
                                 <div className="flex items-center gap-1.5">
-                                    <button disabled={!canScrollLeft} onClick={() => setStartIndex((v) => Math.max(0, v - maxVisible))} className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 text-gray-300/90 hover:bg-white/10 hover:text-white hover:border-white/30 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200"><ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={2.5} /></button>
-                                    <button disabled={!canScrollRight} onClick={() => setStartIndex((v) => v + maxVisible)} className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 text-gray-300/90 hover:bg-white/10 hover:text-white hover:border-white/30 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200"><ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={2.5} /></button>
+                                    <button disabled={!canScrollLeft} onClick={() => setStartIndex((v) => Math.max(0, v - maxVisible))} className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-[var(--overlay-ink)]/15 bg-[var(--overlay-ink)]/5 text-gray-300/90 hover:bg-[var(--overlay-ink)]/10 hover:text-white hover:border-[var(--overlay-ink)]/30 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200"><ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={2.5} /></button>
+                                    <button disabled={!canScrollRight} onClick={() => setStartIndex((v) => v + maxVisible)} className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-[var(--overlay-ink)]/15 bg-[var(--overlay-ink)]/5 text-gray-300/90 hover:bg-[var(--overlay-ink)]/10 hover:text-white hover:border-[var(--overlay-ink)]/30 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200"><ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={2.5} /></button>
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
 
-                <div className="w-full overflow-hidden rounded-b-md border border-t-0 border-white/10 bg-[#111217]">
+                <div className="w-full overflow-hidden rounded-b-md border border-t-0 border-[var(--overlay-ink)]/10 bg-[var(--surface-111217)]">
                     <div className="overflow-x-auto">
                         <table className="w-full text-center text-[11px] sm:text-sm text-gray-400 border-collapse table-fixed">
-                            <thead className="bg-[#1E222B] text-gray-200 uppercase text-[10px] sm:text-[13px] font-semibold select-none">
+                            <thead className="bg-[var(--surface-1e222b)] text-gray-200 uppercase text-[10px] sm:text-[13px] font-semibold select-none">
                                 <tr>
-                                    <th onClick={handleSortCharacters} className={`px-3 py-3 sm:py-4 text-center sticky left-0 bg-[#1E222B] border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] ${CHAR_COL_WIDTH} cursor-pointer hover:bg-[#252a36] transition-colors group`} title="클릭하여 아이템 레벨순 정렬">
+                                    <th onClick={handleSortCharacters} className={`px-3 py-3 sm:py-4 text-center sticky left-0 bg-[var(--surface-1e222b)] border-r border-[var(--overlay-ink)]/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] ${CHAR_COL_WIDTH} cursor-pointer hover:bg-[var(--surface-252a36)] transition-colors group`} title="클릭하여 아이템 레벨순 정렬">
                                         <div className="flex items-center justify-center gap-1.5 pl-1">
                                             <span>캐릭터</span>
                                             <div className="text-gray-500 group-hover:text-gray-300 transition-colors">{isSortDesc ? <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <ChevronUp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}</div>
@@ -452,7 +452,7 @@ export default function GeneralTaskTable({
                                     </SortableContext>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/5">
+                            <tbody className="divide-y divide-[var(--overlay-ink)]/5">
                                 <SortableContext items={rowIds} strategy={verticalListSortingStrategy}>
                                     {orderedRoster.map((char) => (
                                         <SortableCharacterRow
@@ -471,11 +471,11 @@ export default function GeneralTaskTable({
 
                     <DragOverlay>
                         {activeIsTask ? (
-                            <div className={`${TASK_COL_CLASS} flex items-center justify-center bg-[#1E222B] text-gray-200 uppercase text-[10px] sm:text-xs font-semibold border-[2px] border-solid border-[#5B69FF] shadow-2xl rounded-md cursor-grabbing m-0 box-border`}>
+                            <div className={`${TASK_COL_CLASS} flex items-center justify-center bg-[var(--surface-1e222b)] text-gray-200 uppercase text-[10px] sm:text-xs font-semibold border-[2px] border-solid border-[#5B69FF] shadow-2xl rounded-md cursor-grabbing m-0 box-border`}>
                                 {activeId as string}
                             </div>
                         ) : activeIsChar && activeChar ? (
-                            <div className="px-3 py-2 bg-[#1E222B] text-gray-200 border-[2px] border-solid border-[#5B69FF] shadow-2xl rounded-md cursor-grabbing">
+                            <div className="px-3 py-2 bg-[var(--surface-1e222b)] text-gray-200 border-[2px] border-solid border-[#5B69FF] shadow-2xl rounded-md cursor-grabbing">
                                 <div className="flex items-center gap-2">
                                     <GripVertical className="w-4 h-4 text-gray-300/80" />
                                     <span className="font-semibold text-sm">{activeChar.name}</span>

@@ -58,7 +58,7 @@ export default function GuidePage() {
           return <GuidePanel key={step.title} id={`step-${index + 1}`} title={step.title}>
             <div className="flex items-center gap-2 text-xs font-medium text-[#A6AEFF]"><Icon size={16} />STEP {index + 1}</div>
             <p>{step.body}</p>
-            <Link href={step.href} className="inline-flex items-center gap-2 rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-white/10">기능 바로가기<ArrowRight size={14} /></Link>
+            <Link href={step.href} className="inline-flex items-center gap-2 rounded-lg border border-[var(--overlay-ink)]/5 bg-[var(--overlay-ink)]/5 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-[var(--overlay-ink)]/10">기능 바로가기<ArrowRight size={14} /></Link>
           </GuidePanel>;
         })}
         <GuidePanel title="계산 결과를 볼 때 주의할 점">

@@ -321,8 +321,8 @@ export default function CraftCalculatorPage() {
 
                 <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
                     <aside className="space-y-4">
-                        <section className="overflow-hidden rounded-none border-y border-white/5 bg-[#16181D] sm:rounded-xl sm:border">
-                            <div className="border-b border-white/5 px-5 py-4">
+                        <section className="overflow-hidden rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] sm:rounded-xl sm:border">
+                            <div className="border-b border-[var(--overlay-ink)]/5 px-5 py-4">
                                 <h2 className="flex items-center gap-2 font-semibold text-white">
                                     <span className="h-4 w-1 rounded-full bg-indigo-500" />
                                     계산 설정
@@ -353,7 +353,7 @@ export default function CraftCalculatorPage() {
                                         type="button"
                                         onClick={fetchCraftPrices}
                                         disabled={isFetchingPrices}
-                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-bold text-gray-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/5 px-3 text-sm font-bold text-gray-200 hover:bg-[var(--overlay-ink)]/10 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                         {isFetchingPrices ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                                         시세
@@ -361,7 +361,7 @@ export default function CraftCalculatorPage() {
                                     <button
                                         type="button"
                                         onClick={reset}
-                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#0F1014] px-3 text-sm font-bold text-gray-300 hover:bg-white/5"
+                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1014)] px-3 text-sm font-bold text-gray-300 hover:bg-[var(--overlay-ink)]/5"
                                     >
                                         <RotateCcw className="h-4 w-4" />
                                         초기화
@@ -370,7 +370,7 @@ export default function CraftCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none border-y border-white/5 bg-[#16181D] p-5 sm:rounded-xl sm:border">
+                        <section className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
                             <h2 className="mb-3 text-sm font-bold text-gray-200">레시피</h2>
                             <div className="grid grid-cols-2 gap-2">
                                 {GROUPS.map((group) => (
@@ -380,7 +380,7 @@ export default function CraftCalculatorPage() {
                                         onClick={() => setSelectedGroup(group)}
                                         className={`h-10 rounded-lg border text-xs font-bold transition-colors ${selectedGroup === group
                                             ? "border-indigo-500/40 bg-indigo-500/15 text-white"
-                                            : "border-white/10 bg-[#0F1014] text-gray-400 hover:bg-white/5"
+                                            : "border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1014)] text-gray-400 hover:bg-[var(--overlay-ink)]/5"
                                             }`}
                                     >
                                         {group}
@@ -389,7 +389,7 @@ export default function CraftCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none border-y border-white/5 bg-[#16181D] p-5 sm:rounded-xl sm:border">
+                        <section className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
                             <h2 className="mb-3 text-sm font-bold text-gray-200">계산 방식</h2>
                             <ol className="space-y-2 break-keep text-[13px] leading-relaxed text-gray-400">
                                 <li>1. 융화 재료와 생활 재료 시세를 자동으로 불러옵니다.</li>
@@ -423,7 +423,7 @@ export default function CraftCalculatorPage() {
                         </section>
 
                         {priceStatus && (
-                            <div className="flex items-start gap-2 rounded-lg border border-white/10 bg-[#16181D] px-4 py-3 text-sm font-bold text-gray-300">
+                            <div className="flex items-start gap-2 rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)] px-4 py-3 text-sm font-bold text-gray-300">
                                 {priceStatus.includes("불러왔") ? (
                                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-indigo-300" />
                                 ) : (
@@ -433,8 +433,8 @@ export default function CraftCalculatorPage() {
                             </div>
                         )}
 
-                        <section className="overflow-hidden rounded-none border-y border-white/5 bg-[#16181D] sm:rounded-sm sm:border">
-                            <div className="border-b border-white/5 px-5 py-4">
+                        <section className="overflow-hidden rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] sm:rounded-sm sm:border">
+                            <div className="border-b border-[var(--overlay-ink)]/5 px-5 py-4">
                                 <h2 className="text-sm font-bold text-white sm:text-base">제작 수익 비교</h2>
                                 <p className="mt-1 break-keep text-xs text-gray-500">
                                     제작비용은 생활 재료 시세와 기본 제작 수수료를 기준으로 자동 계산됩니다.
@@ -452,7 +452,7 @@ export default function CraftCalculatorPage() {
                                         <col style={{ width: "8%" }} />
                                         <col style={{ width: "13%" }} />
                                     </colgroup>
-                                    <thead className="whitespace-nowrap bg-[#0F1014] text-center text-[11px] uppercase tracking-wider text-gray-500">
+                                    <thead className="whitespace-nowrap bg-[var(--surface-0f1014)] text-center text-[11px] uppercase tracking-wider text-gray-500">
                                         <tr>
                                             <th className="px-3 py-3 text-left">레시피</th>
                                             <th className="px-3 py-3">판매가</th>
@@ -464,7 +464,7 @@ export default function CraftCalculatorPage() {
                                             <th className="px-3 py-3">판단</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-white/5">
+                                    <tbody className="divide-y divide-[var(--overlay-ink)]/5">
                                         {rows.map((row) => {
                                             const isExpanded = expandedRecipeId === row.recipe.id;
 
@@ -472,7 +472,7 @@ export default function CraftCalculatorPage() {
                                                 <Fragment key={row.recipe.id}>
                                                     <tr
                                                         onClick={() => toggleRecipeMaterials(row.recipe.id)}
-                                                        className={`cursor-pointer text-gray-300 transition-colors ${isExpanded ? "bg-[#5B69FF]/5" : "hover:bg-white/[0.03]"}`}
+                                                        className={`cursor-pointer text-gray-300 transition-colors ${isExpanded ? "bg-[#5B69FF]/5" : "hover:bg-[var(--overlay-ink)]/[0.03]"}`}
                                                     >
                                                         <td className="px-3 py-4 text-left">
                                                             <div className="min-w-0">
@@ -524,7 +524,7 @@ export default function CraftCalculatorPage() {
                                                         </td>
                                                     </tr>
                                                     {isExpanded && (
-                                                        <tr key={`${row.recipe.id}-materials`} className="bg-[#0F1014]/70">
+                                                        <tr key={`${row.recipe.id}-materials`} className="bg-[var(--surface-0f1014)]/70">
                                                             <td colSpan={8} className="px-5 py-4">
                                                                 <RecipeMaterialEditor
                                                                     row={row}
@@ -541,7 +541,7 @@ export default function CraftCalculatorPage() {
                                     </tbody>
                                 </table>
                             </div>
-                            <div className="divide-y divide-white/5 md:hidden">
+                            <div className="divide-y divide-[var(--overlay-ink)]/5 md:hidden">
                                 {rows.map((row) => {
                                     const isExpanded = expandedRecipeId === row.recipe.id;
 
@@ -600,7 +600,7 @@ export default function CraftCalculatorPage() {
                                                 <div className="space-y-2">
                                                     <span className="text-[11px] font-bold text-gray-500">제작비용</span>
                                                     <div
-                                                        className="flex h-10 items-center rounded-lg border border-white/10 bg-[#0F1014] px-3 text-sm font-bold text-gray-100"
+                                                        className="flex h-10 items-center rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1014)] px-3 text-sm font-bold text-gray-100"
                                                         title={`재료 ${formatGold(row.materialCost)} G + 수수료 ${formatGold(row.craftGold)} G`}
                                                     >
                                                         {row.canCalculate ? `${formatGold(row.craftCost)} G` : "-"}
@@ -608,7 +608,7 @@ export default function CraftCalculatorPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/5 bg-[#0F1014] p-3">
+                                            <div className="grid grid-cols-2 gap-2 rounded-lg border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-3">
                                                 <CraftResultValue
                                                     label="직접사용"
                                                     value={row.canCalculate ? formatSignedGold(row.directProfit) : "-"}
@@ -636,7 +636,7 @@ export default function CraftCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="space-y-5 rounded-none border-y border-white/5 bg-[#16181D] p-5 sm:rounded-xl sm:border">
+                        <section className="space-y-5 rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
                             <div className="space-y-2">
                                 <h2 className="text-xl font-bold text-gray-100">영지 제작 수익 계산기란?</h2>
                                 <p className="break-keep text-sm leading-relaxed text-gray-400">
@@ -682,7 +682,7 @@ function NumberInput({
     return (
         <label className="block space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-gray-500">{label}</span>
-            <span className="flex h-10 items-center rounded-lg border border-white/10 bg-[#0F1014] px-3 focus-within:border-indigo-500/50">
+            <span className="flex h-10 items-center rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1014)] px-3 focus-within:border-indigo-500/50">
                 <input
                     value={value}
                     onChange={(event) => onChange(event.target.value.replace(/[^\d.]/g, ""))}
@@ -706,7 +706,7 @@ function InlineGoldInput({
     fullWidth?: boolean;
 }) {
     return (
-        <label className={`${fullWidth ? "w-full" : "mx-auto max-w-[118px]"} flex h-10 items-center rounded-lg border border-white/10 bg-[#0F1014] px-3 focus-within:border-indigo-500/50`}>
+        <label className={`${fullWidth ? "w-full" : "mx-auto max-w-[118px]"} flex h-10 items-center rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1014)] px-3 focus-within:border-indigo-500/50`}>
             <input
                 value={value}
                 onChange={(event) => onChange(event.target.value.replace(/[^\d.]/g, ""))}
@@ -736,7 +736,7 @@ function RecipeMaterialEditor({
     formatGold: (value: number, digits?: number) => string;
 }) {
     return (
-        <div className="rounded-lg border border-white/5 bg-[#0F1014] p-4">
+        <div className="rounded-lg border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4">
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <div className="text-xs font-bold text-gray-300">재료 시세</div>
@@ -797,7 +797,7 @@ function SummaryCard({
     tone: string;
 }) {
     return (
-        <div className="rounded-none border-y border-white/5 bg-[#16181D] p-5 sm:rounded-sm sm:border">
+        <div className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-sm sm:border">
             <div className="mb-3 text-sm font-bold text-gray-300">{label}</div>
             <div className={`text-2xl font-bold ${tone}`}>{value}</div>
             {subText && <div className="mt-2 truncate text-xs font-medium text-gray-500">{subText}</div>}
@@ -807,7 +807,7 @@ function SummaryCard({
 
 function InfoBlock({ title, body }: { title: string; body: string }) {
     return (
-        <div className="rounded-lg border border-white/5 bg-[#0F1014] p-4">
+        <div className="rounded-lg border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4">
             <h3 className="mb-2 text-sm font-bold text-gray-100">{title}</h3>
             <p className="break-keep text-sm leading-relaxed text-gray-400">{body}</p>
         </div>

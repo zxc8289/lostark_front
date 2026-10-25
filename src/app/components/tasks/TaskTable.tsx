@@ -80,7 +80,7 @@ const DIFF_STYLES = {
     },
     싱글: {
         check: "bg-[#F1F5F9] text-[#111217] border-[#F1F5F9]",
-        idle: "bg-white/5 text-white/70 border-white/20",
+        idle: "bg-[var(--overlay-ink)]/5 text-white/70 border-[var(--overlay-ink)]/20",
         hover: "hover:bg-[#F1F5F9] hover:text-[#111217]",
     },
 } as const;
@@ -150,7 +150,7 @@ function SortableHeader({
             style={style}
             {...dragAttributes}
             {...dragListeners}
-            className={`${RAID_COL_CLASS} relative touch-none ${isBlank ? "border-dashed border-white/5" : ""}`}
+            className={`${RAID_COL_CLASS} relative touch-none ${isBlank ? "border-dashed border-[var(--overlay-ink)]/5" : ""}`}
         >
             {isDragging && (
                 <div className="absolute inset-[2px] border-[2px] border-solid border-[#5B69FF] bg-[#5B69FF]/10 rounded-md pointer-events-none" />
@@ -201,7 +201,7 @@ function SortableCharacterRow({
 
     const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = sortable;
 
-    const overStyle = isOver && !isDragging ? "bg-white/10 ring-2 ring-inset ring-[#5B69FF]" : "";
+    const overStyle = isOver && !isDragging ? "bg-[var(--overlay-ink)]/10 ring-2 ring-inset ring-[#5B69FF]" : "";
     const style: CSSProperties = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 };
 
     const hasAnyRaid = !!prefs && Object.entries(prefs.raids ?? {}).some(
@@ -211,11 +211,11 @@ function SortableCharacterRow({
     const dragAttributes = isDragEnabled ? attributes : {};
 
     return (
-        <tr ref={setNodeRef} style={style} className={`hover:bg-white/[0.02] transition-colors group ${overStyle}`}>
+        <tr ref={setNodeRef} style={style} className={`hover:bg-[var(--overlay-ink)]/[0.02] transition-colors group ${overStyle}`}>
             <td
                 {...dragAttributes}
                 {...dragListeners}
-                className={`h-[60px] sm:h-[72px] px-2 sm:px-3 py-1.5 sm:py-2 align-middle sticky left-0 z-10 border-r border-white/5 bg-[#111217] group-hover:bg-[#16181D] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}
+                className={`h-[60px] sm:h-[72px] px-2 sm:px-3 py-1.5 sm:py-2 align-middle sticky left-0 z-10 border-r border-[var(--overlay-ink)]/5 bg-[var(--surface-111217)] group-hover:bg-[var(--surface-16181d)] ${isDragEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${CHAR_COL_WIDTH}`}
             >
                 <CharacterInfoCell
                     char={char}
@@ -257,14 +257,15 @@ function SortableCharacterRow({
                                             return (
                                                 <button
                                                     key={g} type="button" title={`${g}관문 ${gateDifficulty}`} aria-pressed={isChecked}
+                                                    data-difficulty={gateDifficulty}
                                                     onClick={() => onToggleGate(char.name, raidId, g, Array.from(checkedSet), allGates)}
                                                     className={[
-                                                        GATE_BTN_BASE, "relative", "hover:scale-[1.1]",
-                                                        isChecked ? `${diffStyle.check} border-transparent` : [diffStyle.idle, "hover:border-white/30", diffStyle.hover].join(" "),
+                                                        GATE_BTN_BASE, "raid-gate-button", "relative", "hover:scale-[1.1]",
+                                                        isChecked ? `${diffStyle.check} border-transparent` : [diffStyle.idle, "hover:border-[var(--overlay-ink)]/30", diffStyle.hover].join(" "),
                                                     ].join(" ")}
                                                 >
                                                     {isChecked ? <svg viewBox="0 0 20 20" className="h-3 w-3 sm:h-4 sm:w-4" fill="none" stroke="currentColor" strokeWidth={2}><path d="M5 10l3 3 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg> : g}
-                                                    {isBonus && <span className="absolute -top-[3px] -right-[3px] sm:-top-1 sm:-right-1 flex items-center justify-center w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] bg-[#111217] text-gray-300 text-[10px] sm:text-[12px] font-medium leading-none rounded-full border border-gray-500/60 z-10"><span className="relative bottom-[0.5px]">+</span></span>}
+                                                    {isBonus && <span className="absolute -top-[3px] -right-[3px] sm:-top-1 sm:-right-1 flex items-center justify-center w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] bg-[var(--surface-111217)] text-gray-300 text-[10px] sm:text-[12px] font-medium leading-none rounded-full border border-gray-500/60 z-10"><span className="relative bottom-[0.5px]">+</span></span>}
                                                 </button>
                                             );
                                         })}
@@ -661,7 +662,7 @@ export default function TaskTable({
     }, [activeId, rosterByName]);
 
     return (
-        <div ref={rootRef} className="bg-[#16181D] rounded-sm relative">
+        <div ref={rootRef} className="bg-[var(--surface-16181d)] rounded-sm relative">
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -717,7 +718,7 @@ export default function TaskTable({
                         <div className="flex items-center">
                             <button
                                 onClick={handleSortRaids} // <--- 여기 변경!
-                                className="flex items-center gap-1.5 h-6 px-2.5 sm:h-8 sm:px-3.5 rounded-full border border-white/10 bg-white/[0.03] text-gray-300 hover:bg-white/10 hover:text-white hover:border-white/20 transition-all duration-200"
+                                className="flex items-center gap-1.5 h-6 px-2.5 sm:h-8 sm:px-3.5 rounded-full border border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/[0.03] text-gray-300 hover:bg-[var(--overlay-ink)]/10 hover:text-white hover:border-[var(--overlay-ink)]/20 transition-all duration-200"
                                 title="레이드 출시일 정렬 변경"
                             >
                                 <ArrowLeftRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -728,7 +729,7 @@ export default function TaskTable({
                         </div>
 
                         {displayColumns.length > maxVisible && (
-                            <div className="flex items-center gap-2 relative pl-3 sm:pl-4 before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[1px] before:h-5 sm:before:h-6 before:bg-white/10">
+                            <div className="flex items-center gap-2 relative pl-3 sm:pl-4 before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[1px] before:h-5 sm:before:h-6 before:bg-[var(--overlay-ink)]/10">
                                 <span className="pr-1.5 font-medium tracking-wider tabular-nums">
                                     <span className="text-gray-300">{startIndex + 1}</span> –{" "}
                                     <span className="text-gray-300">{Math.min(displayColumns.length, startIndex + maxVisible)}</span> /{" "}
@@ -739,7 +740,7 @@ export default function TaskTable({
                                     <button
                                         disabled={!canScrollLeft}
                                         onClick={() => setStartIndex((v) => Math.max(0, v - maxVisible))}
-                                        className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 text-gray-300/90 hover:bg-white/10 hover:text-white hover:border-white/30 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200"
+                                        className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-[var(--overlay-ink)]/15 bg-[var(--overlay-ink)]/5 text-gray-300/90 hover:bg-[var(--overlay-ink)]/10 hover:text-white hover:border-[var(--overlay-ink)]/30 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200"
                                     >
                                         <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={2.5} />
                                     </button>
@@ -747,7 +748,7 @@ export default function TaskTable({
                                     <button
                                         disabled={!canScrollRight}
                                         onClick={() => setStartIndex((v) => v + maxVisible)}
-                                        className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 text-gray-300/90 hover:bg-white/10 hover:text-white hover:border-white/30 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200"
+                                        className="h-6 w-6 sm:h-8 sm:w-8 inline-flex items-center justify-center rounded-full border border-[var(--overlay-ink)]/15 bg-[var(--overlay-ink)]/5 text-gray-300/90 hover:bg-[var(--overlay-ink)]/10 hover:text-white hover:border-[var(--overlay-ink)]/30 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200"
                                     >
                                         <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={2.5} />
                                     </button>
@@ -757,14 +758,14 @@ export default function TaskTable({
                     </div>
                 </div>
 
-                <div className="w-full overflow-hidden rounded-b-md border border-t-0 border-white/10 bg-[#111217]">
+                <div className="w-full overflow-hidden rounded-b-md border border-t-0 border-[var(--overlay-ink)]/10 bg-[var(--surface-111217)]">
                     <div className="overflow-x-auto">
                         <table className="w-full text-center text-[11px] sm:text-sm text-gray-400 border-collapse table-fixed">
-                            <thead className="bg-[#1E222B] text-gray-200 uppercase text-[10px] sm:text-[13px] font-semibold select-none">
+                            <thead className="bg-[var(--surface-1e222b)] text-gray-200 uppercase text-[10px] sm:text-[13px] font-semibold select-none">
                                 <tr>
                                     <th
                                         onClick={handleSortCharacters}
-                                        className={`px-3 py-3 sm:py-4 text-center sticky left-0  bg-[#1E222B] border-r border-white/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] ${CHAR_COL_WIDTH} cursor-pointer hover:bg-[#252a36] transition-colors group`}
+                                        className={`px-3 py-3 sm:py-4 text-center sticky left-0  bg-[var(--surface-1e222b)] border-r border-[var(--overlay-ink)]/5 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] ${CHAR_COL_WIDTH} cursor-pointer hover:bg-[var(--surface-252a36)] transition-colors group`}
                                         title="클릭하여 아이템 레벨순 정렬"
                                     >
                                         <div className="flex items-center justify-center gap-1.5 pl-1">
@@ -806,7 +807,7 @@ export default function TaskTable({
                                 </tr>
                             </thead>
 
-                            <tbody className="divide-y divide-white/5">
+                            <tbody className="divide-y divide-[var(--overlay-ink)]/5">
                                 <SortableContext
                                     items={rowIds}
                                     strategy={verticalListSortingStrategy}
@@ -839,7 +840,7 @@ export default function TaskTable({
                                 className={`
                                     ${RAID_COL_CLASS}
                                     flex items-center justify-center
-                                    bg-[#1E222B] text-gray-200 uppercase text-[10px] sm:text-xs font-semibold
+                                    bg-[var(--surface-1e222b)] text-gray-200 uppercase text-[10px] sm:text-xs font-semibold
                                     border-[2px] border-solid border-[#5B69FF] shadow-2xl rounded-md cursor-grabbing
                                     m-0 box-border
                                 `}
@@ -854,7 +855,7 @@ export default function TaskTable({
                         ) : null}
 
                         {activeIsChar && activeChar ? (
-                            <div className="px-3 py-2 bg-[#1E222B] text-gray-200 border-[2px] border-solid border-[#5B69FF] shadow-2xl rounded-md cursor-grabbing">
+                            <div className="px-3 py-2 bg-[var(--surface-1e222b)] text-gray-200 border-[2px] border-solid border-[#5B69FF] shadow-2xl rounded-md cursor-grabbing">
                                 <div className="flex items-center gap-2">
                                     <GripVertical className="w-4 h-4 text-gray-300/80" />
                                     <span className="font-semibold text-sm">

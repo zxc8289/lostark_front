@@ -578,7 +578,7 @@ export default function ArcGridPage() {
       </div>
 
       <section className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-2xl border border-white/5 bg-[#16181D] p-5">
+        <div className="rounded-2xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5">
           <div className="flex items-center gap-2 mb-2 text-gray-200 font-bold">
             <SlidersHorizontal className="h-4 w-4 text-[#5B69FF]" />
             코어 조건 설정
@@ -589,7 +589,7 @@ export default function ArcGridPage() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-white/5 bg-[#16181D] p-5">
+        <div className="rounded-2xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5">
           <div className="flex items-center gap-2 mb-2 text-gray-200 font-bold">
             <Database className="h-4 w-4 text-emerald-400" />
             보유 젬 입력
@@ -600,7 +600,7 @@ export default function ArcGridPage() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-white/5 bg-[#16181D] p-5">
+        <div className="rounded-2xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5">
           <div className="flex items-center gap-2 mb-2 text-gray-200 font-bold">
             <CheckCircle2 className="h-4 w-4 text-indigo-400" />
             결과 비교
@@ -612,7 +612,7 @@ export default function ArcGridPage() {
         </div>
       </section>
 
-      <div className="bg-[#16181D] border border-white/5 rounded-2xl p-5 shadow-sm">
+      <div className="bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 rounded-2xl p-5 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-6 text-xs sm:text-sm text-gray-400">
             <div className="flex items-center gap-2">
@@ -628,7 +628,7 @@ export default function ArcGridPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <input
-              className="px-3 py-2 rounded-lg bg-[#0E1015] border border-white/10 text-white text-sm w-full sm:w-48 focus:ring-1 focus:ring-[#5B69FF] outline-none transition-all placeholder-gray-600"
+              className="px-3 py-2 rounded-lg bg-[var(--surface-0e1015)] border border-[var(--overlay-ink)]/10 text-white text-sm w-full sm:w-48 focus:ring-1 focus:ring-[#5B69FF] outline-none transition-all placeholder-gray-600"
               value={fileName}
               onChange={(e) => setFileName(e.target.value)}
               placeholder="파일 이름"
@@ -636,12 +636,12 @@ export default function ArcGridPage() {
 
             <button
               onClick={saveToFile}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#2d333b] hover:bg-[#383f47] text-white text-xs font-medium transition-all"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[var(--surface-2d333b)] hover:bg-[var(--surface-383f47)] text-white text-xs font-medium transition-all"
             >
               <Save className="h-3.5 w-3.5" /> 저장
             </button>
 
-            <label className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#2d333b] hover:bg-[#383f47] text-white text-xs font-medium cursor-pointer transition-all">
+            <label className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[var(--surface-2d333b)] hover:bg-[var(--surface-383f47)] text-white text-xs font-medium cursor-pointer transition-all">
               <FolderOpen className="h-3.5 w-3.5" /> 불러오기
               <input
                 ref={fileRef}
@@ -662,7 +662,7 @@ export default function ArcGridPage() {
         </div>
       </div>
 
-      <div className="bg-[#16181D] border border-white/5 rounded-2xl p-6 shadow-sm">
+      <div className="bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="space-y-1">
             <h2 className="text-lg font-bold text-white">1. 코어 설정</h2>
@@ -699,7 +699,7 @@ export default function ArcGridPage() {
           {state.cores.map((core) => (
             <div
               key={core.key}
-              className={`rounded-xl ${core.enabled ? "bg-white/[0.02] border border-white/5" : "opacity-40"
+              className={`rounded-xl ${core.enabled ? "bg-[var(--overlay-ink)]/[0.02] border border-[var(--overlay-ink)]/5" : "opacity-40"
                 } p-2`}
             >
               <div className="grid [grid-template-columns:1.2fr_1fr_1fr_1fr] gap-3 items-center">
@@ -744,7 +744,7 @@ export default function ArcGridPage() {
         </div>
       </div>
 
-      <div className="bg-[#16181D] border border-white/5 rounded-2xl p-6 shadow-sm">
+      <div className="bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
           <div className="space-y-1">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -796,7 +796,7 @@ export default function ArcGridPage() {
         </div>
       </div>
 
-      <div className="bg-[#16181D] border border-white/5 rounded-2xl p-6 shadow-sm">
+      <div className="bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
           <div className="space-y-1">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -810,21 +810,21 @@ export default function ArcGridPage() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={runPoints}
-              className="px-3 py-1.5 rounded-lg bg-[#2d333b] border border-[#444c56] text-white text-xs hover:bg-[#383f47] transition-all"
+              className="px-3 py-1.5 rounded-lg bg-[var(--surface-2d333b)] border border-[var(--surface-444c56)] text-white text-xs hover:bg-[var(--surface-383f47)] transition-all"
             >
               포인트 우선
             </button>
 
             <button
               onClick={runStatsAtBest}
-              className="px-3 py-1.5 rounded-lg bg-[#2d333b] border border-[#444c56] text-white text-xs hover:bg-[#383f47] transition-all"
+              className="px-3 py-1.5 rounded-lg bg-[var(--surface-2d333b)] border border-[var(--surface-444c56)] text-white text-xs hover:bg-[var(--surface-383f47)] transition-all"
             >
               스탯 상위 (최대P)
             </button>
 
             <button
               onClick={runStatsAny}
-              className="px-3 py-1.5 rounded-lg bg-[#2d333b] border border-[#444c56] text-white text-xs hover:bg-[#383f47] transition-all"
+              className="px-3 py-1.5 rounded-lg bg-[var(--surface-2d333b)] border border-[var(--surface-444c56)] text-white text-xs hover:bg-[var(--surface-383f47)] transition-all"
             >
               {state.params.role === "supporter" ? "서포터 스탯 우선" : "딜러 스탯 우선"}
             </button>
@@ -832,7 +832,7 @@ export default function ArcGridPage() {
         </div>
 
         {!resultPack ? (
-          <div className="border border-dashed border-white/10 rounded-xl py-12 text-center text-gray-500 text-sm">
+          <div className="border border-dashed border-[var(--overlay-ink)]/10 rounded-xl py-12 text-center text-gray-500 text-sm">
             최적화 버튼을 눌러 조합을 계산해 보세요.
           </div>
         ) : (
@@ -855,16 +855,16 @@ export default function ArcGridPage() {
 
                   <button
                     onClick={() => setShowAltList((v) => !v)}
-                    className="px-2.5 py-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-xs text-gray-200"
+                    className="px-2.5 py-1.5 rounded-md border border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 text-xs text-gray-200"
                   >
                     {showAltList ? "접기" : "펼치기"}
                   </button>
                 </div>
 
                 {showAltList && (
-                  <div className="mt-3 overflow-x-auto rounded-xl border border-[#444c56]">
+                  <div className="mt-3 overflow-x-auto rounded-xl border border-[var(--surface-444c56)]">
                     <table className="min-w-[720px] w-full text-xs">
-                      <thead className="bg-[#22272e] text-gray-300">
+                      <thead className="bg-[var(--surface-22272e)] text-gray-300">
                         <tr>
                           <th className="px-2 sm:px-3 py-2 w-8 sm:w-10"></th>
                           <th className="px-2 sm:px-3 py-2 text-center w-10 sm:w-14">
@@ -891,14 +891,14 @@ export default function ArcGridPage() {
                         </tr>
                       </thead>
 
-                      <tbody className="divide-y divide-[#444c56]">
+                      <tbody className="divide-y divide-[var(--surface-444c56)]">
                         {altPlans.map((p, i) => {
                           const colCount = 6 + enabledCores.length;
                           const isOpen = expandedSet.has(i);
 
                           return (
                             <Fragment key={`plan-${i}`}>
-                              <tr className="bg-[#2d333b] hover:bg-[#30363d]">
+                              <tr className="bg-[var(--surface-2d333b)] hover:bg-[var(--surface-30363d)]">
                                 <td className="px-2 sm:px-3 py-2">
                                   <button
                                     aria-label={isOpen ? "접기" : "펼치기"}
@@ -943,7 +943,7 @@ export default function ArcGridPage() {
                                       className="px-2 sm:px-3 py-2 text-gray-300 text-center"
                                     >
                                       <div className="flex items-center justify-center gap-1.5 sm:gap-2">
-                                        <span className="px-1.5 sm:px-2 py-0.5 rounded bg-black/20 border border-white/10">
+                                        <span className="px-1.5 sm:px-2 py-0.5 rounded bg-black/20 border border-[var(--overlay-ink)]/10">
                                           {pts}p
                                         </span>
                                         <span className="text-gray-500">·</span>
@@ -957,7 +957,7 @@ export default function ArcGridPage() {
 
                                 <td className="px-2 sm:px-3 py-2 text-center">
                                   <button
-                                    className="px-2.5 sm:px-3 py-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-[#5B69FF] text-[11px] font-bold transition-all"
+                                    className="px-2.5 sm:px-3 py-1.5 rounded-md border border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 text-[#5B69FF] text-[11px] font-bold transition-all"
                                     onClick={() => {
                                       setResultPack({
                                         plan: p.plan,
@@ -973,9 +973,9 @@ export default function ArcGridPage() {
                               </tr>
 
                               {isOpen && (
-                                <tr className="bg-[#1f242c]">
+                                <tr className="bg-[var(--surface-1f242c)]">
                                   <td colSpan={colCount} className="px-2 sm:px-3 py-3">
-                                    <div className="rounded-lg border border-white/10 bg-[#0E1015]">
+                                    <div className="rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--surface-0e1015)]">
                                       <ResultsPanel
                                         plan={p.plan}
                                         cores={state.cores}
@@ -1001,7 +1001,7 @@ export default function ArcGridPage() {
       <ActionBar coreCount={selectedCoreCount} invCount={invCount} onRun={runPoints} />
 
       <div className="space-y-4">
-        <section className="rounded-2xl bg-gradient-to-b from-[#16181D] to-[#121318] border border-white/5 p-6 shadow-sm">
+        <section className="rounded-2xl bg-gradient-to-b from-[var(--surface-16181d)] to-[var(--surface-121318)] border border-[var(--overlay-ink)]/5 p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <Info className="w-5 h-5 text-indigo-400" />
             <h2 className="text-base font-bold text-gray-200">
@@ -1033,13 +1033,13 @@ export default function ArcGridPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
+        <section className="rounded-2xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-6 shadow-sm">
           <h2 className="text-base font-bold text-gray-200 mb-4">
             최적화 옵션 설명
           </h2>
 
           <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-400 leading-relaxed">
-            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+            <div className="rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4">
               <h3 className="text-gray-200 font-semibold mb-2">포인트 우선</h3>
               <p>
                 선택한 코어의 최소 포인트 조건을 맞추는 데 우선순위를 둡니다.
@@ -1048,7 +1048,7 @@ export default function ArcGridPage() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+            <div className="rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4">
               <h3 className="text-gray-200 font-semibold mb-2">
                 스탯 상위 (최대P)
               </h3>
@@ -1059,7 +1059,7 @@ export default function ArcGridPage() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+            <div className="rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4">
               <h3 className="text-gray-200 font-semibold mb-2">스탯 우선</h3>
               <p>
                 최대 포인트 달성보다 실제 체감되는 스탯 효율을 더 중요하게 보는 방식입니다.
@@ -1070,33 +1070,33 @@ export default function ArcGridPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
+        <section className="rounded-2xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-6 shadow-sm">
           <h2 className="text-base font-bold text-gray-200 mb-4">
             이 페이지를 사용하는 방법
           </h2>
 
           <div className="space-y-4 text-sm text-gray-400 leading-relaxed break-keep">
-            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+            <div className="rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4">
               <strong className="text-gray-200 block mb-2">1. 코어 설정</strong>
               원하는 코어를 켜고, 각 코어의 등급과 최소 포인트, 최대 포인트를 정합니다.
               최소 포인트는 반드시 맞추고 싶은 기준이고, 최대 포인트는 과도하게 포인트가
               들어가는 것을 막기 위한 제한값으로 사용할 수 있습니다.
             </div>
 
-            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+            <div className="rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4">
               <strong className="text-gray-200 block mb-2">2. 보유 젬 입력</strong>
               질서 젬과 혼돈 젬을 현재 보유 상태대로 입력합니다. 의지력 효율, 코어 포인트,
               옵션 레벨이 실제 결과에 직접 반영되므로 가능한 한 정확하게 입력하는 것이 좋습니다.
             </div>
 
-            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+            <div className="rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4">
               <strong className="text-gray-200 block mb-2">3. 결과 비교</strong>
               포인트 우선, 스탯 상위, 스탯 우선 결과를 각각 확인해 보고, 내 목적에 맞는
               조합을 선택하면 됩니다. 숫자가 가장 큰 결과 하나만 보기보다, 어떤 기준으로
               좋은 결과인지 함께 해석하는 것이 중요합니다.
             </div>
 
-            <div className="rounded-xl border border-white/5 bg-[#0F1014] p-4">
+            <div className="rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4">
               <strong className="text-gray-200 block mb-2">4. 저장과 불러오기</strong>
               자주 사용하는 세팅은 JSON 파일로 저장할 수 있습니다. 다른 브라우저나 기기에서
               같은 세팅을 다시 확인하고 싶을 때 저장 파일을 불러오면 입력 시간을 줄일 수 있습니다.
@@ -1104,7 +1104,7 @@ export default function ArcGridPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
+        <section className="rounded-2xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-6 shadow-sm">
           <h2 className="text-base font-bold text-gray-200 mb-4">
             입력값을 어떻게 정하면 좋나요?
           </h2>
@@ -1129,7 +1129,7 @@ export default function ArcGridPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
+        <section className="rounded-2xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-6 shadow-sm">
           <h2 className="text-base font-bold text-gray-200 mb-4">
             예시로 보는 결과 선택
           </h2>
@@ -1156,7 +1156,7 @@ export default function ArcGridPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
+        <section className="rounded-2xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-6 shadow-sm">
           <h2 className="text-base font-bold text-gray-200 mb-4">결과 해석 팁</h2>
 
           <div className="space-y-3 text-sm text-gray-400 leading-relaxed break-keep">
@@ -1181,7 +1181,7 @@ export default function ArcGridPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-[#16181D] border border-white/5 p-6 shadow-sm">
+        <section className="rounded-2xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <HelpCircle className="w-5 h-5 text-indigo-400" />
             <h2 className="text-base font-bold text-gray-200">자주 묻는 질문</h2>
@@ -1220,7 +1220,7 @@ export default function ArcGridPage() {
             ].map((item) => (
               <details
                 key={item.q}
-                className="group rounded-xl border border-white/5 bg-[#0F1014] px-4 py-3"
+                className="group rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] px-4 py-3"
               >
                 <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer">
                   <span className="text-sm font-semibold text-gray-200">
@@ -1228,7 +1228,7 @@ export default function ArcGridPage() {
                   </span>
                 </summary>
 
-                <div className="pt-3 mt-3 border-t border-white/5 text-sm text-gray-400 leading-relaxed break-keep">
+                <div className="pt-3 mt-3 border-t border-[var(--overlay-ink)]/5 text-sm text-gray-400 leading-relaxed break-keep">
                   {item.a}
                 </div>
               </details>
@@ -1259,7 +1259,7 @@ export default function ArcGridPage() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-          <div className="relative w-[min(400px,90vw)] bg-[#16181D] border border-white/10 rounded-2xl p-6 shadow-2xl">
+          <div className="relative w-[min(400px,90vw)] bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/10 rounded-2xl p-6 shadow-2xl">
             <div className="text-center space-y-4">
               <div className="text-white font-bold">
                 {prog.msg || "작업을 준비하고 있어요"}
@@ -1336,7 +1336,7 @@ function Row({
         </span>
       </div>
 
-      <div className="bg-[#0E1015] rounded-md border border-white/5">
+      <div className="bg-[var(--surface-0e1015)] rounded-md border border-[var(--overlay-ink)]/5">
         <Select
           value={core.grade as any}
           onChange={(v) => onGrade(v as any)}
@@ -1344,7 +1344,7 @@ function Row({
         />
       </div>
 
-      <div className="bg-[#0E1015] rounded-md border border-white/5">
+      <div className="bg-[var(--surface-0e1015)] rounded-md border border-[var(--overlay-ink)]/5">
         <Input
           type="number"
           value={core.minPts}
@@ -1352,7 +1352,7 @@ function Row({
         />
       </div>
 
-      <div className="bg-[#0E1015] rounded-md border border-white/5">
+      <div className="bg-[var(--surface-0e1015)] rounded-md border border-[var(--overlay-ink)]/5">
         <Input
           type="number"
           value={core.maxPts}

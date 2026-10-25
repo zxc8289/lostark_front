@@ -5,7 +5,7 @@ export default function TermsPage() {
     return (
         <div className="space-y-8 pt-17 pb-10 text-gray-300 w-full max-w-7xl mx-auto px-4 md:px-0">
             {/* 헤더 섹션 */}
-            <div className="space-y-4 border-b border-white/5 pb-8">
+            <div className="space-y-4 border-b border-[var(--overlay-ink)]/5 pb-8">
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-blue-600/10 text-blue-400">
                         <Scale size={24} />
@@ -20,13 +20,13 @@ export default function TermsPage() {
             <div className="space-y-8">
 
                 {/* 제 1 조 (목적) */}
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full" />
                         <h2 className="font-bold text-lg text-gray-100 text-sm uppercase tracking-tight">제 1 조 (목적)</h2>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                        <div className="p-2 rounded-lg bg-white/5 text-gray-400 shrink-0">
+                        <div className="p-2 rounded-lg bg-[var(--overlay-ink)]/5 text-gray-400 shrink-0">
                             <FileText size={18} />
                         </div>
                         <p className="text-gray-400 leading-relaxed">
@@ -36,13 +36,13 @@ export default function TermsPage() {
                 </section>
 
                 {/* 제 2 조 (서비스의 제공 및 변경) */}
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full" />
                         <h2 className="font-bold text-lg text-gray-100 text-sm uppercase tracking-tight">제 2 조 (서비스의 제공 및 변경)</h2>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                        <div className="p-2 rounded-lg bg-white/5 text-gray-400 shrink-0">
+                        <div className="p-2 rounded-lg bg-[var(--overlay-ink)]/5 text-gray-400 shrink-0">
                             <CheckCircle size={18} />
                         </div>
                         <p className="text-gray-400 leading-relaxed">
@@ -51,13 +51,13 @@ export default function TermsPage() {
                     </div>
                 </section>
 
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full" />
                         <h2 className="font-bold text-lg text-gray-100 text-sm uppercase tracking-tight">제 3 조 (디스코드 봇 이용)</h2>
                     </div>
                     <div className="flex items-start gap-4 text-sm">
-                        <div className="p-2 rounded-lg bg-white/5 text-gray-400 shrink-0">
+                        <div className="p-2 rounded-lg bg-[var(--overlay-ink)]/5 text-gray-400 shrink-0">
                             <CheckCircle size={18} />
                         </div>
                         <div className="space-y-2 text-gray-400 leading-relaxed">
@@ -72,13 +72,13 @@ export default function TermsPage() {
                 </section>
 
                 {/* 제 3 조 (책임의 제한) - 매우 중요 */}
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full" />
                         <h2 className="font-bold text-lg text-gray-100 text-sm uppercase tracking-tight">제 4 조 (책임의 제한)</h2>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                        <div className="p-2 rounded-lg bg-white/5 text-amber-500 shrink-0">
+                        <div className="p-2 rounded-lg bg-[var(--overlay-ink)]/5 text-amber-500 shrink-0">
                             <AlertTriangle size={18} />
                         </div>
                         <p className="text-gray-400 leading-relaxed">
@@ -87,13 +87,13 @@ export default function TermsPage() {
                     </div>
                 </section>
 
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full" />
                         <h2 className="font-bold text-lg text-gray-100 text-sm uppercase tracking-tight">제 5 조 (이용자의 의무)</h2>
                     </div>
                     <div className="flex items-start gap-4 text-sm">
-                        <div className="p-2 rounded-lg bg-white/5 text-amber-500 shrink-0">
+                        <div className="p-2 rounded-lg bg-[var(--overlay-ink)]/5 text-amber-500 shrink-0">
                             <AlertTriangle size={18} />
                         </div>
                         <ul className="space-y-2 text-gray-400 leading-relaxed">
@@ -106,13 +106,13 @@ export default function TermsPage() {
                 </section>
 
                 {/* 제 4 조 (저작권) */}
-                <section className="p-6 rounded-xl border border-white/5 bg-[#1e2128]/30 space-y-4">
+                <section className="p-6 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1e2128)]/30 space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full" />
                         <h2 className="font-bold text-lg text-gray-100 text-sm uppercase tracking-tight">제 6 조 (저작권)</h2>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                        <div className="p-2 rounded-lg bg-white/5 text-gray-400 shrink-0">
+                        <div className="p-2 rounded-lg bg-[var(--overlay-ink)]/5 text-gray-400 shrink-0">
                             <Copyright size={18} />
                         </div>
                         <p className="text-gray-400 leading-relaxed">
@@ -139,7 +139,7 @@ export default function TermsPage() {
             </div>
 
             {/* 하단 안내 */}
-            <div className="text-center pt-10 border-t border-white/5">
+            <div className="text-center pt-10 border-t border-[var(--overlay-ink)]/5">
                 <p className="text-[10px] text-gray-600 uppercase tracking-[0.3em]">Last Updated: 2026. 07. 14</p>
             </div>
         </div>

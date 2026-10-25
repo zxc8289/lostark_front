@@ -14,13 +14,13 @@ export const toolMethods = {
 export default function ToolMethodNote({ tool, calculatorLayout = false, className = "mt-6" }: { tool: keyof typeof toolMethods; calculatorLayout?: boolean; className?: string }) {
   const method = toolMethods[tool];
   return <div className={`${className} ${calculatorLayout ? "grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-[280px_minmax(0,1fr)]" : ""}`}>
-    <aside aria-label={`${method.title} 데이터와 계산 기준`} className={`${calculatorLayout ? "lg:col-start-2" : ""} overflow-hidden rounded-none border-y border-white/5 bg-[#16181D] sm:rounded-xl sm:border`}>
-    <div className="border-b border-white/5 px-5 py-4"><h2 className="flex items-center gap-2.5 text-sm font-semibold text-white"><span aria-hidden="true" className="h-4 w-1 shrink-0 rounded-full bg-[#5B69FF]" />{method.title} · 데이터와 계산 기준</h2></div>
+    <aside aria-label={`${method.title} 데이터와 계산 기준`} className={`${calculatorLayout ? "lg:col-start-2" : ""} overflow-hidden rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] sm:rounded-xl sm:border`}>
+    <div className="border-b border-[var(--overlay-ink)]/5 px-5 py-4"><h2 className="flex items-center gap-2.5 text-sm font-semibold text-white"><span aria-hidden="true" className="h-4 w-1 shrink-0 rounded-full bg-[#5B69FF]" />{method.title} · 데이터와 계산 기준</h2></div>
     <div className="grid gap-5 p-5 text-[13px] leading-7 text-gray-400 md:grid-cols-2">
       <div><h3 className="mb-2 text-xs font-medium text-gray-200">출처와 계산 방식</h3><p>{method.basis}</p></div>
       <div><h3 className="mb-2 text-xs font-medium text-gray-200">결과 해석과 제외 항목</h3><p>{method.limit}</p></div>
     </div>
-    <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-white/5 px-5 py-3 text-xs text-gray-400">
+    <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-[var(--overlay-ink)]/5 px-5 py-3 text-xs text-gray-400">
       <Link className="hover:text-[#A6AEFF]" href={method.href}>계산 사례와 상세 기준 →</Link>
       <Link className="hover:text-[#A6AEFF]" href="/guide/data">출처·검증 범위·수정 이력</Link>
       <Link className="hover:text-[#A6AEFF]" href="/support">수치 오류 제보</Link>

@@ -8,7 +8,7 @@ import { AlertCircle, ArrowLeft, Loader2, Ticket } from "lucide-react";
 const PageLayout = ({ children }: { children: ReactNode }) => (
     <div className="relative flex min-h-[80vh] w-full items-center justify-center overflow-hidden px-4">
         <div className="pointer-events-none absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#5B69FF]/20 opacity-50 blur-[100px]" />
-        <div className="relative z-10 w-full max-w-sm animate-in rounded-2xl border border-white/10 bg-[#16181D]/80 p-8 text-center shadow-2xl backdrop-blur-xl fade-in zoom-in-95 duration-300">
+        <div className="relative z-10 w-full max-w-sm animate-in rounded-2xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)]/80 p-8 text-center shadow-2xl backdrop-blur-xl fade-in zoom-in-95 duration-300">
             {children}
         </div>
     </div>
@@ -94,7 +94,7 @@ function PartyJoinContent() {
                     </div>
                     <button
                         onClick={() => router.push("/party-tasks")}
-                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/5 bg-white/5 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--overlay-ink)]/5 py-3 text-sm font-semibold text-white transition-all hover:bg-[var(--overlay-ink)]/10"
                     >
                         <ArrowLeft className="h-4 w-4" />
                         파티 목록으로 돌아가기
@@ -110,7 +110,7 @@ function PartyJoinContent() {
                 <div className="relative">
                     <div className="absolute inset-0 rounded-full border-4 border-[#5B69FF]/30" />
                     <div className="absolute inset-0 animate-spin rounded-full border-4 border-t-[#5B69FF]" />
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#16181D]">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--surface-16181d)]">
                         <Ticket className="h-7 w-7 animate-pulse text-[#5B69FF]" />
                     </div>
                 </div>

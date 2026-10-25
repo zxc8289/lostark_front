@@ -7,7 +7,7 @@ export default function Footer() {
     return (
         <footer className="w-full pt-5 pb-12 mt-auto">
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                <div className="flex flex-col lg:flex-row justify-between items-start gap-12 pt-12 pb-12 border-b border-white/[0.03]  border-t border-white/[0.03]">
+                <div className="flex flex-col lg:flex-row justify-between items-start gap-12 pt-12 pb-12 border-b border-[var(--overlay-ink)]/[0.03]  border-t border-[var(--overlay-ink)]/[0.03]">
                     <div className="space-y-3">
                         <div className="flex flex-col">
                             <Image src="/brand/loacheck-logo.svg" alt="LOACHECK" width={228} height={48} className="h-auto w-[190px]" />

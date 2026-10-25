@@ -30,7 +30,7 @@ export default function InventoryPanel({
             <div className="flex items-center justify-between mb-2">
                 <div className="font-bold">{title}</div>
                 <button
-                    className="px-3 py-1.5 rounded-lg border border-[#444c56] bg-[#2d333b] text-gray-200 hover:bg-[#30363d] transition"
+                    className="px-3 py-1.5 rounded-lg border border-[var(--surface-444c56)] bg-[var(--surface-2d333b)] text-gray-200 hover:bg-[var(--surface-30363d)] transition"
                     onClick={() => setShowQuick(true)}   // ✅ 내부에서 모달 열기
                 >
                     젬추가
@@ -38,7 +38,7 @@ export default function InventoryPanel({
             </div>
 
             {list.length === 0 && (
-                <div className="border border-dashed border-[#444c56] rounded-lg p-3 text-center text-gray-400">
+                <div className="border border-dashed border-[var(--surface-444c56)] rounded-lg p-3 text-center text-gray-400">
                     아직 젬이 없습니다
                 </div>
             )}
@@ -90,7 +90,7 @@ function GemCard({
     const opt2 = gem.options[3];
 
     return (
-        <div className="border border-[#444c56] rounded-lg p-3 bg-[#2d333b]">
+        <div className="border border-[var(--surface-444c56)] rounded-lg p-3 bg-[var(--surface-2d333b)]">
             {/* 헤더 */}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -98,10 +98,10 @@ function GemCard({
                     <div className="font-semibold text-gray-200">
                         {FAMILY_LABEL[family]} 젬
                     </div>
-                    <span className="text-xs text-gray-300 border border-[#444c56] rounded px-2 py-0.5">
+                    <span className="text-xs text-gray-300 border border-[var(--surface-444c56)] rounded px-2 py-0.5">
                         의지력 {need}
                     </span>
-                    <span className="text-xs text-gray-300 border border-[#444c56] rounded px-2 py-0.5">
+                    <span className="text-xs text-gray-300 border border-[var(--surface-444c56)] rounded px-2 py-0.5">
                         포인트 {pts}
                     </span>
                 </div>
@@ -109,7 +109,7 @@ function GemCard({
                 <div className="flex items-center gap-2">
                     {!isEdit ? (
                         <button
-                            className="text-xs px-2 py-1 rounded border border-[#444c56] bg-[#1f242c] text-gray-200 hover:bg-[#262c35] transition"
+                            className="text-xs px-2 py-1 rounded border border-[var(--surface-444c56)] bg-[var(--surface-1f242c)] text-gray-200 hover:bg-[var(--surface-262c35)] transition"
                             onClick={() => setIsEdit(true)}
                             title="수정"
                         >
@@ -229,14 +229,14 @@ function GemCard({
 /* 작은 뱃지/태그 컴포넌트들 */
 function Badge({ children }: { children: React.ReactNode }) {
     return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded bg-black/20 border border-white/10 text-gray-200 text-xs">
+        <span className="inline-flex items-center px-2 py-0.5 rounded bg-black/20 border border-[var(--overlay-ink)]/10 text-gray-200 text-xs">
             {children}
         </span>
     );
 }
 function Tag({ children }: { children: React.ReactNode }) {
     return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#1f242c] border border-[#444c56] text-gray-200 text-xs">
+        <span className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--surface-1f242c)] border border-[var(--surface-444c56)] text-gray-200 text-xs">
             {children}
         </span>
     );

@@ -100,7 +100,7 @@ export default function PartyAssignmentLabel({
           role="dialog"
           aria-label="편성된 그룹 목록"
           style={{ position: "fixed", ...position, width: "min(256px, calc(100vw - 16px))" }}
-          className="z-[200] max-h-[50vh] overflow-y-auto rounded-xl border border-white/15 bg-[#242831] p-2.5 text-left text-xs text-gray-200 shadow-xl"
+          className="z-[200] max-h-[50vh] overflow-y-auto rounded-xl border border-[var(--overlay-ink)]/15 bg-[var(--surface-242831)] p-2.5 text-left text-xs text-gray-200 shadow-xl"
         >
           <div className={`px-1 pb-2 pt-0.5 text-[13px] font-bold ${externalOnly ? "text-amber-300" : "text-emerald-300"}`}>파티 편성</div>
           <div className="space-y-1.5">
@@ -116,12 +116,12 @@ export default function PartyAssignmentLabel({
                 <a
                   key={`${assignment.partyId}-${assignment.groupId}-${index}`}
                   href={href}
-                  className="block break-words rounded-lg border border-white/[0.06] bg-white/[0.035] px-2.5 py-2 transition-colors hover:border-white/15 hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-300"
+                  className="block break-words rounded-lg border border-[var(--overlay-ink)]/[0.06] bg-[var(--overlay-ink)]/[0.035] px-2.5 py-2 transition-colors hover:border-[var(--overlay-ink)]/15 hover:bg-[var(--overlay-ink)]/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-300"
                 >
                   {content}
                 </a>
               ) : (
-                <div key={`${assignment.partyId}-${assignment.groupName}-${index}`} className="break-words rounded-lg border border-white/[0.06] bg-white/[0.035] px-2.5 py-2">
+                <div key={`${assignment.partyId}-${assignment.groupName}-${index}`} className="break-words rounded-lg border border-[var(--overlay-ink)]/[0.06] bg-[var(--overlay-ink)]/[0.035] px-2.5 py-2">
                   {content}
                 </div>
               );

@@ -74,9 +74,9 @@ function fmtDate(iso?: string | null) {
 }
 
 function statusBadgeClass(status: PostStatus) {
-    if (status === "답변완료") return "bg-green-900/30 border-green-700 text-green-400";
-    if (status === "확인") return "bg-blue-900/30 border-blue-700 text-blue-400";
-    return "bg-gray-700 border-gray-600 text-gray-400";
+    if (status === "답변완료") return "support-status-answered bg-green-900/30 border-green-700 text-green-400";
+    if (status === "확인") return "support-status-confirmed bg-blue-900/30 border-blue-700 text-blue-400";
+    return "support-status-pending bg-gray-700 border-gray-600 text-gray-400";
 }
 
 // ✨ Nav 컴포넌트의 업데이트 로그 색상에 맞춰 배지 색상 수정
@@ -112,7 +112,7 @@ function CategoryDropdown({ value, onChange, disabled = false }: { value: Notice
         <div className="relative min-w-[130px]">
             <button
                 onClick={() => !disabled && setOpen(!open)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg transition-all ${open ? 'border-[#5B69FF]/50 ring-1 ring-[#5B69FF]/50 bg-white/10' : 'hover:bg-white/10'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full flex items-center justify-between px-3 py-2.5 bg-[var(--overlay-ink)]/5 border border-[var(--overlay-ink)]/10 rounded-lg transition-all ${open ? 'border-[#5B69FF]/50 ring-1 ring-[#5B69FF]/50 bg-[var(--overlay-ink)]/10' : 'hover:bg-[var(--overlay-ink)]/10'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
                 <span className={`px-2 py-0.5 rounded border text-[11px] font-bold ${categoryBadgeClass(value)}`}>{value}</span>
                 <div className={`text-gray-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>
@@ -123,7 +123,7 @@ function CategoryDropdown({ value, onChange, disabled = false }: { value: Notice
             {open && (
                 <>
                     <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-[#1E2128] border border-white/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50]">
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--surface-1e2128)] border border-[var(--overlay-ink)]/10 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-[50]">
                         <div className="flex flex-col gap-1 p-1.5">
                             {categories.map((c) => {
                                 const isActive = c === value;
@@ -131,7 +131,7 @@ function CategoryDropdown({ value, onChange, disabled = false }: { value: Notice
                                     <button
                                         key={c}
                                         onClick={() => { onChange(c); setOpen(false); }}
-                                        className={`relative flex w-full items-center gap-2 rounded-md px-2 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10" : "hover:bg-white/5"}`}
+                                        className={`relative flex w-full items-center gap-2 rounded-md px-2 py-2 transition-all ${isActive ? "bg-[#5B69FF]/10" : "hover:bg-[var(--overlay-ink)]/5"}`}
                                     >
                                         <div className={`w-4 h-4 flex items-center justify-center transition-colors ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}>
                                             <Icons.Check />
@@ -152,7 +152,7 @@ function CategoryDropdown({ value, onChange, disabled = false }: { value: Notice
 const CardSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
         {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="bg-[#16181D] border border-white/5 rounded-xl p-5 flex flex-col gap-3">
+            <div key={i} className="bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 rounded-xl p-5 flex flex-col gap-3">
                 <div className="flex justify-between"><div className="w-10 h-4 bg-gray-800 rounded" /><div className="w-16 h-3 bg-gray-800 rounded" /></div>
                 <div className="w-3/4 h-5 bg-gray-800 rounded" />
                 <div className="w-full h-10 bg-gray-800 rounded" />
@@ -529,7 +529,7 @@ function SupportPageContent() {
         }
         return (
             <div className="space-y-2">
-                <textarea value={editReplyText} onChange={(e) => setEditReplyText(e.target.value)} maxLength={5000} className="w-full min-h-24 rounded-lg border border-white/10 bg-[#0E1015] p-3 text-sm text-white focus:outline-none focus:border-[#5B69FF]" aria-label="댓글 수정 내용" />
+                <textarea value={editReplyText} onChange={(e) => setEditReplyText(e.target.value)} maxLength={5000} className="w-full min-h-24 rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--surface-0e1015)] p-3 text-sm text-white focus:outline-none focus:border-[#5B69FF]" aria-label="댓글 수정 내용" />
                 <div className="flex justify-end gap-2 text-xs">
                     <button onClick={() => setEditingReplyId(null)} disabled={replySaving} className="rounded px-3 py-1.5 text-gray-400 hover:text-white">취소</button>
                     <button onClick={saveReplyEdit} disabled={replySaving || !editReplyText.trim()} className="rounded bg-blue-600 px-3 py-1.5 text-white disabled:opacity-50">저장</button>
@@ -582,21 +582,21 @@ function SupportPageContent() {
 
                         {/* 작성 폼 영역 */}
                         {activeTab === "notice" && isAdmin && (
-                            <div className="bg-[#16181D] border border-[#5B69FF]/30 shadow-[0_0_15px_rgba(91,105,255,0.1)] rounded-xl p-5 mb-8">
+                            <div className="bg-[var(--surface-16181d)] border border-[#5B69FF]/30 shadow-[0_0_15px_rgba(91,105,255,0.1)] rounded-xl p-5 mb-8">
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center mb-4">
                                         <label className="text-sm font-bold text-[#5B69FF] flex items-center gap-2"><Icons.Pencil /> 공지사항 등록 (관리자)</label>
                                         <CategoryDropdown value={noticeCategory} onChange={setNoticeCategory} />
                                     </div>
-                                    <input className="w-full bg-[#0E1015] border border-white/10 text-white rounded-lg px-4 py-3 focus:ring-1 focus:ring-[#5B69FF] focus:outline-none" placeholder="제목을 입력해주세요." value={title} onChange={(e) => setTitle(e.target.value)} />
-                                    <textarea className="w-full bg-[#0E1015] border border-white/10 text-white rounded-lg px-4 py-3 focus:ring-1 focus:ring-[#5B69FF] focus:outline-none resize-none h-32" placeholder="공지 내용을 입력해주세요..." value={content} onChange={(e) => setContent(e.target.value)} />
+                                    <input className="w-full bg-[var(--surface-0e1015)] border border-[var(--overlay-ink)]/10 text-white rounded-lg px-4 py-3 focus:ring-1 focus:ring-[#5B69FF] focus:outline-none" placeholder="제목을 입력해주세요." value={title} onChange={(e) => setTitle(e.target.value)} />
+                                    <textarea className="w-full bg-[var(--surface-0e1015)] border border-[var(--overlay-ink)]/10 text-white rounded-lg px-4 py-3 focus:ring-1 focus:ring-[#5B69FF] focus:outline-none resize-none h-32" placeholder="공지 내용을 입력해주세요..." value={content} onChange={(e) => setContent(e.target.value)} />
                                     <div className="flex justify-end"><button onClick={submitItem} disabled={saving || !title.trim() || !content.trim()} className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 text-white px-5 py-2 rounded-lg text-sm font-medium">{saving ? "등록중..." : "등록하기"}</button></div>
                                 </div>
                             </div>
                         )}
 
                         {activeTab === "support" && (
-                            <div className="bg-[#16181D] border border-white/5 rounded-xl p-5 shadow-sm">
+                            <div className="bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 rounded-xl p-5 shadow-sm">
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
                                         <label className="text-sm font-semibold text-gray-300 flex items-center gap-2"><Icons.Pencil /> 새 문의 작성</label>
@@ -609,8 +609,8 @@ function SupportPageContent() {
                                             <span className="text-xs text-gray-400">작성자 비공개</span>
                                         </label>
                                     </div>
-                                    <input className="w-full bg-[#0E1015] border border-white/10 text-white rounded-lg px-4 py-3 focus:ring-1 focus:ring-[#5B69FF] focus:outline-none" placeholder="제목을 입력해주세요." value={title} onChange={(e) => setTitle(e.target.value)} />
-                                    <textarea className="w-full bg-[#0E1015] border border-white/10 text-white rounded-lg px-4 py-3 focus:ring-1 focus:ring-[#5B69FF] focus:outline-none resize-none h-32" placeholder="문의 내용을 입력해주세요..." value={content} onChange={(e) => setContent(e.target.value)} />
+                                    <input className="w-full bg-[var(--surface-0e1015)] border border-[var(--overlay-ink)]/10 text-white rounded-lg px-4 py-3 focus:ring-1 focus:ring-[#5B69FF] focus:outline-none" placeholder="제목을 입력해주세요." value={title} onChange={(e) => setTitle(e.target.value)} />
+                                    <textarea className="w-full bg-[var(--surface-0e1015)] border border-[var(--overlay-ink)]/10 text-white rounded-lg px-4 py-3 focus:ring-1 focus:ring-[#5B69FF] focus:outline-none resize-none h-32" placeholder="문의 내용을 입력해주세요..." value={content} onChange={(e) => setContent(e.target.value)} />
                                     <div className="flex justify-end"><button onClick={submitItem} disabled={saving || !title.trim() || !content.trim()} className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 text-white px-5 py-2 rounded-lg text-sm font-medium">{saving ? "등록중..." : "등록하기"}</button></div>
                                 </div>
                             </div>
@@ -625,7 +625,7 @@ function SupportPageContent() {
                                             <button
                                                 key={item.id}
                                                 onClick={() => openDetail(item.id, activeTab)}
-                                                className="text-left bg-[#16181D] border border-white/5 rounded-xl p-5 hover:border-gray-600 transition-colors flex flex-col gap-3 group"
+                                                className="text-left bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 rounded-xl p-5 hover:border-gray-600 transition-colors flex flex-col gap-3 group"
                                             >
                                                 <div className="flex justify-between items-start w-full">
                                                     {"category" in item ? (
@@ -684,12 +684,12 @@ function SupportPageContent() {
                                                     <CategoryDropdown value={editCategory} onChange={setEditCategory} />
                                                 )}
                                                 <input
-                                                    className="flex-1 w-full bg-[#16181D] border border-gray-700 text-white rounded-xl px-4 py-3 text-2xl font-bold transition-all focus:outline-none focus:ring-1 focus:ring-[#5B69FF]"
+                                                    className="flex-1 w-full bg-[var(--surface-16181d)] border border-gray-700 text-white rounded-xl px-4 py-3 text-2xl font-bold transition-all focus:outline-none focus:ring-1 focus:ring-[#5B69FF]"
                                                     value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="제목을 입력하세요"
                                                 />
                                             </div>
                                             <textarea
-                                                className="w-full bg-[#16181D] border border-gray-700 text-gray-200 rounded-xl px-4 py-3 h-60 transition-all focus:outline-none focus:ring-1 focus:ring-[#5B69FF] placeholder-gray-600 resize-none leading-relaxed"
+                                                className="w-full bg-[var(--surface-16181d)] border border-gray-700 text-gray-200 rounded-xl px-4 py-3 h-60 transition-all focus:outline-none focus:ring-1 focus:ring-[#5B69FF] placeholder-gray-600 resize-none leading-relaxed"
                                                 value={editContent} onChange={(e) => setEditContent(e.target.value)} placeholder="내용을 입력하세요" spellCheck={false}
                                             />
                                             <div className="flex justify-between items-center">
@@ -751,7 +751,7 @@ function SupportPageContent() {
                                         <div className="space-y-5">
                                             {openReplies.filter(r => !r.parentId).map((parent) => (
                                                 <div key={parent.id} className="space-y-2">
-                                                    <div className={`rounded-xl border p-5 relative overflow-hidden transition-all ${parent.isStaff ? "bg-[#16181D]/80 border-[#5B69FF]/40" : "bg-[#16181D]/50 border-gray-800"}`}>
+                                                    <div className={`rounded-xl border p-5 relative overflow-hidden transition-all ${parent.isStaff ? "bg-[var(--surface-16181d)]/80 border-[#5B69FF]/40" : "bg-[var(--surface-16181d)]/50 border-gray-800"}`}>
                                                         {parent.isStaff && !parent.isDeleted && <div className="absolute top-0 right-0 bg-[#5B69FF] text-[10px] font-bold px-3 py-1 rounded-bl-xl text-white">공식 답변</div>}
                                                         <div className="flex items-start gap-3 mb-3">
                                                             {parent.isStaff && !parent.isDeleted ? <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400"><Icons.Shield /></div> : <Avatar src={parent.authorImage} alt={parent.author} sizeClass="w-10 h-10" />}
@@ -772,7 +772,7 @@ function SupportPageContent() {
                                                             <div className="flex-shrink-0 mt-2 text-gray-600">
                                                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-50"><path d="M5 2v10a2 2 0 002 2h10" /><path d="M14 11l3 3-3 3" /></svg>
                                                             </div>
-                                                            <div className={`flex-1 rounded-xl border p-4 transition-all ${child.isStaff ? "bg-[#16181D]/60 border-[#5B69FF]/30" : "bg-[#0E1015]/80 border-gray-800/80"}`}>
+                                                            <div className={`flex-1 rounded-xl border p-4 transition-all ${child.isStaff ? "bg-[var(--surface-16181d)]/60 border-[#5B69FF]/30" : "bg-[var(--surface-0e1015)]/80 border-gray-800/80"}`}>
                                                                 <div className="flex items-center gap-3 mb-2">
                                                                     {child.isStaff && !child.isDeleted ? <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400"><Icons.Shield /></div> : <Avatar src={child.authorImage} alt={child.author} sizeClass="w-8 h-8" />}
                                                                     <div className="flex flex-col">
@@ -792,8 +792,8 @@ function SupportPageContent() {
                                         </div>
 
                                         <div className="mt-10 mb-8">
-                                            <div className={`bg-[#16181D] border rounded-xl overflow-hidden transition-all duration-300 ${isAdmin ? 'border-[#5B69FF]/50 shadow-[0_0_15px_rgba(91,105,255,0.1)]' : 'border-gray-800'}`}>
-                                                <div className="bg-[#0E1015]/50 px-5 py-3.5 border-b border-gray-800 flex items-center justify-between">
+                                            <div className={`bg-[var(--surface-16181d)] border rounded-xl overflow-hidden transition-all duration-300 ${isAdmin ? 'border-[#5B69FF]/50 shadow-[0_0_15px_rgba(91,105,255,0.1)]' : 'border-gray-800'}`}>
+                                                <div className="bg-[var(--surface-0e1015)]/50 px-5 py-3.5 border-b border-gray-800 flex items-center justify-between">
                                                     <span className={`text-sm font-bold flex items-center gap-2 ${isAdmin ? 'text-[#5B69FF]' : 'text-gray-300'}`}>{isAdmin ? <Icons.Shield /> : <Icons.Answer />} {isAdmin ? '공식 답변 작성' : '댓글 남기기'}</span>
                                                 </div>
                                                 {replyingTo && (
@@ -834,7 +834,7 @@ function SupportPageContent() {
             {/* 통합 삭제 모달 */}
             {(deleteModalOpen || replyToDelete) && (
                 <div role="dialog" aria-modal="true" aria-label="삭제 확인" className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-[#1E2028] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200 text-center">
+                    <div className="bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200 text-center">
                         <div className="mx-auto mb-4 p-3 bg-red-500/10 rounded-full w-fit text-red-500"><Icons.Exclamation /></div>
                         <h3 className="text-lg font-bold text-white mb-2">{replyToDelete ? "댓글 삭제" : openType === "notice" ? "공지사항 삭제" : "게시글 삭제"}</h3>
                         <p className="text-gray-400 text-sm mb-6 leading-relaxed">
@@ -851,7 +851,7 @@ function SupportPageContent() {
             )}
             {messageModal && (
                 <div role="dialog" aria-modal="true" aria-label={messageModal.title} className="fixed inset-0 z-[10001] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-[#1E2028] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200 text-center">
+                    <div className="bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200 text-center">
                         <div className={`mx-auto mb-4 p-3 rounded-full w-fit ${messageModal.title.includes("완료") ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-500"}`}>
                             {messageModal.title.includes("완료")
                                 ? <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 13l4 4L19 7" /></svg>
@@ -869,8 +869,8 @@ function SupportPageContent() {
 
 // Avatar 컴포넌트의 undefined 허용 처리
 function Avatar({ src, alt, sizeClass = "w-5 h-5" }: { src?: string | null | undefined; alt: string; sizeClass?: string }) {
-    if (!src) return <div className={`${sizeClass} rounded-full bg-gray-700 flex items-center justify-center text-gray-400 border border-white/10`}><Icons.Lock /></div>;
-    return <img src={src} alt={alt} className={`${sizeClass} rounded-full object-cover border border-white/10`} loading="lazy" decoding="async" referrerPolicy="no-referrer" />;
+    if (!src) return <div className={`${sizeClass} rounded-full bg-gray-700 flex items-center justify-center text-gray-400 border border-[var(--overlay-ink)]/10`}><Icons.Lock /></div>;
+    return <img src={src} alt={alt} className={`${sizeClass} rounded-full object-cover border border-[var(--overlay-ink)]/10`} loading="lazy" decoding="async" referrerPolicy="no-referrer" />;
 }
 
 export default function SupportPage() {

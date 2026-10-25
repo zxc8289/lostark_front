@@ -68,7 +68,7 @@ const RewardList = ({ text, cost }: { text: string; cost?: number }) => {
                 return (
                     <div
                         key={idx}
-                        className="flex items-center gap-1.5 bg-[#0F1014] border border-white/10 px-2 py-1.5 rounded-md"
+                        className="flex items-center gap-1.5 bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/10 px-2 py-1.5 rounded-md"
                         title={item.name}
                     >
                         {iconPath && (
@@ -96,7 +96,7 @@ const RewardList = ({ text, cost }: { text: string; cost?: number }) => {
 
             {cost !== undefined && cost > 0 && (
                 <div
-                    className="flex items-center gap-1.5 bg-[#0F1014] border border-[#FF8585]/30 px-2 py-1.5 rounded-md"
+                    className="flex items-center gap-1.5 bg-[var(--surface-0f1014)] border border-[#FF8585]/30 px-2 py-1.5 rounded-md"
                     title="더보기 골드"
                 >
                     <Coins className="w-4 h-4 text-[#FF8585] drop-shadow-md" />
@@ -271,11 +271,10 @@ export default function RaidInfoPage() {
 
 
 
-                <RaidDataStatus raid={act} difficulty={diff} />
                 <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 sm:gap-6 items-start">
                     <div className="space-y-4">
-                        <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 overflow-hidden shadow-sm">
-                            <div className="px-5 py-4 border-b border-white/5">
+                        <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 overflow-hidden shadow-sm">
+                            <div className="px-5 py-4 border-b border-[var(--overlay-ink)]/5">
                                 <h2 className="font-semibold text-white flex items-center gap-2">
                                     <span className="w-1 h-4 bg-indigo-500 rounded-full" />
                                     레이드 설정
@@ -288,14 +287,14 @@ export default function RaidInfoPage() {
                                         카테고리
                                     </label>
 
-                                    <div className="flex flex-col border border-white/5 rounded-lg overflow-hidden">
+                                    <div className="flex flex-col border border-[var(--overlay-ink)]/5 rounded-lg overflow-hidden">
                                         {categories.map((cat) => (
                                             <button
                                                 key={cat}
                                                 onClick={() => handleCategoryChange(cat)}
-                                                className={`flex w-full items-center gap-3 px-4 py-3 transition-colors border-b border-white/5 last:border-b-0 ${category === cat
+                                                className={`flex w-full items-center gap-3 px-4 py-3 transition-colors border-b border-[var(--overlay-ink)]/5 last:border-b-0 ${category === cat
                                                     ? "bg-[#5B69FF]/15 text-white"
-                                                    : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                                                    : "text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-200"
                                                     }`}
                                             >
                                                 <div
@@ -318,14 +317,14 @@ export default function RaidInfoPage() {
                                         난이도
                                     </label>
 
-                                    <div className="grid grid-cols-3 gap-2 p-1 bg-[#121318] rounded-lg border border-white/5">
+                                    <div className="grid grid-cols-3 gap-2 p-1 bg-[var(--surface-121318)] rounded-lg border border-[var(--overlay-ink)]/5">
                                         {availableDiffs.map((d) => (
                                             <button
                                                 key={d}
                                                 onClick={() => setDiff(d)}
                                                 className={`py-2 rounded-md text-sm font-bold transition-all border ${diff === d
                                                     ? DIFF[d].check
-                                                    : `bg-[#1B222D] text-gray-400 border-transparent ${DIFF[d].hover}`
+                                                    : `bg-[var(--surface-1b222d)] text-gray-400 border-transparent ${DIFF[d].hover}`
                                                     }`}
                                             >
                                                 {getDiffLabel(category, d)}
@@ -349,7 +348,7 @@ export default function RaidInfoPage() {
                                                     onClick={() => setAct(a)}
                                                     className={`relative flex items-center justify-center py-2 px-3 text-sm font-bold rounded-lg border transition-all ${isActive
                                                         ? "bg-[#5B69FF]/15 border-[#5B69FF]/30 text-white"
-                                                        : "bg-transparent border-white/5 text-gray-500 hover:bg-white/5 hover:text-gray-300"
+                                                        : "bg-transparent border-[var(--overlay-ink)]/5 text-gray-500 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-300"
                                                         }`}
                                                 >
                                                     <span className="truncate">{a}</span>
@@ -361,7 +360,7 @@ export default function RaidInfoPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                        <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                             <h2 className="text-sm font-bold text-gray-200 mb-3">
                                 빠른 사용법
                             </h2>
@@ -377,7 +376,7 @@ export default function RaidInfoPage() {
                     </div>
 
                     <div className="space-y-4 sm:space-y-5">
-                        <section className="bg-[#16181D] rounded-none sm:rounded-xl border-y sm:border border-white/5 px-5 py-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+                        <section className="bg-[var(--surface-16181d)] rounded-none sm:rounded-xl border-y sm:border border-[var(--overlay-ink)]/5 px-5 py-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
                             <div className="flex items-center gap-3">
                                 <div
                                     className={`px-3 py-2 rounded-lg flex items-center justify-center text-sm font-bold ${DIFF[diff]?.badge}`}
@@ -438,18 +437,18 @@ export default function RaidInfoPage() {
                         </section>
 
                         {rows.length > 0 ? (
-                            <div className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 overflow-hidden shadow-sm">
+                            <div className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 overflow-hidden shadow-sm">
                                 <div className="hidden md:block overflow-x-auto custom-scrollbar">
                                     <table className="w-full text-left border-collapse min-w-[700px]">
                                         <thead>
-                                            <tr className="border-b border-white/10 text-[13px] font-bold text-gray-400 bg-[#121318] uppercase tracking-wider">
-                                                <th className="py-4 px-5 whitespace-nowrap border-r border-white/5 w-[10%] text-center">
+                                            <tr className="border-b border-[var(--overlay-ink)]/10 text-[13px] font-bold text-gray-400 bg-[var(--surface-121318)] uppercase tracking-wider">
+                                                <th className="py-4 px-5 whitespace-nowrap border-r border-[var(--overlay-ink)]/5 w-[10%] text-center">
                                                     관문
                                                 </th>
-                                                <th className="py-4 px-5 whitespace-nowrap border-r border-white/5 w-[45%] text-center text-[#7C88FF]">
+                                                <th className="py-4 px-5 whitespace-nowrap border-r border-[var(--overlay-ink)]/5 w-[45%] text-center text-[#7C88FF]">
                                                     클리어 보상
                                                 </th>
-                                                <th className="py-4 px-5 whitespace-nowrap border-r border-white/5 w-[45%] text-center text-[#7C88FF]">
+                                                <th className="py-4 px-5 whitespace-nowrap border-r border-[var(--overlay-ink)]/5 w-[45%] text-center text-[#7C88FF]">
                                                     더보기 보상
                                                 </th>
                                             </tr>
@@ -459,13 +458,13 @@ export default function RaidInfoPage() {
                                             {rows.map((row) => (
                                                 <tr
                                                     key={row.index}
-                                                    className="transition-colors border-b border-white/5 hover:bg-white/[0.01]"
+                                                    className="transition-colors border-b border-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/[0.01]"
                                                 >
-                                                    <td className="py-5 px-5 font-bold text-gray-200 whitespace-nowrap border-r border-white/5 text-center align-middle">
+                                                    <td className="py-5 px-5 font-bold text-gray-200 whitespace-nowrap border-r border-[var(--overlay-ink)]/5 text-center align-middle">
                                                         {row.name}
                                                     </td>
 
-                                                    <td className="py-5 px-5 align-top border-r border-white/5">
+                                                    <td className="py-5 px-5 align-top border-r border-[var(--overlay-ink)]/5">
                                                         <RewardList text={row.rewards} />
                                                     </td>
 
@@ -478,12 +477,12 @@ export default function RaidInfoPage() {
                                                 </tr>
                                             ))}
 
-                                            <tr className="border-t border-white/5">
-                                                <td className="py-5 px-5 font-bold text-gray-200 whitespace-nowrap border-r border-white/5 text-center align-middle">
+                                            <tr className="border-t border-[var(--overlay-ink)]/5">
+                                                <td className="py-5 px-5 font-bold text-gray-200 whitespace-nowrap border-r border-[var(--overlay-ink)]/5 text-center align-middle">
                                                     총합
                                                 </td>
 
-                                                <td className="py-5 px-5 align-top border-r border-white/5">
+                                                <td className="py-5 px-5 align-top border-r border-[var(--overlay-ink)]/5">
                                                     {aggregatedRewards.clear ? (
                                                         <RewardList text={aggregatedRewards.clear} />
                                                     ) : (
@@ -506,13 +505,13 @@ export default function RaidInfoPage() {
                                     </table>
                                 </div>
 
-                                <div className="md:hidden flex flex-col divide-y divide-white/5">
+                                <div className="md:hidden flex flex-col divide-y divide-[var(--overlay-ink)]/5">
                                     {rows.map((row) => (
                                         <div
                                             key={row.index}
-                                            className="p-4 sm:p-5 space-y-4 hover:bg-white/[0.01] transition-colors"
+                                            className="p-4 sm:p-5 space-y-4 hover:bg-[var(--overlay-ink)]/[0.01] transition-colors"
                                         >
-                                            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                                            <div className="flex items-center justify-between border-b border-[var(--overlay-ink)]/5 pb-3">
                                                 <span className="font-bold text-gray-200 text-base">
                                                     {row.name}
                                                 </span>
@@ -541,8 +540,8 @@ export default function RaidInfoPage() {
                                         </div>
                                     ))}
 
-                                    <div className="p-4 sm:p-5 space-y-4 border-t border-white/5">
-                                        <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                                    <div className="p-4 sm:p-5 space-y-4 border-t border-[var(--overlay-ink)]/5">
+                                        <div className="flex items-center justify-between border-b border-[var(--overlay-ink)]/5 pb-3">
                                             <span className="font-bold text-gray-200 text-base flex items-center gap-2">
                                                 총합
                                             </span>
@@ -582,13 +581,13 @@ export default function RaidInfoPage() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="py-20 text-center text-gray-500 bg-[#16181D] rounded-none sm:rounded-xl border-y sm:border border-dashed border-white/10">
+                            <div className="py-20 text-center text-gray-500 bg-[var(--surface-16181d)] rounded-none sm:rounded-xl border-y sm:border border-dashed border-[var(--overlay-ink)]/10">
                                 해당 난이도의 데이터가 없습니다.
                             </div>
                         )}
 
                         <div className="space-y-4 mt-6">
-                            <section className="rounded-none sm:rounded-xl bg-gradient-to-b from-[#16181D] to-[#121318] border-y sm:border border-white/5 p-5">
+                            <section className="rounded-none sm:rounded-xl bg-gradient-to-b from-[var(--surface-16181d)] to-[var(--surface-121318)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
 
                                 <div className="flex items-center gap-2 mb-3">
                                     <Info className="w-4 h-4 text-indigo-400" />
@@ -620,7 +619,7 @@ export default function RaidInfoPage() {
                             </section>
 
                             <div className="grid gap-3 px-4 sm:px-0 md:grid-cols-3">
-                                <section className="rounded-xl bg-[#16181D] border border-white/5 p-4">
+                                <section className="rounded-xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-4">
                                     <div className="flex items-center gap-2 mb-2 text-gray-200 font-bold">
                                         <ClipboardList className="w-4 h-4 text-[#5B69FF]" />
                                         관문별 보상 확인
@@ -630,7 +629,7 @@ export default function RaidInfoPage() {
                                     </p>
                                 </section>
 
-                                <section className="rounded-xl bg-[#16181D] border border-white/5 p-4">
+                                <section className="rounded-xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-4">
                                     <div className="flex items-center gap-2 mb-2 text-gray-200 font-bold">
                                         <Coins className="w-4 h-4 text-yellow-400" />
                                         골드 정보 비교
@@ -640,7 +639,7 @@ export default function RaidInfoPage() {
                                     </p>
                                 </section>
 
-                                <section className="rounded-xl bg-[#16181D] border border-white/5 p-4">
+                                <section className="rounded-xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-4">
                                     <div className="flex items-center gap-2 mb-2 text-gray-200 font-bold">
                                         <PackageOpen className="w-4 h-4 text-indigo-400" />
                                         총합 보상 정리
@@ -651,7 +650,7 @@ export default function RaidInfoPage() {
                                 </section>
                             </div>
 
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                 <div className="flex items-center gap-2 mb-3">
                                     <ListChecks className="w-4 h-4 text-indigo-400" />
                                     <h2 className="text-sm font-bold text-gray-200">
@@ -687,7 +686,7 @@ export default function RaidInfoPage() {
                                 </div>
                             </section>
 
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                 <h2 className="text-sm font-bold text-gray-200 mb-3">
                                     현재 선택 기준 안내
                                 </h2>
@@ -718,7 +717,7 @@ export default function RaidInfoPage() {
                                 </div>
                             </section>
 
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                 <h2 className="text-sm font-bold text-gray-200 mb-3">
                                     클리어 보상과 더보기 보상의 차이
                                 </h2>
@@ -736,7 +735,7 @@ export default function RaidInfoPage() {
                                         현재 시세 기준으로는 손해가 될 수도 있으므로 비용과 보상 구성을 함께 비교하는 것이 좋습니다.
                                     </p>
 
-                                    <div className="rounded-lg bg-[#0F1014] border border-white/5 p-4 space-y-2">
+                                    <div className="rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/5 p-4 space-y-2">
                                         <p className="text-gray-300 font-semibold">간단한 판단 흐름</p>
                                         <p>1. 먼저 클리어 보상으로 기본 획득 재료를 확인합니다.</p>
                                         <p>2. 더보기 보상에서 추가로 얻는 재료를 확인합니다.</p>
@@ -746,7 +745,7 @@ export default function RaidInfoPage() {
                                 </div>
                             </section>
 
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                 <h2 className="text-sm font-bold text-gray-200 mb-3">
                                     보상표 활용 예시
                                 </h2>
@@ -772,7 +771,7 @@ export default function RaidInfoPage() {
                                 </div>
                             </section>
 
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                 <div className="flex items-center gap-2 mb-3">
                                     <AlertTriangle className="w-4 h-4 text-amber-400" />
                                     <h2 className="text-sm font-bold text-gray-200">
@@ -801,7 +800,7 @@ export default function RaidInfoPage() {
                                 </div>
                             </section>
 
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                 <div className="flex items-center gap-2 mb-4">
                                     <HelpCircle className="w-4 h-4 text-indigo-400" />
                                     <h2 className="text-sm font-bold text-gray-200">
@@ -842,7 +841,7 @@ export default function RaidInfoPage() {
                                     ].map((item) => (
                                         <details
                                             key={item.q}
-                                            className="group rounded-xl border border-white/5 bg-[#0F1014] px-4 py-3"
+                                            className="group rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] px-4 py-3"
                                         >
                                             <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer">
                                                 <span className="text-sm font-semibold text-gray-200">
@@ -850,7 +849,7 @@ export default function RaidInfoPage() {
                                                 </span>
                                             </summary>
 
-                                            <div className="pt-3 mt-3 border-t border-white/5 text-sm text-gray-400 leading-relaxed break-keep">
+                                            <div className="pt-3 mt-3 border-t border-[var(--overlay-ink)]/5 text-sm text-gray-400 leading-relaxed break-keep">
                                                 {item.a}
                                             </div>
                                         </details>
@@ -858,6 +857,7 @@ export default function RaidInfoPage() {
                                 </div>
                             </section>
                             <ToolMethodNote tool="raid" className="" />
+                            <RaidDataStatus raid={act} difficulty={diff} />
                         </div>
                     </div>
                 </div>

@@ -213,9 +213,9 @@ export default function CharacterSettingModal({
                 onClick={onClose}
             />
 
-            <div className="relative w-full max-w-[min(800px,92vw)] flex flex-col rounded-xl bg-[#16181D] shadow-2xl border border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative w-full max-w-[min(800px,92vw)] flex flex-col rounded-xl bg-[var(--surface-16181d)] shadow-2xl border border-[var(--overlay-ink)]/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
-                <header className="px-5 py-5 sm:px-8 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#16181D]">
+                <header className="px-5 py-5 sm:px-8 border-b border-[var(--overlay-ink)]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[var(--surface-16181d)]">
                     <div>
                         <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight mb-1">
                             캐릭터 관리
@@ -234,10 +234,10 @@ export default function CharacterSettingModal({
                         onClick={handleRefreshClick}
                         disabled={isRefreshing}
                         className={`
-                                flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-white/10 text-xs transition-colors whitespace-nowrap
+                                flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-[var(--overlay-ink)]/10 text-xs transition-colors whitespace-nowrap
                                 ${isRefreshing
-                                ? "bg-white/5 text-gray-500 cursor-not-allowed"
-                                : "bg-white/5 hover:bg-white/10 text-gray-300"
+                                ? "bg-[var(--overlay-ink)]/5 text-gray-500 cursor-not-allowed"
+                                : "bg-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 text-gray-300"
                             }
                             `}
                     >
@@ -255,7 +255,7 @@ export default function CharacterSettingModal({
                 </header>
 
                 {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto max-h-[55vh] p-4 sm:max-h-[65vh] sm:p-5 bg-[#121418] custom-scrollbar relative">
+                <div className="flex-1 overflow-y-auto max-h-[55vh] p-4 sm:max-h-[65vh] sm:p-5 bg-[var(--surface-121418)] custom-scrollbar relative">
 
                     {/* 🔥 6캐릭 제한 알림 배너 (불투명하게 처리) */}
                     {alertMessage && (
@@ -268,19 +268,19 @@ export default function CharacterSettingModal({
                     <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
                         <button
                             onClick={() => handleAutoSelect("top6")}
-                            className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
+                            className="px-3 py-1.5 rounded-full bg-[var(--overlay-ink)]/5 border border-[var(--overlay-ink)]/10 text-gray-400 text-xs hover:bg-[var(--overlay-ink)]/10 hover:text-white transition-colors whitespace-nowrap"
                         >
                             <span className="sm:inline">상위 6캐릭 세팅</span>
                         </button>
                         <button
                             onClick={() => handleAutoSelect("all")}
-                            className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
+                            className="px-3 py-1.5 rounded-full bg-[var(--overlay-ink)]/5 border border-[var(--overlay-ink)]/10 text-gray-400 text-xs hover:bg-[var(--overlay-ink)]/10 hover:text-white transition-colors whitespace-nowrap"
                         >
                             <span className="sm:inline">모두 표시</span>
                         </button>
                         <button
                             onClick={() => handleAutoSelect("none")}
-                            className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
+                            className="px-3 py-1.5 rounded-full bg-[var(--overlay-ink)]/5 border border-[var(--overlay-ink)]/10 text-gray-400 text-xs hover:bg-[var(--overlay-ink)]/10 hover:text-white transition-colors whitespace-nowrap"
                         >
                             <span className="sm:inline">전체 해제</span>
                         </button>
@@ -294,8 +294,8 @@ export default function CharacterSettingModal({
                                 className={`
                                         flex flex-col p-3 sm:p-4 rounded-xl transition-all duration-200 border cursor-pointer select-none
                                         ${char.isVisible
-                                        ? "bg-[#1E222B] border-white/10 shadow-lg shadow-black/20"
-                                        : "bg-[#16181D] border-white/5 opacity-50 grayscale hover:bg-[#1a1c23]"
+                                        ? "bg-[var(--surface-1e222b)] border-[var(--overlay-ink)]/10 shadow-lg shadow-black/20"
+                                        : "bg-[var(--surface-16181d)] border-[var(--overlay-ink)]/5 opacity-50 grayscale hover:bg-[var(--surface-1a1c23)]"
                                     }
                                     `}
                             >
@@ -309,7 +309,7 @@ export default function CharacterSettingModal({
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-1.5 mt-auto pt-3 border-t border-white/5">
+                                <div className="grid grid-cols-3 gap-1.5 mt-auto pt-3 border-t border-[var(--overlay-ink)]/5">
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation(); // 카드 클릭(표시 토글) 방지
@@ -317,7 +317,7 @@ export default function CharacterSettingModal({
                                         }}
                                         className={`flex flex-col items-center justify-center py-2 rounded-lg transition-colors border ${char.isGoldEarn
                                             ? "bg-yellow-600 border-yellow-600 text-white shadow-[0_0_10px_rgba(234,179,8,0.3)]" // 🔥 노란색(골드) 스타일
-                                            : "bg-black/20 border-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300"
+                                            : "bg-black/20 border-[var(--overlay-ink)]/5 text-gray-500 hover:bg-[var(--overlay-ink)]/10 hover:text-gray-300"
                                             }`}
                                     >
                                         <Coins size={16} className="mb-1" strokeWidth={2.5} />
@@ -331,7 +331,7 @@ export default function CharacterSettingModal({
                                         }}
                                         className={`flex flex-col items-center justify-center py-2 rounded-lg transition-colors border ${char.isVisible
                                             ? "bg-[#5B69FF] border-[#5B69FF] text-white shadow-[0_0_10px_rgba(91,105,255,0.2)]"
-                                            : "bg-black/20 border-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300"
+                                            : "bg-black/20 border-[var(--overlay-ink)]/5 text-gray-500 hover:bg-[var(--overlay-ink)]/10 hover:text-gray-300"
                                             }`}
                                     >
                                         {char.isVisible ? <Eye size={16} className="mb-1" /> : <EyeOff size={16} className="mb-1" />}
@@ -343,7 +343,7 @@ export default function CharacterSettingModal({
                                         onClick={(e) => { e.stopPropagation(); togglePowerLock(index); }}
                                         className={`flex flex-col items-center justify-center py-2 rounded-lg transition-colors border ${char.isPowerLocked
                                             ? "bg-[#F1F5F9] border-[#F1F5F9] text-[#111217] shadow-[0_0_10px_rgba(241,245,249,0.2)]" // 🔥 밝은 화이트/메탈 스타일
-                                            : "bg-black/20 border-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300"
+                                            : "bg-black/20 border-[var(--overlay-ink)]/5 text-gray-500 hover:bg-[var(--overlay-ink)]/10 hover:text-gray-300"
                                             }`}
                                     >
                                         {char.isPowerLocked ? <Lock size={14} className="mb-1" /> : <Unlock size={14} className="mb-1" />}
@@ -356,7 +356,7 @@ export default function CharacterSettingModal({
                 </div>
 
                 {/* Footer */}
-                <footer className="px-5 py-4 sm:px-8 bg-[#16181D] border-t border-white/10 flex flex-col gap-3">
+                <footer className="px-5 py-4 sm:px-8 bg-[var(--surface-16181d)] border-t border-[var(--overlay-ink)]/10 flex flex-col gap-3">
                     {refreshError && (
                         <div className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-200 text-xs sm:text-sm animate-in slide-in-from-bottom-1 fade-in">
                             <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
@@ -368,7 +368,7 @@ export default function CharacterSettingModal({
                         <div className="flex gap-2 w-full sm:w-auto">
                             <button
                                 onClick={onClose}
-                                className="flex-1 sm:flex-none px-4 h-10 rounded-lg border border-white/10 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                                className="flex-1 sm:flex-none px-4 h-10 rounded-lg border border-[var(--overlay-ink)]/10 text-sm font-medium text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/5 transition-colors"
                             >
                                 취소
                             </button>

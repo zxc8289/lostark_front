@@ -19,6 +19,7 @@ import { useState, useRef, useEffect } from "react";
 import { readPrefs } from "../lib/tasks/raid-prefs";
 import { computeRaidSummaryForRoster } from "../lib/tasks/raid-utils";
 import { Loader2, TrashIcon } from "lucide-react";
+import ThemeToggle from "./ThemeToggle";
 
 /* ✨ 타입 정의 수정 (알림 타입 세분화) */
 type AlertItem = {
@@ -436,12 +437,13 @@ export default function Nav() {
 
     return (
         <>
-            <nav className="fixed top-0 left-0 right-0 z-50 w-full h-20 bg-[#1B1D22]/95 backdrop-blur-sm border-b border-[#5C5C5C]">
+            <nav className="fixed top-0 left-0 right-0 z-50 w-full h-20 bg-[var(--surface-1b1d22)]/95 backdrop-blur-sm border-b border-[var(--surface-5c5c5c)]">
                 <div className="mx-auto max-w-7xl h-full flex items-center justify-between px-4 sm:px-6">
 
                     <div className="flex items-center gap-6 h-full">
                         <Link href="/" aria-label="로아체크 홈" className="block shrink-0 rounded-md transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8D98FF]">
-                            <Image src="/brand/loacheck-logo.svg" alt="LOACHECK" width={228} height={48} priority className="h-auto w-[166px] md:w-[184px]" />
+                            <Image src="/brand/loacheck-logo.svg" alt="LOACHECK" width={228} height={48} priority className="logo-dark h-auto w-[136px] sm:w-[166px] md:w-[184px]" />
+                            <Image src="/brand/loacheck-logo-light.svg" alt="" aria-hidden="true" width={228} height={48} className="logo-light h-auto w-[136px] sm:w-[166px] md:w-[184px]" />
                         </Link>
 
                         {/* 데스크탑 메뉴 */}
@@ -452,16 +454,16 @@ export default function Nav() {
                                     const isOpen = openDropdownIdx === idx;
                                     return (
                                         <li key={it.label} className="relative desktop-dropdown flex items-center h-full" onMouseEnter={() => setOpenDropdownIdx(idx)} onMouseLeave={() => setOpenDropdownIdx(null)}>
-                                            <Link href={it.href!} onClick={() => setOpenDropdownIdx(isOpen ? null : idx)} className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm transition-all ${isAnySubActive ? "text-white font-bold bg-white/5" : "text-gray-400 hover:text-gray-200 hover:bg-white/5"}`}>
+                                            <Link href={it.href!} onClick={() => setOpenDropdownIdx(isOpen ? null : idx)} className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm transition-all ${isAnySubActive ? "text-white font-bold bg-[var(--overlay-ink)]/5" : "text-gray-400 hover:text-gray-200 hover:bg-[var(--overlay-ink)]/5"}`}>
                                                 {it.label}
                                             </Link>
                                             {isOpen && (
                                                 <div className="absolute top-[80%] pt-2 left-0 w-40 z-50">
-                                                    <div className="bg-[#25272e] border border-white/10 rounded-lg shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                                                    <div className="bg-[var(--surface-25272e)] border border-[var(--overlay-ink)]/10 rounded-lg shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
                                                         <ul className="flex flex-col">
                                                             {it.subItems.map(sub => (
                                                                 <li key={sub.href}>
-                                                                    <Link href={sub.href} onClick={() => setOpenDropdownIdx(null)} className={`block px-4 py-2.5 text-sm transition-colors ${pathname === sub.href ? "text-white bg-[#5B69FF]/20 font-bold" : "text-gray-400 hover:text-white hover:bg-white/5"}`}>
+                                                                    <Link href={sub.href} onClick={() => setOpenDropdownIdx(null)} className={`block px-4 py-2.5 text-sm transition-colors ${pathname === sub.href ? "text-white bg-[#5B69FF]/20 font-bold" : "text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/5"}`}>
                                                                         {sub.label}
                                                                     </Link>
                                                                 </li>
@@ -476,7 +478,7 @@ export default function Nav() {
                                 const active = it.href && (pathname === it.href || (it.href !== "/" && pathname.startsWith(it.href)));
                                 return (
                                     <li key={it.href} className="flex items-center h-full">
-                                        <Link href={it.href!} className={`px-3 py-2 rounded-md text-sm transition-all ${active ? "text-white font-bold bg-white/5" : "text-gray-400 hover:text-gray-200 hover:bg-white/5"}`}>
+                                        <Link href={it.href!} className={`px-3 py-2 rounded-md text-sm transition-all ${active ? "text-white font-bold bg-[var(--overlay-ink)]/5" : "text-gray-400 hover:text-gray-200 hover:bg-[var(--overlay-ink)]/5"}`}>
                                             {it.label}
                                         </Link>
                                     </li>
@@ -486,31 +488,32 @@ export default function Nav() {
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-5">
+                        <ThemeToggle />
                         <div className="relative" ref={notiRef}>
-                            <button onClick={handleBellClick} className="relative p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
+                            <button onClick={handleBellClick} className="relative p-2 text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/10 rounded-full transition-colors">
                                 <BellIcon className="w-6 h-6" />
-                                {hasAnyAlert && isNotiEnabled && <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-[#1B1D22]"></span>}
+                                {hasAnyAlert && isNotiEnabled && <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-[var(--surface-1b1d22)]"></span>}
                             </button>
 
                             {isNotiOpen && (
-                                <div className="absolute mt-3 w-80 sm:w-96 bg-[#25272e] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right right-[-80px] sm:right-0">
-                                    <div className="flex items-center bg-[#2c2f36] border-b border-white/5 relative">
-                                        <button onClick={() => setActiveTab("notice")} className={`flex-1 py-3 text-sm font-bold text-center transition-all ${activeTab === "notice" ? "text-white border-b-2 border-[#5B69FF] bg-white/5" : "text-gray-400 hover:text-gray-200 hover:bg-white/5"}`}>
+                                <div className="absolute mt-3 w-80 sm:w-96 bg-[var(--surface-25272e)] border border-[var(--overlay-ink)]/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right right-[-80px] sm:right-0">
+                                    <div className="flex items-center bg-[var(--surface-2c2f36)] border-b border-[var(--overlay-ink)]/5 relative">
+                                        <button onClick={() => setActiveTab("notice")} className={`flex-1 py-3 text-sm font-bold text-center transition-all ${activeTab === "notice" ? "text-white border-b-2 border-[#5B69FF] bg-[var(--overlay-ink)]/5" : "text-gray-400 hover:text-gray-200 hover:bg-[var(--overlay-ink)]/5"}`}>
                                             공지사항 {hasNewUpdates && <span className="ml-1.5 w-1.5 h-1.5 inline-block bg-red-500 rounded-full align-middle mb-0.5"></span>}
                                         </button>
-                                        <button onClick={() => setActiveTab("alert")} className={`flex-1 py-3 text-sm font-bold text-center transition-all ${activeTab === "alert" ? "text-white border-b-2 border-[#5B69FF] bg-white/5" : "text-gray-400 hover:text-gray-200 hover:bg-white/5"}`}>
+                                        <button onClick={() => setActiveTab("alert")} className={`flex-1 py-3 text-sm font-bold text-center transition-all ${activeTab === "alert" ? "text-white border-b-2 border-[#5B69FF] bg-[var(--overlay-ink)]/5" : "text-gray-400 hover:text-gray-200 hover:bg-[var(--overlay-ink)]/5"}`}>
                                             내 알림 {alerts.length > 0 && isNotiEnabled && (<span className="ml-1.5 px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full align-middle">{alerts.length}</span>)}
                                         </button>
                                         <button onClick={() => setIsNotiOpen(false)} className="absolute right-3 text-gray-400 hover:text-white p-1"><XMarkIcon className="w-4 h-4" /></button>
                                     </div>
-                                    <div className="max-h-[400px] overflow-y-auto custom-scrollbar bg-[#25272e]">
+                                    <div className="max-h-[400px] overflow-y-auto custom-scrollbar bg-[var(--surface-25272e)]">
                                         {activeTab === "notice" ? (
                                             dbNotices.length > 0 ? (
-                                                <ul className="divide-y divide-white/5">
+                                                <ul className="divide-y divide-[var(--overlay-ink)]/5">
                                                     {dbNotices.slice(0, 5).map((log) => (
                                                         <li key={log.id} className="group">
                                                             {/* ✨ Link 태그를 적용하여 클릭 시 페이지 이동 */}
-                                                            <Link href={log.link} onClick={() => setIsNotiOpen(false)} className="block px-4 py-4 hover:bg-white/5 transition-colors">
+                                                            <Link href={log.link} onClick={() => setIsNotiOpen(false)} className="block px-4 py-4 hover:bg-[var(--overlay-ink)]/5 transition-colors">
                                                                 <div className="flex items-center gap-2 mb-1">
                                                                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${log.type === 'New' ? 'bg-emerald-500/20 text-emerald-400' : log.type === 'Fix' ? 'bg-red-500/20 text-red-400' : log.type === 'Update' ? 'bg-blue-500/20 text-blue-400' : 'bg-[#5B69FF]/20 text-[#5B69FF]'}`}>{log.type}</span>
                                                                     <span className="text-xs text-gray-500">{log.date}</span>
@@ -526,9 +529,9 @@ export default function Nav() {
                                             !isNotiEnabled ? (
                                                 <div className="flex flex-col items-center justify-center h-[150px] text-gray-500"><BellIcon className="w-8 h-8 mb-2 opacity-20" /><span className="text-sm font-medium text-gray-400">알림 설정이 꺼져있습니다.</span></div>
                                             ) : alerts.length > 0 ? (
-                                                <ul className="divide-y divide-white/5">
+                                                <ul className="divide-y divide-[var(--overlay-ink)]/5">
                                                     {alerts.map((alert, idx) => (
-                                                        <li key={idx} className="px-4 py-3 hover:bg-white/5 transition-colors group cursor-default">
+                                                        <li key={idx} className="px-4 py-3 hover:bg-[var(--overlay-ink)]/5 transition-colors group cursor-default">
                                                             <div className="flex items-start gap-3">
                                                                 <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${alert.type === 'raid' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-400'}`}>
                                                                     {alert.type === 'raid' ? <BellIcon className="w-4 h-4" /> : <ChatBubbleLeftEllipsisIcon className="w-4 h-4" />}
@@ -562,7 +565,7 @@ export default function Nav() {
                             )}
                         </div>
 
-                        <div className="h-6 w-px bg-white/10 hidden sm:block"></div>
+                        <div className="h-6 w-px bg-[var(--overlay-ink)]/10 hidden sm:block"></div>
 
                         {/* 프로필 영역 유지 */}
                         <div className="relative" ref={profileRef}>
@@ -570,17 +573,17 @@ export default function Nav() {
                                 <div className="w-24 md:w-32 h-8 bg-gray-800 rounded-full animate-pulse" />
                             ) : session?.user ? (
                                 <>
-                                    <button onClick={handleProfileClick} className={`flex items-center gap-2 rounded-full p-1 transition-all group pr-3 ${isProfileOpen ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-                                        {session.user.image && <Image src={session.user.image} alt={session.user.name ?? "User"} width={32} height={32} className="w-8 h-8 rounded-full border border-white/10" />}
+                                    <button onClick={handleProfileClick} className={`flex items-center gap-2 rounded-full p-1 transition-all group pr-3 ${isProfileOpen ? 'bg-[var(--overlay-ink)]/10' : 'hover:bg-[var(--overlay-ink)]/5'}`}>
+                                        {session.user.image && <Image src={session.user.image} alt={session.user.name ?? "User"} width={32} height={32} className="w-8 h-8 rounded-full border border-[var(--overlay-ink)]/10" />}
                                         <div className="flex flex-col items-start"><span className="hidden sm:block text-sm font-medium text-gray-200 group-hover:text-white">{session.user.name}</span></div>
                                         <ChevronDownIcon className={`w-3 h-3 text-gray-500 group-hover:text-gray-300 ml-1 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
                                     </button>
 
                                     {isProfileOpen && (
-                                        <div className="absolute top-full right-0 mt-3 w-64 bg-[#25272e] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right z-50">
-                                            <div className="p-4 flex items-center gap-3 border-b border-white/5 bg-[#2c2f36]">
+                                        <div className="absolute top-full right-0 mt-3 w-64 bg-[var(--surface-25272e)] border border-[var(--overlay-ink)]/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right z-50">
+                                            <div className="p-4 flex items-center gap-3 border-b border-[var(--overlay-ink)]/5 bg-[var(--surface-2c2f36)]">
                                                 {session.user.image ? (
-                                                    <Image src={session.user.image} alt="Profile" width={40} height={40} className="rounded-full border border-white/10 shrink-0" />
+                                                    <Image src={session.user.image} alt="Profile" width={40} height={40} className="rounded-full border border-[var(--overlay-ink)]/10 shrink-0" />
                                                 ) : (
                                                     <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-white font-bold shrink-0">{session.user.name?.charAt(0)}</div>
                                                 )}
@@ -589,15 +592,15 @@ export default function Nav() {
                                                     {!isEditingNickname ? (
                                                         <div className="flex items-center gap-1.5 group/edit h-5">
                                                             <span className="text-sm font-bold text-white truncate max-w-[120px]" title={session.user.name ?? ""}>{session.user.name}</span>
-                                                            <button onClick={startEditing} className="text-gray-500 hover:text-[#5B69FF] transition-colors p-0.5 rounded hover:bg-white/5">
+                                                            <button onClick={startEditing} className="text-gray-500 hover:text-[#5B69FF] transition-colors p-0.5 rounded hover:bg-[var(--overlay-ink)]/5">
                                                                 <PencilSquareIcon className="w-3 h-3" />
                                                             </button>
                                                         </div>
                                                     ) : (
                                                         <div className="flex items-center gap-1 w-full animate-in fade-in duration-200 h-6 mb-1">
-                                                            <input type="text" value={editedNickname} onChange={(e) => setEditedNickname(e.target.value)} className="flex-1 min-w-0 bg-[#16181D] border border-white/20 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none focus:border-[#5B69FF]" autoFocus onKeyDown={(e) => e.key === 'Enter' && saveNickname()} />
-                                                            <button onClick={saveNickname} disabled={isSavingNickname} className="text-emerald-500 hover:text-emerald-400 p-0.5 rounded hover:bg-white/5"><CheckIcon className="w-4 h-4" /></button>
-                                                            <button onClick={() => setIsEditingNickname(false)} className="text-red-500 hover:text-red-400 p-0.5 rounded hover:bg-white/5"><XMarkIcon className="w-4 h-4" /></button>
+                                                            <input type="text" value={editedNickname} onChange={(e) => setEditedNickname(e.target.value)} className="flex-1 min-w-0 bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/20 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none focus:border-[#5B69FF]" autoFocus onKeyDown={(e) => e.key === 'Enter' && saveNickname()} />
+                                                            <button onClick={saveNickname} disabled={isSavingNickname} className="text-emerald-500 hover:text-emerald-400 p-0.5 rounded hover:bg-[var(--overlay-ink)]/5"><CheckIcon className="w-4 h-4" /></button>
+                                                            <button onClick={() => setIsEditingNickname(false)} className="text-red-500 hover:text-red-400 p-0.5 rounded hover:bg-[var(--overlay-ink)]/5"><XMarkIcon className="w-4 h-4" /></button>
                                                         </div>
                                                     )}
                                                     <div className="h-4 flex items-center mt-0.5">
@@ -611,7 +614,7 @@ export default function Nav() {
                                             </div>
 
                                             <div className="p-2 space-y-1">
-                                                <div className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors select-none cursor-pointer" onClick={toggleNotification}>
+                                                <div className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-[var(--overlay-ink)]/5 transition-colors select-none cursor-pointer" onClick={toggleNotification}>
                                                     <div className="flex flex-col">
                                                         <span className="text-xs font-medium text-gray-300">내 알림</span>
                                                         <span className="text-[10px] text-gray-500">숙제, 답변 및 관리자 알림 받기</span>
@@ -620,7 +623,7 @@ export default function Nav() {
                                                         <span aria-hidden="true" className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isNotiEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors select-none cursor-pointer" onClick={toggleEditAuth}>
+                                                <div className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-[var(--overlay-ink)]/5 transition-colors select-none cursor-pointer" onClick={toggleEditAuth}>
                                                     <div className="flex flex-col">
                                                         <span className="text-xs font-medium text-gray-300">숙제 수정 권한</span>
                                                         <span className="text-[10px] text-gray-500">다른 사람의 숙제 수정 허용</span>
@@ -629,7 +632,7 @@ export default function Nav() {
                                                         <span aria-hidden="true" className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isEditAuthEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
                                                     </div>
                                                 </div>
-                                                <div className="h-px bg-white/5 my-1 mx-2" />
+                                                <div className="h-px bg-[var(--overlay-ink)]/5 my-1 mx-2" />
                                                 <div className="p-2">
                                                     <button onClick={() => signOut({ callbackUrl: "/" })} className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-medium text-gray-500 hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-colors">
                                                         <ArrowLeftStartOnRectangleIcon className="w-4 h-4" /> 로그아웃
@@ -649,14 +652,14 @@ export default function Nav() {
                             )}
                         </div>
 
-                        <button className="md:hidden p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors" onClick={handleMobileMenuClick}>
+                        <button className="md:hidden p-2 text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/10 rounded-md transition-colors" onClick={handleMobileMenuClick}>
                             {isMobileMenuOpen ? <XMarkIcon className="w-6 h-6" /> : <Bars3Icon className="w-6 h-6" />}
                         </button>
                     </div>
                 </div>
 
                 {isMobileMenuOpen && (
-                    <div ref={mobileMenuRef} className="md:hidden absolute top-20 left-0 w-full bg-[#1B1D22] border-b border-[#5C5C5C] shadow-2xl animate-in slide-in-from-top-2 duration-200 z-40 max-h-[80vh] overflow-y-auto custom-scrollbar">
+                    <div ref={mobileMenuRef} className="md:hidden absolute top-20 left-0 w-full bg-[var(--surface-1b1d22)] border-b border-[var(--surface-5c5c5c)] shadow-2xl animate-in slide-in-from-top-2 duration-200 z-40 max-h-[80vh] overflow-y-auto custom-scrollbar">
                         <ul className="flex flex-col px-4 py-4 space-y-1">
                             {items.map((it, idx) => {
                                 if (it.subItems) {
@@ -664,9 +667,9 @@ export default function Nav() {
                                     const isOpen = openDropdownIdx === idx;
                                     return (
                                         <li key={it.label} className="flex flex-col">
-                                            <div className={`flex items-center justify-between rounded-xl transition-all ${isAnySubActive ? "text-white bg-[#5B69FF]/10 border border-[#5B69FF]/20" : "text-gray-400 hover:text-white hover:bg-white/5"}`}>
+                                            <div className={`flex items-center justify-between rounded-xl transition-all ${isAnySubActive ? "text-white bg-[#5B69FF]/10 border border-[#5B69FF]/20" : "text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/5"}`}>
                                                 <Link href={it.href!} className="flex-1 px-4 py-3 font-medium">{it.label}</Link>
-                                                <button onClick={(e) => { e.preventDefault(); setOpenDropdownIdx(isOpen ? null : idx); }} className="px-4 py-3 h-full flex items-center justify-center border-l border-white/5">
+                                                <button onClick={(e) => { e.preventDefault(); setOpenDropdownIdx(isOpen ? null : idx); }} className="px-4 py-3 h-full flex items-center justify-center border-l border-[var(--overlay-ink)]/5">
                                                     <ChevronDownIcon className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                                                 </button>
                                             </div>
@@ -687,7 +690,7 @@ export default function Nav() {
                                 const active = it.href && (pathname === it.href || (it.href !== "/" && pathname.startsWith(it.href)));
                                 return (
                                     <li key={it.href}>
-                                        <Link href={it.href!} className={`block px-4 py-3 rounded-xl text-base font-medium transition-all ${active ? "text-white bg-[#5B69FF]/10 border border-[#5B69FF]/20" : "text-gray-400 hover:text-white hover:bg-white/5"}`}>
+                                        <Link href={it.href!} className={`block px-4 py-3 rounded-xl text-base font-medium transition-all ${active ? "text-white bg-[#5B69FF]/10 border border-[#5B69FF]/20" : "text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/5"}`}>
                                             {it.label}
                                         </Link>
                                     </li>

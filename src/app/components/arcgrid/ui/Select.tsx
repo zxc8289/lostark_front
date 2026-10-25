@@ -86,7 +86,7 @@ export default function Select({
                 type="button"
                 className={clsx(
                     'w-full text-left rounded-md px-3 pr-9 py-1.5 text-sm',
-                    'bg-[#22272e] border border-[#444c56] text-gray-300',
+                    'bg-[var(--surface-22272e)] border border-[var(--surface-444c56)] text-gray-300',
                     'outline-none focus:outline-none ring-0 focus:ring-0',
                     'disabled:opacity-60 disabled:cursor-not-allowed'
                 )}
@@ -113,7 +113,7 @@ export default function Select({
                     onKeyDown={onListKey}
                     className={clsx(
                         'absolute z-[1000] mt-1 w-full max-h-56 overflow-auto',
-                        'rounded-md border border-[#444c56] bg-[#1f242b] shadow-xl',
+                        'rounded-md border border-[var(--surface-444c56)] bg-[var(--surface-1f242b)] shadow-xl',
                         menuClassName
                     )}
                 >
@@ -129,7 +129,7 @@ export default function Select({
                                 className={clsx(
                                     'px-3 py-2 text-sm cursor-pointer select-none',
                                     isActive ? 'bg-[#2b6de0] text-white' : 'text-gray-200',
-                                    isSelected && !isActive && 'bg-[#2a3139]'
+                                    isSelected && !isActive && 'bg-[var(--surface-2a3139)]'
                                 )}
                                 onMouseEnter={() => setActive(i)}
                                 onMouseDown={(e) => { e.preventDefault(); }}

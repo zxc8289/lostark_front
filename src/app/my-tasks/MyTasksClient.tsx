@@ -1051,7 +1051,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
             </div>
           </div>
 
-          <div className="flex items-center justify-between px-4 sm:px-0 mb-4 border-b border-white/5 sm:border-transparent">
+          <div className="flex items-center justify-between px-4 sm:px-0 mb-4 border-b border-[var(--overlay-ink)]/5 sm:border-transparent">
             <div className="flex gap-6">
               <button
                 onClick={() => setActiveTab("weekly")}
@@ -1082,8 +1082,8 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
             {/* 사이드바 영역 */}
             <div className="flex flex-col gap-4 w-full xl:w-[220px] shrink-0 min-[1760px]:absolute min-[1760px]:top-0 min-[1760px]:-left-[240px] z-10">
               {usingDemo && (
-                <section className="overflow-hidden rounded-none sm:rounded-lg bg-[#16181D] border border-white/5">
-                  <div className="flex items-center gap-2 px-4 py-3 bg-white/5 border-b border-white/5">
+                <section className="overflow-hidden rounded-none sm:rounded-lg bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5">
+                  <div className="flex items-center gap-2 px-4 py-3 bg-[var(--overlay-ink)]/5 border-b border-[var(--overlay-ink)]/5">
                     <div className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#5B69FF] opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-[#5B69FF]"></span>
@@ -1138,15 +1138,15 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
               </div>
               {usingDemo && activeTab === "weekly" && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 ">
-                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-[var(--overlay-ink)]/[0.03] border border-[var(--overlay-ink)]/5">
                     <div className="font-semibold text-sm text-[#5B69FF] flex items-center gap-1.5">1. 캐릭터 연동</div>
                     <div className="text-[12px] text-gray-400 break-keep">내 계정 불러오기를 통해 대표 캐릭터 닉네임을 입력하고 원정대 정보를 한 번에 가져오세요.</div>
                   </div>
-                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-[var(--overlay-ink)]/[0.03] border border-[var(--overlay-ink)]/5">
                     <div className="font-semibold text-sm text-[#5B69FF] flex items-center gap-1.5">2. 편리한 세팅</div>
                     <div className="text-[12px] text-gray-400 break-keep">자동 세팅으로 주력 캐릭터의 레이드를 구성하고, 클릭 한 번으로 관문 클리어 여부와 골드를 체크하세요.</div>
                   </div>
-                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div className="flex flex-col gap-2 p-4 rounded-xl bg-[var(--overlay-ink)]/[0.03] border border-[var(--overlay-ink)]/5">
                     <div className="font-semibold text-sm text-[#5B69FF] flex items-center gap-1.5">3. 데이터 저장 및 동기화</div>
                     <div className="text-[12px] text-gray-400 break-keep">비로그인 시에는 내 PC(웹)에 자동 저장되며, 로그인 시 클라우드에 안전하게 저장되어 어디서든 연동됩니다.</div>
                   </div>
@@ -1154,7 +1154,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
               )}
 
               {!showInitialLoading && !hasRealRoster && (
-                <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <section className="rounded-2xl border border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/[0.03] p-5">
                   <div className="flex flex-col gap-2">
                     <h2 className="text-base sm:text-lg font-semibold text-white">
                       내 숙제 관리란?
@@ -1167,7 +1167,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-xl bg-black/20 p-4 border border-white/5">
+                    <div className="rounded-xl bg-black/20 p-4 border border-[var(--overlay-ink)]/5">
                       <h3 className="text-sm font-semibold text-white">
                         주간 레이드 관리
                       </h3>
@@ -1176,7 +1176,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
                       </p>
                     </div>
 
-                    <div className="rounded-xl bg-black/20 p-4 border border-white/5">
+                    <div className="rounded-xl bg-black/20 p-4 border border-[var(--overlay-ink)]/5">
                       <h3 className="text-sm font-semibold text-white">
                         일일 숙제 체크
                       </h3>
@@ -1185,7 +1185,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
                       </p>
                     </div>
 
-                    <div className="rounded-xl bg-black/20 p-4 border border-white/5">
+                    <div className="rounded-xl bg-black/20 p-4 border border-[var(--overlay-ink)]/5">
                       <h3 className="text-sm font-semibold text-white">
                         휴식게이지 반영
                       </h3>
@@ -1198,10 +1198,10 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
               )}
 
               {showEmptyState && (
-                <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 rounded-none sm:rounded-2xl animate-in fade-in zoom-in-95 duration-500">
+                <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[var(--surface-16181d)] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-[var(--overlay-ink)]/10 rounded-none sm:rounded-2xl animate-in fade-in zoom-in-95 duration-500">
                   <div className="relative mb-6">
                     <div className="absolute inset-0 bg-[#5B69FF] blur-[40px] opacity-20 rounded-full" />
-                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[#1E222B] rounded-full flex items-center justify-center border border-white/10">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-[var(--surface-1e222b)] rounded-full flex items-center justify-center border border-[var(--overlay-ink)]/10">
                       <span className="text-sm sm:text-base font-semibold text-[#5B69FF]">LOA</span>
                     </div>
                   </div>
@@ -1218,14 +1218,14 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
                       value={searchInput}
                       onChange={(e) => setSearchInput(e.target.value)}
                       disabled={loading}
-                      className="w-full h-11 sm:h-12 pl-4 pr-11 sm:pr-12 rounded-lg bg-[#0F1115] border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
+                      className="w-full h-11 sm:h-12 pl-4 pr-11 sm:pr-12 rounded-lg bg-[var(--surface-0f1115)] border border-[var(--overlay-ink)]/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#5B69FF] focus:ring-1 focus:ring-[#5B69FF] transition-all disabled:opacity-50"
                     />
                     <button
                       type="submit"
                       disabled={loading || !searchInput.trim()}
                       className="absolute right-1.5 px-3 py-2 rounded-md bg-[#5B69FF] text-white hover:bg-[#4A57E6] disabled:bg-gray-700 disabled:text-gray-400 transition-colors text-xs sm:text-sm"
                     >
-                      {loading ? <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "검색"}
+                      {loading ? <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-[var(--overlay-ink)]/30 border-t-white rounded-full animate-spin" /> : "검색"}
                     </button>
                   </form>
                   {accountSearchErr && <p className="mt-3 text-sm text-red-400">{accountSearchErr}</p>}
@@ -1240,7 +1240,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
         {/* --- 이하 공통 모달들 --- */}
         {deleteConfirmOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 animate-in zoom-in-95 duration-200">
+            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 animate-in zoom-in-95 duration-200">
               <div className="p-6 text-center">
                 <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
                   <AlertTriangle className="h-7 w-7" />
@@ -1251,7 +1251,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
                   <span className="text-red-400/80 text-xs mt-1 block">(이 작업은 되돌릴 수 없습니다)</span>
                 </p>
                 <div className="flex gap-3">
-                  <button onClick={() => setDeleteConfirmOpen(false)} className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium transition-colors text-sm">
+                  <button onClick={() => setDeleteConfirmOpen(false)} className="flex-1 py-3 rounded-xl bg-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 text-gray-300 font-medium transition-colors text-sm">
                     취소
                   </button>
                   <button onClick={handleDeleteAccount} className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold transition-colors text-sm">
@@ -1265,7 +1265,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
 
         {autoSetupConfirmOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 animate-in zoom-in-95 duration-200">
+            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 animate-in zoom-in-95 duration-200">
               <div className="p-6 text-center">
                 <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-500">
                   <AlertTriangle className="h-7 w-7" />
@@ -1277,7 +1277,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
                   <span className="text-yellow-500/80 text-xs mt-1 block">(정말 진행하시겠습니까?)</span>
                 </p>
                 <div className="flex gap-3">
-                  <button onClick={() => setAutoSetupConfirmOpen(false)} className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium transition-colors text-sm">
+                  <button onClick={() => setAutoSetupConfirmOpen(false)} className="flex-1 py-3 rounded-xl bg-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 text-gray-300 font-medium transition-colors text-sm">
                     취소
                   </button>
                   <button onClick={() => { handleAutoSetup(autoSetupCharCount, autoSetupSortType); setAutoSetupConfirmOpen(false); }} className="flex-1 py-3 rounded-xl bg-[#5B69FF] hover:bg-[#4A57E6] text-white font-bold transition-colors text-sm">
@@ -1291,7 +1291,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
 
         {showAllViewWarning && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-2xl animate-in zoom-in-95 duration-200">
               <div className="p-6 text-center">
                 <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
                   <AlertTriangle className="h-7 w-7" />
@@ -1301,7 +1301,7 @@ export default function MyTasksClient({ forceDemo = false }: { forceDemo?: boole
                   <span className="text-white font-medium">'모두 보기'</span> 상태에서는 데이터 꼬임을 방지하기 위해 해당 기능을 이용할 수 없습니다.<br /><br />
                   단일 계정을 선택한 후 다시 시도해주세요.
                 </p>
-                <button onClick={() => setShowAllViewWarning(false)} className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold transition-colors text-sm">
+                <button onClick={() => setShowAllViewWarning(false)} className="w-full py-3 rounded-xl bg-[var(--overlay-ink)]/10 hover:bg-[var(--overlay-ink)]/15 text-white font-bold transition-colors text-sm">
                   확인
                 </button>
               </div>

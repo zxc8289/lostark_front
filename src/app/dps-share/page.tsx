@@ -139,8 +139,8 @@ export default function DpsSharePage() {
 
                     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 sm:gap-6 items-start">
                         <div className="space-y-4">
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 overflow-hidden">
-                                <div className="px-5 py-4 border-b border-white/5">
+                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 overflow-hidden">
+                                <div className="px-5 py-4 border-b border-[var(--overlay-ink)]/5">
                                     <h2 className="font-semibold text-white flex items-center gap-2">
                                         <span className="w-1 h-4 bg-indigo-500 rounded-full" />
                                         레이드 설정
@@ -153,14 +153,14 @@ export default function DpsSharePage() {
                                             카테고리
                                         </label>
 
-                                        <div className="flex flex-col border border-white/5 rounded-lg overflow-hidden">
+                                        <div className="flex flex-col border border-[var(--overlay-ink)]/5 rounded-lg overflow-hidden">
                                             {(["카제로스", "그림자", "어비스 던전"] as RaidCategory[]).map((cat) => (
                                                 <button
                                                     key={cat}
                                                     onClick={() => handleCategoryChange(cat)}
-                                                    className={`flex w-full items-center gap-3 px-4 py-3 transition-colors border-b border-white/5 last:border-b-0 ${category === cat
+                                                    className={`flex w-full items-center gap-3 px-4 py-3 transition-colors border-b border-[var(--overlay-ink)]/5 last:border-b-0 ${category === cat
                                                         ? "bg-[#5B69FF]/15 text-white"
-                                                        : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                                                        : "text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-200"
                                                         }`}
                                                 >
                                                     <div
@@ -183,7 +183,7 @@ export default function DpsSharePage() {
 
                                         <div
                                             className={`grid ${isNightmareAvailable ? "grid-cols-3" : "grid-cols-2"
-                                                } gap-2 p-1 bg-[#121318] rounded-lg border border-white/5`}
+                                                } gap-2 p-1 bg-[var(--surface-121318)] rounded-lg border border-[var(--overlay-ink)]/5`}
                                         >
                                             {(["노말", "하드", "나메"] as DiffKey[])
                                                 .filter((d) => d !== "나메" || isNightmareAvailable)
@@ -193,7 +193,7 @@ export default function DpsSharePage() {
                                                         onClick={() => setDiff(d)}
                                                         className={`py-2 rounded-md text-sm font-bold transition-all border ${diff === d
                                                             ? DIFF[d].check
-                                                            : `bg-[#1B222D] text-gray-400 border-transparent ${DIFF[d].hover}`
+                                                            : `bg-[var(--surface-1b222d)] text-gray-400 border-transparent ${DIFF[d].hover}`
                                                             }`}
                                                     >
                                                         {getDiffLabel(category, d)}
@@ -217,7 +217,7 @@ export default function DpsSharePage() {
                                                         onClick={() => handleActChange(a)}
                                                         className={`relative flex items-center justify-center py-2 px-3 text-sm font-bold rounded-lg border transition-all ${isActive
                                                             ? "bg-[#5B69FF]/15 border-[#5B69FF]/30 text-white"
-                                                            : "bg-transparent border-white/5 text-gray-500 hover:bg-white/5 hover:text-gray-300"
+                                                            : "bg-transparent border-[var(--overlay-ink)]/5 text-gray-500 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-300"
                                                             }`}
                                                     >
                                                         <span className="truncate">{a}</span>
@@ -229,7 +229,7 @@ export default function DpsSharePage() {
                                 </div>
                             </section>
 
-                            <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                 <h2 className="text-sm font-bold text-gray-200 mb-3">빠른 사용법</h2>
 
                                 <ol className="space-y-2 text-[13px] leading-relaxed text-gray-400 break-keep">
@@ -242,7 +242,7 @@ export default function DpsSharePage() {
                         </div>
 
                         <div className="space-y-5">
-                            <section className="bg-[#16181D] rounded-none sm:rounded-xl border-y sm:border border-white/5 px-5 py-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+                            <section className="bg-[var(--surface-16181d)] rounded-none sm:rounded-xl border-y sm:border border-[var(--overlay-ink)]/5 px-5 py-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
                                 <div className="flex items-center gap-3">
                                     <div
                                         className={`px-3 py-2 rounded-lg flex items-center justify-center text-sm font-bold ${DIFF[diff].badge}`}
@@ -290,7 +290,7 @@ export default function DpsSharePage() {
                                         return (
                                             <section
                                                 key={key}
-                                                className="relative group flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border border-white/5 bg-[#16181D] p-5 transition-all hover:border-white/10 shadow-sm"
+                                                className="relative group flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 transition-all hover:border-[var(--overlay-ink)]/10 shadow-sm"
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <h2 className="font-semibold text-gray-200">{row.gate} 관문</h2>
@@ -300,11 +300,11 @@ export default function DpsSharePage() {
                                                 </div>
 
                                                 <div className="relative mt-2">
-                                                    <label className="absolute -top-2 left-2 bg-[#16181D] px-1 text-[10px] text-indigo-400 font-medium z-10">
+                                                    <label className="absolute -top-2 left-2 bg-[var(--surface-16181d)] px-1 text-[10px] text-indigo-400 font-medium z-10">
                                                         나의 피해량
                                                     </label>
 
-                                                    <div className="flex items-center rounded-lg bg-[#0F1014] border border-white/10 focus-within:border-indigo-500/50 transition-all">
+                                                    <div className="flex items-center rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/10 focus-within:border-indigo-500/50 transition-all">
                                                         <input
                                                             type="number"
                                                             inputMode="numeric"
@@ -325,7 +325,7 @@ export default function DpsSharePage() {
                                                 </div>
 
                                                 <div className="mt-auto space-y-4">
-                                                    <div className="flex items-end justify-between border-b border-white/5 pb-3">
+                                                    <div className="flex items-end justify-between border-b border-[var(--overlay-ink)]/5 pb-3">
                                                         <span className="text-[11px] text-gray-500 font-medium">
                                                             현재 딜 지분
                                                         </span>
@@ -367,13 +367,13 @@ export default function DpsSharePage() {
                                     })}
                                 </div>
                             ) : (
-                                <div className="py-20 text-center text-gray-500 bg-[#16181D] rounded-none sm:rounded-xl border-y sm:border border-dashed border-white/10">
+                                <div className="py-20 text-center text-gray-500 bg-[var(--surface-16181d)] rounded-none sm:rounded-xl border-y sm:border border-dashed border-[var(--overlay-ink)]/10">
                                     해당 난이도의 데이터가 없습니다.
                                 </div>
                             )}
 
                             <div className="space-y-4 mt-6">
-                                <section className="rounded-none sm:rounded-xl bg-gradient-to-b from-[#16181D] to-[#121318] border-y sm:border border-white/5 p-5">
+                                <section className="rounded-none sm:rounded-xl bg-gradient-to-b from-[var(--surface-16181d)] to-[var(--surface-121318)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                     <div className="flex items-center gap-2 mb-3">
                                         <Info className="w-4 h-4 text-indigo-400" />
                                         <h2 className="text-sm font-bold text-gray-200">딜 지분 계산기란?</h2>
@@ -400,11 +400,11 @@ export default function DpsSharePage() {
                                     </div>
                                 </section>
 
-                                <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                                <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                     <h2 className="text-sm font-bold text-gray-200 mb-3">강투, 잔혈 기준</h2>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                        <div className="rounded-lg bg-[#0F1014] border border-white/5 p-4">
+                                        <div className="rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/5 p-4">
                                             <strong className="text-gray-300 font-medium block mb-1">
                                                 8인 레이드 기준
                                             </strong>
@@ -417,7 +417,7 @@ export default function DpsSharePage() {
                                             </p>
                                         </div>
 
-                                        <div className="rounded-lg bg-[#0F1014] border border-white/5 p-4">
+                                        <div className="rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/5 p-4">
                                             <strong className="text-gray-300 font-medium block mb-1">
                                                 4인 레이드 기준
                                             </strong>
@@ -432,7 +432,7 @@ export default function DpsSharePage() {
                                     </div>
                                 </section>
 
-                                <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                                <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                     <h2 className="text-sm font-bold text-gray-200 mb-3">계산 원리</h2>
 
                                     <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
@@ -448,7 +448,7 @@ export default function DpsSharePage() {
                                             대입해 현재 지분율을 계산하는 구조입니다.
                                         </p>
 
-                                        <div className="rounded-lg bg-[#0F1014] border border-white/5 p-4 space-y-2">
+                                        <div className="rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/5 p-4 space-y-2">
                                             <p className="text-gray-300 font-semibold">간단 계산 흐름</p>
                                             <p>1. 선택한 레이드와 난이도의 관문별 기준값을 불러옵니다.</p>
                                             <p>2. 잔혈 컷과 잔혈 기준 퍼센트로 관문별 실질 총 딜량을 추정합니다.</p>
@@ -458,7 +458,7 @@ export default function DpsSharePage() {
                                     </div>
                                 </section>
 
-                                <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                                <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                     <h2 className="text-sm font-bold text-gray-200 mb-3">예시 입력 방법</h2>
 
                                     <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
@@ -480,7 +480,7 @@ export default function DpsSharePage() {
                                     </div>
                                 </section>
 
-                                <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                                <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                     <h2 className="text-sm font-bold text-gray-200 mb-3">결과 해석 방법</h2>
 
                                     <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
@@ -503,32 +503,32 @@ export default function DpsSharePage() {
                                     </div>
                                 </section>
 
-                                <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                                <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                     <h2 className="text-sm font-bold text-gray-200 mb-3">활용하면 좋은 상황</h2>
 
                                     <div className="grid gap-3 md:grid-cols-2 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                        <div className="rounded-lg bg-[#0F1014] border border-white/5 p-4">
+                                        <div className="rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/5 p-4">
                                             <h3 className="text-gray-200 font-semibold mb-2">레이드 복기</h3>
                                             <p>
                                                 클리어 후 관문별 내 피해량을 넣어 어느 관문에서 강했고 어느 관문에서 낮았는지 확인할 수 있습니다.
                                             </p>
                                         </div>
 
-                                        <div className="rounded-lg bg-[#0F1014] border border-white/5 p-4">
+                                        <div className="rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/5 p-4">
                                             <h3 className="text-gray-200 font-semibold mb-2">세팅 비교</h3>
                                             <p>
                                                 보석, 엘릭서, 초월, 각인, 스킬트리 변경 전후의 딜 지분을 비교하는 참고 자료로 사용할 수 있습니다.
                                             </p>
                                         </div>
 
-                                        <div className="rounded-lg bg-[#0F1014] border border-white/5 p-4">
+                                        <div className="rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/5 p-4">
                                             <h3 className="text-gray-200 font-semibold mb-2">관문별 약점 확인</h3>
                                             <p>
                                                 특정 관문에서만 지분이 낮다면 딜 타이밍, 포지션, 패턴 이해도를 점검하는 데 도움이 됩니다.
                                             </p>
                                         </div>
 
-                                        <div className="rounded-lg bg-[#0F1014] border border-white/5 p-4">
+                                        <div className="rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/5 p-4">
                                             <h3 className="text-gray-200 font-semibold mb-2">성장 체감 확인</h3>
                                             <p>
                                                 장비 성장 후 같은 레이드에서 지분이 어떻게 변했는지 비교해 성장 체감을 수치로 볼 수 있습니다.
@@ -537,7 +537,7 @@ export default function DpsSharePage() {
                                     </div>
                                 </section>
 
-                                <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                                <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                     <div className="flex items-center gap-2 mb-3">
                                         <AlertTriangle className="w-4 h-4 text-amber-400" />
                                         <h2 className="text-sm font-bold text-gray-200">주의사항</h2>
@@ -559,7 +559,7 @@ export default function DpsSharePage() {
                                     </div>
                                 </section>
 
-                                <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                                <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                                     <div className="flex items-center gap-2 mb-4">
                                         <HelpCircle className="w-4 h-4 text-indigo-400" />
                                         <h2 className="text-sm font-bold text-gray-200">자주 묻는 질문</h2>
@@ -598,7 +598,7 @@ export default function DpsSharePage() {
                                         ].map((item) => (
                                             <details
                                                 key={item.q}
-                                                className="group rounded-xl border border-white/5 bg-[#0F1014] px-4 py-3"
+                                                className="group rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] px-4 py-3"
                                             >
                                                 <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer">
                                                     <span className="text-sm font-semibold text-gray-200">
@@ -606,7 +606,7 @@ export default function DpsSharePage() {
                                                     </span>
                                                 </summary>
 
-                                                <div className="pt-3 mt-3 border-t border-white/5 text-sm text-gray-400 leading-relaxed break-keep">
+                                                <div className="pt-3 mt-3 border-t border-[var(--overlay-ink)]/5 text-sm text-gray-400 leading-relaxed break-keep">
                                                     {item.a}
                                                 </div>
                                             </details>

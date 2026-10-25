@@ -47,9 +47,9 @@ export default function Card({
     children: ReactNode;
 }) {
     const variantCls = {
-        solid: "bg-[#16181D]",
-        outline: "bg-transparent border border-[#444c56]/60",
-        elevated: "bg-[#16181D] shadow-lg shadow-black/20",
+        solid: "bg-[var(--surface-16181d)]",
+        outline: "bg-transparent border border-[var(--surface-444c56)]/60",
+        elevated: "bg-[var(--surface-16181d)] shadow-lg shadow-black/20",
         ghost: "bg-transparent",
     }[variant];
 
@@ -74,7 +74,7 @@ export default function Card({
     }[align];
 
     const interCls = interactive
-        ? "transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+        ? "transition hover:bg-[var(--overlay-ink)]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
         : "";
 
     return (
@@ -117,7 +117,7 @@ export default function Card({
             <div className={clsx("flex-1 flex", alignCls, contentPad, contentClassName)}>
                 {loading ? (
                     <div className="w-full">
-                        <div className="h-24 bg-white/5 rounded-md animate-pulse" />
+                        <div className="h-24 bg-[var(--overlay-ink)]/5 rounded-md animate-pulse" />
                     </div>
                 ) : (
                     children
@@ -125,7 +125,7 @@ export default function Card({
             </div>
 
             {footer && (
-                <footer className={clsx(sizePad, "border-t border-[#444c56]/60", footerClassName)}>
+                <footer className={clsx(sizePad, "border-t border-[var(--surface-444c56)]/60", footerClassName)}>
                     {footer}
                 </footer>
             )}

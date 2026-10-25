@@ -81,8 +81,8 @@ export default function AuctionCalculatorPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 sm:gap-6 items-start">
                     <div className="space-y-4">
-                        <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 overflow-hidden">
-                            <div className="px-5 py-4 border-b border-white/5">
+                        <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 overflow-hidden">
+                            <div className="px-5 py-4 border-b border-[var(--overlay-ink)]/5">
                                 <h2 className="font-semibold text-white flex items-center gap-2">
                                     <span className="w-1 h-4 bg-indigo-500 rounded-full" />
                                     경매 설정
@@ -94,7 +94,7 @@ export default function AuctionCalculatorPage() {
                                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                                         파티 인원
                                     </label>
-                                    <div className="flex flex-col border border-white/5 rounded-lg overflow-hidden">
+                                    <div className="flex flex-col border border-[var(--overlay-ink)]/5 rounded-lg overflow-hidden">
                                         {[4, 8, 16].map((n) => (
                                             <button
                                                 key={n}
@@ -106,9 +106,9 @@ export default function AuctionCalculatorPage() {
                                                         localStorage.setItem(PARTY_SIZE_STORAGE_KEY, String(nextPartySize));
                                                     } catch { }
                                                 }}
-                                                className={`flex w-full items-center gap-3 px-4 py-3 transition-colors border-b border-white/5 last:border-b-0 ${partySize === n
+                                                className={`flex w-full items-center gap-3 px-4 py-3 transition-colors border-b border-[var(--overlay-ink)]/5 last:border-b-0 ${partySize === n
                                                     ? "bg-[#5B69FF]/15 text-white"
-                                                    : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                                                    : "text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-200"
                                                     }`}
                                             >
                                                 <div
@@ -130,7 +130,7 @@ export default function AuctionCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none sm:rounded-xl bg-[#16181D] border-y sm:border border-white/5 p-5">
+                        <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
                             <h2 className="text-sm font-bold text-gray-200 mb-3">빠른 사용법</h2>
                             <ol className="space-y-2 text-[13px] leading-relaxed text-gray-400 break-keep">
                                 <li>1. 경매가 진행되는 레이드 인원을 선택합니다.</li>
@@ -142,17 +142,17 @@ export default function AuctionCalculatorPage() {
                     </div>
 
                     <div className="space-y-5">
-                        <section className="bg-[#16181D] rounded-none sm:rounded-xl border-y sm:border border-white/5 p-5 shadow-sm">
+                        <section className="bg-[var(--surface-16181d)] rounded-none sm:rounded-xl border-y sm:border border-[var(--overlay-ink)]/5 p-5 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="font-semibold text-gray-200">거래소 시세 입력</h2>
                             </div>
 
                             <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-6">
                                 <div className="w-full sm:max-w-[1000px] relative mt-1">
-                                    <label className="absolute -top-2.5 left-2 bg-[#16181D] px-1 text-[11px] text-indigo-400 font-bold z-10">
+                                    <label className="absolute -top-2.5 left-2 bg-[var(--surface-16181d)] px-1 text-[11px] text-indigo-400 font-bold z-10">
                                         예상 판매가 (직접 입력)
                                     </label>
-                                    <div className="flex items-center rounded-lg bg-[#0F1014] border border-white/10 focus-within:border-indigo-500/50 transition-all">
+                                    <div className="flex items-center rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/10 focus-within:border-indigo-500/50 transition-all">
                                         <input
                                             type="text"
                                             inputMode="numeric"
@@ -173,15 +173,15 @@ export default function AuctionCalculatorPage() {
                         </section>
 
                         <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-                            <section className="relative group flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border border-white/5 bg-[#16181D] p-5 transition-all hover:border-white/10 shadow-sm">
+                            <section className="relative group flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 transition-all hover:border-[var(--overlay-ink)]/10 shadow-sm">
                                 <div className="flex items-center justify-between">
                                     <h2 className="font-semibold text-gray-200">선점 입찰가</h2>
                                 </div>
                                 <div className="relative mt-2">
-                                    <label className="absolute -top-2.5 left-2 bg-[#16181D] px-1 text-[11px] text-indigo-400 font-bold z-10">
+                                    <label className="absolute -top-2.5 left-2 bg-[var(--surface-16181d)] px-1 text-[11px] text-indigo-400 font-bold z-10">
                                         추천 최적가
                                     </label>
-                                    <div className="flex items-center rounded-lg bg-[#0F1014] border border-white/10 transition-all px-4 py-3">
+                                    <div className="flex items-center rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/10 transition-all px-4 py-3">
                                         <span className="w-full bg-transparent text-white outline-none text-2xl font-bold">
                                             {fmt(calc.nbbSnipeBid)}
                                         </span>
@@ -189,7 +189,7 @@ export default function AuctionCalculatorPage() {
                                     </div>
                                 </div>
                                 <div className="mt-auto space-y-4">
-                                    <div className="flex items-end justify-between border-b border-white/5 pb-3">
+                                    <div className="flex items-end justify-between border-b border-[var(--overlay-ink)]/5 pb-3">
                                         <span className="text-[11px] text-gray-500 font-medium">
                                             다른 1명 분배금 대비 이익 차이
                                         </span>
@@ -198,7 +198,7 @@ export default function AuctionCalculatorPage() {
                                         </span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className="flex flex-col items-center justify-center rounded-lg bg-white/5 border border-white/5 py-2.5">
+                                        <div className="flex flex-col items-center justify-center rounded-lg bg-[var(--overlay-ink)]/5 border border-[var(--overlay-ink)]/5 py-2.5">
                                             <span className="text-[12px] text-gray-400 font-bold mb-0.5">
                                                 타인 1인 분배금
                                             </span>
@@ -218,15 +218,15 @@ export default function AuctionCalculatorPage() {
                                 </div>
                             </section>
 
-                            <section className="relative group flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border border-white/5 bg-[#16181D] p-5 transition-all hover:border-white/10 shadow-sm">
+                            <section className="relative group flex flex-col gap-4 rounded-none sm:rounded-xl border-y sm:border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 transition-all hover:border-[var(--overlay-ink)]/10 shadow-sm">
                                 <div className="flex items-center justify-between">
                                     <h2 className="font-semibold text-gray-200">N빵 입찰가</h2>
                                 </div>
                                 <div className="relative mt-2">
-                                    <label className="absolute -top-2.5 left-2 bg-[#16181D] px-1 text-[11px] text-indigo-400 font-bold z-10">
+                                    <label className="absolute -top-2.5 left-2 bg-[var(--surface-16181d)] px-1 text-[11px] text-indigo-400 font-bold z-10">
                                         균등 분배 기준가
                                     </label>
-                                    <div className="flex items-center rounded-lg bg-[#0F1014] border border-white/10 transition-all px-4 py-3">
+                                    <div className="flex items-center rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/10 transition-all px-4 py-3">
                                         <span className="w-full bg-transparent text-white outline-none text-2xl font-bold">
                                             {fmt(calc.nbbBid)}
                                         </span>
@@ -234,7 +234,7 @@ export default function AuctionCalculatorPage() {
                                     </div>
                                 </div>
                                 <div className="mt-auto space-y-4">
-                                    <div className="flex items-end justify-between border-b border-white/5 pb-3">
+                                    <div className="flex items-end justify-between border-b border-[var(--overlay-ink)]/5 pb-3">
                                         <span className="text-[11px] text-gray-500 font-medium">
                                             다른 1명 분배금 대비 이익 차이
                                         </span>
@@ -243,7 +243,7 @@ export default function AuctionCalculatorPage() {
                                         </span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className="flex flex-col items-center justify-center rounded-lg bg-white/5 border border-white/5 py-2.5">
+                                        <div className="flex flex-col items-center justify-center rounded-lg bg-[var(--overlay-ink)]/5 border border-[var(--overlay-ink)]/5 py-2.5">
                                             <span className="text-[12px] text-gray-400 font-bold mb-0.5">
                                                 타인 1인 분배금
                                             </span>
@@ -265,7 +265,7 @@ export default function AuctionCalculatorPage() {
                         </div>
 
                         <div className="space-y-4 mt-4">
-                            <section className="rounded-none sm:rounded-xl border-y sm:border border-white/5 bg-[#16181D] p-5 space-y-4 text-sm leading-7 text-gray-400">
+                            <section className="rounded-none sm:rounded-xl border-y sm:border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 space-y-4 text-sm leading-7 text-gray-400">
                                 <h2 className="flex items-center gap-2.5 font-semibold text-white"><span aria-hidden="true" className="h-4 w-1 rounded-full bg-[#5B69FF]" />계산 과정</h2>
                                 <p>판매 후 실수령액에서 입찰가를 빼면 낙찰자의 재판매 이익이 됩니다. 다른 참여자는 입찰가를 인원 − 1로 나눈 분배금을 받는다고 가정합니다.</p>
                                 <ol className="list-decimal space-y-2 pl-5">
@@ -274,9 +274,9 @@ export default function AuctionCalculatorPage() {
                                     <li>선점 입찰가 = 내림(N빵 입찰가 ÷ 1.1)</li>
                                 </ol>
                                 <p>선점 가격은 다음 입찰이 약 10% 높아진다는 가정의 참고값입니다. 낙찰을 보장하지 않으며, 분배금과 순이익은 같은 낙찰가에서 참여자끼리 비교한 값입니다.</p>
-                                {calc.price > 0 && <p className="rounded-lg border border-white/5 bg-[#0F1014] p-4 text-gray-200">현재 입력: {calc.price.toLocaleString()} G × 0.95 → 실수령액 {calc.afterFee.toLocaleString()} G. {partySize}인 N빵 기준 {calc.nbbBid.toLocaleString()} G에 낙찰되면 내 순이익은 {calc.nbbMyNet.toLocaleString()} G, 다른 1명의 분배금은 {calc.nbbDividend.toLocaleString()} G입니다.</p>}
+                                {calc.price > 0 && <p className="rounded-lg border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4 text-gray-200">현재 입력: {calc.price.toLocaleString()} G × 0.95 → 실수령액 {calc.afterFee.toLocaleString()} G. {partySize}인 N빵 기준 {calc.nbbBid.toLocaleString()} G에 낙찰되면 내 순이익은 {calc.nbbMyNet.toLocaleString()} G, 다른 1명의 분배금은 {calc.nbbDividend.toLocaleString()} G입니다.</p>}
                             </section>
-                            <section className="rounded-none sm:rounded-xl border-y sm:border border-white/5 bg-[#16181D] p-5 space-y-4 text-sm leading-7 text-gray-400">
+                            <section className="rounded-none sm:rounded-xl border-y sm:border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 space-y-4 text-sm leading-7 text-gray-400">
                                 <h2 className="flex items-center gap-2.5 font-semibold text-white"><span aria-hidden="true" className="h-4 w-1 rounded-full bg-[#5B69FF]" />8인·판매가 10,000골드 예시</h2>
                                 <p>수수료 5%를 제외하면 9,500 G입니다. N빵 기준은 내림(9,500 × 7 ÷ 8) = 8,312 G, 선점 가격은 내림(8,312 ÷ 1.1) = 7,556 G입니다. 실제 시세가 아닌 설명용 예시입니다.</p>
                                 <p>9,000 G에 낙찰받았다면 순이익은 500 G입니다. 다른 사람의 분배금 약 1,285 G보다 적지만 아직 적자는 아닙니다. 재판매 적자는 입찰가가 실수령액 9,500 G를 넘을 때 발생합니다.</p>

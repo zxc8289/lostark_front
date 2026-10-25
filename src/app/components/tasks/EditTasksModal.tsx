@@ -246,8 +246,8 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onClick={onClose} />
-            <div className="relative w-full max-w-[min(800px,92vw)] flex flex-col rounded-xl bg-[#16181D] shadow-2xl border border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                <header className="px-5 py-5 sm:px-8 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#16181D]">
+            <div className="relative w-full max-w-[min(800px,92vw)] flex flex-col rounded-xl bg-[var(--surface-16181d)] shadow-2xl border border-[var(--overlay-ink)]/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <header className="px-5 py-5 sm:px-8 border-b border-[var(--overlay-ink)]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[var(--surface-16181d)]">
                     <div>
                         <div className="flex items-center gap-3 mb-1">
                             <h2 className="text-xl font-bold text-white tracking-tight">{character.name}</h2>
@@ -261,26 +261,26 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                     </div>
                 </header>
 
-                <div className="flex-1 overflow-y-auto max-h-[55vh] p-4 sm:max-h-[65vh] sm:p-5 bg-[#121418] custom-scrollbar">
+                <div className="flex-1 overflow-y-auto max-h-[55vh] p-4 sm:max-h-[65vh] sm:p-5 bg-[var(--surface-121418)] custom-scrollbar">
                     <div className="mb-5 space-y-3">
                         <div className="flex gap-2 overflow-x-auto pb-1">
-                            <button onClick={() => handleAutoSelect("top3")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
+                            <button onClick={() => handleAutoSelect("top3")} className="px-3 py-1.5 rounded-full bg-[var(--overlay-ink)]/5 border border-[var(--overlay-ink)]/10 text-gray-400 text-xs hover:bg-[var(--overlay-ink)]/10 hover:text-white transition-colors whitespace-nowrap">
                                 상위 3개 + 익스트림
                             </button>
-                            <button onClick={() => handleAutoSelect("all")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
+                            <button onClick={() => handleAutoSelect("all")} className="px-3 py-1.5 rounded-full bg-[var(--overlay-ink)]/5 border border-[var(--overlay-ink)]/10 text-gray-400 text-xs hover:bg-[var(--overlay-ink)]/10 hover:text-white transition-colors whitespace-nowrap">
                                 전체 선택
                             </button>
-                            <button onClick={() => handleAutoSelect("none")} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap">
+                            <button onClick={() => handleAutoSelect("none")} className="px-3 py-1.5 rounded-full bg-[var(--overlay-ink)]/5 border border-[var(--overlay-ink)]/10 text-gray-400 text-xs hover:bg-[var(--overlay-ink)]/10 hover:text-white transition-colors whitespace-nowrap">
                                 전체 해제
                             </button>
                         </div>
 
-                        <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-[#16181D] p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col gap-2 rounded-xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)] p-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <div className="text-xs font-bold text-gray-300">정렬 기준</div>
                                 <div className="text-[11px] text-gray-500">캐릭터 Lv. {ilvl.toLocaleString()} 기준</div>
                             </div>
-                            <div className="grid grid-cols-3 gap-1 rounded-lg bg-[#0F1116] p-1">
+                            <div className="grid grid-cols-3 gap-1 rounded-lg bg-[var(--surface-0f1116)] p-1">
                                 {RAID_PRIORITY_SORT_OPTIONS.map((option) => (
                                     <button
                                         key={option.key}
@@ -288,7 +288,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                         onClick={() => setSortMode(option.key)}
                                         className={`rounded-md px-2 py-1.5 text-[11px] font-bold transition-colors ${sortMode === option.key
                                             ? "bg-[#5B69FF] text-white"
-                                            : "text-gray-400 hover:bg-white/5 hover:text-white"
+                                            : "text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-white"
                                             }`}
                                     >
                                         {option.label}
@@ -303,7 +303,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                 value={raidSearch}
                                 onChange={(e) => setRaidSearch(e.target.value)}
                                 placeholder="레이드 검색"
-                                className="h-11 w-full rounded-xl border border-white/10 bg-[#0F1116] pl-9 pr-3 text-sm font-medium text-white outline-none transition-colors placeholder:text-gray-600 focus:border-[#5B69FF]/60"
+                                className="h-11 w-full rounded-xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1116)] pl-9 pr-3 text-sm font-medium text-white outline-none transition-colors placeholder:text-gray-600 focus:border-[#5B69FF]/60"
                             />
                         </div>
                     </div>
@@ -311,7 +311,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                     {[displayedRaidEntries].map((entries) => {
                         if (!entries.length) {
                             return (
-                                <div key="empty-raids" className="rounded-xl border border-white/10 bg-[#16181D] px-4 py-8 text-center text-sm text-gray-500">
+                                <div key="empty-raids" className="rounded-xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)] px-4 py-8 text-center text-sm text-gray-500">
                                     검색 결과가 없습니다.
                                 </div>
                             );
@@ -319,7 +319,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
 
                         return (
                             <section key="all-raids" className="space-y-4 pb-8">
-                                <div className="top-0 z-10 py-2 -mx-2 px-2 bg-[#121418]/95 backdrop-blur border-b border-white/5">
+                                <div className="top-0 z-10 py-2 -mx-2 px-2 bg-[var(--surface-121418)]/95 backdrop-blur border-b border-[var(--overlay-ink)]/5">
                                     <h4 className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-[0.18em]">
                                         <Swords size={14} className="text-[#5B69FF]" />
                                         레이드 목록
@@ -351,7 +351,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                         return (
                                             <div
                                                 key={raidName}
-                                                className={`group relative rounded-xl border p-4 transition-all duration-200 ${pref.enabled ? "bg-[#1E222B] border-white/10 shadow-lg shadow-black/20" : "bg-[#16181D] border-white/5 opacity-80 grayscale-[0.3]"}`}
+                                                className={`group relative rounded-xl border p-4 transition-all duration-200 ${pref.enabled ? "bg-[var(--surface-1e222b)] border-[var(--overlay-ink)]/10 shadow-lg shadow-black/20" : "bg-[var(--surface-16181d)] border-[var(--overlay-ink)]/5 opacity-80 grayscale-[0.3]"}`}
                                             >
                                                 <div className="flex items-center justify-between mb-4">
                                                     <div className="flex items-center gap-3">
@@ -359,7 +359,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                                         <div>
                                                             <div className={`font-bold flex flex-wrap items-center gap-2.5 ${pref.enabled ? "text-white" : "text-gray-400"}`}>
                                                                 <span className="text-[14px] sm:text-[15px]">{raidName}</span>
-                                                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-gray-500">
+                                                                <span className="rounded-full border border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/5 px-2 py-0.5 text-[10px] font-bold text-gray-500">
                                                                     {info.kind}
                                                                 </span>
 
@@ -386,7 +386,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                                                                 flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-all duration-200 border
                                                                                 ${pref.isGold
                                                                                     ? "bg-[#EAB308]/10 text-[#FDE047] border-[#EAB308]/30"
-                                                                                    : "bg-[#121418] text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300 hover:border-white/10"
+                                                                                    : "bg-[var(--surface-121418)] text-gray-500 border-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 hover:text-gray-300 hover:border-[var(--overlay-ink)]/10"
                                                                                 }
                                                                                 ${!pref.isGold && info.kind !== "익스트림" && regularGoldCount >= 3 ? "opacity-50 cursor-not-allowed" : ""}
                                                                             `}
@@ -414,7 +414,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                                                                 flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-all duration-200 border
                                                                                 ${pref.isBonus
                                                                                     ? "bg-[#5B69FF]/10 text-[#8eaaff] border-[#5B69FF]/30"
-                                                                                    : "bg-[#121418] text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300 hover:border-white/10"
+                                                                                    : "bg-[var(--surface-121418)] text-gray-500 border-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 hover:text-gray-300 hover:border-[var(--overlay-ink)]/10"
                                                                                 }
                                                                             `}
                                                                         >
@@ -458,12 +458,12 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                                                 })
                                                             }
                                                         />
-                                                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#5B69FF] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#5B69FF]" />
+                                                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#5B69FF] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--overlay-ink)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#5B69FF]" />
                                                     </label>
                                                 </div>
 
                                                 <p className="mb-1 text-[11px] text-gray-500">전체 관문 난이도</p>
-                                                <div className="bg-[#121418] p-1 rounded-lg grid grid-cols-4 gap-1">
+                                                <div className="bg-[var(--surface-121418)] p-1 rounded-lg grid grid-cols-4 gap-1">
                                                     {[
                                                         { key: "싱글", info: single, ok: singleOk },
                                                         { key: "노말", info: normal, ok: normalOk },
@@ -495,7 +495,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                                                         };
                                                                     })
                                                                 }
-                                                                className={`relative flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-md transition-all ${isSelected ? style.check : `bg-[#2A2E39]/50 text-gray-500 hover:text-gray-300 hover:bg-white/5`} ${!ok && "opacity-40 cursor-not-allowed"}`}
+                                                                className={`relative flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-md transition-all ${isSelected ? style.check : `bg-[var(--surface-2a2e39)]/50 text-gray-500 hover:text-gray-300 hover:bg-[var(--overlay-ink)]/5`} ${!ok && "opacity-40 cursor-not-allowed"}`}
                                                             >
                                                                 {!ok && <Lock size={10} />}
                                                                 {getDisplayDifficulty(raidName, key)}
@@ -537,7 +537,7 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                                                                                         },
                                                                                     };
                                                                                 })}
-                                                                                className={`rounded-md px-1 py-1.5 text-[11px] ${selected ? DIFF_STYLES[key].check : "bg-white/5 text-gray-400 hover:bg-white/10"} disabled:cursor-not-allowed disabled:opacity-30`}
+                                                                                className={`rounded-md px-1 py-1.5 text-[11px] ${selected ? DIFF_STYLES[key].check : "bg-[var(--overlay-ink)]/5 text-gray-400 hover:bg-[var(--overlay-ink)]/10"} disabled:cursor-not-allowed disabled:opacity-30`}
                                                                             >
                                                                                 {getDisplayDifficulty(raidName, key)}
                                                                             </button>
@@ -560,11 +560,11 @@ export default function EditTasksModal({ open, onClose, character, initial, lock
                     })}
                 </div>
 
-                <footer className="px-5 py-4 sm:px-8 bg-[#16181D] border-t border-white/10 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
+                <footer className="px-5 py-4 sm:px-8 bg-[var(--surface-16181d)] border-t border-[var(--overlay-ink)]/10 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
                     <div className="flex gap-2 w-full sm:w-auto">
                         <button
                             onClick={onClose}
-                            className="flex-1 sm:flex-none px-4 h-10 rounded-lg border border-white/10 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                            className="flex-1 sm:flex-none px-4 h-10 rounded-lg border border-[var(--overlay-ink)]/10 text-sm font-medium text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/5 transition-colors"
                         >
                             취소
                         </button>

@@ -172,7 +172,7 @@ export default function TodaySchedule() {
 
     return (
         <div className="w-full h-full flex flex-col gap-6 p-1">
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5 border-b border-white/5 pb-5">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5 border-b border-[var(--overlay-ink)]/5 pb-5">
                 <div className="flex justify-between gap-2 sm:gap-3 md:gap-5 px-1 w-full xl:w-auto">
                     {weekDays.map((item, idx) => {
                         const isActive = item.dateStr === selectedDate;
@@ -189,7 +189,7 @@ export default function TodaySchedule() {
                                 <div className={`w-9.5 h-9.5 md:w-10 md:h-10 flex items-center justify-center rounded-lg text-sm md:text-base font-bold transition-all
                                     ${isActive
                                         ? "bg-[#5B69FF] text-white  scale-100"
-                                        : "text-gray-500 bg-[#15171C] border border-white/10 hover:border-white/30 hover:bg-[#252830]"
+                                        : "text-gray-500 bg-[var(--surface-15171c)] border border-[var(--overlay-ink)]/10 hover:border-[var(--overlay-ink)]/30 hover:bg-[var(--surface-252830)]"
                                     }`}>
                                     {item.displayDate}
                                 </div>
@@ -197,12 +197,12 @@ export default function TodaySchedule() {
                         );
                     })}
                 </div>
-                <div className="flex items-center gap-6 bg-[#1A1D24] px-6 py-3 rounded-xl border border-white/5 min-w-[320px] justify-between">
+                <div className="flex items-center gap-6 bg-[var(--surface-1a1d24)] px-6 py-3 rounded-xl border border-[var(--overlay-ink)]/5 min-w-[320px] justify-between">
                     {/* 필드보스 */}
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                             {status.bossImage ? (
-                                <img src={status.bossImage} alt="보스" className="w-5 h-5 rounded-full object-cover border border-white/10" />
+                                <img src={status.bossImage} alt="보스" className="w-5 h-5 rounded-full object-cover border border-[var(--overlay-ink)]/10" />
                             ) : (
                                 <Skull size={15} className={status.hasFieldBoss ? "text-gray-300" : "text-gray-600"} />
                             )}
@@ -218,14 +218,14 @@ export default function TodaySchedule() {
                         </div>
                     </div>
 
-                    <div className="w-px h-8 bg-white/10" />
+                    <div className="w-px h-8 bg-[var(--overlay-ink)]/10" />
 
                     {/* 카오스게이트 */}
                     <div className="flex flex-col gap-1 items-end">
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-bold text-gray-400">카오스게이트</span>
                             {status.gateImage ? (
-                                <img src={status.gateImage} alt="카게" className="w-5 h-5 rounded-full object-cover border border-white/10" />
+                                <img src={status.gateImage} alt="카게" className="w-5 h-5 rounded-full object-cover border border-[var(--overlay-ink)]/10" />
                             ) : (
                                 <Swords size={15} className={status.hasChaosGate ? "text-gray-300" : "text-gray-600"} />
                             )}
@@ -243,7 +243,7 @@ export default function TodaySchedule() {
             </div>
             {/* 섬 목록 or 로딩 */}
             {loading ? (
-                <div className="w-full h-[120px] animate-pulse bg-white/5 rounded-2xl" />
+                <div className="w-full h-[120px] animate-pulse bg-[var(--overlay-ink)]/5 rounded-2xl" />
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {islands.length > 0 ? islands.map((item, idx) => {
@@ -255,12 +255,12 @@ export default function TodaySchedule() {
                         const isDimmed = isFinished || isPastDate(selectedDate);
 
                         return (
-                            <div key={idx} className={`relative flex flex-col p-4 rounded-2xl border border-white/5 bg-[#1A1D24] transition-all h-[115px] group ${isDimmed ? "opacity-50 grayscale" : ""}`}>
+                            <div key={idx} className={`relative flex flex-col p-4 rounded-2xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1a1d24)] transition-all h-[115px] group ${isDimmed ? "opacity-50 grayscale" : ""}`}>
 
                                 {/* 1. [상단] 이름/이미지 영역 (flex-1로 남는 공간 차지) */}
                                 <div className="flex-1 flex justify-between items-start min-w-0">
                                     <div className="flex items-center gap-3 min-w-0 w-full">
-                                        <div className="w-7.5 h-7.5 rounded-lg bg-[#252830] border border-white/5 overflow-hidden shrink-0">
+                                        <div className="w-7.5 h-7.5 rounded-lg bg-[var(--surface-252830)] border border-[var(--overlay-ink)]/5 overflow-hidden shrink-0">
                                             {item.image ? (
                                                 <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                                             ) : (
@@ -275,8 +275,8 @@ export default function TodaySchedule() {
                                     </div>
                                 </div>
 
-                                {/* my-3: 위아래 간격, h-px: 1픽셀 높이, bg-white/5: 선 색상 */}
-                                <div className="w-full h-[0.5px] bg-white/5 mb-3 mt-2 shrink-0" />
+                                {/* my-3: 위아래 간격, h-px: 1픽셀 높이, bg-[var(--overlay-ink)]/5: 선 색상 */}
+                                <div className="w-full h-[0.5px] bg-[var(--overlay-ink)]/5 mb-3 mt-2 shrink-0" />
 
                                 {/* 3. [하단] 보상/시간 영역 (높이 고정 h-[36px]) */}
                                 {/* 높이를 고정했기 때문에 내용이 1줄이든 2줄이든 카드 모양이 변하지 않음 */}
@@ -289,7 +289,7 @@ export default function TodaySchedule() {
                                                 <img
                                                     src={reward.icon}
                                                     alt={reward.name}
-                                                    className="w-6 h-6 rounded bg-[#252830] border border-white/10 object-cover opacity-80 group-hover/reward:opacity-100 transition-opacity"
+                                                    className="w-6 h-6 rounded bg-[var(--surface-252830)] border border-[var(--overlay-ink)]/10 object-cover opacity-80 group-hover/reward:opacity-100 transition-opacity"
                                                 />
                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-[10px] text-white bg-black/80 rounded whitespace-nowrap opacity-0 group-hover/reward:opacity-100 transition-opacity pointer-events-none z-10">
                                                     {reward.name}
@@ -318,7 +318,7 @@ export default function TodaySchedule() {
                             </div>
                         );
                     }) : (
-                        <div className="col-span-3 h-[120px] flex items-center justify-center text-gray-500 text-sm bg-[#1A1D24] border border-white/5 rounded-2xl">
+                        <div className="col-span-3 h-[120px] flex items-center justify-center text-gray-500 text-sm bg-[var(--surface-1a1d24)] border border-[var(--overlay-ink)]/5 rounded-2xl">
                             예정된 모험 섬이 없습니다.
                         </div>
                     )}

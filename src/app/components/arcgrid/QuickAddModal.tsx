@@ -34,10 +34,10 @@ export default function QuickAddModal({
     const [preview, setPreview] = useState<QuickDraft[]>([]);
 
     const selectBase =
-        "w-full bg-[#22272e] border border-[#444c56] rounded-md px-3 pr-10 py-1.5 text-sm text-gray-300 " +
+        "w-full bg-[var(--surface-22272e)] border border-[var(--surface-444c56)] rounded-md px-3 pr-10 py-1.5 text-sm text-gray-300 " +
         "appearance-none transition-all duration-150 " +
         "focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 focus:shadow-none " +
-        "focus:border-[#444c56]"; // 포커스시 보더 유지(파란 테두리/링 제거)
+        "focus:border-[var(--surface-444c56)]"; // 포커스시 보더 유지(파란 테두리/링 제거)
 
     function normFamily(tok: string | undefined | null, fallback: 'order' | 'chaos') {
         const t = (tok || "").trim().toLowerCase();
@@ -105,9 +105,9 @@ export default function QuickAddModal({
 
     return (
         <div className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4" onDragOver={e => e.preventDefault()}>
-            <div className="bg-[#2d333b] border border-[#444c56] rounded-2xl shadow-xl w-full max-w-2xl">
+            <div className="bg-[var(--surface-2d333b)] border border-[var(--surface-444c56)] rounded-2xl shadow-xl w-full max-w-2xl">
                 {/* 헤더 */}
-                <div className="flex items-center gap-2 p-4 border-b border-[#444c56]">
+                <div className="flex items-center gap-2 p-4 border-b border-[var(--surface-444c56)]">
                     <b className="text-gray-200">젬 추가</b>
                     <div className="grow" />
                     {/* <button className="text-gray-300 hover:text-white" onClick={onClose}>닫기</button> */}
@@ -139,8 +139,8 @@ export default function QuickAddModal({
                 {/* 입력 */}
                 <div className="px-4 pt-3">
                     <textarea
-                        className="w-full h-40 bg-[#22272e] border border-[#444c56] rounded-md px-3 py-2 text-sm text-gray-300
-                       focus:outline-none focus:ring-0 focus:border-[#444c56]"
+                        className="w-full h-40 bg-[var(--surface-22272e)] border border-[var(--surface-444c56)] rounded-md px-3 py-2 text-sm text-gray-300
+                       focus:outline-none focus:ring-0 focus:border-[var(--surface-444c56)]"
                         placeholder={`예)\n질서 6 4 보2 공1\n혼돈 5 3 낙2`}
                         value={text}
                         onChange={e => setText(e.target.value)}
@@ -154,7 +154,7 @@ export default function QuickAddModal({
                             {error}
                         </div>
                     ) : (
-                        <div className="border border-dashed border-[#444c56] rounded-xl p-2 text-center text-sm text-gray-400">
+                        <div className="border border-dashed border-[var(--surface-444c56)] rounded-xl p-2 text-center text-sm text-gray-400">
                             {preview.length ? `인식된 젬 ${preview.length}개` : "줄마다 ‘계열 의지력 포인트 옵션…’ 형식으로 입력하세요."}
                         </div>
                     )}
@@ -172,8 +172,8 @@ export default function QuickAddModal({
                                         : 'bg-blue-900/40 text-blue-200 border-blue-800/60'}`}>
                                         {d.family === 'order' ? '질서' : '혼돈'}
                                     </span>
-                                    <span className="border border-[#444c56] rounded px-2 py-0.5">의지력 {needDisplay}</span>
-                                    <span className="border border-[#444c56] rounded px-2 py-0.5">포인트 {d.pts}</span>
+                                    <span className="border border-[var(--surface-444c56)] rounded px-2 py-0.5">의지력 {needDisplay}</span>
+                                    <span className="border border-[var(--surface-444c56)] rounded px-2 py-0.5">포인트 {d.pts}</span>
                                     <span className="text-xs text-gray-400">(기본 {d.base}, 효율 Lv{d.effLv})</span>
                                     <span className="text-xs text-gray-400">
                                         {d.opts.length ? d.opts.map(o => `${o.name} Lv${o.lv}`).join(" · ") : "옵션 없음"}
@@ -185,14 +185,14 @@ export default function QuickAddModal({
                 )}
 
                 {/* 푸터 */}
-                <div className="flex items-center gap-2 p-4 border-t border-[#444c56]">
-                    <button className="px-3 py-2 rounded-lg border border-[#444c56] bg-[#2d333b] text-gray-200 hover:bg-[#30363d] transition"
+                <div className="flex items-center gap-2 p-4 border-t border-[var(--surface-444c56)]">
+                    <button className="px-3 py-2 rounded-lg border border-[var(--surface-444c56)] bg-[var(--surface-2d333b)] text-gray-200 hover:bg-[var(--surface-30363d)] transition"
                         onClick={onClose}>
                         취소
                     </button>
                     <div className="grow" />
                     <button
-                        className="px-3 py-2 rounded-lg border border-[#444c56] bg-[#2d333b] text-gray-200 hover:bg-[#30363d] transition"
+                        className="px-3 py-2 rounded-lg border border-[var(--surface-444c56)] bg-[var(--surface-2d333b)] text-gray-200 hover:bg-[var(--surface-30363d)] transition"
                         disabled={!preview.length || !!error}
                         onClick={() => onConfirm(preview)}
                     >

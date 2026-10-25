@@ -915,23 +915,23 @@
                 <div className="w-full text-white py-8 sm:py-12">
                     <div className="mx-auto max-w-7xl space-y-6">
                         <div className="space-y-3 animate-pulse">
-                            <div className="h-4 w-28 rounded bg-white/5" />
-                            <div className="h-8 w-56 rounded bg-white/5" />
-                            <div className="h-4 w-72 rounded bg-white/5" />
+                            <div className="h-4 w-28 rounded bg-[var(--overlay-ink)]/5" />
+                            <div className="h-8 w-56 rounded bg-[var(--overlay-ink)]/5" />
+                            <div className="h-4 w-72 rounded bg-[var(--overlay-ink)]/5" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                             {[1, 2, 3, 4, 5, 6].map((i) => (
-                                <div key={i} className="h-[180px] rounded-xl border border-white/5 bg-[#16181D] p-5 animate-pulse">
+                                <div key={i} className="h-[180px] rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 animate-pulse">
                                     <div className="flex items-center gap-3 mb-6">
-                                        <div className="h-10 w-10 rounded-full bg-white/5" />
+                                        <div className="h-10 w-10 rounded-full bg-[var(--overlay-ink)]/5" />
                                         <div className="space-y-2 flex-1">
-                                            <div className="h-4 w-1/2 rounded bg-white/5" />
-                                            <div className="h-3 w-1/3 rounded bg-white/5" />
+                                            <div className="h-4 w-1/2 rounded bg-[var(--overlay-ink)]/5" />
+                                            <div className="h-3 w-1/3 rounded bg-[var(--overlay-ink)]/5" />
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <div className="h-8 w-full rounded bg-white/5" />
-                                        <div className="h-3 w-1/4 rounded bg-white/5" />
+                                        <div className="h-8 w-full rounded bg-[var(--overlay-ink)]/5" />
+                                        <div className="h-3 w-1/4 rounded bg-[var(--overlay-ink)]/5" />
                                     </div>
                                 </div>
                             ))}
@@ -967,7 +967,7 @@
                             <button
                                 type="button"
                                 onClick={() => router.push("/party-tasks")}
-                                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-300 hover:bg-white/5 hover:text-white"
+                                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-300 hover:bg-[var(--overlay-ink)]/5 hover:text-white"
                             >
                                 <ChevronLeft className="h-5 w-5" />
                             </button>
@@ -978,7 +978,7 @@
                                 <button
                                     type="button"
                                     onClick={() => setPartySettingOpen(true)}
-                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-300 hover:bg-white/5 hover:text-white"
+                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-300 hover:bg-[var(--overlay-ink)]/5 hover:text-white"
                                 >
                                     <Settings className="h-5 w-5" />
                                 </button>
@@ -994,7 +994,7 @@
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between px-4 sm:px-0 mb-4 border-b border-white/5 sm:border-transparent">
+                    <div className="flex items-center justify-between px-4 sm:px-0 mb-4 border-b border-[var(--overlay-ink)]/5 sm:border-transparent">
                         <div className="flex gap-6">
                             <button
                                 onClick={() => setActiveTab("tasks")}
@@ -1018,16 +1018,16 @@
                                     자율편성 그룹
                                 </button>
                                 <div className="relative group flex items-center justify-center ml-1.5 cursor-help">
-                                    <div className="w-[18px] h-[18px] rounded-full bg-white/10 flex items-center justify-center text-[10px] text-gray-400 font-normal group-hover:text-white group-hover:bg-white/20 transition-colors">
+                                    <div className="w-[18px] h-[18px] rounded-full bg-[var(--overlay-ink)]/10 flex items-center justify-center text-[10px] text-gray-400 font-normal group-hover:text-white group-hover:bg-[var(--overlay-ink)]/20 transition-colors">
                                         ?
                                     </div>
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[260px] p-3 bg-[#1E2028] border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[260px] p-3 bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
                                         <p className="text-xs text-gray-300 leading-relaxed break-keep text-center font-normal">
                                             단발성 파티 편성에 적합한 그룹입니다.<br />
                                             숙제 완료 시 <span className="text-yellow-400 text-opacity-90">10초 뒤 그룹이 자동 삭제</span>되며,<br />
                                             고정된 파티와 캐릭터는 <span className="text-yellow-400 text-opacity-90">초기화되지 않고 유지</span>됩니다.
                                         </p>
-                                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1E2028] border-t border-l border-white/10 rotate-45" />
+                                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[var(--surface-1e2028)] border-t border-l border-[var(--overlay-ink)]/10 rotate-45" />
                                     </div>
                                 </div>
                                 {activeTab === "temp_planner" && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#5B69FF] rounded-t-md" />}
@@ -1085,14 +1085,14 @@
                             {tasksLoading && (
                                 <div className="w-full py-6">
                                     <div className="animate-pulse space-y-3">
-                                        <div className="h-4 w-40 rounded bg-white/5" />
+                                        <div className="h-4 w-40 rounded bg-[var(--overlay-ink)]/5" />
                                         <div className="space-y-2">
                                             {[1, 2, 3].map((i) => (
-                                                <div key={i} className="flex items-center gap-3 rounded-xl border border-white/5 bg-[#16181D] p-4">
-                                                    <div className="h-9 w-9 rounded-full bg-white/5" />
+                                                <div key={i} className="flex items-center gap-3 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-4">
+                                                    <div className="h-9 w-9 rounded-full bg-[var(--overlay-ink)]/5" />
                                                     <div className="flex-1 space-y-2">
-                                                        <div className="h-4 w-1/2 rounded bg-white/5" />
-                                                        <div className="h-3 w-1/3 rounded bg-white/5" />
+                                                        <div className="h-4 w-1/2 rounded bg-[var(--overlay-ink)]/5" />
+                                                        <div className="h-3 w-1/3 rounded bg-[var(--overlay-ink)]/5" />
                                                     </div>
                                                 </div>
                                             ))}
@@ -1294,14 +1294,14 @@
                             {/* 계정 삭제 확인 모달 */}
                             {deleteConfirmOpen && (
                                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-                                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                                    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-2xl animate-in zoom-in-95 duration-200">
                                         <div className="p-6 text-center">
                                             <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
                                                 <AlertTriangle className="h-7 w-7" />
                                             </div>
                                             <h3 className="text-lg font-bold text-white mb-2">계정을 삭제하시겠습니까?</h3>
                                             <div className="flex gap-3 mt-6">
-                                                <button onClick={() => setDeleteConfirmOpen(false)} className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium">취소</button>
+                                                <button onClick={() => setDeleteConfirmOpen(false)} className="flex-1 py-3 rounded-xl bg-[var(--overlay-ink)]/5 hover:bg-[var(--overlay-ink)]/10 text-gray-300 font-medium">취소</button>
                                                 <button onClick={handleMyDeleteAccount} className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold">삭제하기</button>
                                             </div>
                                         </div>
@@ -1393,7 +1393,7 @@
 
         return (
             <div className="space-y-4">
-                <section className="rounded-xl border border-white/5 bg-[#16181D] p-5 md:p-6">
+                <section className="rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 md:p-6">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                         <div>
                             <p className="text-xs font-bold text-[#5B69FF]">
@@ -1407,7 +1407,7 @@
                                 데모에서는 아래 버튼으로 편성 상태를 켜고 끄며 숙제 카드와 표의 편성 표시를 확인할 수 있습니다.
                             </p>
                         </div>
-                        <div className="rounded-lg bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-gray-400">
+                        <div className="rounded-lg bg-[var(--overlay-ink)]/[0.04] border border-[var(--overlay-ink)]/10 px-3 py-2 text-xs text-gray-400">
                             편성됨 {assignedRaids.size}개
                         </div>
                     </div>
@@ -1417,12 +1417,12 @@
                     {DEMO_PLANNER_GROUPS.map((group) => {
                         const active = assignedRaids.has(group.key);
                         return (
-                            <article key={group.key} className={`rounded-xl border p-5 transition-colors ${active ? "border-[#5B69FF]/50 bg-[#5B69FF]/10" : "border-white/5 bg-[#16181D]"}`}>
+                            <article key={group.key} className={`rounded-xl border p-5 transition-colors ${active ? "border-[#5B69FF]/50 bg-[#5B69FF]/10" : "border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)]"}`}>
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <span className="text-lg font-bold text-white">{group.raidName}</span>
-                                            <span className="rounded bg-white/10 px-2 py-0.5 text-[11px] text-gray-300">{group.difficulty}</span>
+                                            <span className="rounded bg-[var(--overlay-ink)]/10 px-2 py-0.5 text-[11px] text-gray-300">{group.difficulty}</span>
                                         </div>
                                         <p className="mt-2 text-sm text-gray-400">{group.character}</p>
                                         <p className="mt-1 text-xs text-gray-500">{group.owner} · {isTemporary ? "임시 편성" : group.time}</p>
@@ -1430,7 +1430,7 @@
                                     <button
                                         type="button"
                                         onClick={() => onToggleAssignedRaid(group.key)}
-                                        className={`rounded-lg px-3 py-2 text-xs font-bold transition-colors ${active ? "bg-[#5B69FF] text-white" : "bg-white/5 text-gray-300 hover:bg-white/10"}`}
+                                        className={`rounded-lg px-3 py-2 text-xs font-bold transition-colors ${active ? "bg-[#5B69FF] text-white" : "bg-[var(--overlay-ink)]/5 text-gray-300 hover:bg-[var(--overlay-ink)]/10"}`}
                                     >
                                         {active ? "편성 해제" : "편성하기"}
                                     </button>
@@ -1534,13 +1534,13 @@
 
         if (visibleRoster.length === 0) {
             return (
-                <div className="rounded-none sm:rounded-xl border-x-0 sm:border border-white/10 bg-[#16181D] overflow-hidden relative">
+                <div className="rounded-none sm:rounded-xl border-x-0 sm:border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)] overflow-hidden relative">
                     <div className="flex items-center gap-3 px-4 py-5 ">
                         <MemberAvatar member={{ id: member.userId, name: member.name, image: member.image, role: "member" }} className="h-8 w-8 rounded-full border border-black/50" />
                         <span className="font-semibold text-xl text-gray-200">{member.name || "이름 없음"}</span>
                     </div>
                     <div className="px-4 pb-4">
-                        <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[#16181D] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-white/10 rounded-none sm:rounded-xl">
+                        <div className="w-full py-10 sm:py-16 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-[var(--surface-16181d)] border-x-0 sm:border-x-2 border-y-2 sm:border-y-2 border-dashed border-[var(--overlay-ink)]/10 rounded-none sm:rounded-xl">
                             <UsersRound className="w-8 h-8 sm:w-9 sm:h-9 text-[#5B69FF]" strokeWidth={1.5} />
                             <h2 className="text-xl sm:text-2xl font-bold text-white/90 mb-2 sm:mb-3 mt-4">캐릭터 정보가 없습니다</h2>
                         </div>
@@ -1550,7 +1550,7 @@
         }
 
         return (
-            <div className="grid grid-cols-1 gap-4 sm:gap-1 rounded-none sm:rounded-lg border-x-0 sm:border border-y sm:border-y border-white/10 px-3 sm:px-4 py-3 sm:py-4 relative">
+            <div className="grid grid-cols-1 gap-4 sm:gap-1 rounded-none sm:rounded-lg border-x-0 sm:border border-y sm:border-y border-[var(--overlay-ink)]/10 px-3 sm:px-4 py-3 sm:py-4 relative">
                 <PartyMemberSummaryBar member={member} summary={memberSummary}>
                     <PartyMemberActions
                         onAutoSetup={withEditAuth((count: number) => onAutoSetup(isMe, count))}
@@ -1594,10 +1594,10 @@
 
                                     if (showAllDone) {
                                         return (
-                                            <div className="flex flex-col items-center justify-center py-14 rounded-none sm:rounded-xl border-x-0 sm:border border-white/5 bg-white/[0.02]">
+                                            <div className="flex flex-col items-center justify-center py-14 rounded-none sm:rounded-xl border-x-0 sm:border border-[var(--overlay-ink)]/5 bg-[var(--overlay-ink)]/[0.02]">
                                                 <div className="relative mb-4">
                                                     <div className="absolute inset-0 bg-emerald-500 blur-[24px] opacity-20 rounded-full" />
-                                                    <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#16181D] border border-emerald-500/30">
+                                                    <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[var(--surface-16181d)] border border-emerald-500/30">
                                                         <Check className="h-7 w-7 text-emerald-400" strokeWidth={3} />
                                                     </div>
                                                 </div>
@@ -1709,11 +1709,11 @@
 
                 {showPermissionError && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
-                        <div className="w-full max-w-sm p-6 text-center bg-[#1E2028] border border-white/10 rounded-2xl">
+                        <div className="w-full max-w-sm p-6 text-center bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 rounded-2xl">
                             <AlertTriangle className="h-7 w-7 text-red-500 mx-auto mb-4" />
                             <h3 className="text-lg font-bold text-white mb-2">수정 권한 없음</h3>
                             <p className="text-sm text-gray-400 mb-6">해당 파티원이 숙제 수정을 허용하지 않았습니다.</p>
-                            <button onClick={() => setShowPermissionError(false)} className="w-full py-3 rounded-xl bg-white/10 text-white font-bold">확인</button>
+                            <button onClick={() => setShowPermissionError(false)} className="w-full py-3 rounded-xl bg-[var(--overlay-ink)]/10 text-white font-bold">확인</button>
                         </div>
                     </div>
                 )}
@@ -1738,13 +1738,13 @@
                     <div className="flex sm:hidden items-center gap-1">{children}</div>
                 </div>
                 <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-2.5 sm:gap-4 text-xs sm:text-base min-w-0">
-                    <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                    <span className="hidden sm:inline h-4 w-px bg-[var(--overlay-ink)]/10 " />
                     <div className="flex items-baseline gap-1 sm:gap-1.5">
                         <span className="font-semibold text-[11px] sm:text-base pr-1">남은 숙제</span>
                         <AnimatedNumber value={summary.totalRemainingTasks} className="text-gray-400 text-[10px] sm:text-sm font-semibold" />
                     </div>
-                    <span className="inline sm:hidden h-3 w-px bg-white/10 " />
-                    <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                    <span className="inline sm:hidden h-3 w-px bg-[var(--overlay-ink)]/10 " />
+                    <span className="hidden sm:inline h-4 w-px bg-[var(--overlay-ink)]/10 " />
                     <div className="flex items-baseline gap-1 sm:gap-1.5">
                         <span className="font-semibold text-[11px] sm:text-base pr-1">
                             <span className="sm:hidden">남은 캐릭터</span>
@@ -1752,8 +1752,8 @@
                         </span>
                         <AnimatedNumber value={summary.remainingCharacters} className="text-gray-400 text-[10px] sm:text-sm font-semibold" />
                     </div>
-                    <span className="inline sm:hidden h-3 w-px bg-white/10 " />
-                    <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                    <span className="inline sm:hidden h-3 w-px bg-[var(--overlay-ink)]/10 " />
+                    <span className="hidden sm:inline h-4 w-px bg-[var(--overlay-ink)]/10 " />
                     <div className="flex items-baseline gap-1 sm:gap-1.5">
                         <span className="font-semibold text-[11px] sm:text-base pr-1">골드</span>
                         <div className={`inline-flex items-baseline justify-end min-w-[40px] sm:min-w-[50px] text-[10px] sm:text-sm font-semibold tabular-nums ${memberAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400"}`}>
@@ -1761,8 +1761,8 @@
                             <span className="ml-0.5 text-[0.7em] sm:text-[0.75em]">g</span>
                         </div>
                     </div>
-                    <span className="inline sm:hidden h-3 w-px bg-white/10 " />
-                    <span className="hidden sm:inline h-4 w-px bg-white/10 " />
+                    <span className="inline sm:hidden h-3 w-px bg-[var(--overlay-ink)]/10 " />
+                    <span className="hidden sm:inline h-4 w-px bg-[var(--overlay-ink)]/10 " />
                     <div className="flex items-baseline gap-1 sm:gap-1.5">
                         <span className="font-semibold text-[11px] sm:text-base pr-1">귀속 골드</span>
                         <div className={`inline-flex items-baseline justify-end min-w-[40px] sm:min-w-[50px] text-[10px] sm:text-sm font-semibold tabular-nums ${memberAllCleared ? "line-through decoration-gray-300 decoration-1 text-gray-400" : "text-gray-400"}`}>
@@ -1817,17 +1817,17 @@
                             handleRefreshClick();
                         }}
                         disabled={isRefreshing}
-                        className={`p-2 rounded-lg transition-colors ${isRefreshing ? "text-indigo-400 cursor-not-allowed" : isAllView ? "text-gray-600 opacity-50 cursor-pointer" : "text-gray-400 hover:text-white hover:bg-white/5"}`}
+                        className={`p-2 rounded-lg transition-colors ${isRefreshing ? "text-indigo-400 cursor-not-allowed" : isAllView ? "text-gray-600 opacity-50 cursor-pointer" : "text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/5"}`}
                     >
                         <RefreshCcw className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`} />
                     </button>
 
-                    <button onClick={() => setIsMenuOpen(!isMenuOpen)} className={`p-2 rounded-lg transition-colors ${isMenuOpen ? "bg-white/10 text-white" : "text-gray-400 hover:text-white hover:bg-white/5"}`}>
+                    <button onClick={() => setIsMenuOpen(!isMenuOpen)} className={`p-2 rounded-lg transition-colors ${isMenuOpen ? "bg-[var(--overlay-ink)]/10 text-white" : "text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/5"}`}>
                         <MoreVertical className="w-5 h-5" />
                     </button>
 
                     {isMenuOpen && (
-                        <div className="absolute right-0 top-full mt-2 w-52 z-50 rounded-xl bg-[#1E2028] border border-white/10 shadow-xl overflow-visible">
+                        <div className="absolute right-0 top-full mt-2 w-52 z-50 rounded-xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-xl overflow-visible">
                             <div className="relative">
                                 <div className="relative group">
                                     <button
@@ -1837,7 +1837,7 @@
                                             setAutoSetupConfirmOpen(true);
                                             setIsMenuOpen(false);
                                         }}
-                                        className={`w-full h-14 text-left px-4 flex items-center gap-3 transition-colors rounded-t-xl ${isAllView ? 'opacity-40 cursor-pointer' : 'hover:bg-white/5'}`}
+                                        className={`w-full h-14 text-left px-4 flex items-center gap-3 transition-colors rounded-t-xl ${isAllView ? 'opacity-40 cursor-pointer' : 'hover:bg-[var(--overlay-ink)]/5'}`}
                                     >
                                         <div className={`p-1.5 rounded-lg ${isAllView ? 'bg-gray-500/10 text-gray-400' : 'bg-indigo-500/10 text-indigo-400'}`}><Wand2 className="w-4 h-4" /></div>
                                         <div className="flex flex-col justify-center">
@@ -1846,24 +1846,24 @@
                                         </div>
                                     </button>
                                     {!isAllView && (
-                                        <div onClick={(e) => { e.stopPropagation(); setShowAutoSetupSettings(!showAutoSetupSettings); }} className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 cursor-pointer z-[60]"><Settings className="w-3 h-3" /></div>
+                                        <div onClick={(e) => { e.stopPropagation(); setShowAutoSetupSettings(!showAutoSetupSettings); }} className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-gray-500 hover:text-white hover:bg-[var(--overlay-ink)]/10 cursor-pointer z-[60]"><Settings className="w-3 h-3" /></div>
                                     )}
                                     {showAutoSetupSettings && (
-                                        <div className="absolute top-[80%] right-2 mt-2 w-56 p-4 rounded-xl bg-[#1E2028] border border-white/10 z-[100]">
+                                        <div className="absolute top-[80%] right-2 mt-2 w-56 p-4 rounded-xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 z-[100]">
                                             <div className="flex items-center justify-between mb-3">
                                                 <h4 className="text-xs font-bold text-white">자동 세팅 설정</h4>
                                                 <button onClick={(e) => { e.stopPropagation(); setShowAutoSetupSettings(false); }} className="text-gray-400 hover:text-white"><X className="w-4 h-4" /></button>
                                             </div>
                                             <div className="flex items-center justify-between gap-4 mb-4">
                                                 <span className="text-[11px] text-gray-400">적용할 캐릭터 수</span>
-                                                <input type="number" min={1} max={24} value={autoSetupCharCount} onChange={(e) => setAutoSetupCharCount(Number(e.target.value))} className="w-12 h-7 bg-[#0F1115] border border-white/10 rounded-md text-xs text-center text-white" />
+                                                <input type="number" min={1} max={24} value={autoSetupCharCount} onChange={(e) => setAutoSetupCharCount(Number(e.target.value))} className="w-12 h-7 bg-[var(--surface-0f1115)] border border-[var(--overlay-ink)]/10 rounded-md text-xs text-center text-white" />
                                             </div>
                                             <button onClick={(e) => { e.stopPropagation(); setAutoSetupConfirmOpen(true); setShowAutoSetupSettings(false); setIsMenuOpen(false); }} className="w-full py-2 bg-[#5B69FF] text-white text-[11px] font-bold rounded-lg">적용하기</button>
                                         </div>
                                     )}
                                 </div>
 
-                                <button onClick={(e) => { e.stopPropagation(); onGateAllClear(); setIsMenuOpen(false); }} className="w-full h-14 text-left px-4 flex items-center gap-3 transition-colors hover:bg-white/5">
+                                <button onClick={(e) => { e.stopPropagation(); onGateAllClear(); setIsMenuOpen(false); }} className="w-full h-14 text-left px-4 flex items-center gap-3 transition-colors hover:bg-[var(--overlay-ink)]/5">
                                     <div className="p-1.5 rounded-lg shrink-0 bg-red-500/10 text-red-400"><RefreshCcw className="w-4 h-4" /></div>
                                     <div className="flex flex-col justify-center">
                                         <span className="block text-sm font-medium text-gray-200">관문 초기화</span>
@@ -1871,7 +1871,7 @@
                                     </div>
                                 </button>
 
-                                <button onClick={(e) => { e.stopPropagation(); if (isAllView) { setShowAllViewWarning(true); setIsMenuOpen(false); return; } onOpenCharSetting(); setIsMenuOpen(false); }} className={`w-full h-14 text-left px-4 flex items-center gap-3 transition-colors rounded-b-xl ${isAllView ? 'opacity-40 cursor-pointer' : 'hover:bg-white/5'}`}>
+                                <button onClick={(e) => { e.stopPropagation(); if (isAllView) { setShowAllViewWarning(true); setIsMenuOpen(false); return; } onOpenCharSetting(); setIsMenuOpen(false); }} className={`w-full h-14 text-left px-4 flex items-center gap-3 transition-colors rounded-b-xl ${isAllView ? 'opacity-40 cursor-pointer' : 'hover:bg-[var(--overlay-ink)]/5'}`}>
                                     <div className={`p-1.5 rounded-lg shrink-0 ${isAllView ? 'bg-gray-700/30 text-gray-500' : 'bg-gray-700/50 text-gray-400'}`}><Settings className="w-4 h-4" /></div>
                                     <span className={`text-sm font-medium ${isAllView ? 'text-gray-500' : 'text-gray-300'}`}>캐릭터 설정</span>
                                 </button>
@@ -1880,18 +1880,18 @@
                     )}
                 </div>
 
-                <button onClick={onToggleExpand} className="hover:bg-white/5 p-2 rounded-md bg-white/[.04] border border-white/10 text-gray-400">
+                <button onClick={onToggleExpand} className="hover:bg-[var(--overlay-ink)]/5 p-2 rounded-md bg-[var(--overlay-ink)]/[.04] border border-[var(--overlay-ink)]/10 text-gray-400">
                     {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                 </button>
 
                 {autoSetupConfirmOpen && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 px-4">
-                        <div className="w-full max-w-sm p-6 text-center bg-[#1E2028] border border-white/10 rounded-2xl">
+                        <div className="w-full max-w-sm p-6 text-center bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 rounded-2xl">
                             <AlertTriangle className="h-7 w-7 text-yellow-500 mx-auto mb-4" />
                             <h3 className="text-lg font-bold text-white mb-2">자동 세팅을 진행하시겠습니까?</h3>
                             <p className="text-sm text-gray-400 mb-6">모두 초기화되고 새로 덮어씌워집니다.</p>
                             <div className="flex gap-3">
-                                <button onClick={() => setAutoSetupConfirmOpen(false)} className="flex-1 py-3 rounded-xl bg-white/5 text-gray-300">취소</button>
+                                <button onClick={() => setAutoSetupConfirmOpen(false)} className="flex-1 py-3 rounded-xl bg-[var(--overlay-ink)]/5 text-gray-300">취소</button>
                                 <button onClick={() => { onAutoSetup(autoSetupCharCount); setAutoSetupConfirmOpen(false); }} className="flex-1 py-3 rounded-xl bg-[#5B69FF] text-white">적용하기</button>
                             </div>
                         </div>
@@ -1900,11 +1900,11 @@
 
                 {showAllViewWarning && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 px-4">
-                        <div className="w-full max-w-sm p-6 text-center bg-[#1E2028] border border-white/10 rounded-2xl">
+                        <div className="w-full max-w-sm p-6 text-center bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 rounded-2xl">
                             <AlertTriangle className="h-7 w-7 text-red-500 mx-auto mb-4" />
                             <h3 className="text-lg font-bold text-white mb-2">기능 사용 불가</h3>
                             <p className="text-sm text-gray-400 mb-6">'모두 보기' 상태에서는 데이터 꼬임을 방지하기 위해 해당 기능을 이용할 수 없습니다.</p>
-                            <button onClick={() => setShowAllViewWarning(false)} className="w-full py-3 rounded-xl bg-white/10 text-white font-bold">확인</button>
+                            <button onClick={() => setShowAllViewWarning(false)} className="w-full py-3 rounded-xl bg-[var(--overlay-ink)]/10 text-white font-bold">확인</button>
                         </div>
                     </div>
                 )}

@@ -160,7 +160,7 @@ export default function GemCalculatorPage() {
 
     const recommendationLabel = isFetchingPrices && !result.canCalculate ? "시세를 불러오는 중입니다" : result.label;
 
-    const recommendationTone = "border-white/10 bg-white/5 text-gray-200";
+    const recommendationTone = "border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/5 text-gray-200";
     const targetTypeLabel = GEM_TYPES.find((type) => type.key === targetType)?.shortLabel ?? "";
     const updatedAtLabel = updatedAt
         ? new Date(updatedAt).toLocaleString("ko-KR", {
@@ -210,8 +210,8 @@ export default function GemCalculatorPage() {
 
                 <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-[280px_1fr]">
                     <aside className="space-y-4">
-                        <section className="overflow-hidden rounded-none border-y border-white/5 bg-[#16181D] sm:rounded-xl sm:border">
-                            <div className="border-b border-white/5 px-5 py-4">
+                        <section className="overflow-hidden rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] sm:rounded-xl sm:border">
+                            <div className="border-b border-[var(--overlay-ink)]/5 px-5 py-4">
                                 <h2 className="flex items-center gap-2 font-semibold text-white">
                                     <span className="h-4 w-1 rounded-full bg-indigo-500" />
                                     목표 설정
@@ -230,7 +230,7 @@ export default function GemCalculatorPage() {
                                                 onClick={() => setTargetLevel(level)}
                                                 className={`flex h-11 items-center justify-center rounded-lg border text-sm font-bold transition-colors ${targetLevel === level
                                                     ? "border-[#5B69FF]/40 bg-[#5B69FF]/15 text-white"
-                                                    : "border-white/5 bg-[#0F1014] text-gray-400 hover:border-white/10 hover:text-gray-200"
+                                                    : "border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] text-gray-400 hover:border-[var(--overlay-ink)]/10 hover:text-gray-200"
                                                     }`}
                                             >
                                                 {level}레벨
@@ -251,7 +251,7 @@ export default function GemCalculatorPage() {
                                                 onClick={() => setTargetType(type.key)}
                                                 className={`flex h-11 w-full items-center gap-3 rounded-lg border px-4 text-sm font-bold transition-colors ${targetType === type.key
                                                     ? "border-[#5B69FF]/40 bg-[#5B69FF]/15 text-white"
-                                                    : "border-white/5 bg-[#0F1014] text-gray-400 hover:border-white/10 hover:text-gray-200"
+                                                    : "border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] text-gray-400 hover:border-[var(--overlay-ink)]/10 hover:text-gray-200"
                                                     }`}
                                             >
                                                 <div
@@ -270,7 +270,7 @@ export default function GemCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none border-y border-white/5 bg-[#16181D] p-5 sm:rounded-xl sm:border">
+                        <section className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
                             <h2 className="mb-3 text-sm font-bold text-gray-200">계산 기준</h2>
                             <div className="space-y-3 break-keep text-[13px] leading-relaxed text-gray-400">
                                 <p>합성 비용은 하위 레벨 T4 보석 3개의 구매 비용으로 계산합니다.</p>
@@ -280,7 +280,7 @@ export default function GemCalculatorPage() {
                     </aside>
 
                     <main className="space-y-5">
-                        <section className="rounded-none border-y border-white/5 bg-[#16181D] p-5 shadow-sm sm:rounded-xl sm:border">
+                        <section className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 shadow-sm sm:rounded-xl sm:border">
                             <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                                 <div className="min-w-0 max-w-3xl">
                                     <div className="flex flex-wrap items-center gap-2">
@@ -301,7 +301,7 @@ export default function GemCalculatorPage() {
                                         type="button"
                                         onClick={fetchGemPrices}
                                         disabled={isFetchingPrices}
-                                        className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-gray-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/5 px-3 py-2 text-xs font-bold text-gray-300 transition hover:bg-[var(--overlay-ink)]/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                         {isFetchingPrices ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                                         시세 불러오기
@@ -310,7 +310,7 @@ export default function GemCalculatorPage() {
                                         type="button"
                                         onClick={resetPrices}
                                         disabled={isFetchingPrices}
-                                        className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0F1014] px-3 py-2 text-xs font-bold text-gray-400 transition hover:bg-white/5 hover:text-gray-200"
+                                        className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1014)] px-3 py-2 text-xs font-bold text-gray-400 transition hover:bg-[var(--overlay-ink)]/5 hover:text-gray-200"
                                     >
                                         <RotateCcw className="h-4 w-4" />
                                         초기화
@@ -319,14 +319,14 @@ export default function GemCalculatorPage() {
                             </div>
 
                             {(priceStatus || isFetchingPrices) && (
-                                <div role="status" aria-live="polite" className="mb-4 rounded-lg border border-white/10 bg-[#0F1014] px-4 py-3 text-xs font-medium text-gray-300">
+                                <div role="status" aria-live="polite" className="mb-4 rounded-lg border border-[var(--overlay-ink)]/10 bg-[var(--surface-0f1014)] px-4 py-3 text-xs font-medium text-gray-300">
                                     {isFetchingPrices ? "시세를 불러오는 중입니다. 기존 값이 있으면 갱신 전 가격을 표시합니다." : priceStatus}
                                 </div>
                             )}
 
-                            <div className="overflow-x-auto rounded-xl border border-white/5">
+                            <div className="overflow-x-auto rounded-xl border border-[var(--overlay-ink)]/5">
                                 <div className="min-w-[720px]">
-                                    <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr_0.8fr] bg-[#0F1014] px-3 py-3 text-xs font-bold text-gray-500">
+                                    <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr_0.8fr] bg-[var(--surface-0f1014)] px-3 py-3 text-xs font-bold text-gray-500">
                                         <div>합성</div>
                                         <div className="text-right">비용</div>
                                         <div className="text-right">결과 가치</div>
@@ -349,9 +349,9 @@ export default function GemCalculatorPage() {
                                                 key={row.level}
                                                 type="button"
                                                 onClick={() => setTargetLevel(row.level)}
-                                                className={`grid w-full grid-cols-[1.2fr_1fr_1fr_1fr_0.8fr] items-center border-t border-white/5 px-3 py-3 text-sm transition-colors ${selected
+                                                className={`grid w-full grid-cols-[1.2fr_1fr_1fr_1fr_0.8fr] items-center border-t border-[var(--overlay-ink)]/5 px-3 py-3 text-sm transition-colors ${selected
                                                     ? "bg-[#5B69FF]/10"
-                                                    : "hover:bg-white/[0.03]"
+                                                    : "hover:bg-[var(--overlay-ink)]/[0.03]"
                                                     }`}
                                             >
                                                 <div className="text-left font-bold text-gray-100">
@@ -367,7 +367,7 @@ export default function GemCalculatorPage() {
                                                     {row.canCalculate ? `${row.profit > 0 ? "+" : row.profit < 0 ? "−" : ""}${formatGold(Math.abs(row.profit))}G` : "-"}
                                                 </div>
                                                 <div className="text-right">
-                                                    <span className={`inline-flex rounded-md border border-white/5 bg-[#0F1014] px-2 py-1 text-xs font-bold ${profitClass}`}>
+                                                    <span className={`inline-flex rounded-md border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] px-2 py-1 text-xs font-bold ${profitClass}`}>
                                                         {row.canCalculate ? `${row.profitRate > 0 ? "+" : ""}${row.profitRate.toFixed(1)}%` : "-"}
                                                     </span>
                                                 </div>
@@ -397,10 +397,10 @@ export default function GemCalculatorPage() {
                         </section>
 
                         <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                            <div className="rounded-none border-y border-white/5 bg-[#16181D] p-5 sm:rounded-xl sm:border">
+                            <div className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
                                 <div className="mb-4 flex items-center justify-between">
                                     <h2 className="font-semibold text-gray-200">합성 계산 상세</h2>
-                                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-bold text-gray-400">
+                                    <span className="rounded-full border border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/5 px-2.5 py-1 text-[11px] font-bold text-gray-400">
                                         T4 보석 기준
                                     </span>
                                 </div>
@@ -436,7 +436,7 @@ export default function GemCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none border-y border-white/5 bg-[#16181D] p-5 sm:rounded-xl sm:border">
+                        <section className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
                             <h2 className="mb-3 text-sm font-bold text-gray-200">사용 예시</h2>
                             <div className="space-y-3 break-keep text-[13px] leading-relaxed text-gray-400">
                                 <p>
@@ -464,7 +464,7 @@ function ResultCard({
     subText: string;
 }) {
     return (
-        <div className="rounded-none border-y border-white/5 bg-[#16181D] p-5 sm:rounded-xl sm:border">
+        <div className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
             <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-semibold text-gray-300">{label}</span>
             </div>
@@ -476,7 +476,7 @@ function ResultCard({
 
 function DetailRow({ label, value }: { label: string; value: string }) {
     return (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-white/5 bg-[#0F1014] px-4 py-3">
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] px-4 py-3">
             <span className="break-keep text-sm text-gray-400">{label}</span>
             <span className="shrink-0 text-sm font-bold text-gray-100">{value}</span>
         </div>

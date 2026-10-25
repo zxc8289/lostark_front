@@ -49,7 +49,7 @@ const DIFF_STYLES = {
     },
     싱글: {
         check: "bg-[#F1F5F9] text-[#111217] border-[#F1F5F9]",
-        idle: "bg-white/5 text-white/70 border-white/20",
+        idle: "bg-[var(--overlay-ink)]/5 text-white/70 border-[var(--overlay-ink)]/20",
         hover: "hover:bg-[#F1F5F9] hover:text-[#111217]",
     },
 } as const;
@@ -58,7 +58,7 @@ type RaidDifficulty = keyof typeof DIFF_STYLES;
 
 function getDifficultyChipClass(difficulty?: string) {
     const style = DIFF_STYLES[difficulty as RaidDifficulty];
-    return style?.idle ?? "bg-black/40 text-gray-300 border-white/5";
+    return style?.idle ?? "bg-black/40 text-gray-300 border-[var(--overlay-ink)]/5";
 }
 
 type RemainingRaidRow = {
@@ -302,12 +302,12 @@ export function HomeMyTasksHeader() {
 
     return (
         <div className="space-y-5">
-            <section className="relative rounded-xl bg-[#16181D] border border-white/5 overflow-hidden" ref={popRef}>
+            <section className="relative rounded-xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 overflow-hidden" ref={popRef}>
                 <button
                     type="button"
                     disabled={!canSwitch}
                     onClick={() => setAccountOpen(!accountOpen)}
-                    className={`w-full flex items-center justify-between px-4 py-3.5 transition-colors ${canSwitch ? 'hover:bg-white/5 cursor-pointer' : 'cursor-default'} ${accountOpen ? 'bg-white/5' : ''}`}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 transition-colors ${canSwitch ? 'hover:bg-[var(--overlay-ink)]/5 cursor-pointer' : 'cursor-default'} ${accountOpen ? 'bg-[var(--overlay-ink)]/5' : ''}`}
                 >
                     <div className="flex flex-col items-start min-w-0 text-left">
                         <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">현재 계정</span>
@@ -320,19 +320,19 @@ export function HomeMyTasksHeader() {
                     )}
                 </button>
                 {accountOpen && (
-                    <div className="px-3 pb-3 pt-1 bg-[#16181D] border-t border-white/5 animate-in slide-in-from-top-2 duration-200">
+                    <div className="px-3 pb-3 pt-1 bg-[var(--surface-16181d)] border-t border-[var(--overlay-ink)]/5 animate-in slide-in-from-top-2 duration-200">
                         <div className="flex flex-col gap-1 mt-2">
                             {accounts.map((a) => {
                                 const isActive = a.id === activeAccountId;
                                 return (
-                                    <button key={a.id} type="button" onClick={() => selectAccount(a.id)} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}>
+                                    <button key={a.id} type="button" onClick={() => selectAccount(a.id)} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${isActive ? "bg-[#5B69FF]/10 text-white" : "text-gray-400 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-200"}`}>
                                         <div className={`flex items-center justify-center w-4 h-4 ${isActive ? 'text-[#5B69FF]' : 'text-transparent'}`}><Check className="h-4 w-4" strokeWidth={3} /></div>
                                         <span className="text-sm font-bold">{a.nickname}</span>
                                     </button>
                                 );
                             })}
-                            <div className="mt-1 pt-1 border-t border-white/5">
-                                <a href="/my-tasks" onClick={(e) => e.stopPropagation()} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[11px] font-black text-gray-500 hover:bg-white/5 hover:text-gray-300 transition-all">
+                            <div className="mt-1 pt-1 border-t border-[var(--overlay-ink)]/5">
+                                <a href="/my-tasks" onClick={(e) => e.stopPropagation()} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[11px] font-black text-gray-500 hover:bg-[var(--overlay-ink)]/5 hover:text-gray-300 transition-all">
                                     <div className="w-4 flex justify-center text-gray-600"><ExternalLink size={12} /></div>
                                     <span>계정 관리 및 추가</span>
                                 </a>
@@ -353,14 +353,14 @@ export function HomeMyTasksHeader() {
                         <div className="text-2xl font-black text-[#5B69FF] leading-none tracking-tighter">{progress}%</div>
                     </div>
                 </div>
-                <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                <div className="w-full h-2 bg-[var(--overlay-ink)]/5 rounded-full overflow-hidden border border-[var(--overlay-ink)]/5">
                     <div className="h-full bg-[#5B69FF] transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />
                 </div>
             </div>
 
             {/* 요약 카드들 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-4 rounded-xl border border-white/5 bg-[#16181D] transition-all hover:border-white/10 group">
+                <div className="p-4 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] transition-all hover:border-[var(--overlay-ink)]/10 group">
                     <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2.5">
                             <span className="text-[12px] text-gray-500 font-bold uppercase tracking-tight">남은 골드</span>
@@ -370,7 +370,7 @@ export function HomeMyTasksHeader() {
                         </div>
                     </div>
                 </div>
-                <div className="p-4 rounded-xl border border-white/5 bg-[#16181D] transition-all hover:border-white/10 group">
+                <div className="p-4 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] transition-all hover:border-[var(--overlay-ink)]/10 group">
                     <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2.5">
                             <span className="text-[12px] text-gray-500 font-bold uppercase tracking-tight">남은 숙제</span>
@@ -407,7 +407,7 @@ export function HomeMyTasksDetails() {
     return (
         <div className="h-full min-h-0 overflow-y-auto custom-scrollbar space-y-2.5 pr-1">
             {remainingRaids.map((r) => (
-                <div key={r.raidName} className="p-3.5 bg-white/[0.03] rounded-xl border border-white/5 transition-all">
+                <div key={r.raidName} className="p-3.5 bg-[var(--overlay-ink)]/[0.03] rounded-xl border border-[var(--overlay-ink)]/5 transition-all">
                     <div className="flex items-center justify-between mb-2.5">
                         <span className="text-[11px] font-bold text-gray-200 tracking-wide">{r.raidName}</span>
                         <span className="text-[10px] text-gray-600 font-bold">{r.chars.length}캐릭</span>
@@ -437,8 +437,8 @@ function HomeMyTasksSkeleton() {
     return (
         // 🔹 [수정] flex-1 적용
         <div className="flex-1 w-full flex flex-col justify-center animate-pulse gap-4">
-            <div className="h-10 bg-white/5 rounded w-full" />
-            <div className="h-32 bg-white/5 rounded w-full" />
+            <div className="h-10 bg-[var(--overlay-ink)]/5 rounded w-full" />
+            <div className="h-32 bg-[var(--overlay-ink)]/5 rounded w-full" />
         </div>
     );
 }

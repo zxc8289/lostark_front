@@ -358,7 +358,7 @@ export default function PartyTasksClient() {
                 )}
 
                 {/* 참여 중인 파티 요약 카드 & 액션 버튼 */}
-                <div className="bg-[#16181D] rounded-none sm:rounded-md px-4 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 border border-white/5">
+                <div className="bg-[var(--surface-16181d)] rounded-none sm:rounded-md px-4 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 border border-[var(--overlay-ink)]/5">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="min-w-0">
                             <div className="flex items-center gap-2">
@@ -366,7 +366,7 @@ export default function PartyTasksClient() {
                                     참여 중인 파티
                                 </h2>
                                 {!loading && (
-                                    <span className="inline-flex items-center justify-center rounded-full bg-white/10 px-2 py-0.5 text-[12px] font-medium text-gray-400">
+                                    <span className="inline-flex items-center justify-center rounded-full bg-[var(--overlay-ink)]/10 px-2 py-0.5 text-[12px] font-medium text-gray-400">
                                         총 {parties.length}개
                                     </span>
                                 )}
@@ -384,7 +384,7 @@ export default function PartyTasksClient() {
                         </button>
                         <button
                             onClick={() => setJoinModalOpen(true)}
-                            className="group inline-flex items-center justify-center py-2.5 px-4 rounded-lg bg-[#2B2D36] text-gray-200 border border-white/10 hover:bg-[#343741] hover:text-white hover:border-white/20 transition-all duration-200 text-sm font-medium gap-2"
+                            className="group inline-flex items-center justify-center py-2.5 px-4 rounded-lg bg-[var(--surface-2b2d36)] text-gray-200 border border-[var(--overlay-ink)]/10 hover:bg-[var(--surface-343741)] hover:text-white hover:border-[var(--overlay-ink)]/20 transition-all duration-200 text-sm font-medium gap-2"
                         >
                             <Ticket className="h-4 w-4" />
                             <span>코드로 참여</span>
@@ -399,7 +399,7 @@ export default function PartyTasksClient() {
                             {[1, 2, 3, 4, 5, 6].map((i) => (
                                 <div
                                     key={i}
-                                    className="h-[240px] rounded-xl border border-white/5 bg-[#16181D] p-5 animate-pulse"
+                                    className="h-[240px] rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 animate-pulse"
                                 />
                             ))}
                         </div>
@@ -424,8 +424,8 @@ export default function PartyTasksClient() {
                             </SortableContext>
                         </DndContext>
                     ) : (
-                        <div className="rounded-2xl border border-dashed border-white/10 bg-[#16181D]/50 p-16 text-center">
-                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
+                        <div className="rounded-2xl border border-dashed border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)]/50 p-16 text-center">
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--overlay-ink)]/5">
                                 <Users className="h-8 w-8 text-gray-600" />
                             </div>
                             <h3 className="text-lg font-semibold text-white">
@@ -444,8 +444,8 @@ export default function PartyTasksClient() {
                 {/* ───────── 모달들 (생성, 참가) ───────── */}
                 {createModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-                        <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-                            <div className="relative bg-[#252832] px-6 py-6 border-b border-white/5">
+                        <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                            <div className="relative bg-[var(--surface-252832)] px-6 py-6 border-b border-[var(--overlay-ink)]/5">
                                 <button
                                     onClick={() => setCreateModalOpen(false)}
                                     className="absolute top-4 right-4 p-1 text-gray-500 hover:text-white transition-colors"
@@ -477,7 +477,7 @@ export default function PartyTasksClient() {
                                                 placeholder="파티 이름 (예: 수요일 고정팟)"
                                                 value={createName}
                                                 onChange={(e) => setCreateName(e.target.value)}
-                                                className="w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-4 py-3 text-sm text-white placeholder:text-gray-600 focus:border-[#5B69FF] focus:outline-none focus:ring-1 focus:ring-[#5B69FF] transition-all"
+                                                className="w-full rounded-xl border border-[var(--overlay-ink)]/10 bg-black/20 pl-10 pr-4 py-3 text-sm text-white placeholder:text-gray-600 focus:border-[#5B69FF] focus:outline-none focus:ring-1 focus:ring-[#5B69FF] transition-all"
                                             />
                                         </div>
                                         <div className="relative group">
@@ -489,7 +489,7 @@ export default function PartyTasksClient() {
                                                 value={createMemo}
                                                 onChange={(e) => setCreateMemo(e.target.value)}
                                                 rows={3}
-                                                className="w-full resize-none rounded-xl border border-white/10 bg-black/20 pl-10 pr-4 py-3 text-sm text-white placeholder:text-gray-600 focus:border-[#5B69FF] focus:outline-none focus:ring-1 focus:ring-[#5B69FF] transition-all"
+                                                className="w-full resize-none rounded-xl border border-[var(--overlay-ink)]/10 bg-black/20 pl-10 pr-4 py-3 text-sm text-white placeholder:text-gray-600 focus:border-[#5B69FF] focus:outline-none focus:ring-1 focus:ring-[#5B69FF] transition-all"
                                             />
                                         </div>
                                     </div>
@@ -497,7 +497,7 @@ export default function PartyTasksClient() {
                                         <button
                                             type="button"
                                             onClick={() => setCreateModalOpen(false)}
-                                            className="flex-1 rounded-xl bg-white/5 py-3 text-sm font-semibold text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+                                            className="flex-1 rounded-xl bg-[var(--overlay-ink)]/5 py-3 text-sm font-semibold text-gray-400 hover:bg-[var(--overlay-ink)]/10 hover:text-white transition-colors"
                                         >
                                             취소
                                         </button>
@@ -524,8 +524,8 @@ export default function PartyTasksClient() {
 
                 {joinModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 animate-in fade-in duration-200">
-                        <div className="w-full max-w-[600px] overflow-hidden rounded-2xl bg-[#1E2028] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-                            <div className="relative bg-[#252832] px-6 py-6 border-b border-white/5">
+                        <div className="w-full max-w-[600px] overflow-hidden rounded-2xl bg-[var(--surface-1e2028)] border border-[var(--overlay-ink)]/10 shadow-2xl animate-in zoom-in-95 duration-200">
+                            <div className="relative bg-[var(--surface-252832)] px-6 py-6 border-b border-[var(--overlay-ink)]/5">
                                 <button
                                     onClick={() => setJoinModalOpen(false)}
                                     className="absolute top-4 right-4 p-1 text-gray-500 hover:text-white transition-colors"
@@ -562,7 +562,7 @@ export default function PartyTasksClient() {
                                                 onPaste={index === 0 ? handlePaste : undefined}
                                                 className={`w-9.5 h-9.5 sm:w-14 sm:h-14 text-center text-xl sm:text-2xl font-bold rounded-lg border bg-black/20 text-white transition-all caret-[#10B981] ${joinCode[index]
                                                     ? "border-[#10B981] shadow-[0_0_15px_rgba(16,185,129,0.25)]"
-                                                    : "border-white/10 hover:border-white/30"
+                                                    : "border-[var(--overlay-ink)]/10 hover:border-[var(--overlay-ink)]/30"
                                                     } focus:border-[#10B981] focus:outline-none focus:ring-1 focus:ring-[#10B981]`}
                                             />
                                         ))}
@@ -572,7 +572,7 @@ export default function PartyTasksClient() {
                                         <button
                                             type="button"
                                             onClick={() => setJoinModalOpen(false)}
-                                            className="flex-1 rounded-xl bg-white/5 py-3 text-sm font-semibold text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+                                            className="flex-1 rounded-xl bg-[var(--overlay-ink)]/5 py-3 text-sm font-semibold text-gray-400 hover:bg-[var(--overlay-ink)]/10 hover:text-white transition-colors"
                                         >
                                             취소
                                         </button>
@@ -659,7 +659,7 @@ function PartyCard({
         <div
             {...dragProps}
             onClick={onClick}
-            className={`group relative flex flex-col ${showNames ? "min-h-[246px]" : "h-[246px]"} justify-between rounded-none sm:rounded-xl border border-white/10 bg-[#16181D] p-5 text-left transition-all duration-300 hover:border-[#5B69FF]/50 hover:shadow-[0_0_30px_-10px_rgba(91,105,255,0.15)] hover:-translate-y-1 overflow-hidden touch-none ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+            className={`group relative flex flex-col ${showNames ? "min-h-[246px]" : "h-[246px]"} justify-between rounded-none sm:rounded-xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)] p-5 text-left transition-all duration-300 hover:border-[#5B69FF]/50 hover:shadow-[0_0_30px_-10px_rgba(91,105,255,0.15)] hover:-translate-y-1 overflow-hidden touch-none ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
         >
             <div className="absolute inset-0 bg-gradient-to-br from-[#5B69FF]/0 via-[#5B69FF]/0 to-[#5B69FF]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
@@ -668,7 +668,7 @@ function PartyCard({
                 <div className="mb-4 flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1F222B] border border-white/5 text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-1f222b)] border border-[var(--overlay-ink)]/5 text-[#5B69FF] group-hover:bg-[#5B69FF] group-hover:text-white transition-colors">
                                 <Users className="h-5 w-5" />
                             </div>
                             <div className="min-w-0">
@@ -684,7 +684,7 @@ function PartyCard({
                     <ChevronRight className="h-5 w-5 text-gray-600 group-hover:text-[#5B69FF] transition-colors shrink-0 ml-2" />
                 </div>
 
-                <div className="h-px w-full bg-white/5 my-3" />
+                <div className="h-px w-full bg-[var(--overlay-ink)]/5 my-3" />
 
                 {/* 멤버 섹션 */}
                 <div className="flex-1 flex flex-col">
@@ -716,7 +716,7 @@ function PartyCard({
                                 {members.map((m) => (
                                     <div
                                         key={m.id}
-                                        className="flex items-center gap-2 rounded-full border border-white/10 bg-black/20 pl-1 pr-3 py-1.5 hover:bg-white/5 transition-colors"
+                                        className="flex items-center gap-2 rounded-full border border-[var(--overlay-ink)]/10 bg-black/20 pl-1 pr-3 py-1.5 hover:bg-[var(--overlay-ink)]/5 transition-colors"
                                     >
                                         <MemberAvatar member={m} className="h-8 w-8 rounded-full" />
                                         <span className="text-xs text-gray-300 max-w-[80px] truncate">
@@ -726,15 +726,15 @@ function PartyCard({
                                 ))}
                             </div>
                         ) : (
-                            // 닫힘 상태 (아바타만 겹쳐 보이기)
+                            // 닫힘 상태 (아바타로 멤버 표시)
                             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
                                 {/* 닫힘 상태에서는 최대 2줄까지만 보여주고, 전체 목록은 닉네임 보기에서 확인합니다. */}
-                                <div className="flex flex-wrap -space-x-3 gap-y-2 hover:space-x-1 transition-all duration-300">
+                                <div className="party-member-avatars flex flex-wrap -space-x-3 gap-y-2 hover:space-x-1 transition-all duration-300">
                                     {members.map((m) => (
                                         <MemberAvatar
                                             key={m.id}
                                             member={m}
-                                            className="relative h-10 w-10 rounded-full ring-2 ring-[#16181D] transition-transform hover:scale-110 hover:z-10 bg-[#16181D]"
+                                            className="party-member-avatar relative h-10 w-10 rounded-full ring-2 ring-[var(--surface-16181d)] transition-transform hover:scale-110 hover:z-10 bg-[var(--surface-16181d)]"
                                         />
                                     ))}
                                 </div>
@@ -744,7 +744,7 @@ function PartyCard({
                 </div>
 
                 {party.nextResetAt && (
-                    <div className="mt-4 pt-3 border-t border-dashed border-white/5 flex items-center justify-end">
+                    <div className="mt-4 pt-3 border-t border-dashed border-[var(--overlay-ink)]/5 flex items-center justify-end">
                         <div className="inline-flex items-center gap-1.5 rounded-md bg-black/20 px-2 py-1 text-[11px] text-gray-500">
                             <Clock className="h-3 w-3" />
                             <span>초기화: {party.nextResetAt}</span>
@@ -765,7 +765,7 @@ function MemberAvatar({
 }) {
     return (
         <div className={`group/avatar flex items-center justify-center cursor-help ${className}`}>
-            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900/95 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm opacity-0 transition-all duration-200 group-hover/avatar:opacity-100 group-hover/avatar:-translate-y-1 z-50 border border-white/10">
+            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900/95 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm opacity-0 transition-all duration-200 group-hover/avatar:opacity-100 group-hover/avatar:-translate-y-1 z-50 border border-[var(--overlay-ink)]/10">
                 {member.name || "이름 없음"}
                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900/95" />
             </div>
@@ -783,11 +783,11 @@ function AddPartyPromoCard({ onCreateClick }: { onCreateClick: () => void }) {
     return (
         <button
             onClick={onCreateClick}
-            className="group relative flex h-full min-h-[246px] flex-col items-center justify-center gap-3 sm:rounded-xl rounded-none border border-dashed border-white/10 bg-white/[0.02]  text-center transition-all duration-300 hover:border-[#5B69FF]/40 hover:bg-white/[0.04] hover:scale-[1.01]"
+            className="group relative flex h-full min-h-[246px] flex-col items-center justify-center gap-3 sm:rounded-xl rounded-none border border-dashed border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/[0.02]  text-center transition-all duration-300 hover:border-[#5B69FF]/40 hover:bg-[var(--overlay-ink)]/[0.04] hover:scale-[1.01]"
         >
             <div className="relative mb-1">
                 <div className="absolute -inset-2 bg-[#5B69FF]/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-gray-400 group-hover:bg-[#5B69FF] group-hover:text-white transition-all duration-300">
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-[var(--overlay-ink)]/5 text-gray-400 group-hover:bg-[#5B69FF] group-hover:text-white transition-all duration-300">
                     <Sparkles className="h-5 w-5" />
                 </div>
             </div>

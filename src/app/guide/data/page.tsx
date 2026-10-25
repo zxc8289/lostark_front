@@ -24,7 +24,7 @@ export default function DataGuidePage() {
     <DataEvidencePanel />
     {Object.entries(toolMethods).map(([key, method]) => <GuidePanel key={key} id={key} title={method.title}>
       <p>{method.basis}</p><p>{method.limit}</p>
-      {key === "dps" && <p className="rounded-lg border border-white/5 bg-[#0F1014] p-4 text-gray-200">설명용 예시: 8인 관문의 잔혈 기준을 600억으로 두면 비교 총피해량은 600 ÷ 0.20 = 3,000억입니다. 내 피해량이 450억이면 15%입니다. 이는 저장한 기준에서 역산한 값이며 실제 총피해량을 측정했다는 뜻은 아닙니다.</p>}
+      {key === "dps" && <p className="rounded-lg border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4 text-gray-200">설명용 예시: 8인 관문의 잔혈 기준을 600억으로 두면 비교 총피해량은 600 ÷ 0.20 = 3,000억입니다. 내 피해량이 450억이면 15%입니다. 이는 저장한 기준에서 역산한 값이며 실제 총피해량을 측정했다는 뜻은 아닙니다.</p>}
       {key === "gem" && <p>설명용 예시: 목표 가격 100,000 G, 하위 보석 개당 30,000 G이면 1회 합성 비용은 90,000 G입니다. 목표 타입이 나온다는 조건에서 10,000 G 차이가 나며 목표 타입 획득까지의 평균 비용은 아닙니다.</p>}
       {key === "craft" && <p>설명용 예시: 재료비 800 G와 제작 골드 200 G, 생산량 10개, 개당 판매가 120 G, 대성공 0%, 수수료 5%이면 예상 판매액 1,140 G에서 제작비 1,000 G를 뺀 140 G입니다. 직접 사용의 구매 대체 가치는 수수료 차감 전 1,200 G를 기준으로 합니다.</p>}
       {method.href.startsWith("/articles") && <Link className="text-[#A6AEFF] hover:underline" href={method.href}>숫자 예시와 해석 읽기 →</Link>}
