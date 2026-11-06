@@ -1,5 +1,6 @@
 "use client";
 
+import HelpDisclosure from "@/app/components/HelpDisclosure";
 import { Fragment, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import {
     AlertCircle,
@@ -389,15 +390,14 @@ export default function CraftCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
-                            <h2 className="mb-3 text-sm font-bold text-gray-200">계산 방식</h2>
+                        <HelpDisclosure title="계산 방식">
                             <ol className="space-y-2 break-keep text-[13px] leading-relaxed text-gray-400">
                                 <li>1. 융화 재료와 생활 재료 시세를 자동으로 불러옵니다.</li>
                                 <li>2. 제작비용은 재료비와 제작 수수료를 합산해 계산합니다.</li>
                                 <li>3. 제작 수수료 감소는 기본 제작 골드에만 적용됩니다.</li>
                                 <li>4. 판매 수익은 거래소 수수료를 제외한 값으로 계산합니다.</li>
                             </ol>
-                        </section>
+                        </HelpDisclosure>
                     </aside>
 
                     <main className="min-w-0 space-y-5">
@@ -636,16 +636,7 @@ export default function CraftCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="space-y-5 rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
-                            <div className="space-y-2">
-                                <h2 className="text-xl font-bold text-gray-100">영지 제작 수익 계산기란?</h2>
-                                <p className="break-keep text-sm leading-relaxed text-gray-400">
-                                    오레하와 아비도스 융화 재료를 영지에서 제작할 때, 경매장에 판매하는 편이 좋은지
-                                    직접 사용하는 편이 좋은지 빠르게 비교하는 계산기입니다. 생활 재료 시세나 영지 연구 효과에 따라
-                                    제작비용이 달라질 수 있으므로, 실제 제작 전에는 재료 시세와 제작 수수료 감소 값을 확인해 주세요.
-                                </p>
-                            </div>
-
+                        <HelpDisclosure title="결과 항목 설명">
                             <div className="grid gap-4 md:grid-cols-3">
                                 <InfoBlock
                                     title="판매차익"
@@ -660,7 +651,7 @@ export default function CraftCalculatorPage() {
                                     body="대성공이 발생하면 결과물이 한 번 더 나온다고 가정한 단순 기대값입니다. 실제 게임 조건과 다르면 0으로 두고 계산해도 됩니다."
                                 />
                             </div>
-                        </section>
+                        </HelpDisclosure>
                     </main>
                 </div>
             </div>

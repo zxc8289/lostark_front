@@ -1,19 +1,15 @@
 "use client";
 
 import ToolMethodNote from "@/app/components/ToolMethodNote";
+import HelpDisclosure from "@/app/components/HelpDisclosure";
 import RaidDataStatus from "@/app/components/RaidDataStatus";
 
 import { useMemo, useState, useEffect } from "react";
 import {
     Check,
-    Info,
     BookOpen,
     Coins,
     PackageOpen,
-    HelpCircle,
-    ListChecks,
-    AlertTriangle,
-    ClipboardList,
 } from "lucide-react";
 import Image from "next/image";
 import { DifficultyKey, raidInformation, RaidKind } from "@/server/data/raids";
@@ -360,11 +356,7 @@ export default function RaidInfoPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
-                            <h2 className="text-sm font-bold text-gray-200 mb-3">
-                                빠른 사용법
-                            </h2>
-
+                        <HelpDisclosure title="사용법">
                             <ol className="space-y-2 text-[13px] leading-relaxed text-gray-400 break-keep">
                                 <li>1. 왼쪽에서 레이드 카테고리를 선택합니다.</li>
                                 <li>2. 난이도와 레이드를 선택합니다.</li>
@@ -372,7 +364,7 @@ export default function RaidInfoPage() {
                                 <li>4. 표에서 관문별 클리어 보상과 더보기 보상을 비교합니다.</li>
                                 <li>5. 총합 행에서 전체 보상량을 한 번에 확인합니다.</li>
                             </ol>
-                        </section>
+                        </HelpDisclosure>
                     </div>
 
                     <div className="space-y-4 sm:space-y-5">
@@ -586,276 +578,14 @@ export default function RaidInfoPage() {
                             </div>
                         )}
 
-                        <div className="space-y-4 mt-6">
-                            <section className="rounded-none sm:rounded-xl bg-gradient-to-b from-[var(--surface-16181d)] to-[var(--surface-121318)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
-
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Info className="w-4 h-4 text-indigo-400" />
-                                    <h2 className="text-sm font-bold text-gray-200">
-                                        레이드 보상 정보 페이지란?
-                                    </h2>
-                                </div>
-
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        이 페이지는 로스트아크 레이드의 보상 정보를 빠르게 확인하기 위한
-                                        레이드 보상 조회 도구입니다. 게임에 직접 접속하지 않아도 레이드별
-                                        입장 레벨, 골드 보상, 관문별 클리어 보상, 더보기 보상 구성을 확인할 수 있습니다.
-                                    </p>
-
-                                    <p>
-                                        레이드 보상은 캐릭터별 주간 숙제 계획, 골드 수급 계산, 더보기 여부 판단,
-                                        재련 재료 수급 계획에 직접 연결됩니다. 그래서 각 관문에서 어떤 보상이 나오는지
-                                        미리 확인해두면 어떤 캐릭터로 어떤 레이드를 우선 진행할지 정하기 쉽습니다.
-                                    </p>
-
-                                    <p>
-                                        표의 총합 행은 선택한 레이드와 난이도의 전체 관문 보상을 합산한 값입니다.
-                                        관문별 보상만 따로 보는 것보다, 한 주 동안 해당 레이드를 완료했을 때 얻는
-                                        전체 재료량을 확인하는 데 유용합니다.
-                                    </p>
-                                </div>
-                            </section>
-
-                            <div className="grid gap-3 px-4 sm:px-0 md:grid-cols-3">
-                                <section className="rounded-xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-4">
-                                    <div className="flex items-center gap-2 mb-2 text-gray-200 font-bold">
-                                        <ClipboardList className="w-4 h-4 text-[#5B69FF]" />
-                                        관문별 보상 확인
-                                    </div>
-                                    <p className="text-sm text-gray-400 leading-relaxed break-keep">
-                                        각 관문에서 얻는 클리어 보상과 더보기 보상을 구분해 확인할 수 있습니다.
-                                    </p>
-                                </section>
-
-                                <section className="rounded-xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-4">
-                                    <div className="flex items-center gap-2 mb-2 text-gray-200 font-bold">
-                                        <Coins className="w-4 h-4 text-yellow-400" />
-                                        골드 정보 비교
-                                    </div>
-                                    <p className="text-sm text-gray-400 leading-relaxed break-keep">
-                                        난이도별 일반 골드, 귀속 골드, 더보기 비용을 함께 비교할 수 있습니다.
-                                    </p>
-                                </section>
-
-                                <section className="rounded-xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 p-4">
-                                    <div className="flex items-center gap-2 mb-2 text-gray-200 font-bold">
-                                        <PackageOpen className="w-4 h-4 text-indigo-400" />
-                                        총합 보상 정리
-                                    </div>
-                                    <p className="text-sm text-gray-400 leading-relaxed break-keep">
-                                        전체 관문을 기준으로 클리어 보상 총합과 더보기 보상 총합을 한 번에 볼 수 있습니다.
-                                    </p>
-                                </section>
-                            </div>
-
-                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <ListChecks className="w-4 h-4 text-indigo-400" />
-                                    <h2 className="text-sm font-bold text-gray-200">
-                                        이 페이지에서 확인할 수 있는 정보
-                                    </h2>
-                                </div>
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <ul className="space-y-2">
-                                        <li>
-                                            • 레이드별 <strong className="text-gray-300">입장 레벨</strong>
-                                        </li>
-                                        <li>
-                                            • 난이도별{" "}
-                                            <strong className="text-yellow-400">일반 골드</strong> /{" "}
-                                            <strong className="text-yellow-400">귀속 골드</strong>
-                                        </li>
-                                        <li>
-                                            • 관문별 <strong className="text-gray-300">클리어 보상</strong>
-                                        </li>
-                                        <li>
-                                            • 관문별 <strong className="text-gray-300">더보기 보상</strong>
-                                        </li>
-                                        <li>
-                                            • 전체 관문 기준{" "}
-                                            <strong className="text-gray-300">클리어 보상 총합</strong>
-                                        </li>
-                                        <li>
-                                            • 전체 관문 기준{" "}
-                                            <strong className="text-gray-300">더보기 보상 총합과 더보기 비용</strong>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </section>
-
-                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
-                                <h2 className="text-sm font-bold text-gray-200 mb-3">
-                                    현재 선택 기준 안내
-                                </h2>
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        현재 선택한 레이드는{" "}
-                                        <strong className="text-white">{act}</strong>, 난이도는{" "}
-                                        <strong className="text-white">
-                                            {getDiffLabel(category, diff)}
-                                        </strong>
-                                        입니다. 이 기준에 해당하는 입장 레벨은{" "}
-                                        <strong className="text-gray-300">{currentDiffData?.level}Lv</strong>
-                                        이며, 표시되는 골드와 보상은 현재 선택한 난이도의 보상표를 기준으로 합니다.
-                                    </p>
-
-                                    <p>
-                                        레이드에 따라 일반 골드와 귀속 골드가 함께 표시될 수 있습니다.
-                                        일반 골드는 거래와 사용 범위가 넓은 골드이고, 귀속 골드는 캐릭터 또는 원정대 성장에
-                                        사용하는 제한적인 골드로 이해하면 됩니다.
-                                    </p>
-
-                                    <p>
-                                        더보기 골드는 모든 관문에서 더보기를 눌렀을 때 필요한 총 비용입니다.
-                                        더보기 보상 자체의 가치는 시세에 따라 달라질 수 있으므로, 실제 이득 여부는
-                                        더보기 효율 계산기와 함께 확인하는 것이 좋습니다.
-                                    </p>
-                                </div>
-                            </section>
-
-                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
-                                <h2 className="text-sm font-bold text-gray-200 mb-3">
-                                    클리어 보상과 더보기 보상의 차이
-                                </h2>
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        <strong className="text-[#7C88FF]">클리어 보상</strong>은 레이드를 완료했을 때
-                                        기본적으로 받을 수 있는 보상입니다. 관문별 클리어 보상은 골드 수급뿐만 아니라
-                                        재련 재료, 성장 재료, 특수 재료 수급량을 확인하는 데 중요합니다.
-                                    </p>
-
-                                    <p>
-                                        <strong className="text-[#FF8585]">더보기 보상</strong>은 추가 골드를 사용해서
-                                        더 많은 재료를 받는 선택 보상입니다. 더보기는 재료가 급할 때는 유용하지만,
-                                        현재 시세 기준으로는 손해가 될 수도 있으므로 비용과 보상 구성을 함께 비교하는 것이 좋습니다.
-                                    </p>
-
-                                    <div className="rounded-lg bg-[var(--surface-0f1014)] border border-[var(--overlay-ink)]/5 p-4 space-y-2">
-                                        <p className="text-gray-300 font-semibold">간단한 판단 흐름</p>
-                                        <p>1. 먼저 클리어 보상으로 기본 획득 재료를 확인합니다.</p>
-                                        <p>2. 더보기 보상에서 추가로 얻는 재료를 확인합니다.</p>
-                                        <p>3. 더보기 골드 비용과 추가 재료 가치를 비교합니다.</p>
-                                        <p>4. 재료가 급한 캐릭터인지, 골드 효율을 우선하는 캐릭터인지에 따라 결정합니다.</p>
-                                    </div>
-                                </div>
-                            </section>
-
-                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
-                                <h2 className="text-sm font-bold text-gray-200 mb-3">
-                                    보상표 활용 예시
-                                </h2>
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        예를 들어 여러 캐릭터의 주간 레이드를 계획할 때, 각 캐릭터가 갈 수 있는 레이드의
-                                        입장 레벨과 골드 보상을 먼저 확인하면 주간 골드 수급량을 대략적으로 정리할 수 있습니다.
-                                    </p>
-
-                                    <p>
-                                        또 특정 재련 재료가 부족한 캐릭터라면, 해당 재료가 많이 나오는 레이드와 난이도를
-                                        찾아서 우선순위를 정할 수 있습니다. 보상 총합을 보면 관문별로 흩어진 재료를
-                                        한 번에 합산해서 볼 수 있어 재료 수급 계획을 세우기 편합니다.
-                                    </p>
-
-                                    <div className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 p-4">
-                                        <p className="text-indigo-200 font-medium break-keep">
-                                            핵심은 “이 레이드를 돌면 총 얼마의 골드와 어떤 재료를 얻는가”를 빠르게 확인하고,
-                                            더보기까지 눌렀을 때 추가로 얻는 재료가 필요한지 판단하는 것입니다.
-                                        </p>
-                                    </div>
-                                </div>
-                            </section>
-
-                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <AlertTriangle className="w-4 h-4 text-amber-400" />
-                                    <h2 className="text-sm font-bold text-gray-200">
-                                        데이터 안내 및 주의사항
-                                    </h2>
-                                </div>
-
-                                <div className="space-y-3 text-[13px] leading-relaxed text-gray-400 break-keep">
-                                    <p>
-                                        위 표의 <strong className="text-yellow-400 font-medium">일반 골드</strong>
-                                        는 일반적으로 사용할 수 있는 골드이고,{" "}
-                                        <strong className="text-yellow-400 font-medium">귀속 골드</strong>는
-                                        사용 범위가 제한된 골드입니다.
-                                    </p>
-
-                                    <p>
-                                        보상표는 너무 복잡해지지 않도록 주요 재련 재료와 핵심 보상 중심으로 정리되어 있습니다.
-                                        실제 게임에서는 장신구, 카드, 어빌리티 스톤, 기타 드롭 아이템 등이 추가로 존재할 수 있습니다.
-                                    </p>
-
-                                    <p>
-                                        로스트아크는 패치에 따라 보상 구조가 바뀔 수 있으므로, 중요한 의사결정을 할 때는
-                                        실제 게임 내 보상 정보와 함께 확인하는 것이 좋습니다. 이 페이지는 빠른 조회와 비교용
-                                        보조 도구로 활용하는 것이 가장 적절합니다.
-                                    </p>
-                                </div>
-                            </section>
-
-                            <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <HelpCircle className="w-4 h-4 text-indigo-400" />
-                                    <h2 className="text-sm font-bold text-gray-200">
-                                        자주 묻는 질문
-                                    </h2>
-                                </div>
-
+                        <div className="mt-6 space-y-4">
+                            <HelpDisclosure title="보상표 읽는 방법">
                                 <div className="space-y-3">
-                                    {[
-                                        {
-                                            q: "클리어 보상과 더보기 보상은 무엇이 다른가요?",
-                                            a: "클리어 보상은 레이드를 완료했을 때 기본으로 받는 보상이고, 더보기 보상은 추가 골드를 사용해 더 많은 재료를 받는 선택 보상입니다.",
-                                        },
-                                        {
-                                            q: "더보기 골드는 무엇을 의미하나요?",
-                                            a: "해당 레이드의 모든 관문에서 더보기를 눌렀을 때 필요한 총 골드 비용입니다. 관문별 비용은 표의 더보기 보상 칸에서 함께 확인할 수 있습니다.",
-                                        },
-                                        {
-                                            q: "일반 골드와 귀속 골드는 어떻게 다른가요?",
-                                            a: "일반 골드는 사용 범위가 넓은 골드이고, 귀속 골드는 사용 범위가 제한된 골드입니다. 실제 사용처와 제한 조건은 게임 내 안내를 함께 확인하는 것이 좋습니다.",
-                                        },
-                                        {
-                                            q: "총합 행은 어떤 기준으로 계산되나요?",
-                                            a: "현재 선택한 레이드와 난이도의 모든 관문 보상을 합산한 값입니다. 클리어 보상 총합과 더보기 보상 총합을 따로 보여줍니다.",
-                                        },
-                                        {
-                                            q: "더보기를 무조건 누르는 것이 좋은가요?",
-                                            a: "아닙니다. 재료가 급한 캐릭터라면 누를 가치가 있지만, 골드 효율만 보면 손해일 수 있습니다. 더보기 효율 계산기와 함께 비교하는 것이 좋습니다.",
-                                        },
-                                        {
-                                            q: "보상 정보가 실제 게임과 다를 수 있나요?",
-                                            a: "패치나 이벤트, 보상 개편에 따라 실제 게임 정보와 차이가 생길 수 있습니다. 중요한 판단 전에는 게임 내 보상 정보도 함께 확인하는 것이 좋습니다.",
-                                        },
-                                        {
-                                            q: "이 페이지는 어떤 상황에서 쓰면 좋나요?",
-                                            a: "주간 숙제 계획, 캐릭터별 골드 수급량 확인, 재련 재료 수급 계획, 더보기 여부 판단 전에 빠르게 보상을 확인할 때 사용하기 좋습니다.",
-                                        },
-                                    ].map((item) => (
-                                        <details
-                                            key={item.q}
-                                            className="group rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] px-4 py-3"
-                                        >
-                                            <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer">
-                                                <span className="text-sm font-semibold text-gray-200">
-                                                    {item.q}
-                                                </span>
-                                            </summary>
-
-                                            <div className="pt-3 mt-3 border-t border-[var(--overlay-ink)]/5 text-sm text-gray-400 leading-relaxed break-keep">
-                                                {item.a}
-                                            </div>
-                                        </details>
-                                    ))}
+                                    <p>클리어 보상은 기본 보상이며, 더보기 보상은 골드를 추가로 사용해 받는 재료입니다. 총합 행은 선택한 난이도의 전체 관문을 합산합니다.</p>
+                                    <p>귀속 골드는 거래 가능 골드와 나눠 확인하세요. 실제 사용처와 더보기 할인은 게임 내 표시를 기준으로 판단합니다.</p>
+                                    <p>보상표는 주요 재료 중심으로 정리되어 있어 장신구·카드 등 추가 드롭은 포함되지 않을 수 있습니다.</p>
                                 </div>
-                            </section>
+                            </HelpDisclosure>
                             <ToolMethodNote tool="raid" className="" />
                             <RaidDataStatus raid={act} difficulty={diff} />
                         </div>

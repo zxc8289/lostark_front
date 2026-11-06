@@ -1,5 +1,6 @@
 "use client";
 
+import HelpDisclosure from "@/app/components/HelpDisclosure";
 import { useEffect, useMemo, useState } from "react";
 import {
     AlertCircle,
@@ -333,15 +334,14 @@ export default function WeeklyGoldCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
-                            <h2 className="mb-3 text-sm font-bold text-gray-200">계산 방식</h2>
+                        <HelpDisclosure title="사용법">
                             <ol className="space-y-2 break-keep text-[13px] leading-relaxed text-gray-400">
                                 <li>1. 캐릭터명으로 원정대를 불러옵니다.</li>
                                 <li>2. 아이템 레벨 기준으로 가능한 레이드 3개를 자동 추천합니다.</li>
                                 <li>3. 거래 가능 골드와 귀속 골드를 나누어 합산합니다.</li>
                                 <li>4. 6캐릭 제한을 켜면 아이템 레벨 상위 6캐릭터만 계산합니다.</li>
                             </ol>
-                        </section>
+                        </HelpDisclosure>
                     </aside>
 
                     <main className="space-y-5">
@@ -488,30 +488,6 @@ export default function WeeklyGoldCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="space-y-5 rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
-                            <div className="space-y-2">
-                                <h2 className="text-xl font-bold text-gray-100">주간 레이드 수익 계산기란?</h2>
-                                <p className="break-keep text-sm leading-relaxed text-gray-400">
-                                    캐릭터별로 진행할 레이드 3개를 정하고, 한 주에 받을 수 있는 거래 가능 골드와 귀속 골드를
-                                    빠르게 비교하는 계산기입니다. 실제 레이드 선택이나 더보기 여부는 게임 내 상황에 맞게 조정해 주세요.
-                                </p>
-                            </div>
-
-                            <div className="grid gap-4 md:grid-cols-3">
-                                <InfoBlock
-                                    title="거래 가능 골드"
-                                    body="거래소 이용이나 캐릭터 간 사용이 가능한 일반 골드를 따로 합산합니다."
-                                />
-                                <InfoBlock
-                                    title="귀속 골드"
-                                    body="레이드 보상에 포함된 귀속 골드를 분리해서 보여주므로 실제 사용 가능한 골드와 구분할 수 있습니다."
-                                />
-                                <InfoBlock
-                                    title="6캐릭 제한"
-                                    body="골드 획득 캐릭터를 체크해두면 원정대 기준으로 계산에 포함할 캐릭터를 따로 볼 수 있습니다."
-                                />
-                            </div>
-                        </section>
                     </main>
                 </div>
             </div>
@@ -537,15 +513,6 @@ function SummaryCard({
                 {value}
                 {subText && <span className="ml-2 align-middle text-xs font-bold text-gray-500">{subText}</span>}
             </div>
-        </div>
-    );
-}
-
-function InfoBlock({ title, body }: { title: string; body: string }) {
-    return (
-        <div className="rounded-lg border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4">
-            <h3 className="mb-2 text-sm font-bold text-gray-100">{title}</h3>
-            <p className="break-keep text-sm leading-relaxed text-gray-400">{body}</p>
         </div>
     );
 }

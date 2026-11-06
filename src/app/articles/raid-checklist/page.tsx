@@ -1,8 +1,5 @@
-import EditorialArticle, { articleMetadata } from "../../components/EditorialArticle";
-import { checklistArticle } from "../content";
+import { permanentRedirect } from "next/navigation";
 
-export const metadata = articleMetadata(checklistArticle);
-
-export default function ArticlePage() {
-  return <EditorialArticle article={checklistArticle} />;
+export default function RaidChecklistPage() {
+  permanentRedirect("/guide#weekly-checklist");
 }

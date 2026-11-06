@@ -270,13 +270,6 @@ export default function GemCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
-                            <h2 className="mb-3 text-sm font-bold text-gray-200">계산 기준</h2>
-                            <div className="space-y-3 break-keep text-[13px] leading-relaxed text-gray-400">
-                                <p>합성 비용은 하위 레벨 T4 보석 3개의 구매 비용으로 계산합니다.</p>
-                                <p>합성 결과의 스킬과 타입은 확정이 아니므로, 결과는 가격 비교용 참고값입니다.</p>
-                            </div>
-                        </section>
                     </aside>
 
                     <main className="space-y-5">
@@ -436,17 +429,6 @@ export default function GemCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 sm:rounded-xl sm:border">
-                            <h2 className="mb-3 text-sm font-bold text-gray-200">사용 예시</h2>
-                            <div className="space-y-3 break-keep text-[13px] leading-relaxed text-gray-400">
-                                <p>
-                                    예를 들어 9레벨 겁화 보석을 목표로 잡았다면, 계산기는 9레벨 겁화 최저가와 8레벨 T4 보석 3개의 구매 비용을 비교합니다.
-                                </p>
-                                <p>
-                                    자동 시세는 경매장 즉시 구매가 기준이며, 보석 옵션과 스킬은 매물마다 다를 수 있습니다. 이 페이지는 보석 레벨별 가격 차이를 빠르게 보는 용도로 사용하는 것이 좋습니다.
-                                </p>
-                            </div>
-                        </section>
                     </main>
                 </div>
             </div>

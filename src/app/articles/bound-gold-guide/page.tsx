@@ -1,8 +1,5 @@
-import EditorialArticle, { articleMetadata } from "../../components/EditorialArticle";
-import { boundGoldArticle } from "../content";
+import { permanentRedirect } from "next/navigation";
 
-export const metadata = articleMetadata(boundGoldArticle);
-
-export default function ArticlePage() {
-  return <EditorialArticle article={boundGoldArticle} />;
+export default function BoundGoldGuidePage() {
+  permanentRedirect("/articles/weekly-raid-gold-guide#bound-gold");
 }

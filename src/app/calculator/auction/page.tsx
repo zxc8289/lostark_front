@@ -1,5 +1,6 @@
 "use client";
 
+import HelpDisclosure from "@/app/components/HelpDisclosure";
 import React, { useEffect, useMemo, useState } from "react";
 import { Calculator, Check } from "lucide-react";
 const PARTY_SIZE_STORAGE_KEY = "auctionCalculator_partySize";
@@ -130,15 +131,14 @@ export default function AuctionCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
-                            <h2 className="text-sm font-bold text-gray-200 mb-3">빠른 사용법</h2>
+                        <HelpDisclosure title="사용법">
                             <ol className="space-y-2 text-[13px] leading-relaxed text-gray-400 break-keep">
                                 <li>1. 경매가 진행되는 레이드 인원을 선택합니다.</li>
                                 <li>2. 아이템의 현재 거래소 시세를 입력합니다.</li>
                                 <li>3. 선점 입찰가와 N빵 입찰가를 비교합니다.</li>
                                 <li>4. 분배금과 재판매 이익을 비교해 입찰 여부를 판단합니다.</li>
                             </ol>
-                        </section>
+                        </HelpDisclosure>
                     </div>
 
                     <div className="space-y-5">
@@ -265,8 +265,7 @@ export default function AuctionCalculatorPage() {
                         </div>
 
                         <div className="space-y-4 mt-4">
-                            <section className="rounded-none sm:rounded-xl border-y sm:border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 space-y-4 text-sm leading-7 text-gray-400">
-                                <h2 className="flex items-center gap-2.5 font-semibold text-white"><span aria-hidden="true" className="h-4 w-1 rounded-full bg-[#5B69FF]" />계산 과정</h2>
+                            <HelpDisclosure title="현재 입력의 계산 과정">
                                 <p>판매 후 실수령액에서 입찰가를 빼면 낙찰자의 재판매 이익이 됩니다. 다른 참여자는 입찰가를 인원 − 1로 나눈 분배금을 받는다고 가정합니다.</p>
                                 <ol className="list-decimal space-y-2 pl-5">
                                     <li>실수령액 = 내림(예상 판매가 × 0.95)</li>
@@ -275,14 +274,7 @@ export default function AuctionCalculatorPage() {
                                 </ol>
                                 <p>선점 가격은 다음 입찰이 약 10% 높아진다는 가정의 참고값입니다. 낙찰을 보장하지 않으며, 분배금과 순이익은 같은 낙찰가에서 참여자끼리 비교한 값입니다.</p>
                                 {calc.price > 0 && <p className="rounded-lg border border-[var(--overlay-ink)]/5 bg-[var(--surface-0f1014)] p-4 text-gray-200">현재 입력: {calc.price.toLocaleString()} G × 0.95 → 실수령액 {calc.afterFee.toLocaleString()} G. {partySize}인 N빵 기준 {calc.nbbBid.toLocaleString()} G에 낙찰되면 내 순이익은 {calc.nbbMyNet.toLocaleString()} G, 다른 1명의 분배금은 {calc.nbbDividend.toLocaleString()} G입니다.</p>}
-                            </section>
-                            <section className="rounded-none sm:rounded-xl border-y sm:border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 space-y-4 text-sm leading-7 text-gray-400">
-                                <h2 className="flex items-center gap-2.5 font-semibold text-white"><span aria-hidden="true" className="h-4 w-1 rounded-full bg-[#5B69FF]" />8인·판매가 10,000골드 예시</h2>
-                                <p>수수료 5%를 제외하면 9,500 G입니다. N빵 기준은 내림(9,500 × 7 ÷ 8) = 8,312 G, 선점 가격은 내림(8,312 ÷ 1.1) = 7,556 G입니다. 실제 시세가 아닌 설명용 예시입니다.</p>
-                                <p>9,000 G에 낙찰받았다면 순이익은 500 G입니다. 다른 사람의 분배금 약 1,285 G보다 적지만 아직 적자는 아닙니다. 재판매 적자는 입찰가가 실수령액 9,500 G를 넘을 때 발생합니다.</p>
-                                <p>직접 사용, 거래 불가능한 아이템, 옵션별 가격 차이, 판매 지연은 이 재판매 계산과 구분해야 합니다. 가격 하락이 걱정된다면 예상 판매가를 낮춰 다시 비교하세요.</p>
-                                <a href="/articles/auction-bid-guide" className="inline-block text-blue-300 hover:underline">4인·8인·16인 비교표와 상세 해석 읽기 →</a>
-                            </section>
+                            </HelpDisclosure>
                         </div>
                     </div>
                 </div>

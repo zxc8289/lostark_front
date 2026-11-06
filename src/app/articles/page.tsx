@@ -7,11 +7,11 @@ import GuidePageLayout from "../components/GuidePageLayout";
 export const metadata: Metadata = {
   title: "로스트아크 정보 글",
   description:
-    "로아체크에서 제공하는 로스트아크 숙제 관리, 더보기 효율, 경매 입찰, 레이드 기록 해석 관련 정보 글 모음입니다.",
+    "로스트아크 더보기 효율, 경매 입찰과 주간 골드 계산 예시를 정리한 정보 글 모음입니다.",
   openGraph: {
     title: "로스트아크 정보 글 - 로아체크",
     description:
-      "숙제 관리, 레이드 보상, 더보기 효율, 경매 입찰 판단을 더 쉽게 이해할 수 있도록 정리한 로아체크 정보 글입니다.",
+      "더보기 효율, 경매 입찰과 주간 골드의 판단 기준을 정리한 로아체크 정보 글입니다.",
     url: "https://loacheck.com/articles",
   },
 };
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 const articles = articleContents.map((article) => ({ href: `/articles/${article.slug}`, title: article.title, description: article.summary }));
 
 export default function ArticlesPage() {
-  return <GuidePageLayout title="로아체크 정보 글" description="숙제 관리, 레이드 보상과 경매 입찰의 판단 기준을 정리했습니다. 계산 과정과 숫자 예시를 실제 기능 화면과 함께 확인하세요." active="articles">
+  return <GuidePageLayout title="로아체크 정보 글" description="더보기·경매·주간 골드의 계산 과정과 숫자 예시를 확인하세요." active="articles">
     <section aria-label="정보 글 목록" className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 sm:px-0 xl:grid-cols-3">
       {articles.map((article) => <Link key={article.href} href={article.href} className="group flex flex-col overflow-hidden rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] transition-colors hover:border-[#5B69FF]/40">
         <div className="flex-1 space-y-3 p-5">

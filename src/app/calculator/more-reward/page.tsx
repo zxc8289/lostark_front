@@ -4,6 +4,7 @@ import Link from "next/link";
 import { summarizeRewardValue } from "@/app/lib/calculators/reward-value";
 import RaidDataStatus from "@/app/components/RaidDataStatus";
 import ToolMethodNote from "@/app/components/ToolMethodNote";
+import HelpDisclosure from "@/app/components/HelpDisclosure";
 
 import React, { useMemo, useState, useEffect } from "react";
 import {
@@ -393,11 +394,7 @@ export default function MoreRewardCalculatorPage() {
                             </div>
                         </section>
 
-                        <section className="rounded-none sm:rounded-xl bg-[var(--surface-16181d)] border-y sm:border border-[var(--overlay-ink)]/5 p-5">
-                            <h2 className="text-sm font-bold text-gray-200 mb-3">
-                                빠른 사용법
-                            </h2>
-
+                        <HelpDisclosure title="사용법">
                             <ol className="space-y-2 text-[13px] leading-relaxed text-gray-400 break-keep">
                                 <li>1. 카테고리, 레이드, 난이도를 선택합니다.</li>
                                 <li>2. 관문별 더보기 비용과 보상 재료를 확인합니다.</li>
@@ -405,7 +402,7 @@ export default function MoreRewardCalculatorPage() {
                                 <li>4. 필요 없는 재료는 클릭해서 계산에서 제외합니다.</li>
                                 <li>5. 가격 누락과 재료 필요도를 확인한 뒤 평가 차액을 비교합니다.</li>
                             </ol>
-                        </section>
+                        </HelpDisclosure>
                     </div>
 
                     <div className="space-y-4 sm:space-y-5">
@@ -727,14 +724,13 @@ export default function MoreRewardCalculatorPage() {
                             </div>
                         )}
 
-                        <section className="space-y-4 rounded-none border-y border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] p-5 text-[13px] leading-7 text-gray-400 sm:rounded-xl sm:border">
-                            <h2 className="font-semibold text-gray-200">평가 차액을 읽는 방법</h2>
+                        <HelpDisclosure title="재료 평가와 제외 설정">
                             <p>확인된 재료의 수량 × 개당 단가를 합한 뒤 더보기 기본 비용을 뺍니다. 귀속 재료를 직접 사용할 때의 구매 대체 가치이며, 지갑에 들어오는 순수익이 아닙니다.</p>
                             <p>가격 미확인은 거래 불가능하다는 뜻이 아닙니다. 조회 누락·매물 없음·평가 대상 밖일 수 있습니다. 일부 재료만 평가한 값이 음수여도 나머지 보상을 포함한 손해를 확정할 수 없습니다. 쐐기돌·코어 등 성장 보상은 별도로 판단하세요.</p>
                             <p>재료를 누르면 평가에서 제외하거나 포함할 수 있습니다. 주차 캐릭터나 파편이 충분한 캐릭터는 실제 사용할 재료만 남기세요. 제외 설정은 현재 브라우저에 저장됩니다.</p>
                             <p>상위 재료 환산은 교환 비율을 단순 적용한 평가입니다. 실제 교환 가능한 정수 수량과 잔여 재료는 게임에서 확인하세요. 무료·할인 더보기는 자동 반영하지 않으므로 게임의 실제 결제 금액을 우선합니다.</p>
                             <Link className="inline-block text-[#A6AEFF] hover:underline" href="/articles/more-reward-efficiency">에기르 노말: 성장·주차 캐릭터별 계산 사례 →</Link>
-                        </section>
+                        </HelpDisclosure>
                         <ToolMethodNote tool="more-reward" className="" />
                         <RaidDataStatus raid={raid} difficulty={diff} />
                     </div>

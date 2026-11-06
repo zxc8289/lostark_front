@@ -19,6 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
         },
         {
             url: `${baseUrl}/guide/`,
+            lastModified: new Date("2026-11-07T00:00:00+09:00"),
             changeFrequency: "monthly",
             priority: 0.8,
         },
@@ -26,12 +27,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
             url: `${baseUrl}/articles/`,
             changeFrequency: "monthly",
             priority: 0.75,
-        },
-        {
-            url: `${baseUrl}/articles/raid-checklist/`,
-            lastModified: new Date("2026-10-18T00:00:00+09:00"),
-            changeFrequency: "monthly",
-            priority: 0.7,
         },
         {
             url: `${baseUrl}/articles/more-reward-efficiency/`,
@@ -47,13 +42,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
         },
         {
             url: `${baseUrl}/articles/weekly-raid-gold-guide/`,
-            lastModified: new Date("2026-10-18T00:00:00+09:00"),
-            changeFrequency: "monthly",
-            priority: 0.7,
-        },
-        {
-            url: `${baseUrl}/articles/bound-gold-guide/`,
-            lastModified: new Date("2026-10-18T00:00:00+09:00"),
+            lastModified: new Date("2026-11-07T00:00:00+09:00"),
             changeFrequency: "monthly",
             priority: 0.7,
         },
