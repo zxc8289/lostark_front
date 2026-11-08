@@ -110,15 +110,16 @@ export default function RootLayout({
             __html: `try { document.documentElement.dataset.theme = localStorage.getItem('loacheck-theme-v2') === 'light' ? 'light' : 'dark'; } catch { document.documentElement.dataset.theme = 'dark'; }`,
           }}
         />
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1712313315461589"
-          crossOrigin="anonymous"
-        />
       </head>
       <body
         className={`${pretendard.variable} font-pretendard min-h-screen flex flex-col bg-[var(--surface-1b1d22)] text-gray-300`}
       >
+        <Script
+          id="google-adsense"
+          strategy="afterInteractive"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1712313315461589"
+          crossOrigin="anonymous"
+        />
         <GoogleTagManager gtmId="GTM-PF49FQBN" />
 
         <Script
