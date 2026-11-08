@@ -7,7 +7,18 @@ export default function ThemeToggle() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
-    setTheme(document.documentElement.dataset.theme === "light" ? "light" : "dark");
+    let initialTheme: "light" | "dark" =
+      document.documentElement.dataset.theme === "light" ? "light" : "dark";
+    try {
+      const savedTheme = localStorage.getItem("loacheck-theme-v2");
+      if (savedTheme === "light" || savedTheme === "dark") {
+        initialTheme = savedTheme;
+      }
+    } catch {
+      // Keep the current theme when browser storage is unavailable.
+    }
+    document.documentElement.dataset.theme = initialTheme;
+    setTheme(initialTheme);
     const syncTheme = (event: StorageEvent) => {
       if (event.key !== "loacheck-theme-v2") return;
       const next = event.newValue === "light" ? "light" : "dark";
