@@ -139,7 +139,7 @@ export default function RootLayout({
               <Nav />
             </header>
 
-            <main className="flex-1 w-full max-w-7xl mx-auto sm:px-6 pt-22 pb-8">
+            <main className="flex-auto shrink-0 w-full max-w-7xl mx-auto sm:px-6 pt-22 pb-8">
               {children}
             </main>
 

@@ -6,10 +6,14 @@ type Props = {
     slot: string;
     className?: string;
     responsive?: boolean;
+    format?: 'auto' | 'horizontal' | 'vertical' | 'rectangle';
 };
 
-const GoogleAd = ({ slot, className = "", responsive = true }: Props) => {
+type AdWindow = Window & { adsbygoogle?: { push: (ad: Record<string, never>) => unknown } };
+
+const GoogleAd = ({ slot, className = "", responsive = true, format = 'auto' }: Props) => {
     const elementRef = useRef<HTMLDivElement>(null);
+    const requestedAdRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -21,13 +25,18 @@ const GoogleAd = ({ slot, className = "", responsive = true }: Props) => {
                         if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden') return;
 
                         const insElement = element.querySelector('ins');
-                        if (insElement && insElement.getAttribute('data-ad-status') === 'filled') return;
+                        if (!insElement || requestedAdRef.current === insElement || insElement.hasAttribute('data-adsbygoogle-status')) return;
 
                         try {
-                            (window as any).adsbygoogle = (window as any).adsbygoogle || [];
-                            (window as any).adsbygoogle.push({});
+                            const adWindow = window as AdWindow;
+                            const queue = adWindow.adsbygoogle ?? ([] as Record<string, never>[]);
+                            adWindow.adsbygoogle = queue;
+                            queue.push({});
+                            requestedAdRef.current = insElement;
                             observer.unobserve(element);
-                        } catch (err) { }
+                        } catch {
+                            // Ad blockers or unavailable inventory must not interrupt the page.
+                        }
                     }
                 });
             },
@@ -53,7 +62,7 @@ const GoogleAd = ({ slot, className = "", responsive = true }: Props) => {
                 style={{ display: 'block', width: '100%', height: '100%', maxHeight: '100%' }}
                 data-ad-client="ca-pub-1712313315461589"
                 data-ad-slot={slot}
-                data-ad-format={responsive ? null : undefined}
+                data-ad-format={responsive ? format : undefined}
                 data-full-width-responsive="false"
             />
         </div>
