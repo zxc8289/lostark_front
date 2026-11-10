@@ -1,10 +1,11 @@
 "use client";
 
 import HomeTaskPreview from "./HomeTaskPreview";
+import HomeTaskMetrics from "./HomeTaskMetrics";
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Coins, CalendarDays, CheckCircle2, ExternalLink, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, ExternalLink, Check, ChevronDown, ChevronUp } from "lucide-react";
 
 import type { CharacterSummary } from "./AddAccount";
 import type { CharacterTaskPrefs } from "../lib/tasks/raid-prefs";
@@ -12,7 +13,6 @@ import { readPrefs } from "../lib/tasks/raid-prefs";
 import {
     computeRaidSummaryForRoster,
     getRaidBaseLevel,
-    type RaidSummary,
 } from "../lib/tasks/raid-utils";
 
 import { raidInformation } from "@/server/data/raids";
@@ -79,6 +79,7 @@ type Ctx = {
     activeAccount: SavedAccount | null;
     totalRemainingTasks: number;
     totalRemainingGold: number;
+    totalRemainingBoundGold: number;
     totalGold: number;
     progress: number;
     remainingRaids: RemainingRaidRow[];
@@ -224,8 +225,10 @@ export default function HomeMyTasksSummary({ children }: { children: React.React
     }, [authStatus]);
 
     const visibleRoster = activeAccount?.summary?.roster?.filter((c) => visibleByChar[c.name] ?? true) ?? [];
-    const { totalRemainingTasks, totalRemainingGold, totalGold } = useMemo(() => computeRaidSummaryForRoster(visibleRoster, prefsByChar), [visibleRoster, prefsByChar]);
-    const progress = totalGold > 0 ? Math.round(((totalGold - totalRemainingGold) / totalGold) * 100) : 0;
+    const { totalRemainingTasks, totalRemainingGold, totalRemainingBoundGold, totalGold, totalBoundGold } = useMemo(() => computeRaidSummaryForRoster(visibleRoster, prefsByChar), [visibleRoster, prefsByChar]);
+    const combinedGold = totalGold + totalBoundGold;
+    const remainingGold = totalRemainingGold + totalRemainingBoundGold;
+    const progress = combinedGold > 0 ? Math.round(((combinedGold - remainingGold) / combinedGold) * 100) : 0;
 
     const remainingRaids = useMemo(() => {
         const map = new Map<string, RemainingRaidRow>();
@@ -264,25 +267,21 @@ export default function HomeMyTasksSummary({ children }: { children: React.React
         return rows;
     }, [visibleRoster, prefsByChar]);
 
-    const ctx: Ctx = { loading, accounts, activeAccountId, selectAccount, activeAccount, totalRemainingTasks, totalRemainingGold, totalGold, progress, remainingRaids };
+    const ctx: Ctx = { loading, accounts, activeAccountId, selectAccount, activeAccount, totalRemainingTasks, totalRemainingGold, totalRemainingBoundGold, totalGold, progress, remainingRaids };
     return <HomeMyTasksCtx.Provider value={ctx}>{children}</HomeMyTasksCtx.Provider>;
 }
 
 export function HomeMyTasksGuard({ children }: { children: React.ReactNode }) {
     const { loading, activeAccount } = useHomeMyTasks();
     if (loading) return <HomeMyTasksSkeleton />;
-    if (!activeAccount) {
-        return (
-            <HomeTaskPreview />
-        );
-    }
+    if (!activeAccount) return null;
 
     return <>{children}</>;
 }
 
 /* ───────── [Header] 요약 정보 ───────── */
 export function HomeMyTasksHeader() {
-    const { loading, accounts, activeAccountId, selectAccount, activeAccount, totalRemainingGold, totalRemainingTasks, progress } = useHomeMyTasks();
+    const { loading, accounts, activeAccountId, selectAccount, activeAccount, totalRemainingGold, totalRemainingBoundGold, totalRemainingTasks, progress } = useHomeMyTasks();
     const [accountOpen, setAccountOpen] = useState(false);
     const popRef = useRef<HTMLDivElement | null>(null);
 
@@ -296,12 +295,12 @@ export function HomeMyTasksHeader() {
 
     if (loading) return null; // 로딩은 Guard/Skeleton에서 처리
 
-    if (!activeAccount) return null;
+    if (!activeAccount) return <HomeTaskPreview />;
 
     const canSwitch = (accounts?.length ?? 0) > 1;
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-4">
             <section className="relative rounded-xl bg-[var(--surface-16181d)] border border-[var(--overlay-ink)]/5 overflow-hidden" ref={popRef}>
                 <button
                     type="button"
@@ -342,45 +341,7 @@ export function HomeMyTasksHeader() {
                 )}
             </section>
 
-            {/* 프로그레스 바 */}
-            <div className="space-y-5 px-1">
-                <div className="flex items-end justify-between">
-                    <div className="space-y-0.5">
-                        <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Weekly Progress</div>
-                        <div className="text-sm font-medium text-gray-400">이번 주 진행도</div>
-                    </div>
-                    <div className="text-right">
-                        <div className="text-2xl font-black text-[#5B69FF] leading-none tracking-tighter">{progress}%</div>
-                    </div>
-                </div>
-                <div className="w-full h-2 bg-[var(--overlay-ink)]/5 rounded-full overflow-hidden border border-[var(--overlay-ink)]/5">
-                    <div className="h-full bg-[#5B69FF] transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />
-                </div>
-            </div>
-
-            {/* 요약 카드들 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-4 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] transition-all hover:border-[var(--overlay-ink)]/10 group">
-                    <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-2.5">
-                            <span className="text-[12px] text-gray-500 font-bold uppercase tracking-tight">남은 골드</span>
-                        </div>
-                        <div className="text-base font-bold text-gray-100 tabular-nums">
-                            {Number(totalRemainingGold ?? 0).toLocaleString()}<span className="ml-1 text-[10px] text-gray-500 font-medium">G</span>
-                        </div>
-                    </div>
-                </div>
-                <div className="p-4 rounded-xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] transition-all hover:border-[var(--overlay-ink)]/10 group">
-                    <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-2.5">
-                            <span className="text-[12px] text-gray-500 font-bold uppercase tracking-tight">남은 숙제</span>
-                        </div>
-                        <div className="text-base font-bold text-gray-100 tabular-nums">
-                            {Number(totalRemainingTasks ?? 0)}<span className="ml-1 text-[10px] text-gray-500 font-medium">개</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <HomeTaskMetrics progress={progress} remainingGold={totalRemainingGold} remainingBoundGold={totalRemainingBoundGold} remainingTasks={totalRemainingTasks} />
         </div>
     );
 }

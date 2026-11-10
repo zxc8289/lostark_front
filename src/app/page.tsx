@@ -20,7 +20,7 @@ const shortcuts = [
   { href: "/calculator/craft", title: "영지 제작 계산기", description: "제작 비용·수익 비교", icon: Hammer },
 ];
 
-const toggleBtnClass = "order-2 w-full list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center justify-center gap-2 py-2.5 md:py-3 rounded-xl bg-[var(--surface-131519)] border border-[var(--overlay-ink)]/5 hover:bg-[var(--surface-1a1d24)] hover:border-[var(--overlay-ink)]/10 hover:text-gray-200 transition-all text-xs font-bold text-gray-500 mt-3 md:mt-4";
+const toggleBtnClass = "order-2 w-full list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[var(--surface-131519)] border border-[var(--overlay-ink)]/5 hover:bg-[var(--surface-1a1d24)] hover:border-[var(--overlay-ink)]/10 hover:text-gray-200 transition-all text-xs font-bold text-gray-500 mt-3";
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
@@ -29,7 +29,7 @@ export default async function HomePage() {
     <div className="pt-6 md:pt-17 pb-10 px-0 md:px-4 xl:px-0 text-gray-300 w-full max-w-7xl mx-auto space-y-5 lg:space-y-8">
       {!session?.user && <HomeGuestIntro />}
 
-      <section aria-label="게임 일정" className="w-full bg-[var(--surface-16181d)] border border-x-0 md:border-x border-[var(--overlay-ink)]/5 rounded-none md:rounded-2xl p-4 md:p-6 relative overflow-hidden flex flex-col justify-center">
+      <section aria-label="게임 일정" className="w-full bg-[var(--surface-16181d)] border border-x-0 md:border-x border-[var(--overlay-ink)]/5 rounded-none md:rounded-2xl p-4 md:p-6 relative flex flex-col justify-center">
         <ClientOnly fallback={<div className="w-full h-[200px] bg-[var(--overlay-ink)]/5 animate-pulse rounded-2xl" />}>
           <TodaySchedule />
         </ClientOnly>
@@ -38,7 +38,7 @@ export default async function HomePage() {
       <div className="grid items-stretch gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_280px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_320px]">
         <Card className="min-w-0 border border-x-0 md:border-x border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] w-full flex flex-col rounded-none md:rounded-2xl" contentPadding="lg" align="stretch">
           <HomeMyTasksSummary>
-            <div className="w-full flex flex-col min-h-[300px] md:min-h-[320px]">
+            <div className="w-full flex flex-col min-h-[300px]">
               <div className="w-full mb-auto">
                 <Link href="/my-tasks" className="group w-full flex items-center justify-between gap-3 mb-3 md:mb-4 cursor-pointer">
                   <div className="flex items-center gap-2">
@@ -68,7 +68,7 @@ export default async function HomePage() {
         </Card>
         <Card className="min-w-0 border border-x-0 md:border-x border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] w-full flex flex-col rounded-none md:rounded-2xl" contentPadding="lg" align="stretch">
           <HomePartySummaryProvider>
-            <div className="w-full flex flex-col min-h-[300px] md:min-h-[320px]">
+            <div className="w-full flex flex-col min-h-[300px]">
               <Link href="/party-tasks" className="group w-full flex items-center justify-between gap-3 mb-3 md:mb-4 cursor-pointer">
                 <div className="flex items-center gap-2">
                   <div className="w-1 md:w-1.5 h-5 md:h-6 bg-blue-500 rounded-r-md transition-colors group-hover:bg-blue-400" />
@@ -79,7 +79,7 @@ export default async function HomePage() {
                 </div>
               </Link>
               <HomePartyGuard>
-                <div className="w-full mb-auto pt-1 md:pt-2"><HomePartyHeader /></div>
+                <div className="w-full mb-auto pt-1"><HomePartyHeader /></div>
                 <div className="w-full mt-2 md:mt-0">
                   <details className="group w-full flex flex-col">
                     <summary className={toggleBtnClass}>

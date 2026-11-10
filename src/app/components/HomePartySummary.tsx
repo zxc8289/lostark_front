@@ -105,7 +105,7 @@ function HomePartyRow({ party }: { party: PartySummaryItem }) {
     const remainingCount = Math.max(0, party.memberCount - displayMembers.length);
 
     return (
-        <Link href={`/party-tasks/${party.id}`} className="group relative flex flex-col justify-between rounded-xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)] p-5 text-left transition-all duration-300 min-h-[225px] hover:border-[#5B69FF]/50 overflow-visible h-full w-full">
+        <Link href={`/party-tasks/${party.id}`} className="group relative flex flex-col justify-between rounded-xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-16181d)] p-5 text-left transition-all duration-300 min-h-[200px] hover:border-[#5B69FF]/50 overflow-visible h-full w-full">
             <div className="relative z-10 flex-1 flex flex-col">
                 <div className="mb-2 flex items-start justify-between">
                     <div className="flex-1 min-w-0">

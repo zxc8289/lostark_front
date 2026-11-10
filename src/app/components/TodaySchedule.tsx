@@ -1,48 +1,25 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Map, Skull, Swords } from "lucide-react";
-
-type RewardItem = {
-    name: string;
-    icon: string;
-    grade: string;
-};
-
-type IslandItem = {
-    name: string;
-    image: string;
-    times: string[];
-    isGoldIsland: boolean;
-    rewardItems: RewardItem[];
-};
+import { fetchCalendarDate, getGameDateString, gameTimeMinutes, type CalendarSchedule } from "../lib/calendar";
+import IslandScheduleDetails from "./IslandScheduleDetails";
 
 export default function TodaySchedule() {
     const [weekDays, setWeekDays] = useState<{ day: string; dateStr: string; displayDate: string }[]>([]);
     const [selectedDate, setSelectedDate] = useState<string>("");
 
-    const [islands, setIslands] = useState<IslandItem[]>([]);
-    const [status, setStatus] = useState({
-        hasFieldBoss: false,
-        hasChaosGate: false,
-        bossTimes: [] as string[],
-        gateTimes: [] as string[],
-        bossImage: null as string | null,
-        gateImage: null as string | null
-    });
-
+    const [schedule, setSchedule] = useState<CalendarSchedule | null>(null);
     const [loading, setLoading] = useState(true);
+    const [errorDate, setErrorDate] = useState("");
+    const [retry, setRetry] = useState(0);
     const [nowTime, setNowTime] = useState(new Date());
-
-    const getGameDateString = (dateObj: Date) => {
-        const d = new Date(dateObj);
-        if (d.getHours() < 6) d.setDate(d.getDate() - 1);
-
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
-        const dd = String(d.getDate()).padStart(2, "0");
-        return `${y}-${m}-${dd}`;
-    };
+    const error = errorDate === selectedDate && !!selectedDate;
+    const pending = !error && (loading || schedule?.targetDate !== selectedDate);
+    const current = !pending && !error && schedule?.targetDate === selectedDate ? schedule : null;
+    const islands = current?.islands ?? [];
+    const status = current ?? { hasFieldBoss: false, hasChaosGate: false, bossTimes: [], gateTimes: [], bossImage: null, gateImage: null };
+    const gameToday = getGameDateString(nowTime);
 
     const isToday = (targetDateStr: string) => {
         return targetDateStr === getGameDateString(nowTime);
@@ -52,64 +29,32 @@ export default function TodaySchedule() {
         return targetDateStr < getGameDateString(nowTime);
     };
 
-    const getGameTotalMin = (h: number, m: number) => {
-        let gameH = h;
-        if (gameH < 6) gameH += 24;
-        return gameH * 60 + m;
-    };
-
     useEffect(() => {
-        const today = new Date();
         const days = ["일", "월", "화", "수", "목", "금", "토"];
         const weekData = [];
-
-        const gameTodayStr = getGameDateString(today);
-        if (!selectedDate) setSelectedDate(gameTodayStr);
-
         for (let i = -3; i <= 3; i++) {
-            const d = new Date();
-            d.setDate(today.getDate() + i);
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, "0");
-            const dd = String(d.getDate()).padStart(2, "0");
-            const dateStr = `${y}-${m}-${dd}`;
-
-            weekData.push({
-                day: days[d.getDay()],
-                dateStr: dateStr,
-                displayDate: String(d.getDate()),
-            });
+            const date = new Date(`${gameToday}T12:00:00Z`);
+            date.setUTCDate(date.getUTCDate() + i);
+            weekData.push({ day: days[date.getUTCDay()], dateStr: date.toISOString().slice(0, 10), displayDate: String(date.getUTCDate()) });
         }
         setWeekDays(weekData);
-    }, []);
-
-    const fetchData = useCallback(async (date: string) => {
-        if (!date) return;
-        setLoading(true);
-        try {
-            const res = await fetch(`/api/lostark/calendar?date=${date}`);
-            if (!res.ok) throw new Error("Failed");
-            const data = await res.json();
-
-            setIslands(data.islands || []);
-            setStatus({
-                hasFieldBoss: data.hasFieldBoss,
-                hasChaosGate: data.hasChaosGate,
-                bossTimes: data.bossTimes || [],
-                gateTimes: data.gateTimes || [],
-                bossImage: data.bossImage,
-                gateImage: data.gateImage,
-            });
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+        setSelectedDate(current => current || gameToday);
+    }, [gameToday]);
 
     useEffect(() => {
-        fetchData(selectedDate);
-    }, [selectedDate, fetchData]);
+        if (!selectedDate) return;
+        const controller = new AbortController();
+        setLoading(true);
+        setErrorDate("");
+        void fetchCalendarDate(selectedDate, controller.signal).then(data => {
+            if (!controller.signal.aborted) setSchedule(data);
+        }).catch(() => {
+            if (!controller.signal.aborted) setErrorDate(selectedDate);
+        }).finally(() => {
+            if (!controller.signal.aborted) setLoading(false);
+        });
+        return () => controller.abort();
+    }, [selectedDate, retry]);
 
     useEffect(() => {
         const timer = setInterval(() => setNowTime(new Date()), 1000);
@@ -123,10 +68,11 @@ export default function TodaySchedule() {
         // 미래 날짜일 경우 무조건 첫 번째 스케줄 반환 (API에서 이미 시간순 정렬해줌)
         if (!isToday(selectedDate)) return times[0];
 
-        const currentTotalMin = getGameTotalMin(nowTime.getHours(), nowTime.getMinutes());
+        const kst = new Date(nowTime.getTime() + 9 * 60 * 60 * 1000);
+        const currentTotalMin = gameTimeMinutes(`${kst.getUTCHours()}:${kst.getUTCMinutes()}`);
         const next = times.find(t => {
             const [h, m] = t.split(":").map(Number);
-            return getGameTotalMin(h, m) > currentTotalMin;
+            return gameTimeMinutes(`${h}:${m}`) > currentTotalMin;
         });
 
         return next || "END";
@@ -135,16 +81,8 @@ export default function TodaySchedule() {
     const getTimeLeftStr = (targetTimeStr: string | null) => {
         if (!isToday(selectedDate) || !targetTimeStr || targetTimeStr === "END" || targetTimeStr === "종료") return "";
 
-        const [h, m] = targetTimeStr.split(":").map(Number);
-        const targetDate = new Date(nowTime);
-
-        // h가 24인 경우 자바스크립트 Date 객체에서 자동으로 다음날 00:00으로 넘어갑니다.
-        targetDate.setHours(h, m, 0, 0);
-
-        // 새벽(01시 등) 일정의 경우, 현재가 6시 이후의 낮/밤이라면 내일 새벽으로 처리
-        if (h < 6 && nowTime.getHours() >= 6) {
-            targetDate.setDate(targetDate.getDate() + 1);
-        }
+        const dayStart = new Date(`${selectedDate}T06:00:00+09:00`);
+        const targetDate = new Date(dayStart.getTime() + (gameTimeMinutes(targetTimeStr) - 360) * 60000);
 
         const diff = targetDate.getTime() - nowTime.getTime();
         if (diff < 0) return "";
@@ -179,7 +117,11 @@ export default function TodaySchedule() {
                         return (
                             <button
                                 key={idx}
-                                onClick={() => setSelectedDate(item.dateStr)}
+                                onClick={() => {
+                                    if (item.dateStr === selectedDate) setRetry(value => value + 1);
+                                    else setSelectedDate(item.dateStr);
+                                }}
+                                aria-pressed={isActive}
                                 className="flex flex-col items-center gap-1 md:gap-1.5 cursor-pointer group w-9 md:w-9 outline-none"
                             >
                                 <span className={`text-[13px] md:text-[14px] font-medium transition-colors ${isActive ? "text-blue-400 " : "text-gray-300 group-hover:text-white"}`}>
@@ -210,7 +152,7 @@ export default function TodaySchedule() {
                         </div>
                         <div className="flex items-center gap-2">
                             <span className={`text-sm sm:text-base font-bold ${status.hasFieldBoss ? "text-white" : "text-white"}`}>
-                                {status.hasFieldBoss ? getDisplayTime(status.bossTimes, nextBossTime) : "일정 없음"}
+                                {pending ? "불러오는 중" : error ? "확인 불가" : status.hasFieldBoss ? getDisplayTime(status.bossTimes, nextBossTime) : "일정 없음"}
                             </span>
                             {(status.hasFieldBoss && bossTimeLeft) && (
                                 <span className="text-[10px] sm:text-[11px] text-gray-500 font-medium">({bossTimeLeft})</span>
@@ -235,18 +177,23 @@ export default function TodaySchedule() {
                                 <span className="text-[10px] sm:text-[11px] text-gray-500 font-medium">({gateTimeLeft})</span>
                             )}
                             <span className={`text-sm sm:text-base font-bold ${status.hasChaosGate ? "text-white" : "text-white"}`}>
-                                {status.hasChaosGate ? getDisplayTime(status.gateTimes, nextGateTime) : "일정 없음"}
+                                {pending ? "불러오는 중" : error ? "확인 불가" : status.hasChaosGate ? getDisplayTime(status.gateTimes, nextGateTime) : "일정 없음"}
                             </span>
                         </div>
                     </div>
                 </div>
             </div>
             {/* 섬 목록 or 로딩 */}
-            {loading ? (
+            {pending ? (
                 <div className="w-full h-[120px] animate-pulse bg-[var(--overlay-ink)]/5 rounded-2xl" />
+            ) : error ? (
+                <div role="alert" className="flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-2xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1a1d24)] px-4 text-center text-sm text-gray-400">
+                    <p>일정을 불러오지 못했어요.</p>
+                    <button type="button" onClick={() => setRetry(value => value + 1)} className="rounded px-3 py-1 text-[#5B69FF] hover:underline">다시 불러오기</button>
+                </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {islands.length > 0 ? islands.map((item, idx) => {
+                    {islands.length > 0 ? islands.map(item => {
                         const nextIslandTime = getNextTime(item.times);
                         const isFinished = nextIslandTime === "END";
                         const timeLeft = getTimeLeftStr(nextIslandTime);
@@ -255,7 +202,8 @@ export default function TodaySchedule() {
                         const isDimmed = isFinished || isPastDate(selectedDate);
 
                         return (
-                            <div key={idx} className={`relative flex flex-col p-4 rounded-2xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1a1d24)] transition-all h-[115px] group ${isDimmed ? "opacity-50 grayscale" : ""}`}>
+                            <IslandScheduleDetails key={`${selectedDate}-${item.name}`} item={item}>
+                            <div className={`relative flex flex-col p-4 rounded-2xl border border-[var(--overlay-ink)]/5 bg-[var(--surface-1a1d24)] transition-all h-[115px] group ${isDimmed ? "opacity-50 grayscale" : ""}`}>
 
                                 {/* 1. [상단] 이름/이미지 영역 (flex-1로 남는 공간 차지) */}
                                 <div className="flex-1 flex justify-between items-start min-w-0">
@@ -284,16 +232,13 @@ export default function TodaySchedule() {
 
                                     {/* 보상 아이콘 */}
                                     <div className="flex gap-1.5 overflow-hidden">
-                                        {item.rewardItems.map((reward, rIdx) => (
+                                        {item.rewardItems.slice(0, 5).map((reward, rIdx) => (
                                             <div key={rIdx} className="relative group/reward">
                                                 <img
                                                     src={reward.icon}
                                                     alt={reward.name}
                                                     className="w-6 h-6 rounded bg-[var(--surface-252830)] border border-[var(--overlay-ink)]/10 object-cover opacity-80 group-hover/reward:opacity-100 transition-opacity"
                                                 />
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-[10px] text-white bg-black/80 rounded whitespace-nowrap opacity-0 group-hover/reward:opacity-100 transition-opacity pointer-events-none z-10">
-                                                    {reward.name}
-                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -316,10 +261,11 @@ export default function TodaySchedule() {
                                     </div>
                                 </div>
                             </div>
+                            </IslandScheduleDetails>
                         );
                     }) : (
-                        <div className="col-span-3 h-[120px] flex items-center justify-center text-gray-500 text-sm bg-[var(--surface-1a1d24)] border border-[var(--overlay-ink)]/5 rounded-2xl">
-                            예정된 모험 섬이 없습니다.
+                        <div className="md:col-span-3 min-h-[120px] flex items-center justify-center text-gray-500 text-sm bg-[var(--surface-1a1d24)] border border-[var(--overlay-ink)]/5 rounded-2xl">
+                            선택한 날짜에 제공된 모험 섬 일정이 없습니다.
                         </div>
                     )}
                 </div>

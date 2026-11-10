@@ -82,13 +82,13 @@ export default function HomeNotices() {
     </div>
     <div role="tabpanel" id="home-notice-panel" aria-labelledby={`home-notice-tab-${activeTab}`} aria-busy={feed.loading} tabIndex={0} className="flex-1 focus-visible:outline-2 focus-visible:outline-[#5B69FF]">
       {feed.loading ? <div role="status" aria-label="소식 불러오는 중" className="divide-y divide-[var(--overlay-ink)]/5 animate-pulse">
-        {Array.from({ length: noticeLimit }, (_, item) => <div key={item} className="space-y-1.5 px-4 py-3 md:px-5"><div className="h-[21px] w-20 rounded bg-[var(--overlay-ink)]/5" /><div className="h-10 w-full rounded bg-[var(--overlay-ink)]/5" /></div>)}
+        {Array.from({ length: noticeLimit }, (_, item) => <div key={item} className="space-y-1.5 px-4 py-2.5 md:px-5"><div className="h-[21px] w-20 rounded bg-[var(--overlay-ink)]/5" /><div className="h-10 w-full rounded bg-[var(--overlay-ink)]/5" /></div>)}
       </div> : feed.error ? <div className="py-8 text-center text-xs text-gray-400">
         <p>소식을 불러오지 못했어요.</p>
         <button type="button" onClick={() => setRetry(value => value + 1)} className="mt-3 text-[#A6AEFF] hover:underline">다시 불러오기</button>
       </div> : feed.items.length === 0 ? <p className="py-8 text-center text-xs text-gray-400">등록된 소식이 없어요.</p> : <ul className="divide-y divide-[var(--overlay-ink)]/5">
         {feed.items.map(item => <li key={item.link}>
-          <Link href={item.link} target={activeTab === 1 ? "_blank" : undefined} rel={activeTab === 1 ? "noopener noreferrer" : undefined} className="group block px-4 py-3 transition-colors hover:bg-[var(--overlay-ink)]/5 md:px-5">
+          <Link href={item.link} target={activeTab === 1 ? "_blank" : undefined} rel={activeTab === 1 ? "noopener noreferrer" : undefined} className="group block px-4 py-2.5 transition-colors hover:bg-[var(--overlay-ink)]/5 md:px-5">
             <div className="mb-1.5 flex items-center gap-2">
               <span className="rounded border border-[var(--overlay-ink)]/10 bg-[var(--overlay-ink)]/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 transition-colors group-hover:border-[var(--overlay-ink)]/20 group-hover:text-gray-300">{item.category}</span>
               <span className="text-[11px] font-medium text-gray-600">{item.date}</span>
