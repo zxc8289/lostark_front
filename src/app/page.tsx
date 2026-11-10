@@ -35,7 +35,7 @@ export default async function HomePage() {
         </ClientOnly>
       </section>
 
-      <div className="grid items-stretch gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_280px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_320px]">
+      <div className="grid items-stretch has-[details[open]]:items-start gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_280px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_320px]">
         <Card className="min-w-0 border border-x-0 md:border-x border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] w-full flex flex-col rounded-none md:rounded-2xl" contentPadding="lg" align="stretch">
           <HomeMyTasksSummary>
             <div className="w-full flex flex-col min-h-[300px]">

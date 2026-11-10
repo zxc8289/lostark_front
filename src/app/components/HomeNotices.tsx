@@ -64,7 +64,7 @@ export default function HomeNotices() {
   }
 
   const feed = feeds[activeTab];
-  return <aside aria-labelledby="home-notices-title" className="min-w-0 flex h-full flex-col overflow-hidden rounded-none border border-x-0 border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] md:col-span-2 md:rounded-2xl md:border-x lg:col-span-1 lg:col-start-3 lg:row-start-1">
+  return <aside aria-labelledby="home-notices-title" className="min-w-0 flex flex-col overflow-hidden rounded-none border border-x-0 border-[var(--overlay-ink)]/5 bg-[var(--surface-16181d)] md:col-span-2 md:rounded-2xl md:border-x lg:col-span-1 lg:col-start-3 lg:row-start-1">
     <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--overlay-ink)]/5 px-4 py-3 md:px-5 md:py-4">
       <h2 id="home-notices-title" className="flex items-center gap-2 text-sm font-bold text-gray-200 md:text-base"><Megaphone size={18} aria-hidden="true" />공지사항</h2>
       <a href={activeTab === 0 ? "/support" : officialUrl} target={activeTab === 1 ? "_blank" : undefined} rel={activeTab === 1 ? "noopener noreferrer" : undefined} className="flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-[#5B69FF]/10 hover:text-[#5B69FF] md:text-xs">
