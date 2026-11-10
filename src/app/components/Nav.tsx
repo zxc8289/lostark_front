@@ -490,13 +490,13 @@ export default function Nav() {
                     <div className="flex items-center gap-2 sm:gap-5">
                         <ThemeToggle />
                         <div className="relative" ref={notiRef}>
-                            <button onClick={handleBellClick} className="relative p-2 text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/10 rounded-full transition-colors">
+                            <button onClick={handleBellClick} aria-label="알림" aria-expanded={isNotiOpen} aria-controls="nav-notifications" className="relative p-2 text-gray-400 hover:text-white hover:bg-[var(--overlay-ink)]/10 rounded-full transition-colors">
                                 <BellIcon className="w-6 h-6" />
                                 {hasAnyAlert && isNotiEnabled && <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-[var(--surface-1b1d22)]"></span>}
                             </button>
 
                             {isNotiOpen && (
-                                <div className="absolute mt-3 w-80 sm:w-96 bg-[var(--surface-25272e)] border border-[var(--overlay-ink)]/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right right-[-80px] sm:right-0">
+                                <div id="nav-notifications" className="fixed left-1/2 top-[88px] z-50 w-[calc(100vw-2rem)] max-w-96 -translate-x-1/2 origin-top rounded-xl border border-[var(--overlay-ink)]/10 bg-[var(--surface-25272e)] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 md:absolute md:top-full md:mt-3 md:w-96">
                                     <div className="flex items-center bg-[var(--surface-2c2f36)] border-b border-[var(--overlay-ink)]/5 relative">
                                         <button onClick={() => setActiveTab("notice")} className={`flex-1 py-3 text-sm font-bold text-center transition-all ${activeTab === "notice" ? "text-white border-b-2 border-[#5B69FF] bg-[var(--overlay-ink)]/5" : "text-gray-400 hover:text-gray-200 hover:bg-[var(--overlay-ink)]/5"}`}>
                                             공지사항 {hasNewUpdates && <span className="ml-1.5 w-1.5 h-1.5 inline-block bg-red-500 rounded-full align-middle mb-0.5"></span>}
@@ -506,7 +506,7 @@ export default function Nav() {
                                         </button>
                                         <button onClick={() => setIsNotiOpen(false)} className="absolute right-3 text-gray-400 hover:text-white p-1"><XMarkIcon className="w-4 h-4" /></button>
                                     </div>
-                                    <div className="max-h-[400px] overflow-y-auto custom-scrollbar bg-[var(--surface-25272e)]">
+                                    <div className="max-h-[min(400px,calc(100dvh-160px))] overflow-y-auto custom-scrollbar bg-[var(--surface-25272e)]">
                                         {activeTab === "notice" ? (
                                             dbNotices.length > 0 ? (
                                                 <ul className="divide-y divide-[var(--overlay-ink)]/5">
