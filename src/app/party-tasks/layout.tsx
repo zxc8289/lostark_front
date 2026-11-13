@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "파티 숙제 관리",
+    title: "로아 파티 숙제 공유·고정팟 레이드 관리",
     description:
-        "고정 공대나 파티원들의 숙제 현황을 실시간으로 공유하고 관리하세요. 초대 코드로 간편하게 파티를 만들고 레이드 진행 상황을 체크할 수 있습니다.",
+        "로스트아크 깐부·고정팟과 캐릭터별 레이드 숙제 진행 상황을 공유하세요. 초대 코드로 파티를 만들고 파티원의 레이드 난이도와 관문별 완료 상태를 함께 확인할 수 있습니다.",
     robots: {
         index: true,
         follow: true,
@@ -13,9 +13,9 @@ export const metadata: Metadata = {
         },
     },
     openGraph: {
-        title: "파티 숙제 관리 - 로아체크",
+        title: "로아 파티 숙제 공유·고정팟 레이드 관리 | 로아체크",
         description:
-            "파티원들에게 일일이 숙제 했냐고 물어보지 마세요. 로아체크 파티 관리로 서로의 현황을 한눈에 파악할 수 있습니다.",
+            "로스트아크 깐부·고정팟과 캐릭터별 레이드 숙제 진행 상황을 공유하세요. 초대 코드로 파티를 만들고 파티원의 레이드 난이도와 관문별 완료 상태를 함께 확인할 수 있습니다.",
         url: "https://loacheck.com/party-tasks",
     },
 };

@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import ToolMethodNote from "@/app/components/ToolMethodNote";
 
 export const metadata: Metadata = {
-    title: "보석 합성 계산기 | 로아체크",
+    title: { absolute: "로아 보석 합성 계산기·겁화와 작열 가격 비교 | 로아체크" },
     description:
-        "로스트아크 보석을 직접 구매할지, 하위 보석 3개를 합성할지 비교해 1회 비용과 차액을 계산합니다.",
+        "로스트아크 T4 겁화·작열 보석의 구매 가격과 하위 보석 3개를 사용하는 1회 합성 비용을 비교하세요. 조회한 경매장 가격으로 목표 보석의 구매·합성 비용 차이를 확인할 수 있습니다.",
     openGraph: {
-        title: "보석 합성 계산기 - 로아체크",
+        title: "로아 보석 합성 계산기·겁화와 작열 가격 비교 | 로아체크",
         description:
-            "보석 레벨과 피해/쿨감 보석 가격을 기준으로 1회 합성 비용, 구매 비용, 가격 차이를 비교합니다.",
+            "로스트아크 T4 겁화·작열 보석의 구매 가격과 하위 보석 3개를 사용하는 1회 합성 비용을 비교하세요. 조회한 경매장 가격으로 목표 보석의 구매·합성 비용 차이를 확인할 수 있습니다.",
         url: "https://loacheck.com/calculator/gem",
     },
 };

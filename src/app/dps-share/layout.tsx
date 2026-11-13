@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "딜 지분 계산기",
-  description: "내 캐릭터의 레이드 딜 지분율(잔혈, 강투)을 추정하고 계산 기준을 확인해보세요.",
+  title: "로아 딜 지분 계산기·잔혈과 강투 기준",
+  description: "로스트아크 레이드 관문별 피해량을 입력해 딜 지분을 추정하세요. 선택한 레이드와 난이도의 잔혈·강투 기준을 비교하고 계산 방식과 가정을 확인할 수 있습니다.",
   openGraph: {
-    title: "딜 지분 계산기 - 로아체크",
-    description: "잔혈, 강투 컷을 확인하고 공대 내 기여도를 실시간으로 분석하세요.",
+    title: "로아 딜 지분 계산기·잔혈과 강투 기준 | 로아체크",
+    description: "로스트아크 레이드 관문별 피해량을 입력해 딜 지분을 추정하세요. 선택한 레이드와 난이도의 잔혈·강투 기준을 비교하고 계산 방식과 가정을 확인할 수 있습니다.",
     url: "https://loacheck.com/dps-share",
   },
 };

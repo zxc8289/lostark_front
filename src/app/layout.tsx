@@ -15,10 +15,10 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://loacheck.com"),
   title: {
     template: "%s | 로아체크",
-    default: "로아체크 - 로스트아크 레이드 체크",
+    default: "로아 숙제 체크·레이드 관리 | 로아체크",
   },
   description:
-    "로스트아크 숙제 관리, 레이드 딜 지분 분석, 젬 세팅 계산을 도와주는 로아체크입니다.",
+    "로스트아크 원정대 캐릭터별 주간 레이드 숙제를 체크하고 파티원과 진행 상황을 공유하세요. 주간 골드, 더보기 효율, 경매 입찰가 계산기도 이용할 수 있습니다.",
   keywords: [
     "로스트아크",
     "로아",
@@ -43,9 +43,9 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
   openGraph: {
-    title: "로아체크 - 로스트아크 레이드 체크",
+    title: "로아 숙제 체크·레이드 관리 | 로아체크",
     description:
-      "로스트아크 숙제 관리, 레이드 수익 계산, 딜 지분 분석, 젬 세팅 계산을 한 번에 확인해보세요.",
+      "로스트아크 원정대 캐릭터별 주간 레이드 숙제를 체크하고 파티원과 진행 상황을 공유하세요. 주간 골드, 더보기 효율, 경매 입찰가 계산기도 이용할 수 있습니다.",
     url: "https://loacheck.com",
     siteName: "로아체크",
     images: [
@@ -79,10 +79,10 @@ export default function RootLayout({
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "로아체크",
-    alternateName: ["LOACHECK", "loacheck"],
+    alternateName: ["로아 체크", "LOACHECK", "loacheck"],
     url: "https://loacheck.com",
     description:
-      "로스트아크 숙제 관리, 레이드 수익 계산, 딜 지분 분석, 젬 세팅 계산 도구",
+      "로스트아크 주간 레이드 숙제 체크, 파티 숙제 공유와 주간 골드·더보기 효율·경매 입찰가 계산 도구",
     inLanguage: "ko-KR",
     publisher: {
       "@type": "Organization",
